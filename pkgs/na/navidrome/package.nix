@@ -18,7 +18,7 @@ package {
   };
   go.vendor = fetch.goModules {
     source = sources.default;
-    hash = "sha256-lNjOVrlRD6ptDBpmfGYCN3Vkal9ACciOyS1RANzKYK4=";
+    hash = "sha256-ybfPzmmnBh3DH3oP53QUt5juc3vRZHUOrefctDJ+DeI=";
   };
   go.tags = [
     "netgo"

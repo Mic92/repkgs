@@ -8,7 +8,7 @@ package {
   uses = [ "go" ];
   go.vendor = fetch.goModules {
     source = sources.default;
-    hash = "sha256-NojjUf/3c4q4B96eQ/qcI+GdRvHakHUyMRaQ6/IZpEw=";
+    hash = "sha256-DkMe8f5Mq83BseZsaxEbY/BQvQn73DtkXXLwT0+7KMs=";
   };
   go.ldflags = [
     "-s"
