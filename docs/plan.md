@@ -30,14 +30,25 @@ sees its predecessors. `python.nu` lets backends build themselves and gives entr
 a `sys.path` line relative to `__file__`. `launch` became its own static-pie store path
 (`pkgs/la/launch/src/launch.cc`, `pkgs/la/launch/bootstrap.nu`). sysroot.nu no longer corrupts `libc.a`.
 
+**5. Rust (binary).** `rust` = upstream's rustc + cargo + rust-std tarballs, unmodified, marked `prebuilt`:
+bin/ entries become launch records that run the foreign ELF under our `ld.so --argv0 bin/foo
+--library-path <sysroot:deps>`, no patchelf. `libgcc-shim` provides the versioned
+`libgcc_s.so.1` (libunwind + the few libgcc integer routines) such binaries import. cargo.nu
+passes `-Clinker-features=-lld` so linking stays with our cc. maturin is an ordinary cargo package
+(no default features). jig keys tools by resolved store
+path (`Store::ToolId`), since hash-masking made two rustc versions share cache entries.
+
 ## Next
 
-**5. Rust.** `pkgs/rustc-bin` from static.rust-lang.org, pinned like the seed, `relocatable =
-false` with PT_INTERP pointing at `buildPkgs` glibc (build tool only). `maturin` as a cargo
-package. cargo.nu and rpds-py switch to them. Optional later: rustc from source. uutils as an
-ordinary package, not in baseTools.
+**5b. Rust from source.** Today's `rust` (upstream binaries, `prebuilt`) becomes
+`rust-bootstrap`, used only as `buildDependencies` of `rust`: rustc + cargo built from the
+rustc-src tarball with `x.py` against our LLVM (`llvm-config` from a `pkgs/llvm` library
+package), libc and cc, `vendor = true` so no network. cargo.nu and maturin then take
+`buildPkgs.rust`; `libgcc-shim` stays only for `rust-bootstrap`. Same shape as nixpkgs
+(binary N-1 builds N), and the pin in `rust-bootstrap/sources.toml` follows `rust` one release
+behind.
 
-**6. Go.** `pkgs/go-bin` (static, no fixup), `pkgs/go` built with it. `fetch.goModules` and
+**6. Go.** `go-bootstrap` (upstream static tarball, `prebuilt`), `go` built from source with it. `fetch.goModules` and
 go.nu switch.
 
 **7. Node.** nodejs from source (C++, python, ninja, bundled deps first). Only npm.nu needs it.
@@ -51,14 +62,6 @@ must link our libraries, and the few pure libraries C projects import at build t
 mako, pyyaml…). `python.nu` reads `build-backend` itself. Applications bring `uv.lock`, and
 `fetch.pythonDeps { source }` is a dynamic derivation like cargoVendor that prefers set packages
 for natives. Its marker/wheel-tag logic is tested against pyproject.nix fetched in the test.
-
-**5. Rust.** `rust` = upstream's rustc + cargo + rust-std tarballs, unmodified, marked `prebuilt`:
-bin/ entries become launch records that run the foreign ELF under our `ld.so --argv0 bin/foo
---library-path <sysroot:deps>`, no patchelf. `libgcc-shim` provides the versioned
-`libgcc_s.so.1` (libunwind + the few libgcc integer routines) such binaries import. cargo.nu
-passes `-Clinker-features=-lld` so linking stays with our cc. maturin is an ordinary cargo package
-(no default features). jig keys tools by resolved store
-path (`Store::ToolId`), since hash-masking made two rustc versions share cache entries.
 
 **Updater.** See docs/uptrack.md. Done: datasources, check/apply/verify, `update.nu` hooks, tree
 on `sources.toml`. Next: lock generation for `fetch.*Deps` packages, reports/`sync-github`.
@@ -75,6 +78,7 @@ on `sources.toml`. Next: lock generation for `fetch.*Deps` packages, reports/`sy
 
 ## End state
 
-No `<nixpkgs>` anywhere. Pinned binaries: our LLVM+nu seed, upstream rustc-bin and go-bin.
+No `<nixpkgs>` anywhere. Pinned binaries: our LLVM+nu seed, upstream rust-bootstrap and go-bootstrap (each only a build
+input of the from-source package).
 Verification per wave: build every package natively, zlib/jq/fd for riscv64, cache hit rate
 unchanged on a second run.
