@@ -7,7 +7,8 @@ use ../../../bootstrap/lib.nu *
 # checks for GCC-only flags clang does not need (glibc-ppc64le-clang.patch)
 const CPU_FLAGS = {
   x86_64: [libc_cv_have_x86_lahf_sahf=yes libc_cv_have_x86_movbe=yes]
-  powerpc64le: [--with-long-double-format=ieee libc_cv_no_gnu_attr_ok=yes]
+  # ldbl-opt's -mlong-double-128 probe is written as a nested function, a GCC extension
+  powerpc64le: [--with-long-double-format=ieee libc_cv_no_gnu_attr_ok=yes libc_cv_mlong_double_128=yes]
 }
 
 def configure [src: path, out: path]: nothing -> string {
@@ -60,7 +61,7 @@ def main []: nothing -> nothing {
   # the same sysd-rules and each `mv`s the same files) Nothing is compiled here anyway
   x make ...$make install -j1
   # C.UTF-8 so LC_ALL=C.UTF-8 works everywhere without a locales package (charmap data only, ~360 K)
-  if ($env.interp? | default "") != "" {
+  if $env.locale == "true" {
     mkdir $"($out)/lib/locale"
     with-env {I18NPATH: $"($src)/localedata"} {
       x $"($out)/lib/($env.interp)" --library-path $"($out)/lib" $"($out)/bin/localedef" --no-archive -i C -f UTF-8 $"($out)/lib/locale/C.utf8"

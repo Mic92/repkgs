@@ -12,10 +12,11 @@ def main []: nothing -> nothing {
 
   # only libc *headers* exist at this point (libc itself links against what is built here)
   let sys = [-nostdlibinc -isystem $"($env.libcHeaders)/include"] ++ (if "linuxHeaders" in $env { [-isystem $"($env.linuxHeaders)/include"] } else { [] })
+  # no -DCOMPILER_RT_HAS_FLOAT16 on ppc: clang has no _Float16 there (cmake probes the same)
   let common = (target) ++ $sys ++ [
     -O2 -fPIC -fno-builtin -fno-lto -fvisibility=hidden -fomit-frame-pointer -ffreestanding
-    -DVISIBILITY_HIDDEN -DCOMPILER_RT_HAS_FLOAT16 $"-I($b)" $"-I($src)/third-party/siphash/include"
-  ] ++ (if $env.cpu == "aarch64" { [-DENABLE_BAREMETAL_AARCH64_FMV -DHAS_ASM_LSE] } else { [] })
+    -DVISIBILITY_HIDDEN $"-I($b)" $"-I($src)/third-party/siphash/include"
+  ] ++ (if $env.cpu == "powerpc64le" { [] } else { [-DCOMPILER_RT_HAS_FLOAT16] }) ++ (if $env.cpu == "aarch64" { [-DENABLE_BAREMETAL_AARCH64_FMV -DHAS_ASM_LSE] } else { [] })
 
   # list entries "@lse/outline_atomic_<op><size>_<model>.S" mean: aarch64/lse.S with those three defines
   let items = (read-list $env.list | each {|f|
