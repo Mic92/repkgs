@@ -129,177 +129,151 @@ let
       // removeAttrs args [ "recipe" ]
     );
 
-  # stage0: the musl toolchain for the build machine (our own jig/launch are static against it,
-  # and it gives stage1 a native `cc`). sh, make and the GNU text tools come from the seed.
-  stage0 =
+  # One toolchain chain, the same for every platform: libc headers -> compiler-rt builtins -> libc
+  # -> (kernel headers) -> libc++/libunwind -> configured cc. What differs per libc is the recipe
+  # that provides headers+libc and whether Linux headers are part of the sysroot.
+  chain =
+    {
+      platform,
+      run, # mkStage for this platform with its tools
+      libcRecipe, # "musl" | "glibc" | "mingw-w64"; run twice, headersOnly first
+      libcArgs ? { },
+      linuxHeaders ? null, # in compiler-rt's include path and the sysroot; null on windows and in stage0 (added later)
+      extraParts ? [ ], # sysroot members after libc that are not compiler-rt inputs (stage0's linux headers)
+      builtins' ? "builtins-${platform.cpu}.txt",
+      ccArgs ? { },
+    }:
     let
-      platform = platforms.forSystem system "musl";
-      run = mkStage platform { } [ ];
       sysroot =
         parts:
         run "sysroot" {
-          inherit parts;
+          parts = builtins.filter (p: p != null) parts;
           resource = compiler-rt;
         };
-      musl-headers = run "musl" {
-        src = source "musl";
-        headersOnly = "1";
-      };
-      compiler-rt = run "compiler-rt" {
-        src = source "llvm";
-        libcHeaders = musl-headers;
-        list = pkg "llvm" + "/builtins-${platform.cpu}.txt";
-      };
-      musl = run "musl" {
-        src = source "musl";
-        inherit compiler-rt;
-      };
-      linux-headers = run "linux-headers" {
-        src = source "linux";
-        sysroot = sysroot [ musl ];
-      };
+      libc-headers = run libcRecipe (libcArgs // { headersOnly = "1"; });
+      compiler-rt = run "compiler-rt" (
+        {
+          src = source "llvm";
+          libcHeaders = libc-headers;
+          list = pkg "llvm" + "/${builtins'}";
+        }
+        // (if linuxHeaders == null then { } else { inherit linuxHeaders; })
+      );
+      libc = run libcRecipe (libcArgs // { inherit compiler-rt; });
       runtimes = run "runtimes" {
         src = source "llvm";
-        sysroot = sysroot [
-          musl
-          linux-headers
-        ];
+        sysroot = sysroot (
+          [
+            libc
+            linuxHeaders
+          ]
+          ++ extraParts
+        );
       };
-      full = sysroot [
-        musl
-        linux-headers
-        runtimes
-      ];
-      jig = run "jig" { sysroot = full; };
-      cc = mkStage platform (cached jig) [ ] "cc" {
-        sysroot = full;
-        prebuilt = jig;
-      };
+      full = sysroot (
+        [
+          libc
+          linuxHeaders
+        ]
+        ++ extraParts
+        ++ [ runtimes ]
+      );
+      cc = run "cc" ({ sysroot = full; } // ccArgs);
     in
     {
       inherit
         platform
         compiler-rt
-        musl
-        linux-headers
+        libc
         runtimes
-        jig
         cc
         ;
+      sysroot = full;
     };
+
+  # stage0: the musl toolchain for the build machine (our own jig/launch are static against it,
+  # and it gives stage1 a native `cc`). sh, make and the GNU text tools come from the seed. Linux
+  # headers install with musl's own tools here, so they come after libc.
+  stage0 =
+    let
+      platform = platforms.forSystem system "musl";
+      run = mkStage platform { } [ ];
+      c = chain {
+        inherit platform run;
+        libcRecipe = "musl";
+        libcArgs.src = source "musl";
+        extraParts = [ linux-headers ];
+      };
+      linux-headers = run "linux-headers" {
+        src = source "linux";
+        sysroot = run "sysroot" {
+          parts = [ c.libc ];
+          resource = c.compiler-rt;
+        };
+      };
+      jig = run "jig" { inherit (c) sysroot; };
+    in
+    c
+    // {
+      inherit jig linux-headers;
+      musl = c.libc;
+      cc = mkStage platform (cached jig) [ ] "cc" {
+        inherit (c) sysroot;
+        prebuilt = jig;
+      };
+    };
+
+  cross = platform: mkStage platform (cached stage0.jig) [ stage0.cc ];
+  crossCc = {
+    native = stage0.cc;
+    prebuilt = stage0.jig;
+  };
 
   stage1 =
     cpu:
     let
       platform = platforms.glibc.${cpu};
-      run = mkStage platform (cached stage0.jig) [ stage0.cc ];
-      sysroot =
-        parts:
-        run "sysroot" {
-          inherit parts;
-          resource = compiler-rt;
-        };
-      glibcArgs = {
-        src = source "glibc";
-        patches = [
-          (pkg "glibc" + "/glibc-gconv-relative.patch")
-          (pkg "glibc" + "/glibc-ppc64le-clang.patch")
-        ];
-        linuxHeaders = linux-headers;
-      };
+      run = cross platform;
       linux-headers = run "linux-headers" { src = source "linux"; };
-      glibc-headers = run "glibc" (glibcArgs // { headersOnly = "1"; });
-      compiler-rt = run "compiler-rt" {
-        src = source "llvm";
-        libcHeaders = glibc-headers;
+      c = chain {
+        inherit platform run;
+        libcRecipe = "glibc";
+        libcArgs = {
+          src = source "glibc";
+          patches = [
+            (pkg "glibc" + "/glibc-gconv-relative.patch")
+            (pkg "glibc" + "/glibc-ppc64le-clang.patch")
+          ];
+          linuxHeaders = linux-headers;
+          # the C.UTF-8 locale is compiled by running the fresh localedef, so only where it can run
+          locale = platform.triple == (platforms.forSystem system "glibc").triple;
+        };
         linuxHeaders = linux-headers;
-        list = pkg "llvm" + "/builtins-${cpu}.txt";
+        ccArgs = crossCc;
       };
-      # the C.UTF-8 locale is compiled by running the fresh localedef, so only where it can run
-      glibc = run "glibc" (
-        glibcArgs
-        // {
-          inherit compiler-rt;
-          interp =
-            if platform.triple == (platforms.forSystem system "glibc").triple then platform.interp else "";
-        }
-      );
-      runtimes = run "runtimes" {
-        src = source "llvm";
-        sysroot = sysroot [
-          glibc
-          linux-headers
-        ];
-      };
-      cc = run "cc" {
-        sysroot = sysroot [
-          glibc
-          linux-headers
-          runtimes
-        ];
-        native = stage0.cc;
-        prebuilt = stage0.jig;
-      };
-      launch = mkStage platform (cached stage0.jig) [ cc ] "launch" { };
     in
-    {
-      inherit
-        platform
-        linux-headers
-        compiler-rt
-        glibc
-        runtimes
-        cc
-        launch
-        ;
+    c
+    // {
+      glibc = c.libc;
+      inherit linux-headers;
+      launch = mkStage platform (cached stage0.jig) [ c.cc ] "launch" { };
     };
-  # Windows cross: mingw-w64 headers + CRT in place of linux-headers + glibc, otherwise stage1's shape
+
+  # Windows cross: mingw-w64 headers + CRT in place of linux-headers + glibc
   mingw =
     cpu:
     let
       platform = platforms.mingw.${cpu};
-      run = mkStage platform (cached stage0.jig) [ stage0.cc ];
-      sysroot =
-        parts:
-        run "sysroot" {
-          inherit parts;
-          resource = compiler-rt;
-        };
-      mingw-headers = run "mingw-w64" {
-        src = source "mingw-w64";
-        headersOnly = "1";
-      };
-      compiler-rt = run "compiler-rt" {
-        src = source "llvm";
-        libcHeaders = mingw-headers;
-        list = pkg "llvm" + "/builtins-${cpu}-windows.txt";
-      };
-      mingw-w64 = run "mingw-w64" {
-        src = source "mingw-w64";
-        inherit compiler-rt;
-      };
-      runtimes = run "runtimes" {
-        src = source "llvm";
-        sysroot = sysroot [ mingw-w64 ];
-      };
-      cc = run "cc" {
-        sysroot = sysroot [
-          mingw-w64
-          runtimes
-        ];
-        native = stage0.cc;
-        prebuilt = stage0.jig;
+      c = chain {
+        inherit platform;
+        run = cross platform;
+        libcRecipe = "mingw-w64";
+        libcArgs.src = source "mingw-w64";
+        builtins' = "builtins-${cpu}-windows.txt";
+        ccArgs = crossCc;
       };
     in
-    {
-      inherit
-        platform
-        compiler-rt
-        mingw-w64
-        runtimes
-        cc
-        ;
-    };
+    c // { mingw-w64 = c.libc; };
 in
 {
   seed = seedPath;
