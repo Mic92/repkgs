@@ -12,7 +12,7 @@ export def --env setup []: nothing -> nothing {
   $env.GOPROXY = "off"
   $env.GOSUMDB = "off"
   $env.GOTOOLCHAIN = "local"
-  if ("/run/pkgs-cache.sock" | path exists) { $env.GOCACHEPROG = (which gocacheprog | get 0.path) }
+  if $c.cache { $env.GOCACHEPROG = (which gocacheprog | get 0.path) }
   $env.CGO_ENABLED = (if $k.cgo { "1" } else { "0" })
   cd $"($c.src)/($k.root)"
   if $k.vendor != null and not ("vendor" | path exists) {

@@ -15,7 +15,7 @@ export def --env setup []: nothing -> nothing {
   mkdir $env.CARGO_HOME
   # RUSTC absolute so the wrapper (and its cache key) sees which rustc, not a bare name
   $env.RUSTC = (tool rustc)
-  if ("/run/pkgs-cache.sock" | path exists) { $env.RUSTC_WRAPPER = (tool rustcwrap); $env.CARGO_INCREMENTAL = "0" }
+  if $c.cache { $env.RUSTC_WRAPPER = (tool rustcwrap); $env.CARGO_INCREMENTAL = "0" }
   # vendored deps arrive as a directory (from lock.json in the real thing) nixpkgs' layout nests them one level
   let vendor = if $k.vendor != null and ($"($k.vendor)/source-registry-0" | path exists) { $"($k.vendor)/source-registry-0" } else { $k.vendor }
   let host = (^rustc -vV | lines | where { str starts-with "host:" } | first | str replace "host: " "")
