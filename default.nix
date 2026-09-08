@@ -74,6 +74,7 @@ let
     tools = standins // {
       bsdtar = bootstrap.seed;
       inherit (bootstrap.stage0) jig;
+      inherit (buildPkgs) go;
     };
     nu = bootstrap.seed;
   };

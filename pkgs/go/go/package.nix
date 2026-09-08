@@ -17,6 +17,7 @@ package {
         $env.GOROOT_FINAL = $c.out
         $env.GOCACHE = $"($c.build)/go-cache"
         $env.GOFLAGS = "-trimpath"
+        if ("/run/pkgs-cache.sock" | path exists) { $env.GOCACHEPROG = (which gocacheprog | get 0.path) }
         $env.CC = "cc"
         cd src
         x sh make.bash

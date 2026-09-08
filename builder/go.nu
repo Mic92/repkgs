@@ -3,7 +3,7 @@ use core.nu *
 # go build/test/install from a vendored module tree. Build cache via jig's GOCACHEPROG mode.
 def knobs []: nothing -> record<tags: list<string>, ldflags: list<string>, packages: list<string>, root: string, vendor: any, cgo: bool> { knobs-for go {tags: [], ldflags: [], packages: ["./..."], root: ".", vendor: null, cgo: true} }
 
-# offline vendored module mode, GOCACHEPROG through jig, cgo per `go.cgo`. Copies `go.vendor` in if the tree lacks one
+# offline vendored module mode, GOCACHEPROG through jig, cgo per `go.cgo`. Copies `go.vendor` in if the tree lacks one, after checking it matches go.sum
 export def --env setup []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
   $env.GOCACHE = $"($c.build)/go-cache"
@@ -15,7 +15,13 @@ export def --env setup []: nothing -> nothing {
   if ("/run/pkgs-cache.sock" | path exists) { $env.GOCACHEPROG = (which gocacheprog | get 0.path) }
   $env.CGO_ENABLED = (if $k.cgo { "1" } else { "0" })
   cd $"($c.src)/($k.root)"
-  if $k.vendor != null and not ("vendor" | path exists) { ^cp -r $k.vendor vendor; ^chmod -R u+w vendor }
+  if $k.vendor != null and not ("vendor" | path exists) {
+    if (open --raw $"($k.vendor)/go.sum") != (open --raw go.sum) {
+      error make {msg: "go.vendor was made from a different go.sum: the goModules hash is stale"}
+    }
+    ^cp -r $"($k.vendor)/vendor" vendor
+    ^chmod -R u+w vendor
+  }
 }
 
 # always link through cc so RUNPATH/interp policy and fixup apply to Go binaries too

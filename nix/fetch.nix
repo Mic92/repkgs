@@ -80,7 +80,8 @@ in
       lockFile = if lockFile == null then "" else lockFile;
     };
 
-  # `go mod vendor` -> the vendor/ directory (with modules.txt)
+  # `go mod vendor` output plus the go.sum it came from (go.nu rejects a stale `hash` with it).
+  # Module zips are served from the build cache first, downloads are put back into it.
   goModules =
     { source, hash }:
     vendor {
@@ -89,6 +90,7 @@ in
       path = [
         tools.go
         tools.bsdtar
+        tools.jig
       ];
       env = {
         inherit source;
@@ -100,7 +102,23 @@ in
       script = ''
         mkdir src; ^bsdtar -xf $env.source -C src --strip-components 1
         cd src
-        ^go mod vendor -o $env.out
+        let mods = (open go.sum | lines | split column " " mod ver h1 | where ver !~ "/go.mod$"
+          | insert dir {|m| $"($m.mod | str replace -ar "[A-Z]" { $"!($in | str lowercase)" })/@v" })
+        let local = "/tmp/proxy"
+        let cached = ($mods | where {|m|
+          mkdir $"($local)/($m.dir)"
+          [zip mod info] | all {|ext| (do { ^jig cache get $"gomod/($m.mod)@($m.ver)/($m.h1)/($ext)" $"($local)/($m.dir)/($m.ver).($ext)" } | complete).exit_code == 0 }
+        })
+        $env.GOPROXY = $"file://($local),https://proxy.golang.org"
+        ^go mod vendor -o $"($env.out)/vendor"
+        cp go.sum $env.out
+        let dl = $"($env.GOPATH)/pkg/mod/cache/download"
+        for m in ($mods | where {|m| $m not-in $cached }) {
+          for ext in [zip mod info] {
+            let f = $"($dl)/($m.dir)/($m.ver).($ext)"
+            if ($f | path exists) { ^jig cache put $"gomod/($m.mod)@($m.ver)/($m.h1)/($ext)" $f | ignore }
+          }
+        }
       '';
     };
 
