@@ -1,0 +1,161 @@
+# uptrack
+
+The update tool for this tree and others. Designed after reading nixpkgs-update, nix-update,
+llm-agents.nix's updater, Renovate, and the distro tools (Debian uscan, Fedora Anitya, Arch
+nvchecker, Homebrew livecheck, Guix refresh).
+
+## Lessons taken
+
+- Machine-written state lives in a data file next to the package and Nix only reads it
+  (llm-agents). Never edit Nix source (nixpkgs-update's regex rewriters and skip lists are the
+  cost of doing so).
+- Where versions come from is inferred from the source identity, configuration is the exception
+  (nix-update, livecheck, guix refresh).
+- Separate "list releases" from "compare versions" (Renovate's datasource and versioning axes).
+  Renovate's third axis, file managers, is unnecessary when we own the metadata format.
+- Keep a persistent dashboard and libyear, not only PRs (Renovate). Put build evidence in the PR
+  (nixpkgs-update). Use OSV by purl for advisories instead of NVD/CPE guessing. Treat Repology as
+  a second opinion, not the driver.
+- Dynamic derivations already removed vendor hashes, so nothing of nixpkgs-update's fake-hash
+  rebuilds or nix-update's `cargoHash` handling is needed.
+- Some packages need code. In llm-agents 34 of 186 have an `update.py` (median 80 lines) for
+  reasons no schema covers: APT indexes with GPG, a second pin read from inside the new source,
+  lock files below the root, lockfile surgery. Code must be a first-class part of the pipeline.
+- At scale the expensive part is polling. It must be one batched, cached pass that never runs
+  per-package code.
+
+## Metadata: `sources.toml`
+
+One file per package. Humans write `[upstream]`, `[[source]].url`, `[watch]`, `[locks]`. The
+tool writes `hash` and `[pin]`. Nix reads it with `fromTOML`.
+
+```toml
+[upstream]
+purl = "pkg:github/sharkdp/fd"     # identity; picks datasource and default versioning
+# versioning = "semver"|"pep440"|"calver"|"loose"   allow = ">=10,<11"
+# prerelease = false   every = "30d" (minimum release age)   group = "llvm"
+# cpe = "cpe:2.3:a:haxx:curl"      only for NVD lookups where OSV has no coverage (C projects)
+
+[[source]]
+key = "default"                    # free-form: default, x86_64-linux, docs…
+url = "https://github.com/sharkdp/fd/archive/refs/tags/v{version}.tar.gz"
+hash = "sha256-…"                  # tool
+
+[pin]                              # tool
+version = "10.5.0"
+date = "2025-05-18"                # release date: libyear, `every`
+checked = "2025-09-08T11:04:00Z"
+# [pin.extra] v8 = "13.2"          # extra pins returned by a hook
+
+[watch]                            # optional; default is the purl's datasource
+# url = "…/LATEST"  regex = "([0-9.]+)"   |  feed = "…/releases.atom"  |  purl = "pkg:npm/x"
+
+[locks]                            # optional deltas for generated lock files
+# roots = ["crates/web"]  constraints = ["numpy==2.3.*"]  platforms = [...]  generate = false
+```
+
+`package.nix` keeps behaviour only:
+
+```nix
+{ package, fetch, sources, ... }:
+package {
+  name = "fd";
+  inherit (sources) version;
+  source = fetch.pinned sources "default";
+  uses = [ "cargo" ];
+  cargo.vendor = fetch.cargoVendor { inherit source; };
+}
+```
+
+TOML rather than JSON for comments and stable diffs. One file rather than attributes in Nix so
+that listing a whole tree is a glob, and so the same file works in repos without Nix.
+
+## Pipeline
+
+```
+discover → resolve → decide → apply → verify
+```
+
+**discover** globs `sources.toml`, validates (unknown keys are errors that list the known ones).
+
+**resolve** is the only stage that talks to upstreams, and it only evaluates watches. Purls are
+grouped by host: GitHub gets one GraphQL query per 100 repositories, registries their JSON
+endpoints, `[watch] url` a conditional GET. The cache under `$XDG_CACHE_HOME/uptrack` keeps
+etag, last-modified, body hash and last seen version per URL, so a 304 or an unchanged body means
+"no change" without parsing. Per-host token buckets and `every`-aware polling keep it inside rate
+limits. Output per package: current, candidate, changed. `uptrack check --all` on an unchanged
+world is a few hundred 304s.
+
+**decide** is pure: metadata + candidates + flags → a plan entry `{name, from, to, date, reason,
+sources, locks:[{file, resolver, why}], pins, advisories, provenance}` or `{name, skip}`. The plan
+JSON is the interface for CI, reviewers and LLMs. `apply` consumes it unchanged or edited.
+
+**apply**, only for changed entries: substitute `{version}` into source URLs, prefetch with
+`nix store prefetch-file`, write `hash` and `[pin]`. Unpack the primary source and run lock
+detectors (pyproject.toml without uv.lock, Cargo.toml without Cargo.lock, package.json without a
+lock). Where a lock is missing, build a resolver-script derivation (pinned uv/cargo/npm and
+interpreter, the unpacked source as input), run its output outside the sandbox, commit the
+result next to `sources.toml`. Dependencies, extras and workspace layout are upstream's, read by
+upstream's tool, `[locks]` only carries deltas. `--commit-each` makes one commit per entry or
+group. Entries already matching `[pin]` are no-ops, so runs resume.
+
+**verify** builds through a tree adapter (`nix-build -A {name}` here) and appends evidence to the
+plan entry: the `version:` line our build prints, closure size delta, test result.
+
+## Custom stages
+
+Without an `update.nu` a package needs nothing beyond `sources.toml`: versions come from the
+purl's datasource, every `[[source]].url` gets `{version}` substituted and prefetched, missing
+lock files are detected and generated, verify builds it. That is the path for most packages.
+`pkgs/xx/<name>/update.nu` exists only to replace a stage. It is a nu module exporting any of:
+
+```nu
+export def resolve [pkg: record]: nothing -> table                 # → [{version tag? date? prerelease url? sha256?}]
+export def sources [pkg: record, entry: record]: nothing -> record # → {sources?, extra?} merged into the plan entry
+export def files   [entry: record]: nothing -> record              # → {relative path: content}, written after the pin
+export def verify  [entry: record]: nothing -> record              # → {verified log? ...} instead of nix-build
+```
+
+uptrack runs the hook in a fresh `nu` with `uptrack/src` on the module path (`use datasource.nu`,
+`use http.nu`, `use version.nu` work), passes records as arguments and reads JSON from stdout;
+stderr is shown. Hooks never write files themselves and only run after the watch fired, so the
+skim stays cheap. Anything else exported is an error. `uptrack list` shows which stages a
+package overrides. Example: `pkgs/ll/llvm/update.nu` exports `files` to regenerate the per-cpu
+compiler-rt source lists from the new tarball.
+
+## Reports
+
+- `dashboard`: pending, held by `allow`, too young for `every`, failing verify, advisories.
+  `sync-github` upserts it as one pinned issue plus a PR per entry or group, idempotent by branch
+  name.
+- `report --libyear | --stale 90d` from `[pin].date`/`.checked`.
+- `report --advisories`: OSV batch query by purl@version for current and candidate. purl and CPE
+  do not map onto each other, so C projects without registry coverage add an optional `cpe`
+  (vendor:product) for NVD's match API. The report flags packages where neither source knows the
+  identity.
+- `report --repology`: where other distros are ahead although our datasource says current. The
+  fix is usually the purl.
+
+## CLI
+
+```
+uptrack list | check | plan [-o f] | apply [f|names] [--commit-each --verify] | verify
+uptrack dashboard | sync-github | report --libyear|--stale|--advisories|--repology
+uptrack init <purl> [--url tmpl]        new sources.toml, prefetched and pinned
+uptrack migrate nixpkgs|llm-agents <path>
+```
+
+All subcommands take `--json`. Exit codes: 0 nothing to do, 10 updates pending, 20 failures,
+2 invalid metadata. Errors name file, key and fix.
+
+## Shape
+
+nu in `pkgs/up/uptrack/src/`, about 1.7k lines: purl, four versioning
+schemes, a dozen datasources of 50 lines each, pipeline, locks, reports, CLI. Tree adapters only
+supply the verify command (this tree, llm-agents, plain). Tests: llm-agents' purl and version
+vectors, nixpkgs-update's `Version.hs` cases for `loose`, recorded HTTP fixtures replayed from
+the cache directory, golden plans for a fixture tree.
+
+State here: every `pkgs/*/sources.toml` (bootstrap inputs and seed included) exists and is what Nix reads (`nix/sources.nix`, and `package` defaults `version`/`source` from it).
+Implemented: purl, versioning, github/pypi/cargo/npm/gnu/generic datasources, cached http,
+`list check apply [--verify] verify init` and hooks. Not yet: lock generation, reports.
