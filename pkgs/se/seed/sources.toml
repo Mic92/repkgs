@@ -5,9 +5,9 @@ allow = "*"
 [[source]]
 key = "x86_64-linux"
 url = "https://github.com/Mic92/dotfiles/releases/download/seed-{version}/seed-{version}-x86_64-linux.nar.xz"
-hash = "sha256-2mYKO9Ra9hdJM6oqEFYeMMHRM11cBeVCS0J/JLjsBH8="
+hash = "sha256-vdBeJq/0WB0QBwNe1GY00VJviN8eiay0o9v4L/Mr1C8="
 unpack = true
 name = "seed"
 
 [pin]
-version = "2"
+version = "3"
