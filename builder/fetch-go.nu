@@ -9,8 +9,6 @@ use dynamic.nu
 # module path as the proxy spells it: upper case -> !lower
 def escape [m: string]: nothing -> string { $m | str replace -ar "([A-Z])" "!$1" | str downcase }
 
-def sri-hex [sri: string]: nothing -> string { $sri | str replace 'sha256-' '' | decode base64 | encode hex --lower }
-
 def main []: nothing -> nothing {
   let table = (open $env.locks | get go)
   let wanted = (open --raw ([$env.source $env.root go.sum] | path join) | lines | where $it != ""
@@ -24,7 +22,7 @@ def main []: nothing -> nothing {
     let dir = $"(escape $m.mod)/@v"
     $table | get $key | items {|ext, sri|
       let name = $"($m.mod | str replace -ar '[^A-Za-z0-9._-]' '_')-($m.ver).($ext)"
-      let d = (dynamic fetchurl-drv $name $"https://proxy.golang.org/($dir)/($m.ver).($ext)" sha256 (sri-hex $sri) $sri)
+      let d = (dynamic fetchurl-sri $name $"https://proxy.golang.org/($dir)/($m.ver).($ext)" $sri)
       {drv: $d.drv, file: {src: $d.out, dst: $"($dir)/($m.ver).($ext)", ver: $m.ver}}
     }
   } | flatten)

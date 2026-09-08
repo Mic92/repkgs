@@ -55,21 +55,6 @@ def --env resolve-platform [p: record]: nothing -> record {
   $plat
 }
 
-# no /usr/bin/env in the sandbox. Rewrite only real matches: bumping every mtime makes autotools
-# packages regenerate shipped files (coreutils' cu-progs.m4 -> aclocal)
-def fix-env-shebangs [njobs: int]: nothing -> nothing {
-  let env_bin = (tool env)
-  let magic = ("#!/usr/bin/env" | into binary)
-  glob "**/*" --no-dir --no-symlink | par-each --threads $njobs {|f|
-    let m = (ls -l $f | first)
-    if $m.size >= 1mb or ($m.mode | str substring 2..<3) != "x" { return }
-    let bytes = (open --raw $f | into binary)
-    if ($bytes | bytes starts-with $magic) {
-      ($"#!($env_bin)" | into binary) ++ ($bytes | bytes at ($magic | bytes length)..) | save -f --raw $f
-    }
-  } | ignore
-}
-
 def --env unpack [a: record, src: path, njobs: int]: nothing -> nothing {
   note unpack $a.src
   # sources arrive unpacked (nix/sources.nix). -p: the store's uniform mtimes keep generated
@@ -78,7 +63,7 @@ def --env unpack [a: record, src: path, njobs: int]: nothing -> nothing {
   ^chmod -R u+w $src
   cd $src
   for p in $a.patches { note patch $p; ^patch -p1 -i $p }
-  fix-env-shebangs $njobs
+  fix-env-shebangs . $njobs
 }
 
 export def --env main [
@@ -91,7 +76,8 @@ export def --env main [
   let out = (if $from_tree == "" { $a.outputs.out } else { $a.package })
   $env.PKGS_RESULT = $a.outputs.out
   let njobs = ($env.NIX_BUILD_CORES? | default "4" | into int)
-  let deps = (dep-closure $a.dependencies)
+  # a cargo vendor dir is a dependency too: it propagates the libraries its -sys crates link (fetch-cargo.nu)
+  let deps = (dep-closure ($a.dependencies ++ ([$a.spec.cargo?.vendor?] | compact)))
   build-env $a $deps $out
   let plat = (resolve-platform $a.platform)
 

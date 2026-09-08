@@ -6,13 +6,6 @@
 # integrity itself.
 use dynamic.nu
 
-# "sha512-<base64> sha1-…" -> the first (strongest, npm's habit) as {algo, hex, sri}
-def parse-sri []: string -> record<algo: string, hex: string, sri: string> {
-  let sri = ($in | split row " " | first)
-  let parts = ($sri | split row "-" --number 2)
-  {algo: $parts.0, hex: ($parts.1 | decode base64 | encode hex --lower), sri: $sri}
-}
-
 def main []: nothing -> nothing {
   let lock_file = (if $env.lockFile != "" { $env.lockFile } else { [$env.source $env.root package-lock.json] | path join })
   let lock = (open --raw $lock_file | from json)
@@ -26,9 +19,8 @@ def main []: nothing -> nothing {
   let unhashed = ($remote | where { $in.val.integrity? == null })
   if ($unhashed | is-not-empty) { error make {msg: $"npmDeps: no `integrity` for: ($unhashed | get key | str join ', ')"} }
   # the same tarball can appear under several node_modules paths: fetch once per URL
-  let fetched = ($remote | uniq-by { $in.val.resolved } | each {|e|
-    let h = ($e.val.integrity | parse-sri)
-    {url: $e.val.resolved} | merge (dynamic fetchurl-drv ($e.val.resolved | url parse | get path | path basename) $e.val.resolved $h.algo $h.hex $h.sri)
+  let fetched = ($remote | each {|e| {url: $e.val.resolved, integrity: $e.val.integrity} } | uniq-by url | each {|e|
+    {url: $e.url} | merge (dynamic fetchurl-sri ($e.url | url parse | get path | path basename) $e.url $e.integrity)
   })
   let by_url = ($fetched | reduce --fold {} {|f, acc| $acc | insert $f.url $f.out })
   let new_lock = ($lock | reject -o dependencies | update packages {|l|

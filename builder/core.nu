@@ -39,17 +39,19 @@ export def is-elf [f: path]: nothing -> bool { (open --raw $f | into binary | by
 def existing [root: path, rels: list<string>]: nothing -> list<string> { $rels | where {|d| $"($root)/($d)" | path exists } }
 
 # a package's exports with defaults filled in. Used for dependencies and for writing our own
-export def exports-of [p: path]: nothing -> record<includeDirs: list<string>, libDirs: list<string>, libs: list<string>, pkgconfigDirs: list<string>, aclocalDirs: list<string>, env: record, propagate: list<string>> {
+export def exports-of [p: path]: nothing -> record<name: string, includeDirs: list<string>, libDirs: list<string>, libs: list<string>, pkgconfigDirs: list<string>, aclocalDirs: list<string>, env: record, propagate: list<string>> {
   let f = $"($p)/exports.json"
   let e = if ($f | path exists) { open $f } else { {} }
   {
+    # package name as build systems key on it (cargo.nu SYS_CRATES); the store name is <hash>-<name>[-<platform>]
+    name: ($e.name? | default ($p | path basename | str substring 33.. | str replace -r '-(x86_64|aarch64|riscv64|loongarch64|powerpc64le)-\w+$' ''))
     includeDirs: ($e.includeDirs? | default (existing $p ["include"]))
     libDirs: ($e.libDirs? | default (existing $p ["lib"]))
     libs: ($e.libs? | default (glob $"($p)/lib/lib*.so" | each { path parse | get stem | str substring 3.. } | sort))
     pkgconfigDirs: ($e.pkgconfigDirs? | default (existing $p ["lib/pkgconfig" "share/pkgconfig"]))
     aclocalDirs: ($e.aclocalDirs? | default (existing $p ["share/aclocal"]))
     # `{root}` in values: this package's own store path (kept relative in exports.json so the output stays relocatable)
-    env: ($e.env? | default {} | transpose k v | update v { str replace -a "{root}" $p } | transpose -rd | default {})
+    env: ($e.env? | default {} | items {|k, v| [$k ($v | str replace -a "{root}" $p)] } | into record)
     propagate: ($e.propagate? | default [])
   }
 }
@@ -103,4 +105,20 @@ export def probe-cache-get [key: string, file: path]: nothing -> bool {
 # store them for the next build with the same key
 export def probe-cache-put [key: string, file: path]: nothing -> nothing {
   if (ctx).cache and ($file | path exists) { ^jig cache put $key $file | complete | ignore }
+}
+
+# no /usr/bin/env in the sandbox: point such scripts at the seed's env (build tree only; installed
+# scripts get launchers). Rewrite only real matches: bumping every mtime makes autotools
+# packages regenerate shipped files (coreutils' cu-progs.m4 -> aclocal)
+export def fix-env-shebangs [dir: path, njobs: int = 4]: nothing -> nothing {
+  let env_bin = (tool env)
+  let magic = ("#!/usr/bin/env" | into binary)
+  glob $"($dir)/**/*" --no-dir --no-symlink | par-each --threads $njobs {|f|
+    let m = (ls -l $f | first)
+    if $m.size >= 1mb or ($m.mode | str substring 2..<3) != "x" { return }
+    let bytes = (open --raw $f | into binary)
+    if ($bytes | bytes starts-with $magic) {
+      ($"#!($env_bin)" | into binary) ++ ($bytes | bytes at ($magic | bytes length)..) | save -f --raw $f
+    }
+  } | ignore
 }

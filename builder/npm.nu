@@ -16,16 +16,7 @@ export def --env setup []: nothing -> nothing {
   cp $"($k.deps)/package-lock.json" package-lock.json
   ^chmod u+w package-lock.json  # npm prune rewrites it
   x npm ci --ignore-scripts ...$k.flags
-  # .bin scripts say #!/usr/bin/env node. No /usr/bin/env in the sandbox. Build-tree only, so absolute is fine here
-  # (installed scripts get the launcher treatment of §3 instead).
-  for f in (ls -l node_modules/.bin | get target | each {|t| $"node_modules/.bin/($t)" | path expand }) {
-    let first = (open --raw $f | lines | first)
-    let m = ($first | parse --regex '^#!\s*/usr/bin/env\s+(?P<prog>\S+)')
-    if ($m | is-not-empty) {
-      let prog = (tool $m.0.prog)
-      open --raw $f | str replace $first $"#!($prog)" | save -f $f
-    }
-  }
+  fix-env-shebangs node_modules (ctx).njobs  # installed after the source tree was fixed
   $env.PATH = ($env.PATH | prepend $"($dir)/node_modules/.bin")
 }
 

@@ -7,6 +7,19 @@ export def add-drv [name: string, ...refs: string]: record -> string {
   to json --raw | ^jig nix-store add-drv $"($name).drv" ...$refs | str trim
 }
 
+# "sha512-<base64> sha1-…" (SRI, possibly several) -> the first as {algo, hex, sri}
+export def parse-sri []: string -> record<algo: string, hex: string, sri: string> {
+  let sri = ($in | split row " " | first)
+  let parts = ($sri | split row "-" --number 2)
+  {algo: $parts.0, hex: ($parts.1 | decode base64 | encode hex --lower), sri: $sri}
+}
+
+# fetchurl-drv for an SRI-pinned URL (npm/pnpm locks, locks/go.toml)
+export def fetchurl-sri [name: string, url: string, integrity: string]: nothing -> record<drv: string, out: string> {
+  let h = ($integrity | parse-sri)
+  fetchurl-drv $name $url $h.algo $h.hex $h.sri
+}
+
 # a builtin:fetchurl derivation, identical in shape to what <nix/fetchurl.nix> makes.
 # `algo`/`hex` fix the output; `sri` is what goes into outputHash
 export def fetchurl-drv [name: string, url: string, algo: string, hex: string, sri: string]: nothing -> record<drv: string, out: string> {
