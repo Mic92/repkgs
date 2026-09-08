@@ -75,10 +75,10 @@ export def storerel [p: string, out: string]: nothing -> string {
 
 # key = kind + every explicit input of the probes: the script that defines them, the masked
 # toolchain/dependency/tool set, platform, flags. $out is the fixed CA placeholder, so stable
-export def probe-cache-key [kind: string, script: path]: nothing -> string {
+export def probe-cache-key [kind: string, scripts: list<path>]: nothing -> string {
   let c = (ctx)
   let roots = ($env.JIG_STORE_ROOTS | split row " " | each { path basename | str substring 33.. } | sort)
-  let id = ({kind: $kind, script: (open --raw $script | hash sha256), triple: $c.platform.triple, roots: $roots, out: $c.out
+  let id = ({kind: $kind, script: ($scripts | sort | each { open --raw $in | hash sha256 }), triple: $c.platform.triple, roots: $roots, out: $c.out
     flags: [$env.CFLAGS? $env.CXXFLAGS? $env.CPPFLAGS? $env.LDFLAGS? $env.PKG_CONFIG_PATH?]} | to json -r | hash sha256)
   $"probe/($kind)/($id)"
 }
