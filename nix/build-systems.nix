@@ -109,7 +109,7 @@
       "go.test"
       "go.install"
     ];
-    tools = [ standins.go ];
+    tools = [ buildPkgs.go ];
     knobs = [
       "tags"
       "ldflags"

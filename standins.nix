@@ -8,9 +8,9 @@ in
 with nixpkgs;
 {
   # build systems
-  inherit go nodejs;
+  inherit nodejs;
 
-  # qemu for cross tests, cacert for goModules
-  inherit qemu-user cacert;
+  # qemu for cross tests, cacert and go for fetch.goModules
+  inherit qemu-user cacert go;
 
 }

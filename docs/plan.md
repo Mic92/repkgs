@@ -48,8 +48,20 @@ package), libc and cc, `vendor = true` so no network. cargo.nu and maturin then 
 (binary N-1 builds N), and the pin in `rust-bootstrap/sources.toml` follows `rust` one release
 behind.
 
-**6. Go.** `go-bootstrap` (upstream static tarball, `prebuilt`), `go` built from source with it. `fetch.goModules` and
-go.nu switch.
+**6. Go.** `go-bootstrap` (upstream static tarball, `prebuilt`), `go` built from source with it
+(done). Left: `fetch.goModules` runs `buildPkgs.go` instead of `standins.go`.
+go.sum's `h1:` is Go's dirhash over the extracted zip, not a file or NAR hash, so a dynamic
+derivation cannot turn go.sum into per-module fetchurls the way cargoVendor does; goModules stays
+one fixed-output `go mod vendor` with a vendor hash per package for now. Two steps from there:
+- downloads through the build cache: jig gets a plain blob mode (`jig cache get|put <key>
+  <file>` over CacheClient). The goModules script pre-fills a `GOPROXY=file://` tree
+  (`<mod>/@v/<ver>.{info,mod,zip}`) from keys `gomod/<mod>@<ver>/<h1>`, runs `go mod vendor`
+  with proxy.golang.org as fallback, and puts back what it had to download. go verifies every
+  module against go.sum either way, so a bad entry is a miss, never wrong output.
+- no vendor hash: uptrack's locks stage writes `lock.json` (module -> zip sha256) from go.sum,
+  checked against `h1:` while downloading. goModules then becomes dynamic like cargoVendor: one
+  fetchurl per zip plus an assemble step that lays out `vendor/` with modules.txt. Go is that
+  stage's first user.
 
 **7. Node.** nodejs from source (C++, python, ninja, bundled deps first). Only npm.nu needs it.
 

@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:generic/go?url=https://go.dev/dl/&regex=go(\\d[0-9.]*)\\.src\\.tar\\.gz"
+
+[[source]]
+key = "default"
+url = "https://go.dev/dl/go{version}.src.tar.gz"
+hash = "sha256-TkCKuuEm2Ra2FkYnGT8sVPDjyhMS1pO4bbRfhiqyOLE="
+
+[pin]
+version = "1.27.1"
