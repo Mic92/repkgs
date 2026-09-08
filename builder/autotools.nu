@@ -18,7 +18,11 @@ export def --env configure []: nothing -> nothing {
   let script = $"($c.src)/($k.configureScript)"
   # --host makes configure cross-aware (no running of test programs) Triple, not a nixpkgs "system"
   let host_flags = (if $c.platform.cross { [$"--host=($c.platform.triple)" "--build=x86_64-build-linux-gnu"] } else { [] })
-  x $env.CONFIG_SHELL $script $"--prefix=($c.out)" --disable-static --enable-shared ...$host_flags ...($k.flags)
+  let cache = $"($c.build)/config.cache"
+  let key = (probe-cache-key autoconf $script)
+  note config.cache (if (probe-cache-get $key $cache) { "restored" } else { "cold" })
+  x $env.CONFIG_SHELL $script $"--prefix=($c.out)" $"--cache-file=($cache)" --disable-static --enable-shared ...$host_flags ...($k.flags)
+  probe-cache-put $key $cache
 }
 
 # make -j (`autotools.buildTarget`, `autotools.makeFlags`)

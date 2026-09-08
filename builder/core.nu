@@ -12,7 +12,7 @@ export def note [step: string, msg: string = ""]: nothing -> nothing {
 }
 
 # what build-system verbs and custom steps get to see: {spec out deps njobs src build platform testsRun}
-export def ctx []: nothing -> record<spec: record, out: string, deps: list<record>, njobs: int, src: string, build: string, platform: record, testsRun: bool> { $env.PKGS_CTX | from json }
+export def ctx []: nothing -> record<spec: record, out: string, deps: list<record>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool> { $env.PKGS_CTX | from json }
 
 # a build system's knobs: its defaults overridden by the package's `<bs>.*` attrset
 export def knobs-for [bs: string, defaults: record]: nothing -> record { $defaults | merge ((ctx).spec | get -o $bs | default {}) }
@@ -71,4 +71,23 @@ export def dep-closure [roots: list<string>]: nothing -> list<record> {
 export def storerel [p: string, out: string]: nothing -> string {
   let store = $"($env.NIX_STORE)/"
   if ($p | str starts-with $out) { $"{root}($p | str substring ($out | str length)..)" } else if ($p | str starts-with $store) { $"{store}/($p | str substring ($store | str length)..)" } else { $p }
+}
+
+# key = kind + every explicit input of the probes: the script that defines them, the masked
+# toolchain/dependency/tool set, platform, flags. $out is the fixed CA placeholder, so stable
+export def probe-cache-key [kind: string, script: path]: nothing -> string {
+  let c = (ctx)
+  let roots = ($env.JIG_STORE_ROOTS | split row " " | each { path basename | str substring 33.. } | sort)
+  let id = ({kind: $kind, script: (open --raw $script | hash sha256), triple: $c.platform.triple, roots: $roots, out: $c.out
+    flags: [$env.CFLAGS? $env.CXXFLAGS? $env.CPPFLAGS? $env.LDFLAGS? $env.PKG_CONFIG_PATH?]} | to json -r | hash sha256)
+  $"probe/($kind)/($id)"
+}
+
+export def probe-cache-get [key: string, file: path]: nothing -> bool {
+  if not (ctx).cache { return false }
+  (do { ^jig cache get $key $file } | complete).exit_code == 0
+}
+
+export def probe-cache-put [key: string, file: path]: nothing -> nothing {
+  if (ctx).cache and ($file | path exists) { ^jig cache put $key $file | complete | ignore }
 }
