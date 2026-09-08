@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/nlohmann/json"
+
+[[source]]
+key = "default"
+url = "https://github.com/nlohmann/json/releases/download/{tag}/json.hpp"
+hash = "sha256-qvEnwEyzHEBuWwSmPxrok2n8zebY+nzdoe1PMt/F3mM="
+
+[pin]
+version = "3.12.0"
+tag = "v3.12.0"

@@ -1,0 +1,17 @@
+Checks:
+  - bugprone-*
+  - concurrency-*
+  - cppcoreguidelines-*
+  - google-*
+  - misc-*
+  - modernize-*
+  - performance-*
+  - portability-*
+  - readability-*
+  - -google-readability-todo
+  - -bugprone-easily-swappable-parameters
+WarningsAsErrors: "*"
+HeaderFilterRegex: ".*"
+UseColor: false
+CheckOptions:
+  misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: true
