@@ -42,6 +42,40 @@ swift-corelibs; closed frameworks stay out of scope. Toolchain is ours: clang, `
 maps to `@executable_path/../lib` install names instead of RUNPATH, fixup via
 `llvm-install-name-tool`; no launcher. No emulator, so cross builds are untested.
 
+**More language ecosystems**, each an interpreter package plus a build system in the shape of
+the existing ones (named native packages, applications lock their own dependency graph, one
+dynamic-derivation producer reading the upstream lock file, hashes upstream lacks in `locks/`):
+
+- *Lua / LuaJIT.* `lua` (5.4, plain make, `LUA_ROOT` relative to the binary via launcher env) and
+  `luajit` (its own Makefile, `HOST_CC=cc-build` + `CROSS=` for cross, `TARGET_SYS`; DynASM runs
+  on the build machine so bitness must match: fine, all platforms are 64-bit). Build system
+  `luarocks`: `uses = ["luarocks"]` builds a rockspec against our lua with `LUA_INCDIR/LIBDIR`
+  from the dependency, C modules through jig; `fetch.luaRocks { source }` reads a committed
+  `luarocks.lock` (rock name → version) and takes sha256 from `locks/luarocks.toml` since the
+  manifest has none. cpath/path assembled per application as a launcher env, no global tree.
+- *Ruby.* `ruby` (autotools; cross needs `--with-baseruby=` = `buildPkgs.ruby` and a few
+  `ac_cv_func_*` already in config.site), `libyaml`/`libffi`/`openssl`/`zlib`/`readline` as
+  dependencies. Build system `bundler`: `fetch.gems { source }` reads `Gemfile.lock` with its `CHECKSUMS`
+  section (sha256, Bundler >= 2.6). Gems and library-style tools (asciidoctor) commit no lockfile,
+  so `uptrack lock` generates one next to package.nix with `bundle lock --add-checksums`;
+  applications that commit one mostly carry the section already (rails, gitlab, discourse), and
+  for the rest (mastodon) `uptrack lock` adds the checksums to a copy. No `locks/` table needed. `bundle config set --local deployment/path`, `bundle install --local`
+  from the vendored cache, native extensions compile through jig (`gem` honours CC/CFLAGS via
+  rbconfig, which we rewrite for cross like sysconfigdata). `GEM_HOME`/`BUNDLE_GEMFILE` in the
+  launcher env.
+- *JS lockfiles beyond npm.* fetch-npm.nu splits into a shared registry-tarball layer (fetchurl
+  by the lock's SRI, dedupe by URL, already there) and one reader per format: `pnpm-lock.yaml` v9
+  (`from yaml`, `resolution.integrity`; output a content-addressed store dir for `pnpm install
+  --offline --frozen-lockfile`), `yarn.lock` v1 (small text parser, `resolved` + `integrity`;
+  output a yarn-offline-mirror dir), `bun.lock` (below). Yarn berry is deferred: its `checksum`
+  is over the zip yarn repacks, not the registry tarball, so it cannot fix a fetch.
+- *Bun.* `bun` itself is `prebuilt` first (upstream static-ish binaries for x86_64/aarch64
+  linux, launcher via crt_interp like `rust`), from source later (zig + our LLVM/clang, large).
+  Build system `bun`: `fetch.bunDeps { source }` reads `bun.lock` (text JSONC since 1.2, carries
+  sha512 integrity like package-lock, so no `locks/` table), lays out the same cache tree
+  `bun install --frozen-lockfile --offline` expects (`$BUN_INSTALL_CACHE_DIR`), then `bun build
+  --compile` or a launcher running `bun run`. Shares tarball fetching with fetch-npm.nu.
+
 **Reproducibility check.** A `repro-check` job that rebuilds the set without the cache socket
 (`--rebuild`) and reports CA path mismatches; diffoscope only on those.
 
