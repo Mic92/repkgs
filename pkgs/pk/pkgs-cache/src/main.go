@@ -1,9 +1,11 @@
-// Host side of jig's build cache: blobs under $XDG_CACHE_HOME/pkgs-cache, served on a unix
-// socket that nix.conf's extra-sandbox-paths maps into every build.
+// Host side of jig's build cache: a pack-file blob store under $XDG_CACHE_HOME/pkgs-cache,
+// served on a unix socket that nix.conf's extra-sandbox-paths maps into every build.
 //
 //	GET key\n             -> OK <len>\n<bytes> | MISS\n
 //	PUT key <len>\n<bytes> -> OK\n
-//	STATS\n               -> gets=… hits=… puts=…\n
+//	STATS\n               -> gets=… hits=… puts=… keys=… packs=… bytes=… live=…\n
+//
+// PKGS_CACHE_SIZE (GiB, default 50) bounds the store; the oldest packs are dropped beyond it.
 package main
 
 import (
@@ -13,85 +15,48 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 )
 
 var (
-	root             string
+	store            *Store
 	gets, hits, puts atomic.Int64
 )
 
-// keys are "<kind>/<hex or name>": no "..", no leading slash
-func keyPath(key string) (string, bool) {
-	if key == "" || strings.HasPrefix(key, "/") || strings.Contains(key, "..") {
-		return "", false
-	}
-	return filepath.Join(root, filepath.FromSlash(key)), true
-}
-
 func get(conn *net.UnixConn, out *bufio.Writer, key string) error {
 	gets.Add(1)
-	path, ok := keyPath(key)
-	if !ok {
-		_, err := out.WriteString("MISS\n")
-		return err
-	}
-	file, err := os.Open(path)
-	if err != nil {
-		_, err := out.WriteString("MISS\n")
-		return err
-	}
-	defer file.Close()
-	info, err := file.Stat()
-	if err != nil || !info.Mode().IsRegular() {
+	val := store.Get(key)
+	if val == nil {
 		_, err := out.WriteString("MISS\n")
 		return err
 	}
 	hits.Add(1)
-	if _, err := fmt.Fprintf(out, "OK %d\n", info.Size()); err != nil {
+	if _, err := fmt.Fprintf(out, "OK %d\n", val.Size()); err != nil {
 		return err
 	}
 	if err := out.Flush(); err != nil {
 		return err
 	}
-	// *os.File -> *net.UnixConn: io.Copy uses sendfile(2)
-	_, err = io.Copy(conn, file)
+	// SectionReader over *os.File -> *net.UnixConn: io.Copy uses sendfile(2)
+	_, err := io.Copy(conn, val)
 	return err
 }
 
 func put(in *bufio.Reader, out *bufio.Writer, key string, size int64) error {
 	puts.Add(1)
-	path, ok := keyPath(key)
-	if !ok {
-		if _, err := io.CopyN(io.Discard, in, size); err != nil {
-			return err
-		}
-		_, err := out.WriteString("OK\n")
+	buf := make([]byte, size)
+	if _, err := io.ReadFull(in, buf); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
+	if err := store.Put(key, buf); err != nil {
+		log.Printf("put %s: %v", key, err)
 	}
-	// several builds may PUT one key at once: write beside, rename over
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".put-*")
-	if err != nil {
-		return err
-	}
-	_, err = io.CopyN(tmp, in, size)
-	if cerr := tmp.Close(); err == nil {
-		err = cerr
-	}
-	if err == nil {
-		err = os.Rename(tmp.Name(), path)
-	}
-	if err != nil {
-		os.Remove(tmp.Name())
-		return err
-	}
-	_, err = out.WriteString("OK\n")
+	_, err := out.WriteString("OK\n")
 	return err
 }
 
@@ -110,12 +75,12 @@ func serve(conn *net.UnixConn) {
 			err = get(conn, out, fields[1])
 		case len(fields) == 3 && fields[0] == "PUT":
 			size, perr := strconv.ParseInt(fields[2], 10, 64)
-			if perr != nil || size < 0 {
+			if perr != nil || size < 0 || size > 2<<30 {
 				return
 			}
 			err = put(in, out, fields[1], size)
 		case len(fields) == 1 && fields[0] == "STATS":
-			_, err = fmt.Fprintf(out, "gets=%d hits=%d puts=%d\n", gets.Load(), hits.Load(), puts.Load())
+			_, err = fmt.Fprintf(out, "gets=%d hits=%d puts=%d %s\n", gets.Load(), hits.Load(), puts.Load(), store.Stats())
 		default:
 			return
 		}
@@ -141,8 +106,15 @@ func main() {
 		}
 		cache = filepath.Join(home, ".cache")
 	}
-	root = filepath.Join(cache, "pkgs-cache")
-	if err := os.MkdirAll(root, 0o755); err != nil {
+	budget := int64(50)
+	if v := os.Getenv("PKGS_CACHE_SIZE"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+			budget = n
+		}
+	}
+	var err error
+	store, err = OpenStore(filepath.Join(cache, "pkgs-cache", "packs"), budget<<30)
+	if err != nil {
 		log.Fatal(err)
 	}
 	os.Remove(sock)
@@ -153,12 +125,21 @@ func main() {
 	if err := os.Chmod(sock, 0o666); err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("listening on %s, store %s", sock, root)
+	go func() {
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+		<-sig
+		listener.Close()
+	}()
+	log.Printf("listening on %s, %s", sock, store.Stats())
 	for {
 		conn, err := listener.AcceptUnix()
 		if err != nil {
-			log.Fatal(err)
+			break
 		}
 		go serve(conn)
+	}
+	if err := store.Close(); err != nil {
+		log.Fatal(err)
 	}
 }

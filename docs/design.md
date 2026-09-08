@@ -138,9 +138,12 @@ no socket → plain compile, derivations never mention the cache):
 | autoconf `config.cache`, cmake probe results | sha256 of the scripts + masked toolchain/dependency set + platform + flags + `$out` |
 | go module zips | `gomod/<mod>@<ver>/<h1>` |
 
-Values are LZ4-compressed by the client. Store identity is by content, so a rebuilt-but-identical
-toolchain still hits. The host side is `pkgs/pk/pkgs-cache` (Go, blobs under
-`$XDG_CACHE_HOME/pkgs-cache`). Trust: cache writers can inject code; CA outputs make that
+Values are zstd-1 compressed by the client (3x on objects and manifests; content-defined chunking
+and store-path normalisation were measured and add <10 %, experiments/cdc). Store identity is by
+content, so a rebuilt-but-identical toolchain still hits. The host side is `pkgs/pk/pkgs-cache`: a
+bitcask-style store (append-only 256 MiB pack files, in-memory index, hint files for startup,
+whole-pack eviction past `PKGS_CACHE_SIZE` GiB) under `$XDG_CACHE_HOME/pkgs-cache/packs`,
+served with sendfile from the pack fd. Trust: cache writers can inject code; CA outputs make that
 detectable by rebuilding without the socket.
 
 ## 5. Toolchain, bootstrap, cross

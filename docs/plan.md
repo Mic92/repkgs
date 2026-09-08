@@ -40,8 +40,6 @@ realisations.
   crates now that links are cached; rustc keys should not change when only the vendor store path
   does; recurring `miss-fail` on identical rebuilds means an unstable conftest key.
 - jig hashes link inputs serially; thread it if llvm-sized links show up in profiles.
-- Cache store: measure FastCDC chunks + pack files against one LZ4 blob per key
-  (experiments/cdc) before changing pkgs-cache's layout.
 - m4's gnulib `test-posix_spawn-chdir` spins in the sandbox: check crt_interp's AT_EXECFN
   fallback when cwd changes.
 - nodejs, glib, qemu: first builds in flight; cross builds (riscv64, aarch64) to re-verify after

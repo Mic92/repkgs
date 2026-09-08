@@ -2,7 +2,7 @@
 { package }:
 package {
   name = "pkgs-cache";
-  version = "1";
+  version = "2";
   source = ./src;
   uses = [ "go" ];
   go.cgo = false;
