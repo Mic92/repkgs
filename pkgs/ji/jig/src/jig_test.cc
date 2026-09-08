@@ -76,6 +76,12 @@ void TestStore() {
   assert(store.Key(".") == ".");
 }
 
+// cgo writes the joined -o form
+void TestParseJoinedOutput() {
+  const Invocation inv = ParseInvocation(V({"-c", "foo.c", "-o/tmp/b/x.o"}));
+  assert(inv.cacheable && inv.output == "/tmp/b/x.o" && inv.key_args.empty());
+}
+
 void TestParseInvocation() {
   Invocation inv = ParseInvocation(V({"-O2", "-c", "foo.c", "-o", "out/foo.o", "-MD", "-MF", "out/foo.d", "-MT", "x"}));
   assert(inv.cacheable && inv.compile_only && !inv.link_one);
@@ -301,6 +307,7 @@ auto main() -> int {
   TestBase();
   TestStore();
   TestParseInvocation();
+  TestParseJoinedOutput();
   TestDepfile();
   TestManifest();
   TestDriver();

@@ -259,6 +259,8 @@ auto ParseInvocation(std::span<const std::string> args) -> Invocation {
       inv.compile_only = true;
     } else if (arg == "-o" && i + 1 < args.size()) {
       inv.output = args.at(++i);
+    } else if (arg.starts_with("-o") && arg.size() > 2) {
+      inv.output = arg.substr(2);
     } else if (IsNoOutputOption(arg)) {
       inv.cacheable = false;
     } else if (IsSourceFile(arg)) {
