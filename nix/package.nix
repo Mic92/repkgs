@@ -185,6 +185,7 @@ let
       inherit (platform)
         name
         cpu
+        os
         names
         triple
         cross
