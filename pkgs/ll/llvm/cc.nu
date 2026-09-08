@@ -24,24 +24,20 @@ def main []: nothing -> nothing {
   # CC_FOR_BUILD when cross: jig locates its conf via /proc/self/exe, so symlinks to the native cc suffice
   if "native" in $env { for n in [cc c++] { x ln -s $"($env.native)/bin/($n)" $"($out)/bin/($n)-build" } }
 
-  cp $env.crt_interp crt_interp.c  # compile from cwd: the STT_FILE symbol would otherwise record a store path
-  x clang ...(target) -O2 -fPIE -ffreestanding -nostdlib -nostdinc -fno-builtin -fno-stack-protector -fno-asynchronous-unwind-tables -c crt_interp.c -o $"($out)/lib/crt_interp.o"
-
-  {
-    cc: $clang
-    flags: ($flags | str join " ")
-    cxxflags: "-stdlib=libc++"
-    libc: $sysroot
-    interp: $env.interp
-    crt: $"($out)/lib/crt_interp.o"
-    runtimes: $"($sysroot)/lib"
-    prefix-map: $"($sysroot)=/sysroot:($out)=/cc"
-  } | items {|k, v| $"($k) = ($v)" } | str join "\n" | $in + "\n" | save $"($out)/etc/jig.conf"
+  let conf = {cc: $clang, flags: ($flags | str join " "), cxxflags: "-stdlib=libc++", prefix-map: $"($sysroot)=/sysroot:($out)=/cc"}
+  # the ELF link policy (interp via crt_interp.o, $ORIGIN RUNPATHs) keys off `libc`; PE needs none of it
+  let elf = (if $env.os == "linux" {
+    cp $env.crt_interp crt_interp.c  # compile from cwd: the STT_FILE symbol would otherwise record a store path
+    x clang ...(target) -O2 -fPIE -ffreestanding -nostdlib -nostdinc -fno-builtin -fno-stack-protector -fno-asynchronous-unwind-tables -c crt_interp.c -o $"($out)/lib/crt_interp.o"
+    {libc: $sysroot, interp: $env.interp, crt: $"($out)/lib/crt_interp.o", runtimes: $"($sysroot)/lib"}
+  } else { {} })
+  $conf | merge $elf | items {|k, v| $"($k) = ($v)" } | str join "\n" | $in + "\n" | save $"($out)/etc/jig.conf"
 
   # smoke test through the wrapper. Executed only when the target is the build machine
+  let exe = (if $env.os == "windows" { ".exe" } else { "" })
   "#include <stdio.h>\nint main(void) { puts(\"cc ok\"); }\n" | save -f hello.c
   "#include <print>\nint main() { std::println(\"c++ ok\"); }\n" | save -f hello.cc
-  x $"($out)/bin/cc" hello.c -o hello
-  x $"($out)/bin/c++" -std=c++23 hello.cc -o hello++
-  if $env.cpu == ($nu.os-info.arch) { say $"(x ./hello)(x ./hello++)" }
+  x $"($out)/bin/cc" hello.c -o $"hello($exe)"
+  x $"($out)/bin/c++" -std=c++23 hello.cc -o $"hello++($exe)"
+  if $env.os == "linux" and $env.cpu == ($nu.os-info.arch) { say $"(x ./hello)(x ./hello++)" }
 }

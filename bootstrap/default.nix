@@ -96,6 +96,7 @@ let
           triple
           cpu
           libc
+          os
           interp
           ;
         karch = platform.names.kernel;
@@ -249,9 +250,57 @@ let
         launch
         ;
     };
+  # Windows cross: mingw-w64 headers + CRT in place of linux-headers + glibc, otherwise stage1's shape
+  mingw =
+    cpu:
+    let
+      platform = platforms.mingw.${cpu};
+      run = mkStage platform (cached stage0.jig) [ stage0.cc ];
+      sysroot =
+        parts:
+        run "sysroot" {
+          inherit parts;
+          resource = compiler-rt;
+        };
+      mingw-headers = run "mingw-w64" {
+        src = source "mingw-w64";
+        headersOnly = "1";
+      };
+      compiler-rt = run "compiler-rt" {
+        src = source "llvm";
+        libcHeaders = mingw-headers;
+        list = pkg "llvm" + "/builtins-${cpu}-windows.txt";
+      };
+      mingw-w64 = run "mingw-w64" {
+        src = source "mingw-w64";
+        inherit compiler-rt;
+      };
+      runtimes = run "runtimes" {
+        src = source "llvm";
+        sysroot = sysroot [ mingw-w64 ];
+      };
+      cc = run "cc" {
+        sysroot = sysroot [
+          mingw-w64
+          runtimes
+        ];
+        native = stage0.cc;
+        prebuilt = stage0.jig;
+      };
+    in
+    {
+      inherit
+        platform
+        compiler-rt
+        mingw-w64
+        runtimes
+        cc
+        ;
+    };
 in
 {
   seed = seedPath;
   inherit stage0 source;
   stage1 = builtins.mapAttrs (cpu: _: stage1 cpu) platforms.glibc;
+  mingw = builtins.mapAttrs (cpu: _: mingw cpu) platforms.mingw;
 }

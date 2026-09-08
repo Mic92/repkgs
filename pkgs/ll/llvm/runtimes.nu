@@ -4,28 +4,32 @@
 # that cmake configure produces.
 use ../../../bootstrap/lib.nu *
 
+# `win`/`elf`: extra skip entries per os. On windows threads are win32 (support/win32 sources in,
+# no *_LINK_PTHREAD_LIB) and only static archives are built for now
 const LIBS = [
   { name: unwind, dir: "libunwind/src", glob: "*.{cpp,c,S}", skip: [Unwind_AIXExtras.cpp], std: "c++17", so: [-lc]
-    flags: [-D_LIBUNWIND_IS_NATIVE_ONLY -D_LIBUNWIND_LINK_DL_LIB -D_LIBUNWIND_LINK_PTHREAD_LIB -fno-exceptions -fno-rtti -fstrict-aliasing] }
+    flags: [-D_LIBUNWIND_IS_NATIVE_ONLY -fno-exceptions -fno-rtti -fstrict-aliasing], elf: [-D_LIBUNWIND_LINK_DL_LIB -D_LIBUNWIND_LINK_PTHREAD_LIB] }
   # cmake would also pass -DHAVE___CXA_THREAD_ATEXIT_IMPL (its probe is fooled by COMPILER_WORKS=ON);
   # musl lacks that symbol and libc++abi's own fallback is fine on glibc too
   # cxa_noexception.cpp is the -fno-exceptions alternative to cxa_exception/cxa_personality
-  { name: "c++abi", dir: "libcxxabi/src", glob: "*.cpp", skip: [cxa_noexception.cpp], std: "c++26", so: [-lunwind -lc]
-    flags: [-D_LIBCPP_BUILDING_LIBRARY -D_LIBCXXABI_BUILDING_LIBRARY -D_LIBCXXABI_LINK_PTHREAD_LIB -DLIBCXX_BUILDING_LIBCXXABI -fstrict-aliasing -fsized-deallocation -Ilibcxx/src] }
+  { name: "c++abi", dir: "libcxxabi/src", glob: "*.cpp", skip: [cxa_noexception.cpp], win_skip: [cxa_thread_atexit.cpp], std: "c++26", so: [-lunwind -lc]
+    flags: [-D_LIBCPP_BUILDING_LIBRARY -D_LIBCXXABI_BUILDING_LIBRARY -DLIBCXX_BUILDING_LIBCXXABI -fstrict-aliasing -fsized-deallocation -Ilibcxx/src], elf: [-D_LIBCXXABI_LINK_PTHREAD_LIB] }
   # new.cpp lives in libc++abi (stdlib_new_delete.cpp) when built against it. int128 builtins come
   # from compiler-rt. libdispatch is the Apple PSTL backend. support/{ibm,win32} are other OSes
-  { name: "c++", dir: "libcxx/src", glob: "{*,filesystem/*,ryu/*,pstl/*}.cpp"
-    skip: [new.cpp filesystem/int128_builtins.cpp pstl/libdispatch.cpp], std: "c++26", so: [-lc++abi -lunwind -lc]
-    flags: [-D_LIBCPP_BUILDING_LIBRARY -D_LIBCPP_LINK_PTHREAD_LIB -D_LIBCPP_LINK_RT_LIB -D_LIBCPP_REMOVE_TRANSITIVE_INCLUDES -DLIBCXX_BUILDING_LIBCXXABI -DLIBC_NAMESPACE=__llvm_libc_common_utils -fvisibility=hidden -faligned-allocation -fsized-deallocation -Ilibcxx/src -Ilibc] }
+  { name: "c++", dir: "libcxx/src", glob: "{*,filesystem/*,ryu/*,pstl/*,support/win32/*}.cpp"
+    skip: [new.cpp filesystem/int128_builtins.cpp pstl/libdispatch.cpp], elf_skip: [support/win32/compiler_rt_shims.cpp support/win32/locale_win32.cpp support/win32/support.cpp support/win32/thread_win32.cpp]
+    std: "c++26", so: [-lc++abi -lunwind -lc]
+    flags: [-D_LIBCPP_BUILDING_LIBRARY -D_LIBCPP_LINK_RT_LIB -D_LIBCPP_REMOVE_TRANSITIVE_INCLUDES -DLIBCXX_BUILDING_LIBCXXABI -DLIBC_NAMESPACE=__llvm_libc_common_utils -fvisibility=hidden -faligned-allocation -fsized-deallocation -Ilibcxx/src -Ilibc], elf: [-D_LIBCPP_LINK_PTHREAD_LIB] }
   { name: "c++experimental", dir: "libcxx/src/experimental", glob: "*.cpp", skip: [], std: "c++26", so: null
-    flags: [-D_LIBCPP_BUILDING_LIBRARY -D_LIBCPP_LINK_PTHREAD_LIB -D_LIBCPP_LINK_RT_LIB -D_LIBCPP_REMOVE_TRANSITIVE_INCLUDES -DLIBCXX_BUILDING_LIBCXXABI -D_LIBCPP_ENABLE_EXPERIMENTAL -fvisibility=hidden -faligned-allocation -fsized-deallocation] }
+    flags: [-D_LIBCPP_BUILDING_LIBRARY -D_LIBCPP_LINK_RT_LIB -D_LIBCPP_REMOVE_TRANSITIVE_INCLUDES -DLIBCXX_BUILDING_LIBCXXABI -D_LIBCPP_ENABLE_EXPERIMENTAL -fvisibility=hidden -faligned-allocation -fsized-deallocation], elf: [-D_LIBCPP_LINK_PTHREAD_LIB] }
 ]
 
 # libcxx/include/__config_site.in as cmake fills it for: stable ABI v1 namespace __1, pthreads,
 # filesystem + localization + unicode + wide chars + tzdb on, std::thread PSTL backend,
 # hardening "fast" (4) with the hardening-dependent assertion semantic (2), as libcxx/CMakeLists.txt
 # encodes LIBCXX_HARDENING_MODE / LIBCXX_ASSERTION_SEMANTIC
-def config-site [musl: bool]: nothing -> string {
+def config-site [libc: string]: nothing -> string {
+  let win = ($libc == "mingw")
   $"#ifndef _LIBCPP___CONFIG_SITE
 #define _LIBCPP___CONFIG_SITE
 #define _LIBCPP_ABI_VERSION 1
@@ -34,10 +38,10 @@ def config-site [musl: bool]: nothing -> string {
 #define _LIBCPP_ABI_FORCE_MICROSOFT 0
 #define _LIBCPP_HAS_THREADS 1
 #define _LIBCPP_HAS_MONOTONIC_CLOCK 1
-#define _LIBCPP_HAS_MUSL_LIBC (if $musl { 1 } else { 0 })
+#define _LIBCPP_HAS_MUSL_LIBC (if $libc == "musl" { 1 } else { 0 })
 #define _LIBCPP_HAS_THREAD_API_PTHREAD 0
 #define _LIBCPP_HAS_THREAD_API_EXTERNAL 0
-#define _LIBCPP_HAS_THREAD_API_WIN32 0
+#define _LIBCPP_HAS_THREAD_API_WIN32 (if $win { 1 } else { 0 })
 #define _LIBCPP_HAS_THREAD_API_C11 0
 #define _LIBCPP_HAS_VENDOR_AVAILABILITY_ANNOTATIONS 0
 #define _LIBCPP_HAS_FILESYSTEM 1
@@ -45,7 +49,7 @@ def config-site [musl: bool]: nothing -> string {
 #define _LIBCPP_HAS_LOCALIZATION 1
 #define _LIBCPP_HAS_UNICODE 1
 #define _LIBCPP_HAS_WIDE_CHARACTERS 1
-#define _LIBCPP_HAS_TIME_ZONE_DATABASE 1
+#define _LIBCPP_HAS_TIME_ZONE_DATABASE (if $win { 0 } else { 1 })
 #define _LIBCPP_INSTRUMENTED_WITH_ASAN 0
 #define _LIBCPP_PSTL_BACKEND_STD_THREAD
 #define _LIBCPP_HARDENING_MODE_DEFAULT 4
@@ -63,7 +67,7 @@ def install-headers [src: path, inc: path]: nothing -> nothing {
   mkdir $v1
   x cp -r $"($src)/libcxx/include/." $v1
   rm -f $"($v1)/CMakeLists.txt" $"($v1)/__config_site.in" $"($v1)/module.modulemap.in"
-  (config-site ($env.libc == musl)) | save $"($v1)/__config_site"
+  (config-site $env.libc) | save $"($v1)/__config_site"
   cp $"($src)/libcxx/vendor/llvm/default_assertion_handler.in" $"($v1)/__assertion_handler"
   for h in [cxxabi.h __cxxabi_config.h] { cp $"($src)/libcxxabi/include/($h)" $inc }
   copy-tree $"($src)/libunwind/include" $inc "**/*.h"
@@ -84,25 +88,28 @@ def main []: nothing -> nothing {
     $"-I($out)/include/c++/v1" -Ilibcxxabi/include -Ilibunwind/include -w
   ]
   let link = (ccflags) ++ [-nostdlib++ -shared "-Wl,-z,defs" $"-L($out)/lib"]
+  let elf = ($env.os == "linux")
 
   # objects per library built so far: each static archive carries the layers below it (upstream's
   # LIBCXX{,ABI}_STATICALLY_LINK_UNWINDER_IN_STATIC_LIBRARY), so `-static -lc++` needs no -lc++abi -lunwind
   $LIBS | reduce -f {} {|l, built|
     let std = {|f| if ($f | str ends-with ".cpp") { [$"-std=($l.std)"] } else if ($f | str ends-with ".c") { [-std=c11] } else { [] } }
+    let skip = $l.skip ++ (if $elf { $l.elf_skip? | default [] } else { $l.win_skip? | default [] })
     let items = (glob $"($l.dir)/($l.glob)" | each { path relative-to $env.PWD } | sort
-      | where {|f| ($f | path relative-to $l.dir) not-in $l.skip }
+      | where {|f| ($f | path relative-to $l.dir) not-in $skip }
       | each {|f| {src: $f, obj: $"($obj)/($l.name)/($f).o", flags: (do $std $f)} })
     say $"lib($l.name): ($items | length) files"
-    let objs = (compile ($common ++ $l.flags) $items)
+    let objs = (compile ($common ++ $l.flags ++ (if $elf { $l.elf? | default [] } else { [] })) $items)
     let carried = (match $l.name { "c++abi" => [unwind], "c++" => [unwind "c++abi"], _ => [] } | each {|b| $built | get $b } | flatten)
     archive $"($out)/lib/lib($l.name).a" ($objs ++ $carried)
-    if $l.so != null {
+    if $elf and $l.so != null {
       let so = $"lib($l.name).so.1"
       x clang ...$link $"-Wl,-soname,($so)" -o $"($out)/lib/($so).0" ...$objs ...$carried ...$l.so
       x ln -s $"($so).0" $"($out)/lib/($so)"
     }
     $built | insert $l.name $objs
   } | ignore
+  if not $elf { return }
   # link-time names. libc++.so is a linker script (as upstream installs it) so -lc++ alone is enough
   x ln -s libunwind.so.1 $"($out)/lib/libunwind.so"
   x ln -s libc++abi.so.1 $"($out)/lib/libc++abi.so"

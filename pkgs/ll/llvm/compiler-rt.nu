@@ -28,6 +28,11 @@ def main []: nothing -> nothing {
   mkdir $libdir
   archive $"($libdir)/libclang_rt.builtins.a" (compile $common $items)
 
+  # resource dir = these libs + clang's own intrinsics headers (shipped in the seed)
+  copy-tree (^clang --print-resource-dir | str trim | path join include) $"($out)/include"
+  # ELF only: crtbegin/crtend (mingw-w64's CRT brings its own), the profile runtime, GCC crt names
+  if $env.os != "linux" { return }
+
   let crtflags = [-DCRT_HAS_INITFINI_ARRAY -DEH_USE_FRAME_REGISTRY]
   compile $common [
     {src: $"($b)/crtbegin.c", obj: $"($libdir)/clang_rt.crtbegin.o", flags: $crtflags}
@@ -47,6 +52,4 @@ def main []: nothing -> nothing {
   cd $libdir
   for n in [crtbegin.o crtbeginS.o crtbeginT.o] { x ln -s clang_rt.crtbegin.o $n }
   for n in [crtend.o crtendS.o] { x ln -s clang_rt.crtend.o $n }
-  # resource dir = these libs + clang's own intrinsics headers (shipped in the seed)
-  copy-tree (^clang --print-resource-dir | str trim | path join include) $"($out)/include"
 }

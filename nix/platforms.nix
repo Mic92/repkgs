@@ -57,7 +57,9 @@ let
       interp.glibc = "ld-linux-loongarch-lp64d.so.1";
       glibcConfigure = [ ];
     };
-    # POWER9 and later, little endian, ELFv2, IEEE long double (what current distros ship)
+    # POWER9 and later, little endian, ELFv2, IEEE long double (what current distros ship).
+    # musl only: glibc's powerpc64le configure requires -mno-gnu-attribute and ld
+    # --no-tls-get-addr-optimize, which clang/lld do not have
     powerpc64le = {
       names = {
         kernel = "powerpc";
@@ -79,6 +81,7 @@ let
     (removeAttrs c [ "names" ])
     // {
       inherit cpu libc;
+      os = "linux";
       names = builtins.mapAttrs (n: _: c.names.${n} or cpu) {
         kernel = null;
         go = null;
@@ -97,9 +100,32 @@ let
       interp = if libc == "musl" then "ld-musl-${cpu}.so.1" else c.interp.glibc;
       flags = c.march ++ c.hardening;
     };
+  # Windows via mingw-w64 (ucrt): PE has no interp/RUNPATH, DLLs beside the .exe are already
+  # relocatable, so finish/launchers have nothing to do. -fcf-protection is ELF-only (CET notes).
+  mingw =
+    cpu:
+    let
+      c = cpus.${cpu};
+    in
+    {
+      inherit cpu;
+      inherit (c) march;
+      libc = "mingw";
+      os = "windows";
+      inherit (mk cpu "glibc") names;
+      name = "${cpu}-windows";
+      triple = "${cpu}-w64-mingw32";
+      interp = "";
+      hardening = [ ];
+      flags = c.march;
+    };
 in
 {
   forSystem = system: libc: mk (builtins.head (builtins.split "-" system)) libc;
-  glibc = builtins.mapAttrs (cpu: _: mk cpu "glibc") cpus;
+  glibc = builtins.mapAttrs (cpu: _: mk cpu "glibc") (removeAttrs cpus [ "powerpc64le" ]);
   musl = builtins.mapAttrs (cpu: _: mk cpu "musl") cpus;
+  mingw = {
+    x86_64 = mingw "x86_64";
+    aarch64 = mingw "aarch64";
+  };
 }

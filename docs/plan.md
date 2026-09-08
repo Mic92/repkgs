@@ -16,7 +16,8 @@ and the few pure libraries C projects import at build time. Applications bring `
 `fetch.pythonDeps { source }` is a dynamic derivation like cargoVendor.
 
 **Seed 3** (building): LLVM 23.1.1 from our own pin with LoongArch and PowerPC backends.
-Then: loongarch64 and powerpc64le cross platforms verified (platform entries,
+Then: loongarch64 cross verified; powerpc64le stays musl-only until glibc's configure stops
+requiring GCC/BFD-only flags (`-mno-gnu-attribute`, `--no-tls-get-addr-optimize`) or we patch it (platform entries,
 builtins lists, qemu targets, rust-std, GOARCH are in); aarch64 seed uploaded. Later the seed is
 built from this set's own musl-static packages instead of nixpkgs `pkgsStatic`, fixed point in CI.
 
@@ -25,6 +26,13 @@ as the libc recipes, compiler-rt/runtimes/cc as in stage1, `lld` for PE. A `ming
 in platforms.nix without interp/RUNPATH (finish/launchers treat non-ELF as done; DLLs beside the
 exe are already relocatable), `.exe` naming in install steps, `wine` as platform.emulator,
 `x86_64-pc-windows-gnu`/`GOOS=windows` in cargo.nu/go.nu. No MSVC ABI (needs the unfree SDK).
+
+**FreeBSD / NetBSD cross.** ELF and clang-native upstream, so the Linux machinery carries over:
+`<cpu>-unknown-freebsd14` / `-netbsd10` triples, interp `/libexec/ld-elf.so.1` /
+`/usr/libexec/ld.elf_so`, crt_interp + `$ORIGIN` + launchers unchanged, compiler-rt/runtimes with
+an `os` switch instead of `linuxHeaders`. libc first as the release's `base.txz` (one hash-pinned
+source per release), later built from `src.txz` (`lib/libc`, `csu`, `libthr`, `libm`). GOOS and
+rust-std exist upstream. No user-mode emulator: untested builds, or a qemu-system VM job in CI.
 
 **macOS cross (aarch64/x86_64-apple-darwin), SDK from source.** No Xcode: an `apple-sdk` recipe
 assembles libSystem headers from Apple's open-source releases (xnu, Libc, libpthread,
