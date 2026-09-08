@@ -48,6 +48,11 @@ pkgs.treefmt.withConfig {
         ];
         includes = [ "*.nix" ];
       };
+      go = {
+        command = "${pkgs.go}/bin/gofmt";
+        options = [ "-w" ];
+        includes = [ "pkgs/*/*/src/*.go" ];
+      };
       cpp = {
         command = "${llvm.clang-tools}/bin/clang-format";
         options = [ "-i" ];

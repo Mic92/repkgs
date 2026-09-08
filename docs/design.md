@@ -747,7 +747,7 @@ the tree. Numbers are from a 16-core x86_64 builder.
 | 1–4 | eval cost of package abstraction, overrides, lib | plain functions + one verb tree. 0.36 s / 1000 packages | `nix/package.nix`, `default.nix` |
 | 5 | relocatable ELF without patching ld.so | link-time `crt_interp.o` + wrapper RUNPATH policy + in-place fixup. x86_64/aarch64/riscv64, gdb/perf fine | `cc/crt_interp.c`, `cc/jig.cc` (driver + `reloc-fixup`) |
 | 6 | relocatable *closure* (python, openssl, curl) | only glibc gconv and openssl providers need dirname-relative patches. CA data ambient | `bootstrap/patches/glibc-gconv-relative.patch`, `pkgs/op/openssl/relocatable.patch` |
-| 6b | compile cache inside the sandbox | daemon socket via `extra-sandbox-paths`. C (sqlite3.c 82 s → 0.08 s), Rust rlibs (fd 218 s → 1.4 s), Go (GOCACHEPROG). bit-identical, zero cost without socket | `cc/jig.cc`, `pkgs/ji/jig/cache-server.py` |
+| 6b | compile cache inside the sandbox | daemon socket via `extra-sandbox-paths`. C (sqlite3.c 82 s → 0.08 s), Rust rlibs (fd 218 s → 1.4 s), Go (GOCACHEPROG). bit-identical, zero cost without socket | `pkgs/ji/jig`, `pkgs/pk/pkgs-cache` |
 | 7 | can nu + clang build without sh/make | yes: musl, compiler-rt, libc++, dash, toybox from file lists. Make and kernel headers via their own scripts under that dash | `bootstrap/*.nu`, `pkgs/ll/llvm/` |
 | 8 | builder API | blind LLM test of 5 variants: build systems as nu modules + name-only step list won 15/15. hooks/phases lost | `builder/`, `nix/build-systems.nix` |
 | 9 | glibc with clang/lld | 2.43+ yes (2.44: 247 s). LAHF/MOVBE configure probes GCC-only (cache vars). Test delta vs gcc ≈ 35 real | `pkgs/gl/glibc/bootstrap.nu`, `platforms.nix` (`glibcConfigure`) |

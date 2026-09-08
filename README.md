@@ -30,7 +30,7 @@ default.nix  { platform } → the set;  standins.nix  the one `import <nixpkgs>`
 ```
 
 In-tree programs: `pkgs/ji/jig` (compiler entry point, compile cache client, ELF fixup, Nix
-worker-protocol client, plus `cache-server.py`), `pkgs/la/launch` (the static launcher behind every
+worker-protocol client), `pkgs/pk/pkgs-cache` (the host-side cache daemon), `pkgs/la/launch` (the static launcher behind every
 script), `pkgs/cr/crt-interp` (the PT_INTERP stub linked into every executable), `pkgs/up/uptrack`
 (the update tool), `pkgs/se/seed/build.nix` (rebuilds the binary seed). `pkgs/ll/llvm` carries the
 toolchain recipes (compiler-rt, runtimes, cc) and compiler-rt's generated file lists.
@@ -82,7 +82,7 @@ pkgsStatic, later from this set's own musl-static packages) and pinned in `pkgs/
 
 Optional and transparent: if `/run/pkgs-cache.sock` exists in the sandbox
 (`--option extra-sandbox-paths /run/pkgs-cache.sock=/path/to/sock`, daemon:
-`python3 pkgs/ji/jig/cache-server.py /path/to/sock`), `cc` caches C/C++ objects, `rustcwrap` rlibs and
+`pkgs-cache /path/to/sock`, `nix-build -A pkgs-cache` or `go build` in pkgs/pk/pkgs-cache/src), `cc` caches C/C++ objects, `rustcwrap` rlibs and
 `gocacheprog` Go actions, keyed on content + flags. Without the socket everything compiles normally.
 Each build log ends with a `cache` line (`hit=812 miss-stored=3 plain=40 …`). To never forget the
 option, put `extra-sandbox-paths = /run/pkgs-cache.sock=/path/to/sock` in `nix.conf`.
