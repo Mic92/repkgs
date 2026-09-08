@@ -92,11 +92,8 @@ on `sources.toml`. Next: lock generation for `fetch.*Deps` packages, reports/`sy
   try_compile state embeds build paths, measure before attempting. Unstable
   failing probes: `miss-fail`/`miss-stored-fail` recur on identical rebuilds, so some conftest
   key changes every run; find it with JIG_LOG_ARGS.
-- Unpack once: source unpacking is single-threaded xz/gzip decode inside every package build
-  (llvm ~15 s, cpython ~3 s per rebuild). Make the unpacked tree its own CA derivation
-  (`fetch.unpacked source`, just bsdtar into $out) so Nix caches it, and have prepare.nu
-  `cp -a --reflink=auto` it into the build dir. Shared by the package and its tests drv.
-  Prefer .tar.zst/.tar.gz URLs in sources.toml where upstream offers them.
+- Unpack in the fetcher: sources are unpacked by a second (CA) derivation after builtin:fetchurl.
+  Once the seed can fetch (static curl + CA bundle), make it one fixed-output derivation.
 - jig hashes link inputs serially; if llvm's link lookups (hundreds of MB of archives) show up,
   hash large inputs on a few threads. Headers are too small for that to pay.
 - rustc cache keys change when only the vendor store path changes (fd: `rs-miss-stored=57`).

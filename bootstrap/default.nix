@@ -9,7 +9,6 @@
   system ? builtins.currentSystem,
 }:
 let
-  sources = import ../nix/sources.nix;
   platforms = import ../nix/platforms.nix;
   pkg = name: ../pkgs + "/${builtins.substring 0 2 name}/${name}";
 
@@ -20,7 +19,16 @@ let
       builtins.storePath seed
     else
       seed;
-  source' = name: sources (pkg name + "/sources.toml");
+  # the seed's own sources.toml is read without an unpacker: it is the unpacker
+  sources = import ../nix/sources.nix {
+    unpacker = seedPath;
+    inherit system;
+  };
+  source' =
+    name:
+    (if name == "seed" then import ../nix/sources.nix { unpacker = null; } else sources) (
+      pkg name + "/sources.toml"
+    );
   source = name: (source' name).default;
 
   recipes = {

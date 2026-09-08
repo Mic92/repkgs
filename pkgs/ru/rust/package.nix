@@ -24,8 +24,7 @@ package {
       name = "install";
       run = ''
         let c = (ctx)
-        for t in ($env.components | split row " ") { x bsdtar -xf $t --no-same-owner }
-        for d in (["."] ++ (ls | where name =~ '^(cargo|rust-std)-' | get name)) {
+        for d in (["."] ++ ($env.components | split row " ")) {
           x sh $"($d)/install.sh" $"--prefix=($c.out)" --disable-ldconfig
         }
         # rust-lld and friends: cargo.nu links with cc. etc: bash completions

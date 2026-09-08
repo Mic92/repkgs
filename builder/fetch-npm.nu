@@ -49,12 +49,7 @@ def fetch-drv [url: string, sri: string]: nothing -> record<drv: string, out: st
 def main []: nothing -> nothing {
   let seed = $env.seed
   let lock_rel = ([$env.root package-lock.json] | path join)
-  if ($env.lockFile? | default "") != "" {
-    cp $env.lockFile package-lock.json
-  } else {
-    ^$"($seed)/bin/bsdtar" -xf $env.source --strip-components 1 $"*/($lock_rel)"
-    if $env.root != "." { mv $lock_rel package-lock.json }
-  }
+  cp (if ($env.lockFile? | default "") != "" { $env.lockFile } else { $"($env.source)/($lock_rel)" }) package-lock.json
   let lock = (open package-lock.json)
   if ($lock.lockfileVersion? | default 1) < 2 {
     error make {msg: "npmDeps: package-lock.json v1 is not supported (run `npm i --lockfile-version 3`)"}

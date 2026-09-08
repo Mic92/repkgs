@@ -5,6 +5,7 @@ purl = "pkg:github/nlohmann/json"
 key = "default"
 url = "https://github.com/nlohmann/json/releases/download/{tag}/json.hpp"
 hash = "sha256-qvEnwEyzHEBuWwSmPxrok2n8zebY+nzdoe1PMt/F3mM="
+unpack = false
 
 [pin]
 version = "3.12.0"

@@ -90,7 +90,10 @@ let
     platform = plat;
     pkgs = self;
   };
-  readSources = import ./nix/sources.nix;
+  readSources = import ./nix/sources.nix {
+    unpacker = bootstrap.seed;
+    inherit system;
+  };
   callPackage =
     dir:
     let

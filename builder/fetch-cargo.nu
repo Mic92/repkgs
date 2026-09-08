@@ -38,9 +38,8 @@ def crate-drv []: record<name: string, version: string, checksum: string> -> rec
 
 def main []: nothing -> nothing {
   let seed = $env.seed
-  ^$"($seed)/bin/bsdtar" -xf $env.source --strip-components 1 "*/Cargo.lock"
   # workspace members have no `source`, everything else must be crates.io
-  let packages = (open --raw Cargo.lock | from toml | get package)
+  let packages = (open --raw $"($env.source)/Cargo.lock" | from toml | get package)
   let foreign = ($packages | where {|p| $p.source? != null and $p.source? != $CRATES_IO })
   if ($foreign | is-not-empty) {
     error make {msg: $"cargoVendor: unsupported sources: ($foreign | select name source | to nuon)"}

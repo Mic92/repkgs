@@ -6,15 +6,11 @@ use ../../../bootstrap/lib.nu *
 
 def main []: nothing -> nothing {
   let out = $env.out
-  let b3 = $"($env.NIX_BUILD_TOP)/blake3"
-  mkdir $b3 $"($out)/bin"
-  x bsdtar -xf $env.blake3 -C $b3 --strip-components 2 "*/c"
+  let b3 = $"($env.blake3)/c"
+  let lz4 = $"($env.lz4)/lib"
   let jsn = $"($env.NIX_BUILD_TOP)/json"
-  mkdir $jsn
+  mkdir $jsn $"($out)/bin"
   cp $env.json_hpp $"($jsn)/json.hpp"
-  let lz4 = $"($env.NIX_BUILD_TOP)/lz4"
-  mkdir $lz4
-  x bsdtar -xf $env.lz4 -C $lz4 --strip-components 2 "*/lib/lz4.[ch]"
   cd $env.NIX_BUILD_TOP
 
   # BLAKE3: portable C plus the hand-written SIMD for this cpu (x86-64: .S files, aarch64: NEON intrinsics)
@@ -25,7 +21,7 @@ def main []: nothing -> nothing {
   })
   let b3objs = (compile ((ccflags) ++ [-O3 -fPIC $"-I($b3)"] ++ $simd.defs) (
     [blake3.c blake3_dispatch.c blake3_portable.c] | each { $"($b3)/($in)" } | append $simd.srcs | append $"($lz4)/lz4.c"
-    | each {|f| {src: $f, obj: $"($b3)/($f | path basename).o"} }))
+    | each {|f| {src: $f, obj: $"obj/($f | path basename).o"} }))
 
   let cxxflags = (ccflags | where { $in != "-unwindlib=none" }) ++ [
     -x c++ -std=c++26 -stdlib=libc++ -O2 -Wall -Wextra -Werror -Wno-unused-command-line-argument

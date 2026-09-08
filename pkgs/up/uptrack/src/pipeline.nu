@@ -93,7 +93,7 @@ export def decide [pkgs: table, --prerelease]: nothing -> table {
         (if ($young | is-not-empty) { $"($young | length) newer held by every=($u.every)" })
         (do { let p = $pkg.candidates | where prerelease | get version | where {|v| (version cmp $v $best) > 0 } | version max; if $p != null { $"pre-release ($p) ignored" } })
       ] | compact | str join ', '
-      let sources = $pkg.source | each {|s| {key: $s.key, url: (expand $s.url $best ($c.tag? | default $best)), unpack: ($s.unpack? | default false)} }
+      let sources = $pkg.source | each {|s| {key: $s.key, url: (expand $s.url $best ($c.tag? | default $best)), unpack: ($s.unpack? | default true)} }
       let entry = $out | merge {to: $best, note: $notes, candidate: $c, sources: $sources}
       if (has-hook $pkg sources) { $entry | merge (hook $pkg sources $pkg $entry) } else { $entry }
     }
@@ -115,7 +115,8 @@ export def prefetch [url: string, unpack: bool]: nothing -> string {
 export def apply [entry: record]: nothing -> record {
   let hashes = $entry.sources | each {|s|
     print -e $"  ($s.url)"
-    let known = if $s.url == $entry.candidate.url? and $entry.candidate.sha256? != null { ^nix hash convert --hash-algo sha256 --to sri $entry.candidate.sha256 | str trim }
+    # an upstream-published sha256 is the flat file hash, only usable for unpack = false
+    let known = if (not $s.unpack) and $s.url == $entry.candidate.url? and $entry.candidate.sha256? != null { ^nix hash convert --hash-algo sha256 --to sri $entry.candidate.sha256 | str trim }
     {key: $s.key, hash: ($known | default { prefetch $s.url $s.unpack })}
   }
   let t = open $entry.file

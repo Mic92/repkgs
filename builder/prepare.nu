@@ -67,7 +67,9 @@ def fix-env-shebangs [njobs: int]: nothing -> nothing {
 
 def --env unpack [a: record, src: path, njobs: int]: nothing -> nothing {
   note unpack $a.src
-  if ($a.src | path type) == "dir" { ^cp -r $"($a.src)/." $src } else {
+  # sources arrive unpacked (nix/sources.nix); a tarball only when a package says unpack = false.
+  # -p: the store's uniform mtimes keep generated files "newer" than their inputs for make
+  if ($a.src | path type) == "dir" { ^cp -rp $"($a.src)/." $src } else {
     ^bsdtar -xf $a.src -C $src --strip-components 1 --no-same-owner --no-same-permissions
   }
   ^chmod -R u+w $src

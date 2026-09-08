@@ -39,7 +39,8 @@ purl = "pkg:github/sharkdp/fd"     # identity; picks datasource and default vers
 [[source]]
 key = "default"                    # free-form: default, x86_64-linux, docs…
 url = "https://github.com/sharkdp/fd/archive/refs/tags/v{version}.tar.gz"
-hash = "sha256-…"                  # tool
+hash = "sha256-…"                  # tool; NAR hash of the unpacked tree
+# unpack = false                   # keep the file as is (single files); hash is then the flat sha256
 
 [pin]                              # tool
 version = "10.5.0"

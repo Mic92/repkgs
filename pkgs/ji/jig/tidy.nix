@@ -4,13 +4,14 @@
 let
   src =
     name:
-    (import ../../../nix/sources.nix (../.. + "/${builtins.substring 0 2 name}/${name}/sources.toml"))
-    .default;
+    (import ../../../nix/sources.nix { unpacker = null; } (
+      ../.. + "/${builtins.substring 0 2 name}/${name}/sources.toml"
+    )).default;
   thirdParty = pkgs.runCommand "jig-third-party" { } ''
     mkdir -p $out/include
     tar -xf ${src "blake3"} -C $out/include --strip-components=2 --wildcards '*/c/blake3.h'
-    ln -s ${src "nlohmann-json"} $out/include/json.hpp
     tar -xf ${src "lz4"} -C $out/include --strip-components=2 --wildcards '*/lib/lz4.h'
+    ln -s ${src "nlohmann-json"} $out/include/json.hpp
   '';
 in
 # clang-tools' wrapper picks up libc++ and libc from the calling shell's libcxx stdenv

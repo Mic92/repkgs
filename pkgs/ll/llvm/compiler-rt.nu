@@ -5,7 +5,7 @@ use ../../../bootstrap/lib.nu *
 
 def main []: nothing -> nothing {
   let out = $env.out
-  let src = (unpack llvm "*/compiler-rt" "*/third-party/siphash")
+  let src = (unpack llvm compiler-rt third-party/siphash)
   let b = $"($src)/compiler-rt/lib/builtins"
   let obj = $"($env.NIX_BUILD_TOP)/obj"
   let libdir = $"($out)/lib/($env.triple)"

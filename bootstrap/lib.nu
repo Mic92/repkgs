@@ -25,11 +25,17 @@ export def tool [name: string]: nothing -> path {
   $hits | first | get path
 }
 
-# Unpack $env.src into $NIX_BUILD_TOP/<name>. `only` limits extraction to path patterns.
+# Copy the (already unpacked) $env.src to $NIX_BUILD_TOP/<name>, writable. `only` limits it to subdirectories.
 export def unpack [name: string, ...only: string]: nothing -> path {
   let dest = $"($env.NIX_BUILD_TOP)/($name)"
   mkdir $dest
-  x bsdtar -C $dest --strip-components=1 --no-same-permissions --no-same-owner -xf $env.src ...$only
+  # -p: the store's uniform mtimes keep generated files "newer" than their inputs for make
+  if ($only | is-empty) { x cp -rp $"($env.src)/." $dest }
+  for d in $only {
+    mkdir ($"($dest)/($d)" | path dirname)
+    x cp -rp $"($env.src)/($d)" $"($dest)/($d)"
+  }
+  x chmod -R u+w $dest
   $dest
 }
 

@@ -68,7 +68,7 @@ def install-headers [src: path, inc: path]: nothing -> nothing {
 def main []: nothing -> nothing {
   let out = $env.out
   # libc++ 21 includes llvm-libc's internal headers (libc/shared, from_chars) The rest of the monorepo stays packed
-  let src = (unpack llvm "*/libcxx" "*/libcxxabi" "*/libunwind" "*/libc/shared" "*/libc/src/__support" "*/libc/include" "*/libc/hdr" "*/runtimes" "*/cmake")
+  let src = (unpack llvm libcxx libcxxabi libunwind libc/shared libc/src/__support libc/include libc/hdr runtimes cmake)
   let obj = $"($env.NIX_BUILD_TOP)/obj"
   install-headers $src $"($out)/include"
   mkdir $"($out)/lib"

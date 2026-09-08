@@ -86,7 +86,8 @@ let
   # glibc's build runs python scripts. No extension modules, no ensurepip: the stdlib as source
   python = ps.stdenv.mkDerivation {
     name = "seed-python";
-    src = (import ../../../nix/sources.nix ../../cp/cpython314/sources.toml).default;
+    src =
+      (import ../../../nix/sources.nix { unpacker = null; } ../../cp/cpython314/sources.toml).default;
     # everything that would want a library we do not ship
     preConfigure = ''
       cat > Modules/Setup.local <<EOF
