@@ -209,19 +209,15 @@ auto ParseRustInvocation(std::span<const std::string> args) -> RustInvocation {
   return inv;
 }
 
-auto RunRustcMode(std::span<const std::string> argv, const std::string& socket_path) -> int {
+// cargo's RUSTC_WRAPPER: args = [rustc, rustc args...]
+auto RunRustcMode(std::span<const std::string> args, const std::string& socket_path) -> int {
   const Stopwatch clock;
-  // as cargo's RUSTC_WRAPPER argv[1] is the real rustc. Otherwise $JIG_RUSTC names it
-  std::string rustc = Env("JIG_RUSTC");
-  std::span<const std::string> args = argv.subspan(1);
-  if (!args.empty() && args.at(0).ends_with("rustc")) {
-    rustc = args.at(0);
-    args = args.subspan(1);
-  }
-  if (rustc.empty()) {
-    std::println(stderr, "jig: JIG_RUSTC unset");
+  if (args.empty()) {
+    std::println(stderr, "rustcwrap: usage: rustcwrap <rustc> args...");
     return 1;
   }
+  const std::string& rustc = args.front();
+  args = args.subspan(1);
   const RustInvocation inv = ParseRustInvocation(args);
   const std::string label = inv.crate_name.empty() ? inv.source : inv.crate_name + inv.extra_filename;
 

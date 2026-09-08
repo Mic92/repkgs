@@ -30,7 +30,7 @@ struct RustInvocation {
 
 auto ParseRustInvocation(std::span<const std::string> args) -> RustInvocation;
 
-auto RunRustcMode(std::span<const std::string> argv, const std::string& socket_path) -> int;
+auto RunRustcMode(std::span<const std::string> args, const std::string& socket_path) -> int;
 
 }  // namespace jig
 

@@ -1,6 +1,6 @@
-// jig: the `cc` behind every package. One static binary, mode chosen by argv[0] basename
-// (or $JIG_MODE): cc/c++/gcc/g++/clang/clang++ -> compiler driver + compile cache,
-// rustcwrap -> cargo RUSTC_WRAPPER, gocacheprog -> GOCACHEPROG server, reloc-fixup -> ELF fixup.
+// jig: the `cc` behind every package. One static binary; the mode is argv[0]'s basename when it
+// is a symlink (cc c++ rustcwrap gocacheprog reloc-fixup) or argv[1] when run as `jig <mode>`
+// (nix-store, cache). Anything else is the compiler driver + compile cache.
 // Built and configured by bootstrap/{jig,cc}.nu. See the mode headers for details.
 //
 //   JIG_SOCK  cache socket (default /run/pkgs-cache.sock) Absent -> everything runs uncached
@@ -10,37 +10,70 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "base.h"
+#include "cache_client.h"
 #include "cc_mode.h"
 #include "fixup_mode.h"
 #include "gocache_mode.h"
 #include "nix_store_mode.h"
 #include "rustc_mode.h"
 
+namespace {
+
+// jig cache get|put <key> <file>: plain blobs, for fetchers (nix/fetch.nix goModules)
+auto RunCacheMode(std::span<const std::string> args, const std::string& socket_path) -> int {
+  if (args.size() != 3) {
+    return 1;
+  }
+  jig::CacheClient cache;
+  if (!cache.Connect(socket_path)) {
+    return 2;
+  }
+  const std::string& key = args.at(1);
+  const std::string& file = args.at(2);
+  if (args.at(0) == "put") {
+    const std::optional<std::string> data = jig::ReadFile(file);
+    if (data) {
+      cache.Put(key, *data);
+    }
+    return data ? 0 : 1;
+  }
+  const std::optional<std::string> blob = cache.Get(key);
+  return blob && jig::WriteFile(file, *blob) ? 0 : 1;
+}
+
+}  // namespace
+
 auto main(int argc, char** argv) -> int {
   const std::span<char*> raw(argv, static_cast<size_t>(argc));
-  const std::vector<std::string> args(raw.begin(), raw.end());
+  const std::vector<std::string> all(raw.begin(), raw.end());
   const std::string socket_path = jig::Env("JIG_SOCK", "/run/pkgs-cache.sock");
-  const std::string mode_env = jig::Env("JIG_MODE");
-  const std::string self = args.empty() ? "" : std::filesystem::path(args.at(0)).filename().string();
-  const auto is_mode = [&](std::string_view name) -> bool { return mode_env == name || self == name; };
-
-  if (is_mode("nix-store") || (args.size() > 1 && args.at(1) == "nix-store")) {
-    return jig::RunNixStoreMode(std::span(args).subspan(self == "nix-store" ? 1 : 2));
+  std::string mode = all.empty() ? "" : std::filesystem::path(all.at(0)).filename().string();
+  std::span<const std::string> args = std::span(all).subspan(all.empty() ? 0 : 1);
+  if (mode == "jig" && !args.empty()) {
+    mode = args.front();
+    args = args.subspan(1);
   }
-  if (is_mode("gocacheprog")) {
+  if (mode == "nix-store") {
+    return jig::RunNixStoreMode(args);
+  }
+  if (mode == "cache") {
+    return RunCacheMode(args, socket_path);
+  }
+  if (mode == "gocacheprog") {
     return jig::RunGoCacheProg(socket_path);
   }
-  if (is_mode("rustcwrap") || mode_env == "rustc") {
+  if (mode == "rustcwrap") {
     return jig::RunRustcMode(args, socket_path);
   }
-  if (is_mode("reloc-fixup") || mode_env == "fixup") {
+  if (mode == "reloc-fixup") {
     return jig::RunFixupMode(args);
   }
-  return jig::RunCcMode(self, std::span<const std::string>(args).subspan(args.empty() ? 0 : 1), socket_path);
+  return jig::RunCcMode(mode, args, socket_path);
 }

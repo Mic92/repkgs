@@ -308,12 +308,12 @@ auto ElfImage::WritePadded(std::uint64_t offset, std::uint64_t capacity, std::st
   return true;
 }
 
-auto RunFixupMode(std::span<const std::string> argv) -> int {
-  if (argv.size() < 2) {
+auto RunFixupMode(std::span<const std::string> args) -> int {
+  if (args.empty()) {
     std::println(stderr, "usage: reloc-fixup <prefix>");
     return 2;
   }
-  FixupContext ctx{.prefix = fs::path(argv.at(1)).lexically_normal(), .own_lib_dirs = {}, .errors = 0};
+  FixupContext ctx{.prefix = fs::path(args.front()).lexically_normal(), .own_lib_dirs = {}, .errors = 0};
   if (!Store::Get().IsStorePath(ctx.prefix.string())) {
     std::println(stderr, "reloc-fixup: {} is not under {}", ctx.prefix.string(), Store::Get().dir());
     return 2;

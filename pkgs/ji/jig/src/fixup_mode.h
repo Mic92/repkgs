@@ -18,7 +18,7 @@
 
 namespace jig {
 
-auto RunFixupMode(std::span<const std::string> argv) -> int;
+auto RunFixupMode(std::span<const std::string> args) -> int;
 
 // Bounds-checked view of an ELF image held in a std::string. Exposed for tests.
 class ElfImage {
