@@ -18,7 +18,8 @@ let
   plat = platforms.glibc.${cpu} // rec {
     inherit system;
     cross = platform != system;
-    emulator = if cross then [ "${buildPkgs.qemu}/bin/qemu-${cpu}" ] else [ ];
+    emulator =
+      if cross then [ "${buildPkgs.qemu}/bin/qemu-${platforms.glibc.${cpu}.qemuArch}" ] else [ ];
   };
   toolchain = bootstrap.stage1.${cpu}.cc;
   launch = bootstrap.stage1.${cpu}.launch;

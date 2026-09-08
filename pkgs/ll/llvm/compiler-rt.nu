@@ -36,7 +36,8 @@ def main []: nothing -> nothing {
   # runtime for -coverage / -fprofile-instr-generate. Needs kernel headers (mmap flags), so stage1 only
   if "linuxHeaders" in $env {
     let p = $"($src)/compiler-rt/lib/profile"
-    let psrcs = (glob $"($p)/*.{c,cpp}" | where { ($in | path basename) != "WindowsMMap.c" })
+    # WindowsMMap is the win32 port; *ROCm* is the separate clang_rt.profile_rocm (needs the sanitizer interception layer)
+    let psrcs = (glob $"($p)/*.{c,cpp}" | where { ($in | path basename) !~ "^WindowsMMap|ROCm" })
     let pflags = (target) ++ $sys ++ [-O2 -fPIC -nostdinc++ -w $"-I($src)/compiler-rt/include" $"-I($p)"
       -DCOMPILER_RT_HAS_ATOMICS=1 -DCOMPILER_RT_HAS_FCNTL_LCK=1 -DCOMPILER_RT_HAS_FLOCK=1 -DCOMPILER_RT_HAS_UNAME=1]
     archive $"($libdir)/libclang_rt.profile.a" (compile $pflags ($psrcs | each {|f| {src: $f, obj: $"($obj)/profile/($f | path basename).o"} }))

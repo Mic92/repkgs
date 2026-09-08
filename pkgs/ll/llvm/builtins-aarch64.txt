@@ -127,6 +127,7 @@ aarch64/emupac.cpp
 aarch64/fp_mode.c
 aarch64/sme-abi-assert.c
 aarch64/sme-abi.S
+aarch64/sme-libc-opt-memcpy-memmove-sve.S
 aarch64/sme-libc-opt-memcpy-memmove.S
 aarch64/sme-libc-opt-memset-memchr.S
 absvdi2.c

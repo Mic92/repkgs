@@ -36,5 +36,15 @@ key = "rust-std-riscv64"
 url = "https://static.rust-lang.org/dist/rust-std-{version}-riscv64gc-unknown-linux-gnu.tar.xz"
 hash = "sha256-dIYjfIOETUislrZyQe8MH09wLOt0xEch9vhmDDBo3t4="
 
+[[source]]
+key = "rust-std-loongarch64"
+url = "https://static.rust-lang.org/dist/rust-std-{version}-loongarch64-unknown-linux-gnu.tar.xz"
+hash = "sha256-yww8JwSt1NEnFxP/h+G3qKT3VrTcn1gLYpU1Mu/Q97k="
+
+[[source]]
+key = "rust-std-powerpc64le"
+url = "https://static.rust-lang.org/dist/rust-std-{version}-powerpc64le-unknown-linux-gnu.tar.xz"
+hash = "sha256-x5wHH9FO8JTBoudQ8ZeV5+Fi9CN7+SKZiFwNVvpgF/4="
+
 [pin]
 version = "1.91.0"

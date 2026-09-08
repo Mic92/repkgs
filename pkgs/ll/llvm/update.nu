@@ -1,7 +1,8 @@
 # uptrack hook. builtins-<cpu>.txt = the lib/builtins sources cmake would select per cpu, derived
 # from the pinned llvm-project. pkgs/ll/llvm/compiler-rt.nu compiles that list so stage0 needs no cmake.
 
-const CPUS = {x86_64: "x86_64-unknown-linux-gnu", aarch64: "aarch64-unknown-linux-gnu", riscv64: "riscv64-unknown-linux-gnu"}
+const CPUS = {x86_64: "x86_64-unknown-linux-gnu", aarch64: "aarch64-unknown-linux-gnu", riscv64: "riscv64-unknown-linux-gnu"
+  loongarch64: "loongarch64-unknown-linux-gnu", powerpc64le: "powerpc64le-unknown-linux-gnu"}
 
 def --wrapped in-shell [...cmd: string]: nothing -> string {
   ^nix-shell -p cmake ninja llvmPackages.clang-unwrapped llvmPackages.lld --run ($cmd | str join ' ')

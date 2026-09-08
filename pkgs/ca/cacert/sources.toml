@@ -1,6 +1,5 @@
 [upstream]
 purl = "pkg:github/certifi/python-certifi"
-versioning = "calver"
 
 [[source]]
 key = "default"

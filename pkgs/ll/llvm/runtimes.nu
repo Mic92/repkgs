@@ -10,20 +10,21 @@ const LIBS = [
   # cmake would also pass -DHAVE___CXA_THREAD_ATEXIT_IMPL (its probe is fooled by COMPILER_WORKS=ON);
   # musl lacks that symbol and libc++abi's own fallback is fine on glibc too
   # cxa_noexception.cpp is the -fno-exceptions alternative to cxa_exception/cxa_personality
-  { name: "c++abi", dir: "libcxxabi/src", glob: "*.cpp", skip: [cxa_noexception.cpp], std: "c++23", so: [-lunwind -lc]
+  { name: "c++abi", dir: "libcxxabi/src", glob: "*.cpp", skip: [cxa_noexception.cpp], std: "c++26", so: [-lunwind -lc]
     flags: [-D_LIBCPP_BUILDING_LIBRARY -D_LIBCXXABI_BUILDING_LIBRARY -D_LIBCXXABI_LINK_PTHREAD_LIB -DLIBCXX_BUILDING_LIBCXXABI -fstrict-aliasing -fsized-deallocation -Ilibcxx/src] }
   # new.cpp lives in libc++abi (stdlib_new_delete.cpp) when built against it. int128 builtins come
   # from compiler-rt. libdispatch is the Apple PSTL backend. support/{ibm,win32} are other OSes
   { name: "c++", dir: "libcxx/src", glob: "{*,filesystem/*,ryu/*,pstl/*}.cpp"
-    skip: [new.cpp filesystem/int128_builtins.cpp pstl/libdispatch.cpp], std: "c++23", so: [-lc++abi -lunwind -lc]
+    skip: [new.cpp filesystem/int128_builtins.cpp pstl/libdispatch.cpp], std: "c++26", so: [-lc++abi -lunwind -lc]
     flags: [-D_LIBCPP_BUILDING_LIBRARY -D_LIBCPP_LINK_PTHREAD_LIB -D_LIBCPP_LINK_RT_LIB -D_LIBCPP_REMOVE_TRANSITIVE_INCLUDES -DLIBCXX_BUILDING_LIBCXXABI -DLIBC_NAMESPACE=__llvm_libc_common_utils -fvisibility=hidden -faligned-allocation -fsized-deallocation -Ilibcxx/src -Ilibc] }
-  { name: "c++experimental", dir: "libcxx/src/experimental", glob: "*.cpp", skip: [], std: "c++23", so: null
+  { name: "c++experimental", dir: "libcxx/src/experimental", glob: "*.cpp", skip: [], std: "c++26", so: null
     flags: [-D_LIBCPP_BUILDING_LIBRARY -D_LIBCPP_LINK_PTHREAD_LIB -D_LIBCPP_LINK_RT_LIB -D_LIBCPP_REMOVE_TRANSITIVE_INCLUDES -DLIBCXX_BUILDING_LIBCXXABI -D_LIBCPP_ENABLE_EXPERIMENTAL -fvisibility=hidden -faligned-allocation -fsized-deallocation] }
 ]
 
 # libcxx/include/__config_site.in as cmake fills it for: stable ABI v1 namespace __1, pthreads,
-# filesystem + localization + unicode + wide chars + tzdb on, std::thread PSTL backend, no
-# hardening by default (_LIBCPP_HARDENING_MODE_DEFAULT 4 == _LIBCPP_HARDENING_MODE_NONE's value 2<<1)
+# filesystem + localization + unicode + wide chars + tzdb on, std::thread PSTL backend,
+# hardening "fast" (4) with the hardening-dependent assertion semantic (2), as libcxx/CMakeLists.txt
+# encodes LIBCXX_HARDENING_MODE / LIBCXX_ASSERTION_SEMANTIC
 def config-site [musl: bool]: nothing -> string {
   $"#ifndef _LIBCPP___CONFIG_SITE
 #define _LIBCPP___CONFIG_SITE
@@ -33,7 +34,6 @@ def config-site [musl: bool]: nothing -> string {
 #define _LIBCPP_ABI_FORCE_MICROSOFT 0
 #define _LIBCPP_HAS_THREADS 1
 #define _LIBCPP_HAS_MONOTONIC_CLOCK 1
-#define _LIBCPP_HAS_TERMINAL 1
 #define _LIBCPP_HAS_MUSL_LIBC (if $musl { 1 } else { 0 })
 #define _LIBCPP_HAS_THREAD_API_PTHREAD 0
 #define _LIBCPP_HAS_THREAD_API_EXTERNAL 0
@@ -49,6 +49,10 @@ def config-site [musl: bool]: nothing -> string {
 #define _LIBCPP_INSTRUMENTED_WITH_ASAN 0
 #define _LIBCPP_PSTL_BACKEND_STD_THREAD
 #define _LIBCPP_HARDENING_MODE_DEFAULT 4
+#define _LIBCPP_ASSERTION_SEMANTIC_DEFAULT 2
+#define _LIBCPP_LIBC_PICOLIBC 0
+#define _LIBCPP_LIBC_NEWLIB 0
+#define _LIBCPP_LIBC_LLVM_LIBC 0
 #endif
 "
 }

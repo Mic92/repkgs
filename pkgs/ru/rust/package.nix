@@ -16,6 +16,8 @@ package {
     (sources.fetch "rust-std-x86_64")
     (sources.fetch "rust-std-aarch64")
     (sources.fetch "rust-std-riscv64")
+    (sources.fetch "rust-std-loongarch64")
+    (sources.fetch "rust-std-powerpc64le")
   ];
   prebuilt = true;
   dependencies = [

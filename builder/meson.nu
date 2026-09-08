@@ -14,7 +14,7 @@ export def --env setup []: nothing -> nothing { cd (ctx).build }
 def cross-file [c: record]: nothing -> string {
   let p = $c.platform
   let cpu = ($p.triple | parse "{cpu}-{rest}" | get cpu.0)
-  let fam = (match $cpu { "riscv64" => "riscv64", "aarch64" => "aarch64", _ => $cpu })
+  let fam = (match $cpu { "powerpc64le" => "ppc64", _ => $cpu })
   let f = $"($c.build)/cross.ini"
   [ "[binaries]" "c = 'cc'" "cpp = 'c++'" "ar = 'llvm-ar'" "strip = 'llvm-strip'" "pkg-config = 'pkg-config'"
     ...(if ($p.emulator | is-empty) { [] } else {

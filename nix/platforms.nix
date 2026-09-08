@@ -32,6 +32,26 @@ let
       interp.glibc = "ld-linux-riscv64-lp64d.so.1";
       glibcConfigure = [ ];
     };
+    # Loongson 3A5000+ (LA464): the LA64 v1.0 baseline every shipped core has
+    loongarch64 = {
+      karch = "loongarch";
+      march = [
+        "-march=loongarch64"
+        "-mabi=lp64d"
+      ];
+      hardening = [ ];
+      interp.glibc = "ld-linux-loongarch-lp64d.so.1";
+      glibcConfigure = [ ];
+    };
+    # POWER9 and later, little endian, ELFv2, IEEE long double (what current distros ship)
+    powerpc64le = {
+      karch = "powerpc";
+      qemuArch = "ppc64le";
+      march = [ "-mcpu=power9" ];
+      hardening = [ ];
+      interp.glibc = "ld64.so.2";
+      glibcConfigure = [ "--with-long-double-format=ieee" ];
+    };
   };
   mk =
     cpu: libc:
@@ -50,6 +70,7 @@ let
         .${libc}
       }";
       interp = if libc == "musl" then "ld-musl-${cpu}.so.1" else c.interp.glibc;
+      qemuArch = c.qemuArch or cpu;
       flags = c.march ++ c.hardening;
     };
 in

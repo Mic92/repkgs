@@ -8,14 +8,20 @@
 let
   pkgs = import nixpkgs { inherit system; };
   ps = pkgs.pkgsStatic;
-  lp = pkgs.llvmPackages_21;
-  targets = "X86;AArch64;RISCV;ARM;WebAssembly";
+  # host compiler from nixpkgs, source from our own pin so the seed and pkgs/ll/llvm agree
+  source =
+    name:
+    (import ../../../nix/sources.nix { unpacker = null; } (
+      ../.. + "/${builtins.substring 0 2 name}/${name}/sources.toml"
+    ));
+  llvmSource = source "llvm";
+  targets = "X86;AArch64;RISCV;LoongArch;PowerPC;ARM;WebAssembly";
   triple = ps.stdenv.hostPlatform.config;
 
   llvm = ps.stdenv.mkDerivation {
     pname = "seed-llvm";
-    inherit (lp.llvm) version;
-    src = lp.llvm.monorepoSrc;
+    inherit (llvmSource) version;
+    src = llvmSource.default;
     nativeBuildInputs = [
       pkgs.cmake
       pkgs.ninja
@@ -86,8 +92,7 @@ let
   # glibc's build runs python scripts. No extension modules, no ensurepip: the stdlib as source
   python = ps.stdenv.mkDerivation {
     name = "seed-python";
-    src =
-      (import ../../../nix/sources.nix { unpacker = null; } ../../cp/cpython314/sources.toml).default;
+    src = (source "cpython314").default;
     # everything that would want a library we do not ship
     preConfigure = ''
       cat > Modules/Setup.local <<EOF
@@ -131,9 +136,27 @@ let
     dontFixup = true;
   };
 
-  seed = pkgs.runCommand "seed-2-${ps.stdenv.hostPlatform.system}" { } ''
-    mkdir -p $out/bin $out/lib $out/share
+  # static curl so sources can become one fetch+unpack FOD run by the seed instead of
+  # builtin:fetchurl + a second unpack derivation. The CA bundle travels with it
+  curl =
+    (ps.curl.override {
+      http3Support = false;
+      scpSupport = false;
+      gsaslSupport = false;
+      ldapSupport = false;
+      brotliSupport = false;
+      pslSupport = false;
+      idnSupport = false;
+    }).overrideAttrs
+      (_o: {
+        doCheck = false;
+      });
+
+  seed = pkgs.runCommand "seed-3-${ps.stdenv.hostPlatform.system}" { } ''
+    mkdir -p $out/bin $out/lib $out/share $out/etc/ssl/certs
     cp ${nu}/bin/nu ${bsdtar}/bin/bsdtar ${toybox}/bin/toybox ${dash}/bin/dash $out/bin/
+    cp ${curl.bin}/bin/curl $out/bin/curl
+    cp ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt $out/etc/ssl/certs/ca-bundle.crt
     ln -s dash $out/bin/sh
     ${pkgs.lib.concatStringsSep "\n" (
       pkgs.lib.mapAttrsToList (n: p: "cp ${p}/bin/${n} $out/bin/") tools
@@ -147,7 +170,7 @@ let
     cp -a ${llvm}/bin/. $out/bin/
     cp -a ${llvm}/lib/clang $out/lib/
     chmod -R u+w $out
-    ${llvm}/bin/llvm-strip $out/bin/nu $out/bin/bsdtar $out/bin/toybox $out/bin/dash $out/bin/python3 ${
+    ${llvm}/bin/llvm-strip $out/bin/nu $out/bin/bsdtar $out/bin/toybox $out/bin/dash $out/bin/python3 $out/bin/curl ${
       toString (map (n: "$out/bin/${n}") (builtins.attrNames tools))
     }
     ${pkgs.nukeReferences}/bin/nuke-refs $out/bin/*
@@ -163,6 +186,7 @@ in
 {
   inherit
     llvm
+    curl
     nu
     bsdtar
     toybox
