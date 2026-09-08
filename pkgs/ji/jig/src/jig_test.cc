@@ -71,6 +71,7 @@ void TestStore() {
   assert(store.Key("--sysroot=/a/b/../c/") == "--sysroot=/a/c");
   assert(store.Key("-O2") == "-O2");
   assert(store.Key("-DFOO=./a//b") == "-DFOO=./a//b");
+  assert(jig::Store::ToolId("/no/such/tool") == "/no/such/tool");
   assert(store.Key("-std=c++23") == "-std=c++23");
   assert(store.Key(".") == ".");
 }

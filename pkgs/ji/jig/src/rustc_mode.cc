@@ -248,7 +248,7 @@ auto RunRustcMode(std::span<const std::string> argv, const std::string& socket_p
     store.LearnRoots(arg);
   }
   Hasher hasher;
-  hasher.Field("rustc=" + store.Key(rustc));
+  hasher.Field("rustc=" + Store::ToolId(rustc));
   hasher.Field("cwd=" + store.Key(fs::current_path().string()));
   for (const std::string& arg : inv.key_args) {
     hasher.Field(store.Key(arg));

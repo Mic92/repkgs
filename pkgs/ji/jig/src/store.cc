@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <optional>
 #include <string_view>
+#include <system_error>
 #include <utility>
 
 #include "base.h"
@@ -131,6 +132,12 @@ auto Store::ResolveAll(std::string text) const -> std::string {
     pos += real.size();
   }
   return text;
+}
+
+auto Store::ToolId(const std::string& path) -> std::string {
+  std::error_code error;
+  const std::filesystem::path real = std::filesystem::canonical(path, error);
+  return error ? path : real.string();
 }
 
 auto Store::InputId(const std::string& path) const -> std::optional<std::string> {

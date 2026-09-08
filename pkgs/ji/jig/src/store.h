@@ -50,6 +50,9 @@ class Store {
 
   // Identity of a file for manifest validation, nullopt if unreadable.
   [[nodiscard]] auto InputId(const std::string& path) const -> std::optional<std::string>;
+  // Identity of a tool (compiler) for request keys: symlink-resolved, never hash-masked.
+  // Masking would make seed-1/clang and seed-2/clang (or two rustc versions) the same key
+  [[nodiscard]] static auto ToolId(const std::string& path) -> std::string;
 
  private:
   Store();
