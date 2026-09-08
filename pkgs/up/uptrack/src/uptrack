@@ -68,6 +68,16 @@ def "main verify" [
   }
 }
 
+# re-prefetch sources at the current pin (hash and treeHash), e.g. after editing a url
+def "main rehash" [
+  ...names: string # packages, default all
+]: nothing -> nothing {
+  for p in (selected $names) {
+    print -e $p.name
+    try { pipeline rehash $p } catch {|e| print -e $"  failed: ($e.msg)" }
+  }
+}
+
 # write a new sources.toml and pin it to the newest version upstream lists
 def "main init" [
   dir: path # package directory

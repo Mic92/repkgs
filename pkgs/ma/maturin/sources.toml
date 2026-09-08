@@ -4,7 +4,7 @@ purl = "pkg:github/PyO3/maturin"
 [[source]]
 key = "default"
 url = "https://github.com/PyO3/maturin/archive/refs/tags/{tag}.tar.gz"
-hash = "sha256-YjERvdstf29LouZAOPkfi2c71vld1vy68zS3r3eJtI0="
+hash = "sha256-elK82eg/m33GYNWeZUSfKxFVJS6fMRatHl66NgvxcxE="
 
 [pin]
 version = "1.15.0"

@@ -4,7 +4,7 @@ purl = "pkg:github/PCRE2Project/pcre2"
 [[source]]
 key = "default"
 url = "https://github.com/PCRE2Project/pcre2/releases/download/{tag}/pcre2-{version}.tar.bz2"
-hash = "sha256-R/6MmUYSUNQviebo/a66naBXhV0G63/AjZygP9CNe8c="
+hash = "sha256-9CMcfLcwYIt1Qc1twW2hdje2Gd717yhF6I5/xF3OijU="
 
 [pin]
 version = "10.47"

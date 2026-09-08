@@ -4,7 +4,7 @@ purl = "pkg:github/landley/toybox"
 [[source]]
 key = "default"
 url = "https://landley.net/toybox/downloads/toybox-{version}.tar.gz"
-hash = "sha256-gn5M39afXalz4A4qWbMLPJhX+3+udMNi/QtPlr55KbA="
+hash = "sha256-46iKwUSIQ4M9ZL86e4rY4hGcz8y06HZMC0mvNp3jR1s="
 
 [pin]
 version = "0.8.14"

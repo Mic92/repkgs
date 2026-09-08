@@ -4,7 +4,7 @@ purl = "pkg:gnu/glibc"
 [[source]]
 key = "default"
 url = "https://ftp.gnu.org/gnu/glibc/glibc-{version}.tar.xz"
-hash = "sha256-N/YA8r7zxegwAUcFlWiyouQKetbMxlzpQlVtSUKcxmc="
+hash = "sha256-LwgJyaPJ5D5taNAom+cjrdqgBSS3xzkh/sMfGivWjmo="
 
 [pin]
 version = "2.44"

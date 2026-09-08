@@ -1,15 +1,15 @@
 [upstream]
-purl = "pkg:generic/go?url=https://go.dev/dl/&regex=go(\\d[0-9.]*)\\.src\\.tar\\.gz"
+purl = 'pkg:generic/go?url=https://go.dev/dl/&regex=go(\d[0-9.]*)\.src\.tar\.gz'
 
 [[source]]
 key = "x86_64"
 url = "https://go.dev/dl/go{version}.linux-amd64.tar.gz"
-hash = "sha256-Y9M58NpatTY1pW8kkKeYTf4S38/yKtdJ9j7a9ZAWhEU="
+hash = "sha256-pehnj+Yg/dLjAcnfYC2ps8WmPCT/CIwe80WcFqVyLOQ="
 
 [[source]]
 key = "aarch64"
 url = "https://go.dev/dl/go{version}.linux-arm64.tar.gz"
-hash = "sha256-NFC0Wj+e6FaHknNqXF5wofLps2w1qPdJWMA+UdfZK+w="
+hash = "sha256-t7/ZChLoIl9Rkpln4mx0zaKKuO7v5wmk4AknLRjJzoQ="
 
 [pin]
 version = "1.27.1"

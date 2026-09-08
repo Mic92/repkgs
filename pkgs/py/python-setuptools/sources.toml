@@ -4,7 +4,7 @@ purl = "pkg:pypi/setuptools"
 [[source]]
 key = "default"
 url = "https://files.pythonhosted.org/packages/source/s/setuptools/setuptools-{version}.tar.gz"
-hash = "sha256-9GlcISV/DZtTfsJpLJQdAu4UO3zBJ2lBNJpUZXOy73M="
+hash = "sha256-MFH4r3mt2cADhV/C0yAfbxn+HdiqB5JEFjt/zVZ8UrM="
 
 [pin]
 version = "84.0.0"

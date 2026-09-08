@@ -4,7 +4,7 @@ purl = "pkg:pypi/packaging"
 [[source]]
 key = "default"
 url = "https://files.pythonhosted.org/packages/source/p/packaging/packaging-{version}.tar.gz"
-hash = "sha256-lO3CVkJK84di6zEwbu0ovrnw78UKiDdJLJ1v1gBK7Xk="
+hash = "sha256-fsi79ICnqDdsE9ElZ+mm9nmnfjfBZqsS1e3bXKcM3bo="
 
 [pin]
 version = "26.3"

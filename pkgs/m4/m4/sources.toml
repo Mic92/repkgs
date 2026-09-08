@@ -4,7 +4,7 @@ purl = "pkg:gnu/m4"
 [[source]]
 key = "default"
 url = "https://ftp.gnu.org/gnu/m4/m4-{version}.tar.xz"
-hash = "sha256-4jbqOhzPX2wnCxxLtgcm83H6SUWajqrryQshazKNrys="
+hash = "sha256-oalXI+q0pYj7ENdoZ9bjxRxhd9iCPA5+b5K9JLQqNLU="
 
 [pin]
 version = "1.4.20"

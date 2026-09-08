@@ -20,9 +20,8 @@ packages are the interpreter, the build stack, native extensions that must link 
 and the few pure libraries C projects import at build time. Applications bring `uv.lock` and
 `fetch.pythonDeps { source }` is a dynamic derivation like cargoVendor.
 
-**Seed 3** (building): LLVM 23.1.1 from our own pin with LoongArch and PowerPC backends, static
-curl + CA bundle. Then: sources as one fixed-output derivation (seed curl + bsdtar) instead of
-fetchurl + unpack; loongarch64 and powerpc64le cross platforms verified (platform entries,
+**Seed 3** (building): LLVM 23.1.1 from our own pin with LoongArch and PowerPC backends.
+Then: loongarch64 and powerpc64le cross platforms verified (platform entries,
 builtins lists, qemu targets, rust-std, GOARCH are in); aarch64 seed uploaded. Later the seed is
 built from this set's own musl-static packages instead of nixpkgs `pkgsStatic`, fixed point in CI.
 

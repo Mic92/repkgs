@@ -5,7 +5,7 @@ allow = "==3.14.*"
 [[source]]
 key = "default"
 url = "https://www.python.org/ftp/python/{version}/Python-{version}.tar.xz"
-hash = "sha256-O0jayPtZ9i6qZ6yDwesSvaG3oIQG3ShuJSwRpmvif4E="
+hash = "sha256-lJP052bZrUsDASpKauL7Xa6pI3QMQW1Ho3o7Dsr062Y="
 
 [pin]
 version = "3.14.7"

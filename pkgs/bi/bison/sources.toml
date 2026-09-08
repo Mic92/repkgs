@@ -4,7 +4,7 @@ purl = "pkg:gnu/bison"
 [[source]]
 key = "default"
 url = "https://ftp.gnu.org/gnu/bison/bison-{version}.tar.xz"
-hash = "sha256-m7oCFMz38QecXVkhAEUie89hlRmEDr+oDNOEnP9aW/I="
+hash = "sha256-qdirDBXUSQaXx0yN71wdM1mdBepiSSoKa20GdpLbKHA="
 
 [pin]
 version = "3.8.2"

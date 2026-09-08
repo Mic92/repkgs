@@ -4,7 +4,7 @@ purl = "pkg:pypi/meson"
 [[source]]
 key = "default"
 url = "https://files.pythonhosted.org/packages/source/m/meson/meson-{version}.tar.gz"
-hash = "sha256-iK/gwg5SAwIYkkrDfQyBxZtLXzrjdSyMbXRwx9NliGw="
+hash = "sha256-mY8LTnQ/YHbv5XiXDXayN35V7qdC+dKpOn/ePPXj9Os="
 
 [pin]
 version = "1.12.0"

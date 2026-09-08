@@ -4,7 +4,7 @@ purl = "pkg:github/BurntSushi/ripgrep"
 [[source]]
 key = "default"
 url = "https://github.com/BurntSushi/ripgrep/archive/refs/tags/{tag}.tar.gz"
-hash = "sha256-dgUknT6w1fFw40FEmOM0Tiax56FHrsUYtXCQuAA2pWI="
+hash = "sha256-BsSIbZwB6s8i3dDTRYJ1EdVbJmiO0oxcLu6qiYlPkOI="
 
 [pin]
 version = "15.2.0"

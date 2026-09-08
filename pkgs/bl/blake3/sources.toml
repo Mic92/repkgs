@@ -4,7 +4,7 @@ purl = "pkg:github/BLAKE3-team/BLAKE3"
 [[source]]
 key = "default"
 url = "https://github.com/BLAKE3-team/BLAKE3/archive/refs/tags/{tag}.tar.gz"
-hash = "sha256-a1Gu/lFZaXhdoC6Hvvr8f9x6BlzTRYzxFB8pJndJ6B8="
+hash = "sha256-IABVErXWYQFXZcwsFKfQhm3ox7UZUcW5uzVrGwsSp94="
 
 [pin]
 version = "1.8.2"

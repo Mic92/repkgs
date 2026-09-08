@@ -4,7 +4,7 @@ purl = "pkg:gnu/grep"
 [[source]]
 key = "default"
 url = "https://ftp.gnu.org/gnu/grep/grep-{version}.tar.xz"
-hash = "sha256-JkmyfA6Q5jLq3NdXvgbG6aT0jZQd5R58D4P/dkCKB7k="
+hash = "sha256-9CQnJn6JSDzD1GR+4FLyTGfmejOh+QEKNsBN1Etypqk="
 
 [pin]
 version = "3.12"

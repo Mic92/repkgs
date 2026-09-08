@@ -4,11 +4,11 @@ purl = "pkg:generic/qemu"
 [[source]]
 key = "default"
 url = "https://download.qemu.org/qemu-{version}.tar.xz"
-hash = "sha256-B5/7/4pxEbvIkCIQfLq/O7/WFNX8nXzGdZkRlqyhJII="
+hash = "sha256-RXktB55ePzWtD7PCnioQ/QNe02AxLb1clXBjrO4jhxE="
 
 [pin]
 version = "11.1.1"
 
 [watch]
 url = "https://download.qemu.org/"
-regex = "qemu-([0-9]+\\.[0-9]+\\.[0-9]+)\\.tar\\.xz"
+regex = 'qemu-([0-9]+\.[0-9]+\.[0-9]+)\.tar\.xz'

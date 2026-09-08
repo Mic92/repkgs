@@ -4,7 +4,7 @@ purl = "pkg:github/benhoyt/inih"
 [[source]]
 key = "default"
 url = "https://github.com/benhoyt/inih/archive/refs/tags/{tag}.tar.gz"
-hash = "sha256-nBX6dRu4CT0ELa4bnxJetFGYwyxnBM1UgczeRg1PgVE="
+hash = "sha256-jnMGOncnH+ffgtyNzA8tZPtxPCR/yq9jmPsJZE4BhXo="
 
 [pin]
 version = "62"

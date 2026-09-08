@@ -4,7 +4,7 @@ purl = "pkg:github/curl/curl"
 [[source]]
 key = "default"
 url = "https://curl.se/download/curl-{version}.tar.xz"
-hash = "sha256-qhtmpw6s6D3GJFCHRWRsCK5WHeUSq0A63/uTrIf8cuY="
+hash = "sha256-nrvbU5C6oeCMAecrEqYE3CNPyFVsTEqaqhhCoLe5fMo="
 
 [pin]
 version = "8.21.0"

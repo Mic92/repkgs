@@ -4,7 +4,7 @@ purl = "pkg:gnu/diffutils"
 [[source]]
 key = "default"
 url = "https://ftp.gnu.org/gnu/diffutils/diffutils-{version}.tar.xz"
-hash = "sha256-fIt/n8hgkUH96pzs6FJJ0whiQ5H/Yd7a9Sj8szdyff0="
+hash = "sha256-loVV9JE2m1jzVNVgfK/8TgGJz1CR9i+8r25Dxp/hZjk="
 
 [pin]
 version = "3.12"

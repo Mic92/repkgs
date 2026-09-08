@@ -4,7 +4,7 @@ purl = "pkg:github/pkgconf/pkgconf"
 [[source]]
 key = "default"
 url = "https://distfiles.ariadne.space/pkgconf/pkgconf-{version}.tar.xz"
-hash = "sha256-zQXJWJufhuzwRMEKImmCK8nrAB7O0lgs//1liwpQwkM="
+hash = "sha256-P2JEYZxxg1nNRbutaidHiSar1l0fScsoToA5pwIIzDI="
 
 [pin]
 version = "2.5.1"

@@ -50,9 +50,10 @@ one `spec` JSON attribute; each dependency appears once as a path. That is the d
 
 **Sources.** `sources.toml` holds URL template, hash and pin; `nix/sources.nix` turns it into
 `<nix/fetchurl.nix>` (builtin, no seed needed) named after the URL's basename, so a version bump
-with a stale hash cannot resolve to an old `(name, hash)` path. Archives are then unpacked once by a
-small content-addressed derivation (seed bsdtar) and builds copy the tree; `unpack = false` keeps
-single files. Ecosystem lock files are not copied into the repo and get no hash of ours:
+with a stale hash cannot resolve to an old `(name, hash)` path. Archives land in the store unpacked by one fixed-output derivation running the seed's
+nu (`http get`, rustls with built-in roots) and bsdtar (`hash` is the tree's NAR hash; builds
+copy the tree); `unpack = false` keeps
+single files via `builtin:fetchurl`. Ecosystem lock files are not copied into the repo and get no hash of ours:
 `fetch.cargoVendor`/`fetch.npmDeps { source }` are dynamic derivations whose producer reads the
 lock file from the source and writes one `builtin:fetchurl` per crate/tarball plus a collector,
 through jig's own worker-protocol client (`jig nix-store`, no `nix` binary, no recursive-nix).

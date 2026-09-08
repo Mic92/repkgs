@@ -1,11 +1,11 @@
 [upstream]
 purl = "pkg:github/lz4/lz4"
-allow = "<100"              # r1xx tags predate semver
+allow = "<100"
 
 [[source]]
 key = "default"
 url = "https://github.com/lz4/lz4/archive/refs/tags/{tag}.tar.gz"
-hash = "sha256-U3USkEdEs14jKRIFXM+Oxm12hjn/Or5XiNkNeS7F9Is="
+hash = "sha256-/dG1n59SKBaEBg72pAWltAtVmJ2cXxlFFhP+klrkTos="
 
 [pin]
 version = "1.10.0"

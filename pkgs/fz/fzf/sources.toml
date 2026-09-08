@@ -4,7 +4,7 @@ purl = "pkg:github/junegunn/fzf"
 [[source]]
 key = "default"
 url = "https://github.com/junegunn/fzf/archive/refs/tags/{tag}.tar.gz"
-hash = "sha256-WxQiF8MGhken2PqpxnjP+toQC18RpIYJqnnJTOBLKO8="
+hash = "sha256-DIz3Nudiov2uwxAtq6++rt2zwz0adOlv9W+c0SW3EHc="
 
 [pin]
 version = "0.74.3"

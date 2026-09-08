@@ -4,7 +4,7 @@ purl = "pkg:gnu/patch"
 [[source]]
 key = "default"
 url = "https://ftp.gnu.org/gnu/patch/patch-{version}.tar.xz"
-hash = "sha256-+Hzuae7CtPy/YKOWsDCtaqNBXxkqpffuhMrV4R9/WuM="
+hash = "sha256-YfY8pjZJnu1PyHPeeo4SOC4b9A62W2SavOJgQbCuiGI="
 
 [pin]
 version = "2.8"

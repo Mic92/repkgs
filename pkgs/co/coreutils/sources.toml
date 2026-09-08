@@ -4,7 +4,7 @@ purl = "pkg:gnu/coreutils"
 [[source]]
 key = "default"
 url = "https://ftp.gnu.org/gnu/coreutils/coreutils-{version}.tar.xz"
-hash = "sha256-6LsmrQKT+bWh/EP7QrqXDjEsZs6SwbCxZxPXUA2yUb8="
+hash = "sha256-TFDtvw5E4y9UPfMyOV+KiMnIeSum54fXSOIbT7qRsXA="
 
 [pin]
 version = "9.7"

@@ -4,7 +4,7 @@ purl = "pkg:github/libffi/libffi"
 [[source]]
 key = "default"
 url = "https://github.com/libffi/libffi/releases/download/{tag}/libffi-{version}.tar.gz"
-hash = "sha256-faPi2aFx6woDj1kuytP/K7JVDzSW2Hs7Ka0M9EMMDbQ="
+hash = "sha256-2LRjE2bftNUNc2wDbB+bezAzF5AkfpbMS6VOAQ/I/bE="
 
 [pin]
 version = "3.8.0"

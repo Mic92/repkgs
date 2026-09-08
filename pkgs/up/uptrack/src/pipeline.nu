@@ -44,8 +44,12 @@ export def discover [root: path]: nothing -> table {
     if $t.upstream?.purl? == null { error make {msg: $"($f): upstream.purl is required"} }
     let dir = $f | path dirname
     let hook = if ($dir | path join update.nu | path exists) { $dir | path join update.nu }
-    {name: ($dir | path basename), dir: $dir, file: $f, hook: $hook, hooks: (if $hook != null { hook-exports $hook } else { [] })}
-    | merge {upstream: $t.upstream, source: ($t.source? | default []), pin: ($t.pin? | default {}), watch: ($t.watch? | default {}), locks: ($t.locks? | default {})}
+    {
+      name: ($dir | path basename), dir: $dir, file: $f, hook: $hook
+      hooks: (if $hook != null { hook-exports $hook } else { [] })
+      upstream: $t.upstream, source: ($t.source? | default []), pin: ($t.pin? | default {})
+      watch: ($t.watch? | default {}), locks: ($t.locks? | default {})
+    }
   }
 }
 
@@ -106,9 +110,30 @@ export def expand [tmpl: string, version: string, tag: string]: nothing -> strin
   $tmpl | str replace -a '{version}' $version | str replace -a '{version_}' ($p | str join '_') | str replace -a '{major}' $p.0 | str replace -a '{minor}' ($p | get -o 1 | default '0') | str replace -a '{tag}' $tag
 }
 
-# the hash Nix's fetchurl will want
+# the hash nix/sources.nix wants: for archives the NAR hash of the unpacked tree
+# (bsdtar --strip-components 1, u+w: fetch and unpack are one fixed-output derivation), else the file's
 export def prefetch [url: string, unpack: bool]: nothing -> string {
-  ^nix store prefetch-file --json ...(if $unpack { [--unpack] } else { [] }) $url | from json | get hash
+  let f = (^nix store prefetch-file --json $url | from json)
+  if not $unpack { return $f.hash }
+  let tmp = (mktemp -d -t uptrack-tree.XXXX)
+  ^bsdtar -xf $f.storePath -C $tmp --strip-components 1 --no-same-owner --no-same-permissions
+  ^chmod -R u+w,a-st $tmp
+  let tree = (^nix hash path --sri --type sha256 $tmp | str trim)
+  rm -rf $tmp
+  $tree
+}
+
+# re-prefetch every source at the current pin and rewrite its hash (no version change)
+export def rehash [pkg: record]: nothing -> nothing {
+  let t = open $pkg.file
+  let pin = $t.pin? | default {}
+  let version = $pin.version? | default ""
+  let t = $t | upsert source ($t.source | each {|s|
+    let url = expand $s.url $version ($pin.tag? | default $version)
+    print -e $"  ($url)"
+    $s | upsert hash (prefetch $url ($s.unpack? | default true))
+  })
+  $t | save -f $pkg.file
 }
 
 # prefetch the entry's sources and write hash + [pin] back to its sources.toml
@@ -121,8 +146,14 @@ export def apply [entry: record]: nothing -> record {
   }
   let t = open $entry.file
   let t = $t | upsert source ($t.source | each {|s| $s | upsert hash ($hashes | where key == $s.key).0.hash })
-  let pin = {version: $entry.to} | merge (if $entry.candidate.tag? != null { {tag: $entry.candidate.tag} } else { {} }) | merge (if $entry.candidate.date != null { {date: ($entry.candidate.date | into datetime | format date '%F')} } else { {} }) | insert checked (date now | format date '%F')
-  let pin = $pin | merge (if $entry.extra? != null { {extra: $entry.extra} } else { {} })
+  let c = $entry.candidate
+  let pin = {
+    version: $entry.to
+    tag: $c.tag?
+    date: (if $c.date != null { $c.date | into datetime | format date '%F' })
+    checked: (date now | format date '%F')
+    extra: $entry.extra?
+  } | compact
   $t | upsert pin ($t.pin? | default {} | merge $pin) | save -f $entry.file
   # files hook: derived files beside the package ({relative path: content}), after the pin is written
   if (has-hook $entry files) {

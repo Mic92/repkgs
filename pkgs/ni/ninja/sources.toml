@@ -4,7 +4,7 @@ purl = "pkg:github/ninja-build/ninja"
 [[source]]
 key = "default"
 url = "https://github.com/ninja-build/ninja/archive/refs/tags/{tag}.tar.gz"
-hash = "sha256-8AVa0Dab8uNylVulUSjQAM/MIXdwV4BgFbReSsy+vyM="
+hash = "sha256-GhAF5wUT19E02ZekW+ywsCMVGYrt56hES+MHCH4lNG4="
 
 [pin]
 version = "1.13.1"

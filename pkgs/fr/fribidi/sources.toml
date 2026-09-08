@@ -4,7 +4,7 @@ purl = "pkg:github/fribidi/fribidi"
 [[source]]
 key = "default"
 url = "https://github.com/fribidi/fribidi/releases/download/{tag}/fribidi-{version}.tar.xz"
-hash = "sha256-GxzeWyNdQEeekb4vDoijCeMhTIq0cOyKJ0TYKlqeoFw="
+hash = "sha256-Hy/GIteZQdGmMLyL5kj+eOHok2xEVko3tSB+uYocjY4="
 
 [pin]
 version = "1.0.16"

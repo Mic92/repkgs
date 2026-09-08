@@ -1,5 +1,6 @@
 # Reads a sources.toml (docs/uptrack.md). URL templates expand like pkgs/up/uptrack/src/pipeline.nu `expand`.
-# `unpacker`: store path with bin/nu and bin/bsdtar (the seed), or null where only files are wanted.
+# `unpacker`: store path with bin/{nu,bsdtar} (the seed; nu's `http get` does the download).
+# Only the seed's own sources.toml (a .nar) is read without one.
 {
   unpacker,
   system ? null,
@@ -58,34 +59,40 @@ let
       # a fixed-output path is found by (name, hash): with a constant name a bumped url whose
       # hash was not updated silently reuses the old download, so the name follows the url
       name = s.name or (urlName url);
-      file' = fetchurl {
+      isNar = builtins.match ".*\\.nar(\\.[a-z0-9]+)?" url != null;
+    in
+    # `hash` is the NAR hash of what lands in the store: for archives the unpacked tree
+    # (--strip-components 1, u+w), fetched and unpacked by one fixed-output derivation running the
+    # seed's nu (http get, rustls + built-in roots) and bsdtar, so builds copy a directory instead
+    # of decompressing every time.
+    # `unpack = false` and .nar urls (the seed itself) go through builtin:fetchurl.
+    if !(s.unpack or true) || isNar then
+      fetchurl {
         inherit url;
         name = s.name or (builtins.baseNameOf url);
         inherit (s) hash;
-        unpack = builtins.match ".*\\.nar(\\.[a-z0-9]+)?" url != null;
-      };
-    in
-    # archives are unpacked once into their own content-addressed path, so builds copy a store
-    # directory instead of decompressing the tarball every time. `unpack = false` keeps the file.
-    # (One derivation instead of two once the fetcher itself can run bsdtar.)
-    if unpacker == null || !(s.unpack or true) || file'.unpack then
-      file'
+        unpack = isNar;
+      }
     else
       derivation {
-        inherit name system;
+        inherit name system url;
         builder = "${unpacker}/bin/nu";
         args = [
           "--no-config-file"
           "-c"
-          "mkdir $env.out; ^$\"($env.unpacker)/bin/bsdtar\" -xf $env.tarball -C $env.out --strip-components 1 --no-same-owner --no-same-permissions; ^$\"($env.unpacker)/bin/chmod\" -R u+w,a-st $env.out"
+          "mkdir $env.out; http get --raw --redirect-mode follow --max-time 10min $env.url | save tmp.src; ^$\"($env.unpacker)/bin/bsdtar\" -xf tmp.src -C $env.out --strip-components 1 --no-same-owner --no-same-permissions; ^$\"($env.unpacker)/bin/chmod\" -R u+w,a-st $env.out"
         ];
-        tarball = file';
         inherit unpacker;
-        __contentAddressed = true;
         outputHashMode = "recursive";
-        outputHashAlgo = "sha256";
+        outputHash = s.hash;
         preferLocalBuild = true;
-        allowedReferences = [ ];
+        impureEnvVars = [
+          "http_proxy"
+          "https_proxy"
+          "ftp_proxy"
+          "all_proxy"
+          "no_proxy"
+        ];
       };
 in
 {

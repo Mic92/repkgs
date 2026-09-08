@@ -4,7 +4,7 @@ purl = "pkg:github/westes/flex"
 [[source]]
 key = "default"
 url = "https://github.com/westes/flex/releases/download/{tag}/flex-{version}.tar.gz"
-hash = "sha256-6HquAyvwfCb4WsDtMlCZjDdiHZX4vXSLMfFbM8Re6ZU="
+hash = "sha256-HBPAUDpqF4HYocMD3YDIk6OaIUrZw8Gk3K59OmHB6xU="
 
 [pin]
 version = "2.6.4"

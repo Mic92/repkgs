@@ -5,7 +5,7 @@ allow = "==23.*"
 [[source]]
 key = "default"
 url = "https://github.com/llvm/llvm-project/releases/download/{tag}/llvm-project-{version}.src.tar.xz"
-hash = "sha256-6+m+Rv6HVtWMWxmP+tD6KnZiV63YGk3FIXm/rMeIjuY="
+hash = "sha256-iAcWcsfrEk2V9siWaMcUBzSBLcCh7oubhorrKmh/EBg="
 
 [pin]
 version = "23.1.1"

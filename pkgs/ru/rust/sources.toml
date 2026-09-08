@@ -4,47 +4,47 @@ purl = "pkg:github/rust-lang/rust"
 [[source]]
 key = "rustc-x86_64"
 url = "https://static.rust-lang.org/dist/rustc-{version}-x86_64-unknown-linux-gnu.tar.xz"
-hash = "sha256-pxaejLYXSvL0VxdwM3A2PY3oLOVfbMuhhYkwRbk3CHQ="
+hash = "sha256-GUTXn73/zRWQu4j76b/NdxAklsr9hrOuaKTC/Kj2Z4Q="
 
 [[source]]
 key = "rustc-aarch64"
 url = "https://static.rust-lang.org/dist/rustc-{version}-aarch64-unknown-linux-gnu.tar.xz"
-hash = "sha256-8+o8lkt/O4hDN/LUEXZAMrvRci1/VVkqVHy7Ka/YfAM="
+hash = "sha256-bpF5q0d9Km0XZuLb2LCCuJKsvF8o9QhIlrgwChLn/qI="
 
 [[source]]
 key = "cargo-x86_64"
 url = "https://static.rust-lang.org/dist/cargo-{version}-x86_64-unknown-linux-gnu.tar.xz"
-hash = "sha256-cQPAP7ir6FsjMHAFqd/k8ByCaomUXYS5b6LQP9TS0Tg="
+hash = "sha256-ydWArCf/Mqx0ZOplPzLgNGLY8klQrFEWNmey7cwDTUo="
 
 [[source]]
 key = "cargo-aarch64"
 url = "https://static.rust-lang.org/dist/cargo-{version}-aarch64-unknown-linux-gnu.tar.xz"
-hash = "sha256-AD1wCCGcoNIlrR36MB98B5sSNJlDDuB4DIV4Lgh47v8="
+hash = "sha256-xDlisejaG3Q8HVATCqinzOpR1kkyRJzXtbBWNNFJxVM="
 
 [[source]]
 key = "rust-std-x86_64"
 url = "https://static.rust-lang.org/dist/rust-std-{version}-x86_64-unknown-linux-gnu.tar.xz"
-hash = "sha256-ieZSCxbBK0NSZEApjS2g3LcHR8XMLQuOR9ObXamu70k="
+hash = "sha256-ZUwdqauvNKVMdaFiWUMJ79j9DkbIBI58OY5z2quinpA="
 
 [[source]]
 key = "rust-std-aarch64"
 url = "https://static.rust-lang.org/dist/rust-std-{version}-aarch64-unknown-linux-gnu.tar.xz"
-hash = "sha256-/yPcgfeW1k406GakT9C8rnJuNAFINTabj5OTpUQWfso="
+hash = "sha256-m1bZV0j7yVtw7y58kjPH6InOr/mZx//gFJk1I4+q1/g="
 
 [[source]]
 key = "rust-std-riscv64"
 url = "https://static.rust-lang.org/dist/rust-std-{version}-riscv64gc-unknown-linux-gnu.tar.xz"
-hash = "sha256-dIYjfIOETUislrZyQe8MH09wLOt0xEch9vhmDDBo3t4="
+hash = "sha256-unRXf9tjiZhjTf5PAkE8Mqd3I4rDaeLbjoX/0GCR9k0="
 
 [[source]]
 key = "rust-std-loongarch64"
 url = "https://static.rust-lang.org/dist/rust-std-{version}-loongarch64-unknown-linux-gnu.tar.xz"
-hash = "sha256-yww8JwSt1NEnFxP/h+G3qKT3VrTcn1gLYpU1Mu/Q97k="
+hash = "sha256-fYbmg0BcIlA49O6NU+jQcQFk+52Iy82qISUDKEC/OlE="
 
 [[source]]
 key = "rust-std-powerpc64le"
 url = "https://static.rust-lang.org/dist/rust-std-{version}-powerpc64le-unknown-linux-gnu.tar.xz"
-hash = "sha256-x5wHH9FO8JTBoudQ8ZeV5+Fi9CN7+SKZiFwNVvpgF/4="
+hash = "sha256-+Fvuu8OdgjqEysRi14bDg/7050Z/zXSeCOjpGvBFudA="
 
 [pin]
 version = "1.91.0"

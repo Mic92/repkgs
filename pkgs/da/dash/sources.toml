@@ -4,7 +4,7 @@ purl = "pkg:generic/dash?url=http://gondor.apana.org.au/~herbert/dash/files/"
 [[source]]
 key = "default"
 url = "http://gondor.apana.org.au/~herbert/dash/files/dash-{version}.tar.gz"
-hash = "sha256-QAkBAaKkkfE+kB09SOkEFPJmNGKLm//zX/VANjwien0="
+hash = "sha256-U4B0lurZzzWrLaFL4rFl0pqDbZPbeWF7mtPSPVYWWNc="
 
 [pin]
 version = "0.5.13.5"

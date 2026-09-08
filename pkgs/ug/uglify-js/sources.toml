@@ -4,7 +4,7 @@ purl = "pkg:github/mishoo/UglifyJS"
 [[source]]
 key = "default"
 url = "https://github.com/mishoo/UglifyJS/archive/refs/tags/{tag}.tar.gz"
-hash = "sha256-aYi2TUFpwVDORriubiw2mqgrHWetx1Ujar+XLDiFdzc="
+hash = "sha256-sMLQSB1+ux/ya/J22KGojlAxWhtPQdk22KdHy43zdyg="
 
 [pin]
 version = "3.19.3"

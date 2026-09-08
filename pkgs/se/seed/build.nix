@@ -8,12 +8,14 @@
 let
   pkgs = import nixpkgs { inherit system; };
   ps = pkgs.pkgsStatic;
-  # host compiler from nixpkgs, source from our own pin so the seed and pkgs/ll/llvm agree
+  # host compiler from nixpkgs, sources from our own pins (unpacked by the previous seed, like
+  # everywhere else in the tree) so the seed and pkgs/ll/llvm agree
   source =
     name:
-    (import ../../../nix/sources.nix { unpacker = null; } (
-      ../.. + "/${builtins.substring 0 2 name}/${name}/sources.toml"
-    ));
+    (import ../../../nix/sources.nix {
+      unpacker = (import ../../../nix/sources.nix { unpacker = null; } ./sources.toml).fetch system;
+      inherit system;
+    } (../.. + "/${builtins.substring 0 2 name}/${name}/sources.toml"));
   llvmSource = source "llvm";
   targets = "X86;AArch64;RISCV;LoongArch;PowerPC;ARM;WebAssembly";
   triple = ps.stdenv.hostPlatform.config;
@@ -136,27 +138,9 @@ let
     dontFixup = true;
   };
 
-  # static curl so sources can become one fetch+unpack FOD run by the seed instead of
-  # builtin:fetchurl + a second unpack derivation. The CA bundle travels with it
-  curl =
-    (ps.curl.override {
-      http3Support = false;
-      scpSupport = false;
-      gsaslSupport = false;
-      ldapSupport = false;
-      brotliSupport = false;
-      pslSupport = false;
-      idnSupport = false;
-    }).overrideAttrs
-      (_o: {
-        doCheck = false;
-      });
-
   seed = pkgs.runCommand "seed-3-${ps.stdenv.hostPlatform.system}" { } ''
-    mkdir -p $out/bin $out/lib $out/share $out/etc/ssl/certs
+    mkdir -p $out/bin $out/lib $out/share
     cp ${nu}/bin/nu ${bsdtar}/bin/bsdtar ${toybox}/bin/toybox ${dash}/bin/dash $out/bin/
-    cp ${curl.bin}/bin/curl $out/bin/curl
-    cp ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt $out/etc/ssl/certs/ca-bundle.crt
     ln -s dash $out/bin/sh
     ${pkgs.lib.concatStringsSep "\n" (
       pkgs.lib.mapAttrsToList (n: p: "cp ${p}/bin/${n} $out/bin/") tools
@@ -170,7 +154,7 @@ let
     cp -a ${llvm}/bin/. $out/bin/
     cp -a ${llvm}/lib/clang $out/lib/
     chmod -R u+w $out
-    ${llvm}/bin/llvm-strip $out/bin/nu $out/bin/bsdtar $out/bin/toybox $out/bin/dash $out/bin/python3 $out/bin/curl ${
+    ${llvm}/bin/llvm-strip $out/bin/nu $out/bin/bsdtar $out/bin/toybox $out/bin/dash $out/bin/python3 ${
       toString (map (n: "$out/bin/${n}") (builtins.attrNames tools))
     }
     ${pkgs.nukeReferences}/bin/nuke-refs $out/bin/*
@@ -186,7 +170,6 @@ in
 {
   inherit
     llvm
-    curl
     nu
     bsdtar
     toybox

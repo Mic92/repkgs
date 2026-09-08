@@ -4,7 +4,7 @@ purl = "pkg:generic/bzip2?url=https://sourceware.org/pub/bzip2/"
 [[source]]
 key = "default"
 url = "https://sourceware.org/pub/bzip2/bzip2-{version}.tar.gz"
-hash = "sha256-q1oDF27hBtPw+pDjgdpHjdrkBZGBU8yiSOaCzQxKImk="
+hash = "sha256-Uvi4JZPPERK3gym4yoaeTEJwKXF5brBAEN7GgF+iF6g="
 
 [pin]
 version = "1.0.8"

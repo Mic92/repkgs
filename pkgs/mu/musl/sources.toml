@@ -4,7 +4,7 @@ purl = "pkg:generic/musl?url=https://musl.libc.org/releases.html"
 [[source]]
 key = "default"
 url = "https://musl.libc.org/releases/musl-{version}.tar.gz"
-hash = "sha256-1YX9O2E8ZhUfwySejtRPdwIMtebB5jWmFtP5+CRgUSo="
+hash = "sha256-vcI36q0+leXQBuGms1Uf0IF6U4KLGmW3Yz2t7cpNw5k="
 
 [pin]
 version = "1.2.6"

@@ -4,7 +4,7 @@ purl = "pkg:github/pnggroup/libpng"
 [[source]]
 key = "default"
 url = "https://downloads.sourceforge.net/libpng/libpng-{version}.tar.xz"
-hash = "sha256-KOtAP1Hw90BSSRMs7P6C6lwO+X8bMsWmWCiBSuDTR3U="
+hash = "sha256-JSdzPsfRBjnk8DB/fkOCkaiUJ9/neQ2myIK5xnQuSsM="
 
 [pin]
 version = "1.6.58"

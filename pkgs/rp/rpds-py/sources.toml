@@ -4,7 +4,7 @@ purl = "pkg:pypi/rpds-py"
 [[source]]
 key = "default"
 url = "https://files.pythonhosted.org/packages/source/r/rpds_py/rpds_py-{version}.tar.gz"
-hash = "sha256-HOvRM3wkLk7CKT5UH3ErLahJsp9I8MKTaEtxwGMmJdQ="
+hash = "sha256-gTUbK9VVGF6irxjzF0gJMjonYRG2K1ifWZXmvReZUtM="
 
 [pin]
 version = "2026.6.3"

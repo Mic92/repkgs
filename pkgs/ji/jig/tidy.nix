@@ -4,13 +4,15 @@
 let
   src =
     name:
-    (import ../../../nix/sources.nix { unpacker = null; } (
-      ../.. + "/${builtins.substring 0 2 name}/${name}/sources.toml"
-    )).default;
+    (import ../../../nix/sources.nix {
+      unpacker =
+        (import ../../../nix/sources.nix { unpacker = null; } ../../se/seed/sources.toml).fetch
+          builtins.currentSystem;
+      system = builtins.currentSystem;
+    } (../.. + "/${builtins.substring 0 2 name}/${name}/sources.toml")).default;
   thirdParty = pkgs.runCommand "jig-third-party" { } ''
     mkdir -p $out/include
-    tar -xf ${src "blake3"} -C $out/include --strip-components=2 --wildcards '*/c/blake3.h'
-    tar -xf ${src "zstd"} -C $out/include --strip-components=2 --wildcards '*/lib/zstd.h' '*/lib/zstd_errors.h'
+    cp ${src "blake3"}/c/blake3.h ${src "zstd"}/lib/zstd.h ${src "zstd"}/lib/zstd_errors.h $out/include/
     ln -s ${src "nlohmann-json"} $out/include/json.hpp
   '';
 in

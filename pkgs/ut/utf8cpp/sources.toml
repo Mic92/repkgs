@@ -4,7 +4,7 @@ purl = "pkg:github/nemtrif/utfcpp"
 [[source]]
 key = "default"
 url = "https://github.com/nemtrif/utfcpp/archive/refs/tags/{tag}.tar.gz"
-hash = "sha256-HKaAFvCrwkFymY45zg2Pjit6JvdXmg/4XU4bmnrqVvg="
+hash = "sha256-0NbbQMsucrbOGEWAVZGSFp7f4dp31XrurPVVjcYsH+I="
 
 [pin]
 version = "4.1.1"
