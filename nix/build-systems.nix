@@ -94,10 +94,7 @@
       "cargo.test"
       "cargo.install"
     ];
-    tools = [
-      standins.cargo
-      standins.rustc
-    ];
+    tools = [ buildPkgs.rust ];
     knobs = [
       "features"
       "noDefaultFeatures"

@@ -9,8 +9,6 @@ with nixpkgs;
 {
   # build systems
   inherit
-    cargo
-    rustc
     maturin
     go
     nodejs

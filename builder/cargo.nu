@@ -13,6 +13,8 @@ export def --env setup []: nothing -> nothing {
   $env.CARGO_HOME = $"($c.build)/cargo-home"
   $env.CARGO_TARGET_DIR = $"($c.build)/target"
   mkdir $env.CARGO_HOME
+  # RUSTC absolute so the wrapper (and its cache key) sees which rustc, not a bare name
+  $env.RUSTC = (tool rustc)
   if ("/run/pkgs-cache.sock" | path exists) { $env.RUSTC_WRAPPER = (tool rustcwrap); $env.CARGO_INCREMENTAL = "0" }
   # vendored deps arrive as a directory (from lock.json in the real thing) nixpkgs' layout nests them one level
   let vendor = if $k.vendor != null and ($"($k.vendor)/source-registry-0" | path exists) { $"($k.vendor)/source-registry-0" } else { $k.vendor }
@@ -23,8 +25,9 @@ export def --env setup []: nothing -> nothing {
     $"[build]\njobs = ($c.njobs)"
     $"[target.($host)]\nlinker = 'cc'"
   ] | str join "\n" | save -f $"($env.CARGO_HOME)/config.toml"
-  # panic strings embed source paths: map build tree, cargo home and vendor dir away
-  $env.RUSTFLAGS = ([$"--remap-path-prefix=($c.src)=/src" $"--remap-path-prefix=($env.CARGO_HOME)=/cargo"]
+  # panic strings embed source paths: map build tree, cargo home and vendor dir away.
+  # our cc links with its own lld, rustc >= 1.90 would otherwise insert its bundled rust-lld
+  $env.RUSTFLAGS = ([-Clinker-features=-lld $"--remap-path-prefix=($c.src)=/src" $"--remap-path-prefix=($env.CARGO_HOME)=/cargo"]
     ++ (if $vendor != null { [$"--remap-path-prefix=($k.vendor)=/vendor"] } else { [] }) | str join " ")
   cd $"($c.src)/($k.root)"
 }

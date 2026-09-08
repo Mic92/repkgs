@@ -2,7 +2,7 @@
 
 `standins.nix` is the one `import <nixpkgs>`. Tools it provides are replaced by ordinary
 packages taken from `buildPkgs`, in waves ordered by what each tool needs to build. What is
-left today: `cargo rustc maturin go nodejs qemu-user cacert`.
+left today: `maturin go nodejs qemu-user cacert`.
 
 ## Done
 
@@ -51,6 +51,13 @@ must link our libraries, and the few pure libraries C projects import at build t
 mako, pyyaml…). `python.nu` reads `build-backend` itself. Applications bring `uv.lock`, and
 `fetch.pythonDeps { source }` is a dynamic derivation like cargoVendor that prefers set packages
 for natives. Its marker/wheel-tag logic is tested against pyproject.nix fetched in the test.
+
+**5. Rust.** `rust` = upstream's rustc + cargo + rust-std tarballs, unmodified, marked `prebuilt`:
+bin/ entries become launch records that run the foreign ELF under our `ld.so --argv0 bin/foo
+--library-path <sysroot:deps>`, no patchelf. `libgcc-shim` provides the versioned
+`libgcc_s.so.1` (libunwind + the few libgcc integer routines) such binaries import. cargo.nu
+passes `-Clinker-features=-lld` so linking stays with our cc. jig keys tools by resolved store
+path (`Store::ToolId`), since hash-masking made two rustc versions share cache entries.
 
 **Updater.** See docs/uptrack.md. Done: datasources, check/apply/verify, `update.nu` hooks, tree
 on `sources.toml`. Next: lock generation for `fetch.*Deps` packages, reports/`sync-github`.
