@@ -2,7 +2,7 @@
 
 `standins.nix` is the one `import <nixpkgs>`. Tools it provides are replaced by ordinary
 packages taken from `buildPkgs`, in waves ordered by what each tool needs to build. What is
-left today: `go nodejs qemu-user cacert`.
+left today: `nodejs qemu-user cacert` (and `go`, only inside fetch.goModules' FOD).
 
 ## Done
 
@@ -49,7 +49,8 @@ package), libc and cc, `vendor = true` so no network. cargo.nu and maturin then 
 behind.
 
 **6. Go.** `go-bootstrap` (upstream static tarball, `prebuilt`), `go` built from source with it
-(done). Left: `fetch.goModules` runs `buildPkgs.go` instead of `standins.go`.
+(done), `fetch.goModules` on `buildPkgs.go` with module zips through `jig cache` and the go.sum
+staleness check (done).
 go.sum's `h1:` is Go's dirhash over the extracted zip, not a file or NAR hash, so a dynamic
 derivation cannot turn go.sum into per-module fetchurls the way cargoVendor does; goModules stays
 one fixed-output `go mod vendor` with a vendor hash per package for now. A stale hash is the
@@ -57,7 +58,7 @@ known failure of that scheme: bump the version, forget the hash, and Nix happily
 vendor output. So goModules copies go.sum into its output and go.nu `setup` compares it with the
 source's go.sum before building, failing with "vendor hash is stale" instead of a confusing
 compile error (or a silent build against old modules). Two steps from there:
-- downloads through the build cache: jig gets a plain blob mode (`jig cache get|put <key>
+- (done) downloads through the build cache: jig gets a plain blob mode (`jig cache get|put <key>
   <file>` over CacheClient). The goModules script pre-fills a `GOPROXY=file://` tree
   (`<mod>/@v/<ver>.{info,mod,zip}`) from keys `gomod/<mod>@<ver>/<h1>`, runs `go mod vendor`
   with proxy.golang.org as fallback, and puts back what it had to download. go verifies every
@@ -87,9 +88,8 @@ on `sources.toml`. Next: lock generation for `fetch.*Deps` packages, reports/`sy
 - Cache what still costs incremental time, in this order. Links: `plain-link` is 80–260 per
   large package (llvm, cpython); key = ToolId(ld) + args + InputId of every input, which lld's
   `--dependency-file` already lists. With links cached, rustc mode can stop bailing on
-  bin/proc-macro/build-script crates (`rs-plain-compile`). configure: the probes are jig hits
-  but the shell around them is 20–60 s; store autoconf's `config.cache` (and cmake's
-  try_compile dir) as a blob keyed on toolchain + platform + dependency closure. Unstable
+  bin/proc-macro/build-script crates (`rs-plain-compile`). configure: done for autotools (config.cache blob); cmake's
+  try_compile state embeds build paths, measure before attempting. Unstable
   failing probes: `miss-fail`/`miss-stored-fail` recur on identical rebuilds, so some conftest
   key changes every run; find it with JIG_LOG_ARGS.
 - rustc cache keys change when only the vendor store path changes (fd: `rs-miss-stored=57`).
