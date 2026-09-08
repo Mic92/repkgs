@@ -52,7 +52,11 @@ behind.
 (done). Left: `fetch.goModules` runs `buildPkgs.go` instead of `standins.go`.
 go.sum's `h1:` is Go's dirhash over the extracted zip, not a file or NAR hash, so a dynamic
 derivation cannot turn go.sum into per-module fetchurls the way cargoVendor does; goModules stays
-one fixed-output `go mod vendor` with a vendor hash per package for now. Two steps from there:
+one fixed-output `go mod vendor` with a vendor hash per package for now. A stale hash is the
+known failure of that scheme: bump the version, forget the hash, and Nix happily reuses the old
+vendor output. So goModules copies go.sum into its output and go.nu `setup` compares it with the
+source's go.sum before building, failing with "vendor hash is stale" instead of a confusing
+compile error (or a silent build against old modules). Two steps from there:
 - downloads through the build cache: jig gets a plain blob mode (`jig cache get|put <key>
   <file>` over CacheClient). The goModules script pre-fills a `GOPROXY=file://` tree
   (`<mod>/@v/<ver>.{info,mod,zip}`) from keys `gomod/<mod>@<ver>/<h1>`, runs `go mod vendor`
