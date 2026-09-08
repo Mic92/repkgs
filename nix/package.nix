@@ -48,6 +48,7 @@ let
     "root"
     "cc"
     "bootstrapTools"
+    "prebuilt"
   ];
 
   stepRe = "([a-z]+)\\.([a-zA-Z]+)";
@@ -76,7 +77,8 @@ let
         }
     )
     // args0;
-  inherit (args) name uses;
+  inherit (args) name;
+  uses = args.uses or [ ];
   fail = msg: throw "${name}: ${msg}";
 
   unknownUses = filter (u: !(buildSystems ? ${u})) uses;
@@ -186,6 +188,8 @@ let
         ;
       cmakeProcessor = platform.cpu;
       probe = if platform.cross then "${toolchain.sysroot}/lib/${platform.interp}" else "";
+      # for `prebuilt`: foreign ELFs run under our dynamic linker via launch
+      interp = "${toolchain.sysroot}/lib/${platform.interp}";
       launch = "${launch}/bin/launch";
     };
     buildDependencies = [

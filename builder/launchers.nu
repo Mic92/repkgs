@@ -2,6 +2,9 @@
 #   bin/foo -> ../../<hash>-launch/bin/launch   plus a record bin/.foo.launch (pkgs/la/launch/src/launch.cc).
 # Interpreter from the #! line (resolved among dependencies if it was /usr/bin/env or bare),
 # runtimeDependencies' bin dirs prepended to PATH, their `env` exports applied as defaults.
+# `prebuilt = true`: upstream binaries keep their foreign PT_INTERP and run as
+#   <sysroot>/lib/ld.so --argv0 <bin/foo> --library-path <libc:deps' libDirs> libexec/foo
+# so nothing in the ELF is patched and argv[0] still names bin/foo (rustc finds its sysroot by it).
 use core.nu *
 
 # env block shared by all of a package's launchers: runtimeDependencies on PATH + their exported env
@@ -42,6 +45,12 @@ export def main [c: record]: nothing -> nothing {
   let rdeps = ($a.runtimeDependencies? | default [])
   let renv = (runtime-env $rdeps $c.out)
   let owners = ([$c.out] ++ $a.dependencies ++ $rdeps)
+  let prebuilt = ($c.spec.prebuilt? | default false)
+  # our libc + runtimes first, then every dependency's lib dirs, relative to the package
+  let libpath = (if $prebuilt {
+    [($c.platform.interp | path dirname)] ++ ($c.deps | each {|d| $d.libDirs | each {|l| $"($d.root)/($l)" } } | flatten)
+    | each {|p| storerel $p $c.out } | str join ":"
+  })
   let launch_rel = $"../../($c.platform.launch | path relative-to $env.NIX_STORE)"
   for f in (ls $bindir | where type == file | get name) {
     let name = ($f | path basename)
@@ -52,6 +61,10 @@ export def main [c: record]: nothing -> nothing {
       if $i == null { continue }
       mv $f $"($bindir)/.($name).script"
       {env: $renv, program: (storerel $i.program $c.out), args: ($i.args ++ [$"{root}/bin/.($name).script"])}
+    } else if $prebuilt and (is-elf $f) {
+      mkdir $"($c.out)/libexec"
+      mv $f $"($c.out)/libexec/($name)"
+      {env: $renv, program: (storerel $c.platform.interp $c.out), args: [--argv0 "{self}" --library-path $libpath $"{root}/libexec/($name)"]}
     } else if (is-elf $f) and ($rdeps | is-not-empty) {
       mkdir $"($c.out)/libexec"
       mv $f $"($c.out)/libexec/($name)"

@@ -74,10 +74,12 @@ export def main [
     if not ($"($c.out)/bin/($b)" | path exists) { error make {msg: $"bin/($b) missing in output"} }
   }
   for f in (glob $"($c.out)/**/*.la") { rm $f }
-  split-debug $c
+  let prebuilt = ($c.spec.prebuilt? | default false)
+  # upstream binaries stay byte-identical: their own $ORIGIN rpaths, no debug split, launchers instead
+  if not $prebuilt { split-debug $c }
   launchers $c
   # RUNPATH/PT_INTERP -> $ORIGIN-relative, in place (pkgs/ji/jig/src/fixup_mode.cc)
-  x reloc-fixup $c.out
+  if not $prebuilt { x reloc-fixup $c.out }
   version-check $c
   let exports = (exports-of $c.out | merge ($c.spec.exports? | default {}))
   $exports | to json | save -f $"($c.out)/exports.json"
