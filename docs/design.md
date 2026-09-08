@@ -79,7 +79,7 @@ appears literally, so the reference scanner, GC and `nix copy` work unchanged.
 | compiled-in prefix | packages that need it get dirname-relative patches (openssl providers); the rest is caught by fixup's absolute-store-ref warning and `tests.relocated` (run `bin/x --version` from a copied prefix). |
 
 Ambient data (CA bundle, tz, locales) is never compiled in as a store path: env var first,
-conventional system path second.
+conventional system path second. glibc ships only the `C.UTF-8` locale.
 
 ## 3. Builders
 
@@ -108,7 +108,7 @@ fetch-cargo.nu fetch-npm.nu                   dynamic-derivation producers
   stack-protector-strong, stack-clash-protection, trivial-auto-var-init=zero, `-Werror=date-time`,
   relro/now/noexecstack/as-needed; `-march` and `-fcf-protection`/`-mbranch-protection` come from
   the cc conf so build systems that ignore CFLAGS still get them; libc++ is built hardened.
-  Reproducibility pins: `SOURCE_DATE_EPOCH TZ=UTC LC_ALL=C PYTHONHASHSEED=0 PERL_HASH_SEED=0
+  Reproducibility pins: `SOURCE_DATE_EPOCH TZ=UTC LC_ALL=C.UTF-8 PYTHONHASHSEED=0 PERL_HASH_SEED=0
   ZERO_AR_DATE KBUILD_*`, `-ffile-prefix-map` for build dir and every dependency (handed to jig
   out of band so recorded CFLAGS stay clean), man/info pages uncompressed.
 - Tests run in the build by default; `tests.separate` moves them to a second derivation that

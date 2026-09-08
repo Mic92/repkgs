@@ -211,7 +211,15 @@ let
         linuxHeaders = linux-headers;
         list = pkg "llvm" + "/builtins-${cpu}.txt";
       };
-      glibc = run "glibc" (glibcArgs // { inherit compiler-rt; });
+      # the C.UTF-8 locale is compiled by running the fresh localedef, so only where it can run
+      glibc = run "glibc" (
+        glibcArgs
+        // {
+          inherit compiler-rt;
+          interp =
+            if platform.triple == (platforms.forSystem system "glibc").triple then platform.interp else "";
+        }
+      );
       runtimes = run "runtimes" {
         src = source "llvm";
         sysroot = sysroot [

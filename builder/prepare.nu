@@ -13,7 +13,7 @@ def --env build-env [a: record, deps: list<record>, out: string]: nothing -> not
   $env.TMPDIR = $env.NIX_BUILD_TOP
   # reproducibility pins: no wall clock, locale, timezone or hash randomisation in outputs
   $env.SOURCE_DATE_EPOCH = "315532800"  # 1980-01-01: earliest mtime ZIP (wheels, jars) can store
-  load-env {TZ: "UTC", LC_ALL: "C", ZERO_AR_DATE: "1", PERL_HASH_SEED: "0", PYTHONHASHSEED: "0"
+  load-env {TZ: "UTC", LC_ALL: "C.UTF-8", ZERO_AR_DATE: "1", PERL_HASH_SEED: "0", PYTHONHASHSEED: "0"
     KBUILD_BUILD_TIMESTAMP: "@315532800", KBUILD_BUILD_USER: "pkgs", KBUILD_BUILD_HOST: "pkgs"}
   $env.out = $out
   $env.JIG_LOG = $"($env.NIX_BUILD_TOP)/jig.log"

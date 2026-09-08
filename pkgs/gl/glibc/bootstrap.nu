@@ -51,5 +51,12 @@ def main []: nothing -> nothing {
   # serial: parallel install races on the .dt -> .d depfile conversion (several sub-makes include
   # the same sysd-rules and each `mv`s the same files) Nothing is compiled here anyway
   x make ...$make install -j1
+  # C.UTF-8 so LC_ALL=C.UTF-8 works everywhere without a locales package (charmap data only, ~360 K)
+  if ($env.interp? | default "") != "" {
+    mkdir $"($out)/lib/locale"
+    with-env {I18NPATH: $"($src)/localedata"} {
+      x $"($out)/lib/($env.interp)" --library-path $"($out)/lib" $"($out)/bin/localedef" --no-archive -i C -f UTF-8 $"($out)/lib/locale/C.utf8"
+    }
+  }
   say $"glibc ($env.cpu): (ls $'($out)/lib' | length) files in lib/"
 }
