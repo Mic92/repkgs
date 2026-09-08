@@ -1,0 +1,87 @@
+#!/usr/bin/env nu
+# uptrack: upstream tracking for package trees. docs/uptrack.md
+
+use pipeline.nu
+use purl.nu *
+
+def selected [names: list<string>]: nothing -> table {
+  let all = pipeline discover ($env.UPTRACK_ROOT? | default $env.PWD)
+  let missing = $names | where $it not-in $all.name
+  if ($missing | is-not-empty) { error make {msg: $"no sources.toml for ($missing | str join ', ')"} }
+  if ($names | is-empty) { $all } else { $all | where name in $names }
+}
+
+def planned [names: list<string>, prerelease: bool]: nothing -> table {
+  pipeline decide (pipeline resolve (selected $names)) --prerelease=$prerelease
+}
+
+def main []: nothing -> nothing { help main }
+
+# parse and validate every sources.toml
+def "main list" [
+  ...names: string # packages, default all
+]: nothing -> table {
+  selected $names | each {|r| {name: $r.name, purl: $r.upstream.purl, version: $r.pin.version?, hooks: ($r.hooks | str join ' ')} }
+}
+
+# resolve and decide, write nothing. Exits 10 when updates are pending
+def "main check" [
+  ...names: string # packages, default all
+  --json # plan entries instead of tables
+  --prerelease # accept pre-releases
+]: nothing -> oneof<string, nothing> {
+  let plan = planned $names $prerelease
+  if $json { return ($plan | to json) }
+  let errs = $plan | where to == null and note != null | select name from note
+  let ups = $plan | where to != null | select name from to note
+  if ($errs | is-not-empty) { print -e ($errs | table -i false) }
+  if ($ups | is-not-empty) { print -e ($ups | table -i false) }
+  print -e $"($plan | length) checked, ($ups | length) pending, ($errs | length) problems"
+  if ($ups | is-not-empty) { exit 10 }
+}
+
+# prefetch and write hash + [pin] (+ hook files) for pending updates, optionally build each
+def "main apply" [
+  ...names: string # packages, default all
+  --plan: path # apply a saved `check --json` instead of resolving
+  --prerelease # accept pre-releases
+  --verify # nix-build each applied package and report
+]: nothing -> table {
+  let plan = if $plan != null { open $plan } else { planned $names $prerelease }
+  $plan | where to != null | each {|e|
+    print -e $"($e.name): ($e.from) → ($e.to)"
+    let e = pipeline apply $e
+    if not $verify { return ($e | select name from to) }
+    let v = pipeline verify $e
+    print -e (if $v.verified { $"  built in ($v.took), closure ($v.closure)" } else { $"  FAILED\n($v.log)" })
+    $e | select name from to | insert verified $v.verified
+  }
+}
+
+# build packages at their current pin (after a manual edit, or to re-check)
+def "main verify" [
+  ...names: string # packages, default all
+]: nothing -> table {
+  selected $names | each {|p|
+    let v = pipeline verify $p
+    {name: $p.name, verified: $v.verified, took: $v.took, closure: ($v.closure? | default null)}
+  }
+}
+
+# write a new sources.toml and pin it to the newest version upstream lists
+def "main init" [
+  dir: path # package directory
+  purl: string # pkg:github/owner/repo, pkg:pypi/name, pkg:gnu/name, pkg:generic/name?url=…
+  url: string # source template with {version} {version_} {major} {minor} {tag}
+  --allow: string # version range to stay in, e.g. "==3.12.*"
+]: nothing -> nothing {
+  purl parse $purl
+  let f = $dir | path join sources.toml
+  if ($f | path exists) { error make {msg: $"($f) exists"} }
+  mkdir $dir
+  {upstream: ({purl: $purl} | merge (if $allow != null { {allow: $allow} } else { {} })), source: [{key: default, url: $url}]} | save $f
+  let e = planned [($dir | path basename)] false | first
+  if $e.to == null { rm $f; error make {msg: $"($purl): ($e.note)"} }
+  pipeline apply $e
+  print -e $"($f): ($e.to)"
+}
