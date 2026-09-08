@@ -2,7 +2,7 @@
 
 `standins.nix` is the one `import <nixpkgs>`. Tools it provides are replaced by ordinary
 packages taken from `buildPkgs`, in waves ordered by what each tool needs to build. What is
-left today: `nodejs qemu-user cacert` (and `go`, only inside fetch.goModules' FOD).
+left today: `nodejs qemu-user cacert`.
 
 ## Done
 

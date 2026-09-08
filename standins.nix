@@ -10,7 +10,7 @@ with nixpkgs;
   # build systems
   inherit nodejs;
 
-  # qemu for cross tests, cacert and go for fetch.goModules
-  inherit qemu-user cacert go;
+  # qemu for cross tests, cacert for fetch.goModules
+  inherit qemu-user cacert;
 
 }
