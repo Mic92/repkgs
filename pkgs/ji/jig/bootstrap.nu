@@ -24,8 +24,8 @@ def main []: nothing -> nothing {
     [blake3.c blake3_dispatch.c blake3_portable.c] | each { $"($b3)/($in)" } | append $simd.srcs
     | each {|f| {src: $f, obj: $"($b3)/($f | path basename).o"} }))
 
-  let cxx = [$"($env.seed)/bin/clang++"] ++ (ccflags | where { $in != "-unwindlib=none" }) ++ [
-    -unwindlib=libunwind -stdlib=libc++ -static-pie -std=c++26 -O2 -Wall -Wextra -Werror
+  let cxxflags = (ccflags | where { $in != "-unwindlib=none" }) ++ [
+    -x c++ -std=c++26 -stdlib=libc++ -O2 -Wall -Wextra -Werror -Wno-unused-command-line-argument
     # every [] / front() / subspan / optional deref is bounds-checked and traps (no exceptions needed)
     -D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_EXTENSIVE -fno-exceptions
     # every integer overflow / truncation / bad shift / OOB array index in our code traps too
@@ -33,11 +33,12 @@ def main []: nothing -> nothing {
     "-fsanitize=signed-integer-overflow,unsigned-integer-overflow,shift,integer-divide-by-zero,implicit-integer-truncation,implicit-integer-sign-change,bounds,pointer-overflow"
     -fsanitize-trap=all -fno-sanitize-recover=all
     $"-DJIG_STORE_DIR=\"($env.storeDir)\"" "-isystem" $b3 "-isystem" $jsn $"-I($env.jig)"]
-  let srcs = (glob $"($env.jig)/*.cc" | where { ($in | path basename) not-in [main.cc jig_test.cc launch.cc] })
-
-  x ...$cxx -o jig_test ...$srcs $"($env.jig)/jig_test.cc" ...$b3objs
+  let objs = (compile $cxxflags (glob $"($env.jig)/*.cc" | each {|f| {src: $f, obj: $"obj/($f | path parse | get stem).o"} }))
+  let common = ($objs | where { ($in | path basename) not-in [main.o jig_test.o] }) ++ $b3objs
+  let link = [$"($env.seed)/bin/clang++" ...(ccflags | where { $in != "-unwindlib=none" }) -unwindlib=libunwind -stdlib=libc++ -static-pie]
+  x ...$link -o jig_test obj/jig_test.o ...$common
   print -e (x ./jig_test)
-  x ...$cxx -o $"($out)/bin/jig" ...$srcs $"($env.jig)/main.cc" ...$b3objs
+  x ...$link -o $"($out)/bin/jig" obj/main.o ...$common
   x llvm-strip $"($out)/bin/jig"
   # symlinks keep /proc/self/exe = jig (no etc/ conf here -> JIG_CC mode) "++" in the name selects C++
   for n in [clang clang++] { x ln -s jig $"($out)/bin/($n)" }
