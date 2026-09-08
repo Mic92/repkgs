@@ -13,14 +13,14 @@ def main []: nothing -> nothing {
   # only libc *headers* exist at this point (libc itself links against what is built here)
   let sys = [-nostdlibinc -isystem $"($env.libcHeaders)/include"] ++ (if "linuxHeaders" in $env { [-isystem $"($env.linuxHeaders)/include"] } else { [] })
   let common = (target) ++ $sys ++ [
-    -std=gnu11 -O2 -fPIC -fno-builtin -fno-lto -fvisibility=hidden -fomit-frame-pointer -ffreestanding
+    -O2 -fPIC -fno-builtin -fno-lto -fvisibility=hidden -fomit-frame-pointer -ffreestanding
     -DVISIBILITY_HIDDEN -DCOMPILER_RT_HAS_FLOAT16 $"-I($b)" $"-I($src)/third-party/siphash/include"
   ] ++ (if $env.cpu == "aarch64" { [-DENABLE_BAREMETAL_AARCH64_FMV -DHAS_ASM_LSE] } else { [] })
 
   # list entries "@lse/outline_atomic_<op><size>_<model>.S" mean: aarch64/lse.S with those three defines
   let items = (read-list $env.list | each {|f|
     let lse = ($f | parse -r '^@lse/outline_atomic_(?<op>[a-z]+)(?<size>[0-9]+)_(?<model>[0-9])\.S$')
-    if ($lse | is-empty) { {src: $"($b)/($f)", obj: $"($obj)/($f).o"} } else {
+    if ($lse | is-empty) { {src: $"($b)/($f)", obj: $"($obj)/($f).o", flags: (if ($f | str ends-with ".cpp") { [-std=c++17 -fno-exceptions -fno-rtti -nostdinc++] } else { [-std=gnu11] })} } else {
       {src: $"($b)/aarch64/lse.S", obj: $"($obj)/($f).o", flags: [$"-DL_($lse.0.op)" $"-DSIZE=($lse.0.size)" $"-DMODEL=($lse.0.model)"]}
     }
   })
