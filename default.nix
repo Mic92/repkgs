@@ -4,7 +4,7 @@
 #
 # Every directory pkgs/<name>/ with a package.nix becomes attribute <name>. A package.nix is
 #   { package, pkgs, ... }: package { name = "<name>"; ... dependencies = [ pkgs.zlib ]; }
-# and may take any of: package pkgs buildPkgs platform fetch standins toolchain.
+# and may take any of: package pkgs buildPkgs platform fetch sources toolchain.
 {
   platform ? builtins.currentSystem,
   seed ? null,
@@ -12,14 +12,13 @@
 let
   system = builtins.currentSystem;
   platforms = import ./nix/platforms.nix;
-  standins = import ./standins.nix;
   bootstrap = import ./bootstrap { inherit seed system; };
 
   cpu = builtins.head (builtins.split "-" platform);
   plat = platforms.glibc.${cpu} // rec {
     inherit system;
     cross = platform != system;
-    emulator = if cross then [ "${standins.qemu-user}/bin/qemu-${cpu}" ] else [ ];
+    emulator = if cross then [ "${buildPkgs.qemu}/bin/qemu-${cpu}" ] else [ ];
   };
   toolchain = bootstrap.stage1.${cpu}.cc;
   launch = bootstrap.stage1.${cpu}.launch;
@@ -34,7 +33,7 @@ let
 
   # build systems that spawn `sh` by name get the seed's dash
   buildSystems = import ./nix/build-systems.nix {
-    inherit standins buildPkgs;
+    inherit buildPkgs;
     sh = bootstrap.seed;
   };
   # On PATH after the toolchain and the build systems' tools. GNU userland precedes the seed because
@@ -71,10 +70,10 @@ let
   };
 
   fetch = import ./nix/fetch.nix {
-    tools = standins // {
+    tools = {
       bsdtar = bootstrap.seed;
       inherit (bootstrap.stage0) jig;
-      inherit (buildPkgs) go;
+      inherit (buildPkgs) go cacert;
     };
     nu = bootstrap.seed;
   };
@@ -83,7 +82,6 @@ let
     inherit
       package
       fetch
-      standins
       toolchain
       buildPkgs
       ;

@@ -1,0 +1,14 @@
+[upstream]
+purl = "pkg:generic/glib"
+
+[[source]]
+key = "default"
+url = "https://download.gnome.org/sources/glib/{major}.{minor}/glib-{version}.tar.xz"
+hash = "sha256-qyTSTmmN+h5Ai3vNtQj0qvyQYYWouM5y/febu9ybODs="
+
+[pin]
+version = "2.88.3"
+
+[watch]
+url = "https://download.gnome.org/sources/glib/cache.json"
+regex = "glib-([0-9]+\\.[0-9]*[02468]\\.[0-9]+)\\.tar"

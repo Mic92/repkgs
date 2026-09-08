@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/nodejs/node"
+allow = ">=24,<25"              # LTS line
+
+[[source]]
+key = "default"
+url = "https://nodejs.org/dist/v{version}/node-v{version}.tar.xz"
+hash = "sha256-JzL8P1iN0zXNZ3nAaGT3zUJLsbX/mhdDBZpmxU+cpKE="
+
+[pin]
+version = "24.20.0"

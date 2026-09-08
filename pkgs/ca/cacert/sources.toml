@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/certifi/python-certifi"
+versioning = "calver"
+
+[[source]]
+key = "default"
+url = "https://github.com/certifi/python-certifi/archive/refs/tags/{version}.tar.gz"
+hash = "sha256-4qyfoy6y2s7kAkRD11GHpiho+cwupysVGVyN+oxsFu8="
+
+[pin]
+version = "2026.07.22"

@@ -2,7 +2,6 @@
 # the tools it puts on PATH, and the knobs a package may set under `<name>.*` (anything else is an
 # eval error). `sh` is for tools that spawn a shell by name (ninja, npm run, libtool).
 {
-  standins,
   buildPkgs,
   sh,
 }:
@@ -128,7 +127,7 @@
       "npm.install"
     ];
     tools = [
-      standins.nodejs
+      buildPkgs.nodejs
       sh
     ];
     knobs = [

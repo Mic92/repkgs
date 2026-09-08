@@ -47,7 +47,8 @@ export def exports-of [p: path]: nothing -> record<includeDirs: list<string>, li
     libs: ($e.libs? | default (glob $"($p)/lib/lib*.so" | each { path parse | get stem | str substring 3.. } | sort))
     pkgconfigDirs: ($e.pkgconfigDirs? | default (existing $p ["lib/pkgconfig" "share/pkgconfig"]))
     aclocalDirs: ($e.aclocalDirs? | default (existing $p ["share/aclocal"]))
-    env: ($e.env? | default {})
+    # `{root}` in values: this package's own store path (kept relative in exports.json so the output stays relocatable)
+    env: ($e.env? | default {} | items {|k, v| {$k: ($v | str replace -a "{root}" $p)} } | reduce -f {} {|it, acc| $acc | merge $it })
     propagate: ($e.propagate? | default [])
   }
 }

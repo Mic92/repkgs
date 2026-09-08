@@ -1,0 +1,14 @@
+[upstream]
+purl = "pkg:generic/qemu"
+
+[[source]]
+key = "default"
+url = "https://download.qemu.org/qemu-{version}.tar.xz"
+hash = "sha256-B5/7/4pxEbvIkCIQfLq/O7/WFNX8nXzGdZkRlqyhJII="
+
+[pin]
+version = "11.1.1"
+
+[watch]
+url = "https://download.qemu.org/"
+regex = "qemu-([0-9]+\\.[0-9]+\\.[0-9]+)\\.tar\\.xz"
