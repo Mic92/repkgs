@@ -8,11 +8,7 @@ in
 with nixpkgs;
 {
   # build systems
-  inherit
-    maturin
-    go
-    nodejs
-    ;
+  inherit go nodejs;
 
   # qemu for cross tests, cacert for goModules
   inherit qemu-user cacert;

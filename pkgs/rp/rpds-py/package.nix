@@ -3,7 +3,7 @@
   package,
   sources,
   fetch,
-  standins,
+  buildPkgs,
 }:
 package {
   name = "rpds-py";
@@ -19,5 +19,5 @@ package {
     "python.install"
     "python.test"
   ];
-  buildDependencies = [ standins.maturin ];
+  buildDependencies = [ buildPkgs.maturin ];
 }

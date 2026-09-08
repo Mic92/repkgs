@@ -2,7 +2,7 @@
 
 `standins.nix` is the one `import <nixpkgs>`. Tools it provides are replaced by ordinary
 packages taken from `buildPkgs`, in waves ordered by what each tool needs to build. What is
-left today: `maturin go nodejs qemu-user cacert`.
+left today: `go nodejs qemu-user cacert`.
 
 ## Done
 
@@ -56,7 +56,8 @@ for natives. Its marker/wheel-tag logic is tested against pyproject.nix fetched 
 bin/ entries become launch records that run the foreign ELF under our `ld.so --argv0 bin/foo
 --library-path <sysroot:deps>`, no patchelf. `libgcc-shim` provides the versioned
 `libgcc_s.so.1` (libunwind + the few libgcc integer routines) such binaries import. cargo.nu
-passes `-Clinker-features=-lld` so linking stays with our cc. jig keys tools by resolved store
+passes `-Clinker-features=-lld` so linking stays with our cc. maturin is an ordinary cargo package
+(no default features). jig keys tools by resolved store
 path (`Store::ToolId`), since hash-masking made two rustc versions share cache entries.
 
 **Updater.** See docs/uptrack.md. Done: datasources, check/apply/verify, `update.nu` hooks, tree
