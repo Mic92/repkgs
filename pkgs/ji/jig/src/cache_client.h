@@ -1,7 +1,8 @@
-// Client for the cache daemon on an AF_UNIX socket (pkgs/ji/jig/cache-server.py).
+// Client for the cache daemon on an AF_UNIX socket (pkgs/pk/pkgs-cache).
 //   "GET key\n"             -> "OK <len>\n<bytes>" | "MISS\n"
 //   "PUT key <len>\n<bytes>" -> "OK\n"
-// Any I/O problem is reported as a miss / ignored put: the cache is an optimisation only.
+// Values are LZ4-block compressed by the client. Any I/O problem is reported as a miss / ignored
+// put: the cache is an optimisation only.
 #ifndef PKGS_CC_CACHE_CLIENT_H_
 #define PKGS_CC_CACHE_CLIENT_H_
 
@@ -16,7 +17,7 @@
 namespace jig {
 
 // largest value accepted from the server (objects, rlib bundles) Anything bigger is a protocol error
-constexpr std::uint64_t kMaxObjectSize = std::uint64_t{4} << 30U;
+constexpr std::uint64_t kMaxObjectSize = std::uint64_t{2} << 30U;  // also LZ4_MAX_INPUT_SIZE
 
 class CacheClient {
  public:
@@ -34,7 +35,8 @@ class CacheClient {
   auto RecvExactly(size_t count) -> std::optional<std::string>;
 
   UniqueFd fd_;
-  std::vector<char> buf_ = std::vector<char>(size_t{1} << 16U);
+  static constexpr size_t kBufSize = 65536;
+  std::vector<char> buf_ = std::vector<char>(kBufSize);
   std::string_view pending_;
 };
 

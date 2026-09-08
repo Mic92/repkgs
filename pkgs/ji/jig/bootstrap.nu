@@ -12,6 +12,9 @@ def main []: nothing -> nothing {
   let jsn = $"($env.NIX_BUILD_TOP)/json"
   mkdir $jsn
   cp $env.json_hpp $"($jsn)/json.hpp"
+  let lz4 = $"($env.NIX_BUILD_TOP)/lz4"
+  mkdir $lz4
+  x bsdtar -xf $env.lz4 -C $lz4 --strip-components 2 "*/lib/lz4.[ch]"
   cd $env.NIX_BUILD_TOP
 
   # BLAKE3: portable C plus the hand-written SIMD for this cpu (x86-64: .S files, aarch64: NEON intrinsics)
@@ -21,7 +24,7 @@ def main []: nothing -> nothing {
     _ => { {srcs: [], defs: [-DBLAKE3_NO_SSE2 -DBLAKE3_NO_SSE41 -DBLAKE3_NO_AVX2 -DBLAKE3_NO_AVX512 -DBLAKE3_USE_NEON=0]} }
   })
   let b3objs = (compile ((ccflags) ++ [-O3 -fPIC $"-I($b3)"] ++ $simd.defs) (
-    [blake3.c blake3_dispatch.c blake3_portable.c] | each { $"($b3)/($in)" } | append $simd.srcs
+    [blake3.c blake3_dispatch.c blake3_portable.c] | each { $"($b3)/($in)" } | append $simd.srcs | append $"($lz4)/lz4.c"
     | each {|f| {src: $f, obj: $"($b3)/($f | path basename).o"} }))
 
   let cxxflags = (ccflags | where { $in != "-unwindlib=none" }) ++ [
@@ -32,7 +35,7 @@ def main []: nothing -> nothing {
     # (BLAKE3 objects are compiled separately without: hashing wraps by design)
     "-fsanitize=signed-integer-overflow,unsigned-integer-overflow,shift,integer-divide-by-zero,implicit-integer-truncation,implicit-integer-sign-change,bounds,pointer-overflow"
     -fsanitize-trap=all -fno-sanitize-recover=all
-    $"-DJIG_STORE_DIR=\"($env.storeDir)\"" "-isystem" $b3 "-isystem" $jsn $"-I($env.jig)"]
+    $"-DJIG_STORE_DIR=\"($env.storeDir)\"" "-isystem" $b3 "-isystem" $jsn "-isystem" $lz4 $"-I($env.jig)"]
   let objs = (compile $cxxflags (glob $"($env.jig)/*.cc" | each {|f| {src: $f, obj: $"obj/($f | path parse | get stem).o"} }))
   let common = ($objs | where { ($in | path basename) not-in [main.o jig_test.o] }) ++ $b3objs
   let link = [$"($env.seed)/bin/clang++" ...(ccflags | where { $in != "-unwindlib=none" }) -unwindlib=libunwind -stdlib=libc++ -static-pie]

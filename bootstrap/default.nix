@@ -109,6 +109,7 @@ let
           filter = p: _: builtins.match ".*\\.(cc|h)" p != null;
         };
         blake3 = source "blake3";
+        lz4 = source "lz4";
         json_hpp = source "nlohmann-json";
         inherit (builtins) storeDir;
         crt_interp = pkg "crt-interp" + "/src/crt_interp.c";

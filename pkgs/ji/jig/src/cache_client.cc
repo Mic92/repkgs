@@ -1,11 +1,14 @@
 #include "cache_client.h"
 
+#include <lz4.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
 
 #include <algorithm>
+#include <array>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <format>
@@ -96,6 +99,46 @@ auto CacheClient::RecvExactly(size_t count) -> std::optional<std::string> {
   return complete ? std::optional(std::move(out)) : std::nullopt;
 }
 
+namespace {
+
+// values on the wire: u32 raw size (host order, the cache is per machine) + one LZ4 block
+constexpr size_t kHeader = sizeof(std::uint32_t);
+
+auto Compress(std::string_view value) -> std::string {
+  std::string out;
+  out.resize_and_overwrite(
+      kHeader + static_cast<size_t>(LZ4_compressBound(static_cast<int>(value.size()))),
+      [&](char* data, size_t capacity) -> size_t {
+        const std::span<char> buf(data, capacity);
+        const auto header = std::bit_cast<std::array<char, kHeader>>(static_cast<std::uint32_t>(value.size()));
+        std::ranges::copy(header, buf.begin());
+        const int written = LZ4_compress_default(value.data(), buf.subspan(kHeader).data(),
+                                                 static_cast<int>(value.size()), static_cast<int>(capacity - kHeader));
+        return kHeader + static_cast<size_t>(written);
+      });
+  return out;
+}
+
+auto Decompress(std::string_view wire) -> std::optional<std::string> {
+  if (wire.size() < kHeader) {
+    return std::nullopt;
+  }
+  std::array<char, kHeader> header{};
+  std::ranges::copy(wire.substr(0, kHeader), header.begin());
+  const auto size = std::bit_cast<std::uint32_t>(header);
+  std::string out;
+  bool valid = true;
+  out.resize_and_overwrite(size, [&](char* data, size_t capacity) -> size_t {
+    const std::string_view block = wire.substr(kHeader);
+    const int got = LZ4_decompress_safe(block.data(), data, static_cast<int>(block.size()), static_cast<int>(capacity));
+    valid = std::cmp_equal(got, capacity);
+    return valid ? capacity : 0;
+  });
+  return valid ? std::optional(std::move(out)) : std::nullopt;
+}
+
+}  // namespace
+
 auto CacheClient::Get(std::string_view key) -> std::optional<std::string> {
   if (!fd_.valid() || !SendAll(std::format("GET {}\n", key))) {
     return std::nullopt;
@@ -108,14 +151,16 @@ auto CacheClient::Get(std::string_view key) -> std::optional<std::string> {
   if (!len || *len > kMaxObjectSize) {
     return std::nullopt;  // a confused server must not drive our allocation
   }
-  return RecvExactly(static_cast<size_t>(*len));
+  const std::optional<std::string> wire = RecvExactly(static_cast<size_t>(*len));
+  return wire ? Decompress(*wire) : std::nullopt;
 }
 
 void CacheClient::Put(std::string_view key, std::string_view value) {
   if (!fd_.valid()) {
     return;
   }
-  if (SendAll(std::format("PUT {} {}\n", key, value.size())) && SendAll(value)) {
+  const std::string wire = Compress(value);
+  if (SendAll(std::format("PUT {} {}\n", key, wire.size())) && SendAll(wire)) {
     RecvLine();
   }
 }

@@ -10,6 +10,7 @@ let
     mkdir -p $out/include
     tar -xf ${src "blake3"} -C $out/include --strip-components=2 --wildcards '*/c/blake3.h'
     ln -s ${src "nlohmann-json"} $out/include/json.hpp
+    tar -xf ${src "lz4"} -C $out/include --strip-components=2 --wildcards '*/lib/lz4.h'
   '';
 in
 # clang-tools' wrapper picks up libc++ and libc from the calling shell's libcxx stdenv
