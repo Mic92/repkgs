@@ -10,7 +10,7 @@ let
   thirdParty = pkgs.runCommand "jig-third-party" { } ''
     mkdir -p $out/include
     tar -xf ${src "blake3"} -C $out/include --strip-components=2 --wildcards '*/c/blake3.h'
-    tar -xf ${src "lz4"} -C $out/include --strip-components=2 --wildcards '*/lib/lz4.h'
+    tar -xf ${src "zstd"} -C $out/include --strip-components=2 --wildcards '*/lib/zstd.h' '*/lib/zstd_errors.h'
     ln -s ${src "nlohmann-json"} $out/include/json.hpp
   '';
 in

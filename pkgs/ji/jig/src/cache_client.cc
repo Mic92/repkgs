@@ -1,10 +1,10 @@
 #include "cache_client.h"
 
-#include <lz4.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <zstd.h>
 
 #include <algorithm>
 #include <array>
@@ -101,21 +101,21 @@ auto CacheClient::RecvExactly(size_t count) -> std::optional<std::string> {
 
 namespace {
 
-// values on the wire: u32 raw size (host order, the cache is per machine) + one LZ4 block
+// values on the wire: u32 raw size (host order, the cache is per machine) + one zstd frame.
+// zstd-1 over lz4: 3x smaller on our objects/manifests for ~the same client CPU (experiments/cdc)
 constexpr size_t kHeader = sizeof(std::uint32_t);
+constexpr int kLevel = 1;
 
 auto Compress(std::string_view value) -> std::string {
   std::string out;
-  out.resize_and_overwrite(
-      kHeader + static_cast<size_t>(LZ4_compressBound(static_cast<int>(value.size()))),
-      [&](char* data, size_t capacity) -> size_t {
-        const std::span<char> buf(data, capacity);
-        const auto header = std::bit_cast<std::array<char, kHeader>>(static_cast<std::uint32_t>(value.size()));
-        std::ranges::copy(header, buf.begin());
-        const int written = LZ4_compress_default(value.data(), buf.subspan(kHeader).data(),
-                                                 static_cast<int>(value.size()), static_cast<int>(capacity - kHeader));
-        return kHeader + static_cast<size_t>(written);
-      });
+  out.resize_and_overwrite(kHeader + ZSTD_compressBound(value.size()), [&](char* data, size_t capacity) -> size_t {
+    const std::span<char> buf(data, capacity);
+    const auto header = std::bit_cast<std::array<char, kHeader>>(static_cast<std::uint32_t>(value.size()));
+    std::ranges::copy(header, buf.begin());
+    const size_t written =
+        ZSTD_compress(buf.subspan(kHeader).data(), capacity - kHeader, value.data(), value.size(), kLevel);
+    return ZSTD_isError(written) != 0U ? 0 : kHeader + written;
+  });
   return out;
 }
 
@@ -130,8 +130,8 @@ auto Decompress(std::string_view wire) -> std::optional<std::string> {
   bool valid = true;
   out.resize_and_overwrite(size, [&](char* data, size_t capacity) -> size_t {
     const std::string_view block = wire.substr(kHeader);
-    const int got = LZ4_decompress_safe(block.data(), data, static_cast<int>(block.size()), static_cast<int>(capacity));
-    valid = std::cmp_equal(got, capacity);
+    const size_t got = ZSTD_decompress(data, capacity, block.data(), block.size());
+    valid = got == capacity;
     return valid ? capacity : 0;
   });
   return valid ? std::optional(std::move(out)) : std::nullopt;
@@ -160,7 +160,7 @@ void CacheClient::Put(std::string_view key, std::string_view value) {
     return;
   }
   const std::string wire = Compress(value);
-  if (SendAll(std::format("PUT {} {}\n", key, wire.size())) && SendAll(wire)) {
+  if (!wire.empty() && SendAll(std::format("PUT {} {}\n", key, wire.size())) && SendAll(wire)) {
     RecvLine();
   }
 }

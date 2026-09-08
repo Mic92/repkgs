@@ -1,7 +1,7 @@
 // Client for the cache daemon on an AF_UNIX socket (pkgs/pk/pkgs-cache).
 //   "GET key\n"             -> "OK <len>\n<bytes>" | "MISS\n"
 //   "PUT key <len>\n<bytes>" -> "OK\n"
-// Values are LZ4-block compressed by the client. Any I/O problem is reported as a miss / ignored
+// Values are zstd-compressed by the client. Any I/O problem is reported as a miss / ignored
 // put: the cache is an optimisation only.
 #ifndef PKGS_CC_CACHE_CLIENT_H_
 #define PKGS_CC_CACHE_CLIENT_H_
@@ -17,7 +17,7 @@
 namespace jig {
 
 // largest value accepted from the server (objects, rlib bundles) Anything bigger is a protocol error
-constexpr std::uint64_t kMaxObjectSize = std::uint64_t{2} << 30U;  // also LZ4_MAX_INPUT_SIZE
+constexpr std::uint64_t kMaxObjectSize = std::uint64_t{2} << 30U;
 
 class CacheClient {
  public:
