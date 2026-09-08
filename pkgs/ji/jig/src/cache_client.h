@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "base.h"
 
@@ -28,10 +29,13 @@ class CacheClient {
 
  private:
   auto SendAll(std::string_view data) -> bool;
+  auto Fill() -> bool;
   auto RecvLine() -> std::optional<std::string>;
   auto RecvExactly(size_t count) -> std::optional<std::string>;
 
   UniqueFd fd_;
+  std::vector<char> buf_ = std::vector<char>(size_t{1} << 16U);
+  std::string_view pending_;
 };
 
 }  // namespace jig

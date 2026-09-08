@@ -1,24 +1,26 @@
 #include "gocache_mode.h"
 
+#include <sys/types.h>
+#include <unistd.h>
+
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <format>
 #include <fstream>
-#include <iostream>
+#include <ios>
 #include <optional>
 #include <print>
 #include <string>
 #include <string_view>
 #include <system_error>
-
-#include "keys.h"
-
-#define JSON_NOEXCEPTION 1  // NOLINT(cppcoreguidelines-macro-usage): nlohmann-json's configuration knob
-#include <json.hpp>
+#include <vector>
 
 #include "base.h"
 #include "cache_client.h"
+#include "keys.h"
 
 namespace jig {
 
@@ -30,13 +32,69 @@ constexpr unsigned kSextetBits = 6;
 constexpr unsigned kSextetMask = 0x3f;
 constexpr unsigned kOctetBits = 8;
 constexpr unsigned kOctetMask = 0xff;
+constexpr std::uint8_t kInvalid = 0xff;
+constexpr size_t kByteValues = 256;
 
-auto DecodeChar(char chr) -> std::optional<unsigned> {
-  const size_t pos = kAlphabet.find(chr);
-  if (pos == std::string_view::npos) {
-    return std::nullopt;
+constexpr auto MakeDecodeTable() -> std::array<std::uint8_t, kByteValues> {
+  std::array<std::uint8_t, kByteValues> table{};
+  table.fill(kInvalid);
+  for (size_t i = 0; i < kAlphabet.size(); ++i) {
+    table.at(static_cast<unsigned char>(kAlphabet.at(i))) = static_cast<std::uint8_t>(i);
   }
-  return static_cast<unsigned>(pos);
+  return table;
+}
+constexpr std::array<std::uint8_t, kByteValues> kDecode = MakeDecodeTable();
+
+// stdin line by line without iostreams: bodies are multi-megabyte base64 lines and libc++'s
+// std::getline fetches them a character at a time
+class LineReader {
+ public:
+  auto Next(std::string& line) -> bool {
+    line.clear();
+    for (;;) {
+      const std::string_view pending = std::string_view(buf_.data(), end_).substr(pos_);
+      const size_t newline = pending.find('\n');
+      if (newline != std::string_view::npos) {
+        line.append(pending.substr(0, newline));
+        pos_ += newline + 1;
+        return true;
+      }
+      line.append(pending);
+      pos_ = end_ = 0;
+      const ssize_t got = ::read(STDIN_FILENO, buf_.data(), buf_.size());
+      if (got <= 0) {
+        return !line.empty();
+      }
+      end_ = static_cast<size_t>(got);
+    }
+  }
+
+ private:
+  static constexpr size_t kBufSize = size_t{1} << 20U;
+  std::vector<char> buf_ = std::vector<char>(kBufSize);
+  size_t pos_ = 0;
+  size_t end_ = 0;
+};
+
+// The requests are flat objects with known keys and no escapes in the values we read
+// ({"ID":1,"Command":"get","ActionID":"base64",...}), so a scan for "key": is enough
+auto JsonField(std::string_view line, std::string_view key) -> std::string_view {
+  const std::string pattern = std::format("\"{}\":", key);
+  size_t pos = line.find(pattern);
+  if (pos == std::string_view::npos) {
+    return {};
+  }
+  pos += pattern.size();
+  if (pos < line.size() && line.at(pos) == '"') {
+    const size_t end = line.find('"', pos + 1);
+    return end == std::string_view::npos ? std::string_view{} : line.substr(pos + 1, end - pos - 1);
+  }
+  const size_t end = line.find_first_of(",}", pos);
+  return line.substr(pos, end == std::string_view::npos ? std::string_view::npos : end - pos);
+}
+
+auto JsonInt(std::string_view line, std::string_view key) -> std::int64_t {
+  return static_cast<std::int64_t>(ParseUint(JsonField(line, key)).value_or(0));
 }
 
 struct GoSession {
@@ -67,27 +125,21 @@ void HandleGet(GoSession& session, std::int64_t request_id, const std::string& a
   if (!fs::exists(disk_path)) {
     WriteFile(disk_path, *body);
   }
-  std::println(stdout, "{}",
-               nlohmann::json{
-                   {"ID", request_id},
-                   {"OutputID", Base64Encode(*output_id)},
-                   {"Size", body->size()},
-                   {"DiskPath", disk_path.string()},
-               }
-                   .dump());
+  std::println(stdout, R"({{"ID":{},"OutputID":"{}","Size":{},"DiskPath":"{}"}})", request_id, Base64Encode(*output_id),
+               body->size(), disk_path.string());
 }
 
-void HandlePut(GoSession& session, std::int64_t request_id, const std::string& action, const nlohmann::json& req) {
-  const std::string output_id = Base64Decode(req.value("OutputID", ""));
+void HandlePut(GoSession& session, LineReader& input, std::int64_t request_id, const std::string& action,
+               std::string_view req) {
+  const std::string output_id = Base64Decode(JsonField(req, "OutputID"));
   std::string body;
-  if (req.value("BodySize", std::int64_t{0}) > 0) {
-    // the body follows as one JSON string line (base64), possibly after blank lines
+  if (JsonInt(req, "BodySize") > 0) {
+    // the body follows as one JSON string line: "base64", possibly after blank lines
     std::string body_line;
-    while (body_line.empty() && std::getline(std::cin, body_line)) {
+    while (body_line.empty() && input.Next(body_line)) {
     }
-    const nlohmann::json body_json = nlohmann::json::parse(body_line, nullptr, false);
-    if (body_json.is_string()) {
-      body = Base64Decode(body_json.get<std::string>());
+    if (body_line.size() >= 2 && body_line.front() == '"' && body_line.back() == '"') {
+      body = Base64Decode(std::string_view(body_line).substr(1, body_line.size() - 2));
     }
   }
   const fs::path disk_path = session.dir / HexEncode(output_id);
@@ -97,7 +149,7 @@ void HandlePut(GoSession& session, std::int64_t request_id, const std::string& a
     session.cache.Put(slot::GoAction(action), output_id);
   }
   ++session.puts;
-  std::println(stdout, "{}", nlohmann::json{{"ID", request_id}, {"DiskPath", disk_path.string()}}.dump());
+  std::println(stdout, R"({{"ID":{},"DiskPath":"{}"}})", request_id, disk_path.string());
 }
 
 }  // namespace
@@ -127,14 +179,15 @@ auto Base64Encode(std::string_view bytes) -> std::string {
 
 auto Base64Decode(std::string_view text) -> std::string {
   std::string out;
+  out.reserve(text.size() / 4 * 3);
   unsigned acc = 0;
   unsigned bits = 0;
   for (const char chr : text) {
-    const std::optional<unsigned> sextet = DecodeChar(chr);
-    if (!sextet) {
+    const std::uint8_t sextet = kDecode.at(static_cast<unsigned char>(chr));
+    if (sextet == kInvalid) {
       continue;
     }
-    acc = (acc << kSextetBits) | *sextet;
+    acc = (acc << kSextetBits) | sextet;
     bits += kSextetBits;
     if (bits >= kOctetBits) {
       bits -= kOctetBits;
@@ -154,27 +207,24 @@ auto RunGoCacheProg(const std::string& socket_path) -> int {
   std::println(stdout, R"({{"ID":0,"KnownCommands":["get","put","close"]}})");
   std::fflush(stdout);
 
+  LineReader input;
   std::string line;
-  while (std::getline(std::cin, line)) {
+  while (input.Next(line)) {
     if (line.empty()) {
       continue;
     }
-    const nlohmann::json req = nlohmann::json::parse(line, nullptr, /*allow_exceptions=*/false);
-    if (req.is_discarded() || !req.is_object()) {
-      continue;
-    }
-    const std::int64_t request_id = req.value("ID", std::int64_t{0});
-    const std::string command = req.value("Command", "");
+    const std::int64_t request_id = JsonInt(line, "ID");
+    const std::string_view command = JsonField(line, "Command");
     if (command == "close") {
       std::println(stdout, R"({{"ID":{}}})", request_id);
       std::fflush(stdout);
       break;
     }
-    const std::string action = HexEncode(Base64Decode(req.value("ActionID", "")));
+    const std::string action = HexEncode(Base64Decode(JsonField(line, "ActionID")));
     if (command == "get") {
       HandleGet(session, request_id, action);
     } else if (command == "put") {
-      HandlePut(session, request_id, action, req);
+      HandlePut(session, input, request_id, action, line);
     }
     std::fflush(stdout);
   }
