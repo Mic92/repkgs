@@ -20,10 +20,26 @@ packages are the interpreter, the build stack, native extensions that must link 
 and the few pure libraries C projects import at build time. Applications bring `uv.lock` and
 `fetch.pythonDeps { source }` is a dynamic derivation like cargoVendor.
 
-**Seed 3.** Built from this set's own packages for a musl-static platform instead of nixpkgs
-`pkgsStatic`; add a static curl + the CA bundle so a source becomes one fixed-output derivation
-(fetch + unpack) instead of fetchurl + unpack. aarch64 seed uploaded. Size levers: nu without
-polars/sqlite, LLVM with three targets. Fixed-point check in CI.
+**Seed 3** (building): LLVM 23.1.1 from our own pin with LoongArch and PowerPC backends, static
+curl + CA bundle. Then: sources as one fixed-output derivation (seed curl + bsdtar) instead of
+fetchurl + unpack; loongarch64 and powerpc64le cross platforms verified (platform entries,
+builtins lists, qemu targets, rust-std, GOARCH are in); aarch64 seed uploaded. Later the seed is
+built from this set's own musl-static packages instead of nixpkgs `pkgsStatic`, fixed point in CI.
+
+**Windows cross (x86_64/aarch64-w64-mingw32).** All-LLVM like Linux: mingw-w64 headers + CRT
+as the libc recipes, compiler-rt/runtimes/cc as in stage1, `lld` for PE. A `mingw` libc flavour
+in platforms.nix without interp/RUNPATH (finish/launchers treat non-ELF as done; DLLs beside the
+exe are already relocatable), `.exe` naming in install steps, `wine` as platform.emulator,
+`x86_64-pc-windows-gnu`/`GOOS=windows` in cargo.nu/go.nu. No MSVC ABI (needs the unfree SDK).
+
+**macOS cross (aarch64/x86_64-apple-darwin), SDK from source.** No Xcode: an `apple-sdk` recipe
+assembles libSystem headers from Apple's open-source releases (xnu, Libc, libpthread,
+libdispatch, Libinfo, libmalloc, libplatform, dyld, CommonCrypto, objc4, ... pinned per macOS
+release, trackable by uptrack) plus committed `.tbd` link stubs, CoreFoundation from
+swift-corelibs; closed frameworks stay out of scope. Toolchain is ours: clang, `ld64.lld`
+(`--adhoc_codesign`), compiler-rt, libc++/libunwind for `arm64-apple-macos11`. Relocatability
+maps to `@executable_path/../lib` install names instead of RUNPATH, fixup via
+`llvm-install-name-tool`; no launcher. No emulator, so cross builds are untested.
 
 **Reproducibility check.** A `repro-check` job that rebuilds the set without the cache socket
 (`--rebuild`) and reports CA path mismatches; diffoscope only on those.
