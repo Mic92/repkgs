@@ -8,7 +8,7 @@ def site-packages [roots: list<string>]: nothing -> list<string> { $roots | each
 # PYTHONPATH = dependencies' site-packages, cwd = `python.root`
 export def --env setup []: nothing -> nothing {
   let c = (ctx)
-  load-env {PYTHONDONTWRITEBYTECODE: "1", PYTHONHASHSEED: "0", PIP_NO_INDEX: "1"}
+  load-env {PYTHONDONTWRITEBYTECODE: "1", PIP_NO_INDEX: "1"}
   # python deps and build backends are packages with a site-packages dir. The source tree comes
   # last so a backend can build itself (flit_core, setuptools) before any of the stack exists
   let root = $"($c.src)/((knobs).root)"

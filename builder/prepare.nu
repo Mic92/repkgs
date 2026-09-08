@@ -11,9 +11,13 @@ def --env build-env [a: record, deps: list<record>, out: string]: nothing -> not
   $env.PATH = ($a.buildDependencies | each { $"($in)/bin" })
   $env.HOME = $"($env.NIX_BUILD_TOP)/home"
   $env.TMPDIR = $env.NIX_BUILD_TOP
+  # reproducibility pins: no wall clock, locale, timezone or hash randomisation in outputs
   $env.SOURCE_DATE_EPOCH = "315532800"  # 1980-01-01: earliest mtime ZIP (wheels, jars) can store
+  load-env {TZ: "UTC", LC_ALL: "C", ZERO_AR_DATE: "1", PERL_HASH_SEED: "0", PYTHONHASHSEED: "0"
+    KBUILD_BUILD_TIMESTAMP: "@315532800", KBUILD_BUILD_USER: "pkgs", KBUILD_BUILD_HOST: "pkgs"}
   $env.out = $out
   $env.JIG_LOG = $"($env.NIX_BUILD_TOP)/jig.log"
+  $env.JIG_LOG_ARGS = $"($env.NIX_BUILD_TOP)/jig-uncached.log"
   # content identity: a rebuilt-but-identical toolchain or dependency (new store hash, same bytes)
   # still hits. The roots tell jig which concrete store dirs the masked header names map to.
   $env.JIG_STORE_IDENTITY = "content"
@@ -33,7 +37,8 @@ def --env build-env [a: record, deps: list<record>, out: string]: nothing -> not
   # per-package defaults (§4): profiling-friendly, hardened. -march and the platform's hardening
   # flag are in the cc conf, so build systems that ignore CFLAGS still get them.
   $env.CFLAGS = (["-O2" "-fno-omit-frame-pointer" "-mno-omit-leaf-frame-pointer" "-g"
-    "-D_FORTIFY_SOURCE=3" "-fstack-protector-strong" "-fstack-clash-protection" "-ftrivial-auto-var-init=zero"]
+    "-D_FORTIFY_SOURCE=3" "-fstack-protector-strong" "-fstack-clash-protection" "-ftrivial-auto-var-init=zero"
+    "-Werror=date-time"]
     ++ ($a.spec.cc?.cflags? | default []) | str join " ")
   $env.CXXFLAGS = $env.CFLAGS
   load-env ($deps | get env | reduce -f {} {|it, acc| $acc | merge $it })
