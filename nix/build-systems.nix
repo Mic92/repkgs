@@ -119,6 +119,26 @@
       "cgo"
     ];
   };
+  pnpm = {
+    module = "pnpm.nu";
+    steps = [
+      "pnpm.build"
+      "pnpm.test"
+      "pnpm.install"
+    ];
+    tools = [
+      buildPkgs.pnpm
+      buildPkgs.nodejs
+      sh
+    ];
+    knobs = [
+      "root"
+      "script"
+      "deps"
+      "test"
+      "flags"
+    ];
+  };
   npm = {
     module = "npm.nu";
     steps = [

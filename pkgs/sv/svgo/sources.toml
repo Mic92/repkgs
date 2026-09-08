@@ -1,0 +1,13 @@
+[upstream]
+purl = "pkg:github/svg/svgo"
+
+[[source]]
+key = "default"
+url = "https://github.com/svg/svgo/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-fwSuYPv9y16r6fCmxzqynTaq4FdrplNRrNH30tagJgI="
+
+[pin]
+version = "4.1.0"
+tag = "v4.1.0"
+date = "2026-08-24"
+checked = "2026-09-09"
