@@ -1,0 +1,2 @@
+# unversioned name -> default line (docs/design.md "Language versions")
+cpython = "cpython314"
