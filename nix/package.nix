@@ -183,11 +183,11 @@ let
       inherit (platform)
         name
         cpu
+        names
         triple
         cross
         emulator
         ;
-      cmakeProcessor = platform.cpu;
       probe = if platform.cross then "${toolchain.sysroot}/lib/${platform.interp}" else "";
       # for `prebuilt`: foreign ELFs run under our dynamic linker via launch
       interp = "${toolchain.sysroot}/lib/${platform.interp}";

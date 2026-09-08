@@ -3,8 +3,9 @@ use core.nu *
 # meson setup / compile / test / install.
 def knobs []: nothing -> record<options: record, sourceDir: string> { knobs-for meson {options: {}, sourceDir: "."} }
 
+# option values are bools, ints or strings
 def render [v]: nothing -> string {  # nu-lint-ignore: add_type_hints_arguments
-  match ($v | describe) { "bool" => (if $v { "true" } else { "false" }), _ => ($v | into string) }
+  if ($v | describe) == "bool" { if $v { "true" } else { "false" } } else { $v | into string }
 }
 
 # out-of-tree: work in the build directory
@@ -13,8 +14,8 @@ export def --env setup []: nothing -> nothing { cd (ctx).build }
 # cross: meson wants a file, not flags. Generated from the platform record
 def cross-file [c: record]: nothing -> string {
   let p = $c.platform
-  let cpu = ($p.triple | parse "{cpu}-{rest}" | get cpu.0)
-  let fam = (match $cpu { "powerpc64le" => "ppc64", _ => $cpu })
+  let cpu = $p.cpu
+  let fam = $p.names.meson
   let f = $"($c.build)/cross.ini"
   [ "[binaries]" "c = 'cc'" "cpp = 'c++'" "ar = 'llvm-ar'" "strip = 'llvm-strip'" "pkg-config = 'pkg-config'"
     ...(if ($p.emulator | is-empty) { [] } else {

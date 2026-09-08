@@ -4,7 +4,10 @@ use core.nu *
 def knobs []: nothing -> record<features: list<string>, noDefaultFeatures: bool, root: string, vendor: any> { knobs-for cargo {features: [], noDefaultFeatures: false, root: ".", vendor: null} }
 
 def feature-args [k: record]: nothing -> list<string> {
-  (if $k.noDefaultFeatures { ["--no-default-features"] } else { [] }) ++ (if ($k.features | is-empty) { [] } else { ["--features" ($k.features | str join ",")] })
+  [
+    (if $k.noDefaultFeatures { "--no-default-features" })
+    (if ($k.features | is-not-empty) { $"--features=($k.features | str join ',')" })
+  ] | compact
 }
 
 # CARGO_HOME + config.toml (vendored registry, offline, linker=cc), rustc cache wrapper, path remaps
@@ -16,23 +19,24 @@ export def --env setup []: nothing -> nothing {
   # RUSTC absolute so the wrapper (and its cache key) sees which rustc, not a bare name
   $env.RUSTC = (tool rustc)
   if $c.cache { $env.RUSTC_WRAPPER = (tool rustcwrap); $env.CARGO_INCREMENTAL = "0" }
-  # vendored deps arrive as a directory (from lock.json in the real thing) nixpkgs' layout nests them one level
-  let vendor = if $k.vendor != null and ($"($k.vendor)/source-registry-0" | path exists) { $"($k.vendor)/source-registry-0" } else { $k.vendor }
-  let host = (^rustc -vV | lines | where { str starts-with "host:" } | first | str replace "host: " "")
-  # rust spells riscv64 "riscv64gc"; cc targets the platform, cc-build the build machine
-  let target = ($c.platform.triple | str replace -r '^riscv64-' "riscv64gc-")
+  let host = (^rustc -vV | lines | parse "host: {t}" | get t.0)
+  # cc targets the platform, cc-build the build machine (rust spells some cpus differently)
+  let target = ($c.platform.triple | str replace $c.platform.cpu $c.platform.names.rust)
   $env.CARGO_BUILD_TARGET = $target
-  [
-    (if $vendor != null { $"[source.crates-io]\nreplace-with = 'vendored'\n[source.vendored]\ndirectory = '($vendor)'" } else { "" })
-    "[net]\noffline = true"
-    $"[build]\njobs = ($c.njobs)"
-    $"[target.($target)]\nlinker = 'cc'"
-    ...(if $c.platform.cross { [$"[target.($host)]\nlinker = 'cc-build'"] } else { [] })
-  ] | str join "\n" | save -f $"($env.CARGO_HOME)/config.toml"
+  {
+    source: (if $k.vendor != null { {crates-io: {replace-with: vendored}, vendored: {directory: $k.vendor}} } else { {} })
+    net: {offline: true}
+    build: {jobs: $c.njobs}
+    target: ({$target: {linker: cc}} | merge (if $c.platform.cross { {$host: {linker: cc-build}} } else { {} }))
+  } | to toml | save -f $"($env.CARGO_HOME)/config.toml"
   # panic strings embed source paths: map build tree, cargo home and vendor dir away.
-  # our cc links with its own lld, rustc >= 1.90 would otherwise insert its bundled rust-lld
-  $env.RUSTFLAGS = ([-Clinker-features=-lld $"--remap-path-prefix=($c.src)=/src" $"--remap-path-prefix=($env.CARGO_HOME)=/cargo"]
-    ++ (if $vendor != null { [$"--remap-path-prefix=($k.vendor)=/vendor"] } else { [] }) | str join " ")
+  # -lld: our cc links with its own lld, rustc >= 1.90 would otherwise insert its bundled rust-lld
+  $env.RUSTFLAGS = ([
+    -Clinker-features=-lld
+    $"--remap-path-prefix=($c.src)=/src"
+    $"--remap-path-prefix=($env.CARGO_HOME)=/cargo"
+    (if $k.vendor != null { $"--remap-path-prefix=($k.vendor)=/vendor" })
+  ] | compact | str join " ")
   cd $"($c.src)/($k.root)"
 }
 

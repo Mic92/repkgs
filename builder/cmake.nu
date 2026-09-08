@@ -3,8 +3,9 @@ use core.nu *
 # cmake configure / build / ctest / install with Ninja.
 def knobs []: nothing -> record<defs: record, sourceDir: string, generator: string> { knobs-for cmake {defs: {}, sourceDir: ".", generator: "Ninja"} }
 
+# option values are bools, ints or strings
 def render [v]: nothing -> string {  # nu-lint-ignore: add_type_hints_arguments
-  match ($v | describe) { "bool" => (if $v { "ON" } else { "OFF" }), _ => ($v | into string) }
+  if ($v | describe) == "bool" { if $v { "ON" } else { "OFF" } } else { $v | into string }
 }
 
 # out-of-tree: work in the build directory
@@ -23,7 +24,7 @@ export def configure []: nothing -> nothing {
     BUILD_TESTING: $c.testsRun
   } | merge (if $c.platform.cross { {
     CMAKE_SYSTEM_NAME: "Linux"
-    CMAKE_SYSTEM_PROCESSOR: $c.platform.cmakeProcessor
+    CMAKE_SYSTEM_PROCESSOR: $c.platform.cpu
   } } else { {} }) | merge (if ($c.platform.emulator | is-empty) { {} } else { {CMAKE_CROSSCOMPILING_EMULATOR: ($c.platform.emulator | str join ";")} }) | merge $k.defs)
   let srcdir = $"($c.src)/($k.sourceDir)"
   # results of check_*/try_compile (the project's INTERNAL cache entries) carried across builds

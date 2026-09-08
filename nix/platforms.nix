@@ -1,9 +1,14 @@
 # CPU facts, the only place they live. `glibc.<cpu>` / `musl.<cpu>` / `forSystem` add the libc-
 # dependent fields (triple, dynamic linker name). `flags` end up in every cc invocation via jig.conf.
+# `names`: what other ecosystems call the cpu (kernel ARCH=, GOARCH, rust triple prefix, meson
+# cpu_family, qemu-user binary) where it differs from ours.
 let
   cpus = {
     x86_64 = {
-      karch = "x86";
+      names = {
+        kernel = "x86";
+        go = "amd64";
+      };
       march = [ "-march=x86-64-v3" ];
       hardening = [ "-fcf-protection=full" ];
       interp.glibc = "ld-linux-x86-64.so.2";
@@ -13,14 +18,20 @@ let
       ];
     };
     aarch64 = {
-      karch = "arm64";
+      names = {
+        kernel = "arm64";
+        go = "arm64";
+      };
       march = [ "-march=armv8.2-a+lse" ];
       hardening = [ "-mbranch-protection=standard" ];
       interp.glibc = "ld-linux-aarch64.so.1";
       glibcConfigure = [ ];
     };
     riscv64 = {
-      karch = "riscv";
+      names = {
+        kernel = "riscv";
+        rust = "riscv64gc";
+      };
       # -mno-relax: lld 21 leaves R_RISCV_IRELATIVE addends unadjusted after relaxation, so ld.so
       # jumps into the middle of memcpy instead of the ifunc resolver (every dynamic program SIGSEGVs)
       march = [
@@ -34,7 +45,10 @@ let
     };
     # Loongson 3A5000+ (LA464): the LA64 v1.0 baseline every shipped core has
     loongarch64 = {
-      karch = "loongarch";
+      names = {
+        kernel = "loongarch";
+        go = "loong64";
+      };
       march = [
         "-march=loongarch64"
         "-mabi=lp64d"
@@ -45,8 +59,12 @@ let
     };
     # POWER9 and later, little endian, ELFv2, IEEE long double (what current distros ship)
     powerpc64le = {
-      karch = "powerpc";
-      qemuArch = "ppc64le";
+      names = {
+        kernel = "powerpc";
+        go = "ppc64le";
+        meson = "ppc64";
+        qemu = "ppc64le";
+      };
       march = [ "-mcpu=power9" ];
       hardening = [ ];
       interp.glibc = "ld64.so.2";
@@ -58,9 +76,16 @@ let
     let
       c = cpus.${cpu};
     in
-    c
+    (removeAttrs c [ "names" ])
     // {
       inherit cpu libc;
+      names = builtins.mapAttrs (n: _: c.names.${n} or cpu) {
+        kernel = null;
+        go = null;
+        rust = null;
+        meson = null;
+        qemu = null;
+      };
       name = "${cpu}-linux";
       triple = "${cpu}-unknown-linux-${
         {
@@ -70,7 +95,6 @@ let
         .${libc}
       }";
       interp = if libc == "musl" then "ld-musl-${cpu}.so.1" else c.interp.glibc;
-      qemuArch = c.qemuArch or cpu;
       flags = c.march ++ c.hardening;
     };
 in

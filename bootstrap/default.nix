@@ -95,10 +95,10 @@ let
         inherit (platform)
           triple
           cpu
-          karch
           libc
           interp
           ;
+        karch = platform.names.kernel;
         flags = toString platform.flags;
         seed = seedPath;
         builder = "${seedPath}/bin/nu";

@@ -6,16 +6,14 @@ def knobs []: nothing -> record<tags: list<string>, ldflags: list<string>, packa
 # offline vendored module mode, GOCACHEPROG through jig, cgo per `go.cgo`. Copies `go.vendor` in if the tree lacks one, after checking it matches go.sum
 export def --env setup []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
-  $env.GOCACHE = $"($c.build)/go-cache"
-  $env.GOPATH = $"($c.build)/go"
-  $env.GOFLAGS = "-mod=vendor -trimpath -buildvcs=false"
-  $env.GOPROXY = "off"
-  $env.GOSUMDB = "off"
-  $env.GOTOOLCHAIN = "local"
-  if $c.cache { $env.GOCACHEPROG = (which gocacheprog | get 0.path) }
-  $env.CGO_ENABLED = (if $k.cgo { "1" } else { "0" })
-  # cross: cc already targets the platform, go needs GOARCH; its build-machine helpers use CC_FOR_BUILD
-  load-env {GOOS: "linux", GOARCH: ({x86_64: "amd64", aarch64: "arm64", riscv64: "riscv64", loongarch64: "loong64", powerpc64le: "ppc64le"} | get $c.platform.cpu)}
+  load-env {
+    GOCACHE: $"($c.build)/go-cache", GOPATH: $"($c.build)/go"
+    GOFLAGS: "-mod=vendor -trimpath -buildvcs=false", GOPROXY: "off", GOSUMDB: "off", GOTOOLCHAIN: "local"
+    CGO_ENABLED: (if $k.cgo { "1" } else { "0" })
+    # cross: cc already targets the platform, go needs GOARCH; build-machine helpers use CC_FOR_BUILD
+    GOOS: "linux", GOARCH: $c.platform.names.go
+  }
+  if $c.cache { $env.GOCACHEPROG = (tool gocacheprog) }
   cd $"($c.src)/($k.root)"
   if $k.vendor != null and not ("vendor" | path exists) {
     if (open --raw $"($k.vendor)/go.sum") != (open --raw go.sum) {
@@ -28,7 +26,10 @@ export def --env setup []: nothing -> nothing {
 
 # always link through cc so RUNPATH/interp policy and fixup apply to Go binaries too
 def common-args [k: record]: nothing -> list<string> {
-  (if ($k.tags | is-empty) { [] } else { [$"-tags=($k.tags | str join ',')"] }) ++ [$"-ldflags=-linkmode=external ($k.ldflags | str join ' ')"]
+  [
+    (if ($k.tags | is-not-empty) { $"-tags=($k.tags | str join ',')" })
+    $"-ldflags=-linkmode=external ($k.ldflags | str join ' ')"
+  ] | compact
 }
 
 # go build `go.packages` into the build dir (external linker = cc)
