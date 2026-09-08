@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:gnu/gperf"
+
+[[source]]
+key = "default"
+url = "https://ftp.gnu.org/gnu/gperf/gperf-{version}.tar.gz"
+hash = "sha256-/Yfgq6fkOuBUg3r9bNTbA6PyaT3rNhkIXm7Z2NlgStg="
+
+[pin]
+version = "3.3"

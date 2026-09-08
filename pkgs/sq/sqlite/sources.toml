@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/sqlite/sqlite"
+
+[[source]]
+key = "default"
+url = "https://github.com/sqlite/sqlite/archive/refs/tags/version-{version}.tar.gz"
+hash = "sha256-+r9+9qjRnHMO0mW+I9SnjseDUy+SY0QQGuR/bBXa5z8="
+
+[pin]
+version = "3.53.3"
+tag = "version-3.53.3"

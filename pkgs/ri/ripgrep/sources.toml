@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/BurntSushi/ripgrep"
+
+[[source]]
+key = "default"
+url = "https://github.com/BurntSushi/ripgrep/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-dgUknT6w1fFw40FEmOM0Tiax56FHrsUYtXCQuAA2pWI="
+
+[pin]
+version = "15.2.0"
+tag = "15.2.0"

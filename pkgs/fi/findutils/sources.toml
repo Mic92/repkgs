@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:gnu/findutils"
+
+[[source]]
+key = "default"
+url = "https://ftp.gnu.org/gnu/findutils/findutils-{version}.tar.xz"
+hash = "sha256-E4fgtn/yR9Kr3pmPkN+/cMFJE5Glnd/suK5ph4nwpPU="
+
+[pin]
+version = "4.10.0"

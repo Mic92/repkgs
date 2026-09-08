@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/navidrome/navidrome"
+
+[[source]]
+key = "default"
+url = "https://github.com/navidrome/navidrome/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-omAvALQpMl837+26XmeRgmn1rSaHJmYp2tI7dAE1zUw="
+
+[pin]
+version = "0.63.2"
+tag = "v0.63.2"

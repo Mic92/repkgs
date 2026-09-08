@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/ninja-build/ninja"
+
+[[source]]
+key = "default"
+url = "https://github.com/ninja-build/ninja/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-8AVa0Dab8uNylVulUSjQAM/MIXdwV4BgFbReSsy+vyM="
+
+[pin]
+version = "1.13.1"
+tag = "v1.13.1"

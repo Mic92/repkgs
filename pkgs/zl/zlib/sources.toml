@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/madler/zlib"
+
+[[source]]
+key = "default"
+url = "https://github.com/madler/zlib/releases/download/{tag}/zlib-{version}.tar.gz"
+hash = "sha256-uzKaCizQJ00FUZ1hxmfAYuBpkNcuEl7i36jeZPARnRY="
+
+[pin]
+version = "1.3.2"
+tag = "v1.3.2"

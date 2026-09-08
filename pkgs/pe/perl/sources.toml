@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/Perl/perl5"
+allow = "==5.40.*"
+
+[[source]]
+key = "default"
+url = "https://www.cpan.org/src/5.0/perl-{version}.tar.xz"
+hash = "sha256-BVHHF0WOcD73lyMHqxk4Xt+iMRmNiJmN904SImq/Vjs="
+
+[pin]
+version = "5.40.2"

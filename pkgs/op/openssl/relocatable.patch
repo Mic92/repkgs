@@ -1,0 +1,104 @@
+From e5238966a6e109b6abe90237bfffca091dcd10e9 Mon Sep 17 00:00:00 2001
+From: x <x>
+Date: Sat, 5 Sep 2026 16:31:15 +0200
+Subject: [PATCH] defaults: locate ossl-modules and engines relative to the
+ loaded libcrypto
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Jörg Thalheim <joerg@thalheim.io>
+---
+ crypto/defaults.c | 47 +++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 45 insertions(+), 2 deletions(-)
+
+diff --git a/crypto/defaults.c b/crypto/defaults.c
+index 17d8ffd..1b77e87 100644
+--- a/crypto/defaults.c
++++ b/crypto/defaults.c
+@@ -7,16 +7,21 @@
+  * https://www.openssl.org/source/license.html
+  */
+ 
++#if defined(__linux__) && !defined(_GNU_SOURCE)
++# define _GNU_SOURCE
++#endif
+ #include <stdio.h>
++#include <string.h>
+ #include <openssl/opensslv.h>
+ #include "internal/thread_once.h"
+ #include "internal/cryptlib.h"
+ #include "internal/e_os.h"
+ 
+-#if defined(_WIN32) && defined(OSSL_WINCTX)
+-
+ #define TOSTR(x) #x
+ #define MAKESTR(x) TOSTR(x)
++
++#if defined(_WIN32) && defined(OSSL_WINCTX)
++
+ #define NOQUOTE(x) x
+ #if defined(OSSL_WINCTX)
+ #define REGISTRY_KEY "SOFTWARE\\WOW6432Node\\OpenSSL" \
+@@ -143,6 +148,36 @@ DEFINE_RUN_ONCE_STATIC(do_defaults_setup)
+ }
+ #endif /* defined(_WIN32) && defined(OSSL_WINCTX) */
+ 
++#if !defined(_WIN32) && defined(OSSL_RELOCATABLE)
++# include <dlfcn.h>
++# include <limits.h>
++/*
++ * MODULESDIR/ENGINESDIR relative to the loaded libcrypto, so an installation can be moved.
++ * The configured absolute paths remain the fallback (static libcrypto, dladdr failure).
++ */
++static char rel_modulesdir[PATH_MAX], rel_enginesdir[PATH_MAX];
++static CRYPTO_ONCE rel_init = CRYPTO_ONCE_STATIC_INIT;
++DEFINE_RUN_ONCE_STATIC(do_rel_setup)
++{
++    Dl_info info;
++    char *slash;
++
++    if (dladdr((void *)ossl_get_modulesdir, &info) == 0 || info.dli_fname == NULL
++        || strlen(info.dli_fname) >= PATH_MAX - sizeof("/engines-" MAKESTR(OPENSSL_VERSION_MAJOR)))
++        return 1;
++    strcpy(rel_modulesdir, info.dli_fname);
++    if ((slash = strrchr(rel_modulesdir, '/')) == NULL) {
++        rel_modulesdir[0] = '\0';
++        return 1;
++    }
++    *slash = '\0';
++    strcpy(rel_enginesdir, rel_modulesdir);
++    strcat(rel_modulesdir, "/ossl-modules");
++    strcat(rel_enginesdir, "/engines-" MAKESTR(OPENSSL_VERSION_MAJOR));
++    return 1;
++}
++#endif
++
+ /**
+  * @brief Get the directory where OpenSSL is installed.
+  *
+@@ -171,6 +206,10 @@ const char *ossl_get_enginesdir(void)
+         return NULL;
+     return (const char *)enginesdirptr;
+ #else
++# if defined(OSSL_RELOCATABLE)
++    if (RUN_ONCE(&rel_init, do_rel_setup) && rel_enginesdir[0] != '\0')
++        return rel_enginesdir;
++# endif
+     return ENGINESDIR;
+ #endif
+ }
+@@ -187,6 +226,10 @@ const char *ossl_get_modulesdir(void)
+         return NULL;
+     return (const char *)modulesdirptr;
+ #else
++# if defined(OSSL_RELOCATABLE)
++    if (RUN_ONCE(&rel_init, do_rel_setup) && rel_modulesdir[0] != '\0')
++        return rel_modulesdir;
++# endif
+     return MODULESDIR;
+ #endif
+ }
+-- 
+2.55.0
+

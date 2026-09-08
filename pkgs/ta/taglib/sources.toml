@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/taglib/taglib"
+
+[[source]]
+key = "default"
+url = "https://github.com/taglib/taglib/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-jZIL/jAslDurIErVGD+g6hPO3uf3L3JWtmWIjelk0IE="
+
+[pin]
+version = "2.2.1"
+tag = "v2.2.1"

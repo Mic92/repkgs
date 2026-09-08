@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:gnu/diffutils"
+
+[[source]]
+key = "default"
+url = "https://ftp.gnu.org/gnu/diffutils/diffutils-{version}.tar.xz"
+hash = "sha256-fIt/n8hgkUH96pzs6FJJ0whiQ5H/Yd7a9Sj8szdyff0="
+
+[pin]
+version = "3.12"

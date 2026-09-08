@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:gnu/coreutils"
+
+[[source]]
+key = "default"
+url = "https://ftp.gnu.org/gnu/coreutils/coreutils-{version}.tar.xz"
+hash = "sha256-6LsmrQKT+bWh/EP7QrqXDjEsZs6SwbCxZxPXUA2yUb8="
+
+[pin]
+version = "9.7"

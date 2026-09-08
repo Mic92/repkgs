@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:generic/pixman?url=https://cairographics.org/releases/"
+
+[[source]]
+key = "default"
+url = "https://cairographics.org/releases/pixman-{version}.tar.gz"
+hash = "sha256-0JxE68O9W+5wIcefki/o+y+1f3Mg9V6X/5kU0jRqWRw="
+
+[pin]
+version = "0.46.4"

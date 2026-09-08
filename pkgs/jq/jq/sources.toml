@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/jqlang/jq"
+
+[[source]]
+key = "default"
+url = "https://github.com/jqlang/jq/releases/download/{tag}/jq-{version}.tar.gz"
+hash = "sha256-cbjW6PX+gfbG0NEQ44kiUfbOdu0JWr0xXibm4Rk6868="
+
+[pin]
+version = "1.8.2"
+tag = "jq-1.8.2"

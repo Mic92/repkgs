@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/westes/flex"
+
+[[source]]
+key = "default"
+url = "https://github.com/westes/flex/releases/download/{tag}/flex-{version}.tar.gz"
+hash = "sha256-6HquAyvwfCb4WsDtMlCZjDdiHZX4vXSLMfFbM8Re6ZU="
+
+[pin]
+version = "2.6.4"
+tag = "v2.6.4"

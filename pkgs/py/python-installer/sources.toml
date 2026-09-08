@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:pypi/installer"
+
+[[source]]
+key = "default"
+url = "https://files.pythonhosted.org/packages/source/i/installer/installer-{version}.tar.gz"
+hash = "sha256-BSx/w3IdVMaW4t6gGb5nU517FE6ST1WfVL6zEhgxw2Q="
+
+[pin]
+version = "1.0.1"

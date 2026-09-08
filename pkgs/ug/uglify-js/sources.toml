@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/mishoo/UglifyJS"
+
+[[source]]
+key = "default"
+url = "https://github.com/mishoo/UglifyJS/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-aYi2TUFpwVDORriubiw2mqgrHWetx1Ujar+XLDiFdzc="
+
+[pin]
+version = "3.19.3"
+tag = "v3.19.3"

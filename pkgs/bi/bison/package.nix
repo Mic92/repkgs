@@ -1,0 +1,20 @@
+{
+  package,
+  pkgs,
+}:
+package {
+  name = "bison";
+  uses = [ "autotools" ];
+  bootstrapTools = true;
+  buildDependencies = [ pkgs.m4 ];
+  runtimeDependencies = [ pkgs.m4 ];
+  autotools.flags = [
+    "--disable-nls"
+    "--disable-dependency-tracking"
+    "M4=${pkgs.m4}/bin/m4"
+  ];
+  # relocatable: finds share/bison relative to the binary
+  autotools.makeFlags = [ "RELOCATABLE=yes" ];
+  tests.run = false; # autom4te (perl)
+  bin = [ "bison" ];
+}

@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:generic/dash?url=http://gondor.apana.org.au/~herbert/dash/files/"
+
+[[source]]
+key = "default"
+url = "http://gondor.apana.org.au/~herbert/dash/files/dash-{version}.tar.gz"
+hash = "sha256-QAkBAaKkkfE+kB09SOkEFPJmNGKLm//zX/VANjwien0="
+
+[pin]
+version = "0.5.13.5"

@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:pypi/pyproject-hooks"
+
+[[source]]
+key = "default"
+url = "https://files.pythonhosted.org/packages/source/p/pyproject_hooks/pyproject_hooks-{version}.tar.gz"
+hash = "sha256-HoWb1cQPrpRIZC3Yca30WeXiCEGG6NLCp5qCTJcNofg="
+
+[pin]
+version = "1.2.0"

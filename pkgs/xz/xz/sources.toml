@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/tukaani-project/xz"
+
+[[source]]
+key = "default"
+url = "https://github.com/tukaani-project/xz/releases/download/{tag}/xz-{version}.tar.xz"
+hash = "sha256-//H/zysNqE0wihTeUToaoj1OmqNGTRfmS5cUv90Lv7Y="
+
+[pin]
+version = "5.8.3"
+tag = "v5.8.3"

@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/facebook/zstd"
+
+[[source]]
+key = "default"
+url = "https://github.com/facebook/zstd/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-N9coRVayCVTlbhyoW4AiZ2iQLi7avTtknp5ywMkBLuM="
+
+[pin]
+version = "1.5.7"
+tag = "v1.5.7"

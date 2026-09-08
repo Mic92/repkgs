@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/corrosion-rs/corrosion"
+
+[[source]]
+key = "default"
+url = "https://github.com/corrosion-rs/corrosion/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-6elbHuK61SaB80eZP7Glr1zORYxc6KJjbJ5Hbkur+OM="
+
+[pin]
+version = "0.6.1"
+tag = "v0.6.1"

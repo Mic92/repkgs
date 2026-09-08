@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/sharkdp/fd"
+
+[[source]]
+key = "default"
+url = "https://github.com/sharkdp/fd/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-5tnpBzC/MWEBaR5J1ZzAJWUnjcN3nTOndCOAFWlISFE="
+
+[pin]
+version = "10.5.0"
+tag = "v10.5.0"

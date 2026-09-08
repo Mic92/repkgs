@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:gnu/make"
+
+[[source]]
+key = "default"
+url = "https://ftp.gnu.org/gnu/make/make-{version}.tar.gz"
+hash = "sha256-3Rb7HWe/q3mnL16DkHNcSePo5wtJRaFasfgd23hlj7M="
+
+[pin]
+version = "4.4.1"

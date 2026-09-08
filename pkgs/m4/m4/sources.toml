@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:gnu/m4"
+
+[[source]]
+key = "default"
+url = "https://ftp.gnu.org/gnu/m4/m4-{version}.tar.xz"
+hash = "sha256-4jbqOhzPX2wnCxxLtgcm83H6SUWajqrryQshazKNrys="
+
+[pin]
+version = "1.4.20"
