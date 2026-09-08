@@ -182,6 +182,7 @@ let
     platform = {
       inherit (platform)
         name
+        cpu
         triple
         cross
         emulator

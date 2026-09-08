@@ -14,6 +14,8 @@ export def --env setup []: nothing -> nothing {
   $env.GOTOOLCHAIN = "local"
   if $c.cache { $env.GOCACHEPROG = (which gocacheprog | get 0.path) }
   $env.CGO_ENABLED = (if $k.cgo { "1" } else { "0" })
+  # cross: cc already targets the platform, go needs GOARCH; its build-machine helpers use CC_FOR_BUILD
+  load-env {GOOS: "linux", GOARCH: ({x86_64: "amd64", aarch64: "arm64", riscv64: "riscv64"} | get $c.platform.cpu)}
   cd $"($c.src)/($k.root)"
   if $k.vendor != null and not ("vendor" | path exists) {
     if (open --raw $"($k.vendor)/go.sum") != (open --raw go.sum) {
@@ -40,6 +42,7 @@ export def build []: nothing -> nothing {
 # go test (`go.testPackages`, default `go.packages`)
 export def test []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
+  if not $c.testsRun { return }
   cd $"($c.src)/($k.root)"
   x go test -p $c.njobs -vet=off ...(common-args $k) ...($k.testPackages? | default $k.packages)
 }

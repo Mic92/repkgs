@@ -19,11 +19,15 @@ export def --env setup []: nothing -> nothing {
   # vendored deps arrive as a directory (from lock.json in the real thing) nixpkgs' layout nests them one level
   let vendor = if $k.vendor != null and ($"($k.vendor)/source-registry-0" | path exists) { $"($k.vendor)/source-registry-0" } else { $k.vendor }
   let host = (^rustc -vV | lines | where { str starts-with "host:" } | first | str replace "host: " "")
+  # rust spells riscv64 "riscv64gc"; cc targets the platform, cc-build the build machine
+  let target = ($c.platform.triple | str replace -r '^riscv64-' "riscv64gc-")
+  $env.CARGO_BUILD_TARGET = $target
   [
     (if $vendor != null { $"[source.crates-io]\nreplace-with = 'vendored'\n[source.vendored]\ndirectory = '($vendor)'" } else { "" })
     "[net]\noffline = true"
     $"[build]\njobs = ($c.njobs)"
-    $"[target.($host)]\nlinker = 'cc'"
+    $"[target.($target)]\nlinker = 'cc'"
+    ...(if $c.platform.cross { [$"[target.($host)]\nlinker = 'cc-build'"] } else { [] })
   ] | str join "\n" | save -f $"($env.CARGO_HOME)/config.toml"
   # panic strings embed source paths: map build tree, cargo home and vendor dir away.
   # our cc links with its own lld, rustc >= 1.90 would otherwise insert its bundled rust-lld
@@ -35,10 +39,15 @@ export def --env setup []: nothing -> nothing {
 # cargo build --release
 export def build []: nothing -> nothing { cd $"((ctx).src)/((knobs).root)"; x cargo build --release --offline ...(feature-args (knobs)) }
 # cargo test --release
-export def test []: nothing -> nothing { cd $"((ctx).src)/((knobs).root)"; x cargo test --release --offline ...(feature-args (knobs)) }
+export def test []: nothing -> nothing {
+  if not (ctx).testsRun { return }
+  cd $"((ctx).src)/((knobs).root)"
+  x cargo test --release --offline ...(feature-args (knobs))
+}
 # every executable in target/release -> $out/bin
 export def install []: nothing -> nothing {
   let c = (ctx)
   mkdir $"($c.out)/bin"
-  for b in ($c.spec.bin? | default [$c.spec.name]) { cp $"($env.CARGO_TARGET_DIR)/release/($b)" $"($c.out)/bin/($b)" }
+  # with CARGO_BUILD_TARGET set cargo always builds into target/<triple>/
+  for b in ($c.spec.bin? | default [$c.spec.name]) { cp $"($env.CARGO_TARGET_DIR)/($env.CARGO_BUILD_TARGET)/release/($b)" $"($c.out)/bin/($b)" }
 }

@@ -10,9 +10,12 @@
 package {
   name = "rust";
   source = sources.fetch "rustc-${platform.cpu}";
+  # std for every platform the set targets, so cargo.nu can cross-compile with --target
   env.components = toString [
     (sources.fetch "cargo-${platform.cpu}")
-    (sources.fetch "rust-std-${platform.cpu}")
+    (sources.fetch "rust-std-x86_64")
+    (sources.fetch "rust-std-aarch64")
+    (sources.fetch "rust-std-riscv64")
   ];
   prebuilt = true;
   dependencies = [
