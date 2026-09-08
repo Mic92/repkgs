@@ -26,7 +26,7 @@ pkgs/xx/<name>/ (xx = first two letters) any of: sources.toml (upstream pin), pa
              update.nu (uptrack hook), src/ (in-tree source), patches and data files.
              Language lines are separate names (cpython314); pkgs/aliases.toml maps cpython → the default line
 docs/        design.md (why), uptrack.md (updates), plan.md (what is next)
-default.nix  { platform } → the set;  standins.nix  the one `import <nixpkgs>` left (docs/plan.md)
+default.nix  { platform } → the set
 ```
 
 In-tree programs: `pkgs/ji/jig` (compiler entry point, compile cache client, ELF fixup, Nix
@@ -54,7 +54,7 @@ version+hash. `pkgs/up/uptrack/src/uptrack init pkgs/li/libpng pkg:github/pnggro
 `uptrack check` / `apply` keep it current (docs/uptrack.md).
 
 Fields: `name version source patches uses steps dependencies buildDependencies
-runtimeDependencies bin tests.{run,separate,skip,parallel,version,relocated} exports env root cc.cflags bootstrapTools` plus one
+runtimeDependencies bin tests.{run,separate,skip,parallel,version,relocated} exports env root cc.cflags bootstrapTools prebuilt` plus one
 attrset per build system in `uses` (knobs listed in `nix/build-systems.nix`, unknown fields and
 knobs are eval errors). `steps` defaults to the build system's. Entries are `"<bs>.<verb>"` or
 `{ name, run = "<nu>" }`. Inside `run`, `(ctx)` gives `src build out deps njobs platform`.
@@ -82,7 +82,7 @@ pkgsStatic, later from this set's own musl-static packages) and pinned in `pkgs/
 
 Optional and transparent: if `/run/pkgs-cache.sock` exists in the sandbox
 (`--option extra-sandbox-paths /run/pkgs-cache.sock=/path/to/sock`, daemon:
-`pkgs-cache /path/to/sock`, `nix-build -A pkgs-cache` or `go build` in pkgs/pk/pkgs-cache/src), `cc` caches C/C++ objects, `rustcwrap` rlibs and
-`gocacheprog` Go actions, keyed on content + flags. Without the socket everything compiles normally.
+`pkgs-cache /path/to/sock`, `nix-build -A pkgs-cache` or `go build` in pkgs/pk/pkgs-cache/src), `cc` caches C/C++ objects, probes and links, `rustc` rlibs,
+`gocacheprog` Go actions and the build systems' configure results, keyed on content + flags (docs/design.md §4). Without the socket everything compiles normally.
 Each build log ends with a `cache` line (`hit=812 miss-stored=3 plain=40 …`). To never forget the
 option, put `extra-sandbox-paths = /run/pkgs-cache.sock=/path/to/sock` in `nix.conf`.
