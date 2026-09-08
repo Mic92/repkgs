@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:generic/musl?url=https://musl.libc.org/releases.html"
+
+[[source]]
+key = "default"
+url = "https://musl.libc.org/releases/musl-{version}.tar.gz"
+hash = "sha256-1YX9O2E8ZhUfwySejtRPdwIMtebB5jWmFtP5+CRgUSo="
+
+[pin]
+version = "1.2.6"

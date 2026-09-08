@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/hukkin/tomli"
+
+[[source]]
+key = "default"
+url = "https://github.com/hukkin/tomli/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-lT9goGCFIXklPvtdVs0C0KDvi3PlYMceYLYJ4DS5Rvc="
+
+[pin]
+version = "2.4.1"
+tag = "2.4.1"

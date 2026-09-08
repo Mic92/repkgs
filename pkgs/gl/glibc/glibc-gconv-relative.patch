@@ -1,0 +1,146 @@
+From eafe6832dcfb149e075d318d3fe346aba8a7ed13 Mon Sep 17 00:00:00 2001
+From: x <x@x>
+Date: Fri, 4 Sep 2026 12:29:17 +0200
+Subject: [PATCH] gconv: locate modules relative to the loaded libc.so
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A store whose objects reference each other only relative to themselves
+can be copied anywhere; the one absolute lookup left in a dynamically
+linked program after RUNPATH/PT_INTERP are made relative is glibc opening
+GCONV_PATH. Derive the default from dladdr(libc.so) instead. GCONV_PATH
+in the environment still takes precedence; static libc is unchanged.
+
+Signed-off-by: Jörg Thalheim <joerg@thalheim.io>
+---
+ iconv/gconv_cache.c |  9 ++++++++-
+ iconv/gconv_conf.c  | 47 ++++++++++++++++++++++++++++++++++++++++-----
+ iconv/gconv_int.h   |  3 +++
+ 3 files changed, 53 insertions(+), 6 deletions(-)
+
+diff --git a/iconv/gconv_cache.c b/iconv/gconv_cache.c
+index 11c3320a..d4bf881c 100644
+--- a/iconv/gconv_cache.c
++++ b/iconv/gconv_cache.c
+@@ -58,7 +58,14 @@ __gconv_load_cache (void)
+     return -1;
+ 
+   /* See whether the cache file exists.  */
+-  fd = __open_nocancel (GCONV_MODULES_CACHE, O_RDONLY | O_CLOEXEC, 0);
++  {
++    const char *dir = __gconv_default_path ();
++    size_t dirlen = strlen (dir);
++    char *cache_file = alloca (dirlen + sizeof "/gconv-modules.cache");
++    memcpy (cache_file, dir, dirlen);
++    strcpy (cache_file + dirlen, "/gconv-modules.cache");
++    fd = __open_nocancel (cache_file, O_RDONLY | O_CLOEXEC, 0);
++  }
+   if (__builtin_expect (fd, 0) == -1)
+     /* Not available.  */
+     return -1;
+diff --git a/iconv/gconv_conf.c b/iconv/gconv_conf.c
+index a1f10ea8..ee6bbb33 100644
+--- a/iconv/gconv_conf.c
++++ b/iconv/gconv_conf.c
+@@ -28,14 +28,49 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <unistd.h>
++#include <dlfcn.h>
++#include <limits.h>
+ #include <sys/param.h>
+ 
+ #include <libc-lock.h>
+ #include <gconv_int.h>
+ #include <gconv_parseconfdir.h>
+ 
+-/* This is the default path where we look for module lists.  */
+-static const char default_gconv_path[] = GCONV_PATH;
++/* This is the default path where we look for module lists.  In the shared
++   libc it is derived from the location of libc.so itself (<dir of
++   libc.so>/gconv, matching gconvdir = $(libdir)/gconv with slibdir ==
++   libdir), so that a relocated installation finds its own modules without
++   GCONV_PATH.  Static builds keep the configured path.  */
++const char *
++__gconv_default_path (void)
++{
++#ifdef SHARED
++  static char path[PATH_MAX];
++  if (path[0] == '\0')
++    {
++      Dl_info info;
++      const char *dir = NULL;
++      size_t dirlen = 0;
++      if (_dl_addr ((const void *) &__gconv_default_path, &info, NULL, NULL)
++	  && info.dli_fname != NULL && info.dli_fname[0] == '/')
++	{
++	  const char *slash = strrchr (info.dli_fname, '/');
++	  dir = info.dli_fname;
++	  dirlen = slash - info.dli_fname;
++	}
++      if (dir != NULL && dirlen + sizeof "/gconv" <= sizeof path)
++	{
++	  memcpy (path, dir, dirlen);
++	  strcpy (path + dirlen, "/gconv");
++	}
++      else
++	strcpy (path, GCONV_PATH);
++    }
++  return path;
++#else
++  return GCONV_PATH;
++#endif
++}
+ 
+ /* Type to represent search path.  */
+ struct path_elem
+@@ -370,13 +405,15 @@ __gconv_get_path (void)
+   int nelems;
+   char *cwd;
+   size_t cwdlen;
++  const char *default_gconv_path = __gconv_default_path ();
++  size_t default_gconv_path_size = strlen (default_gconv_path) + 1;
+ 
+   if (__gconv_path_envvar == NULL)
+     {
+       /* No user-defined path.  Make a modifiable copy of the
+          default path.  */
+       gconv_path = strdupa (default_gconv_path);
+-      gconv_path_len = sizeof (default_gconv_path);
++      gconv_path_len = default_gconv_path_size;
+       cwd = NULL;
+       cwdlen = 0;
+     }
+@@ -385,12 +422,12 @@ __gconv_get_path (void)
+       /* Append the default path to the user-defined path.  */
+       size_t user_len = strlen (__gconv_path_envvar);
+ 
+-      gconv_path_len = user_len + 1 + sizeof (default_gconv_path);
++      gconv_path_len = user_len + 1 + default_gconv_path_size;
+       gconv_path = alloca (gconv_path_len);
+       __mempcpy (__mempcpy (__mempcpy (gconv_path, __gconv_path_envvar,
+                                        user_len),
+                             ":", 1),
+-                 default_gconv_path, sizeof (default_gconv_path));
++                 default_gconv_path, default_gconv_path_size);
+       cwd = __getcwd (NULL, 0);
+       cwdlen = __glibc_unlikely (cwd == NULL) ? 0 : strlen (cwd);
+     }
+diff --git a/iconv/gconv_int.h b/iconv/gconv_int.h
+index 65b2a601..3a0a3032 100644
+--- a/iconv/gconv_int.h
++++ b/iconv/gconv_int.h
+@@ -132,6 +132,9 @@ extern void *__gconv_alias_db attribute_hidden;
+ /* Array with available modules.  */
+ extern struct gconv_module *__gconv_modules_db attribute_hidden;
+ 
++/* Default module directory, relative to the loaded libc.so.  */
++extern const char *__gconv_default_path (void) attribute_hidden;
++
+ /* Value of the GCONV_PATH environment variable.  */
+ extern const char *__gconv_path_envvar attribute_hidden;
+ 
+-- 
+2.55.0
+

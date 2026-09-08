@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:generic/linux?url=https://kernel.org/releases.json&regex=linux-(\\d+\\.\\d+(?:\\.\\d+)?)\\.tar\\.xz"
+
+[[source]]
+key = "default"
+url = "https://cdn.kernel.org/pub/linux/kernel/v{major}.x/linux-{version}.tar.xz"
+hash = "sha256-aR9EeX++eQ3IoyFgTJJwh1Jq0nttZJkl1g+O7QolZKA="
+
+[pin]
+version = "7.1"

@@ -1,0 +1,14 @@
+[upstream]
+purl = "pkg:github/llvm/llvm-project"
+allow = "==21.*"
+
+[[source]]
+key = "default"
+url = "https://github.com/llvm/llvm-project/releases/download/{tag}/llvm-project-{version}.src.tar.xz"
+hash = "sha256-RjOiNhf6MaPqUSQlhup/sdpxQOQmvWL8FkJh/gNqoUI="
+
+[pin]
+version = "21.1.8"
+tag = "llvmorg-21.1.8"
+date = "2025-12-16"
+checked = "2026-09-08"
