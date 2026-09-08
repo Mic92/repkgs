@@ -2,13 +2,14 @@
 # build uses. Imported by shell.nix for treefmt's cpp-tidy step.
 { pkgs, llvm }:
 let
+  inherit (pkgs.stdenv.hostPlatform) system;
   src =
     name:
     (import ../../../nix/sources.nix {
       unpacker =
         (import ../../../nix/sources.nix { unpacker = null; } ../../se/seed/sources.toml).fetch
-          builtins.currentSystem;
-      system = builtins.currentSystem;
+          system;
+      inherit system;
     } (../.. + "/${builtins.substring 0 2 name}/${name}/sources.toml")).default;
   thirdParty = pkgs.runCommand "jig-third-party" { } ''
     mkdir -p $out/include

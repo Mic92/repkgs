@@ -6,11 +6,11 @@
 #   { package, pkgs, ... }: package { name = "<name>"; ... dependencies = [ pkgs.zlib ]; }
 # and may take any of: package pkgs buildPkgs platform fetch sources toolchain.
 {
-  platform ? builtins.currentSystem,
+  system ? builtins.currentSystem,
+  platform ? system,
   seed ? null,
 }:
 let
-  system = builtins.currentSystem;
   platforms = import ./nix/platforms.nix;
   bootstrap = import ./bootstrap { inherit seed system; };
 
@@ -27,7 +27,7 @@ let
     if plat.cross then
       import ./. {
         platform = system;
-        inherit seed;
+        inherit seed system;
       }
     else
       self;
@@ -73,6 +73,7 @@ let
   fetch = import ./nix/fetch.nix {
     inherit (bootstrap.stage0) jig;
     nu = bootstrap.seed;
+    inherit system;
   };
 
   scope = {

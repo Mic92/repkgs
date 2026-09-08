@@ -1,9 +1,12 @@
 # Dependency fetchers. Upstream tarballs themselves come from sources.toml (nix/sources.nix).
 # All three emit per-file builtin:fetchurl derivations at build time (dynamic derivations): the
 # hashes come from the lock file, none of ours.
-{ jig, nu }:
+{
+  jig,
+  nu,
+  system,
+}:
 let
-  system = builtins.currentSystem;
 
   # A dynamic derivation: `script` (under builder-rpc-v0, with `jig nix-store`) writes the real
   # derivation into the store and submits its .drv as the output. Callers get that drv's "out".

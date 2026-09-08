@@ -27,6 +27,7 @@ pkgs.treefmt.withConfig {
   settings = {
     global.excludes = [
       "experiments/**"
+      "flake.lock"
       "pkgs/ll/llvm/*.txt"
       "result*"
       "**/lock.json"
