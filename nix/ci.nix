@@ -36,6 +36,7 @@ let
     "aarch64"
     "riscv64"
     "loongarch64"
+    "powerpc64le"
     "x86_64"
   ];
 

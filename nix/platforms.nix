@@ -12,10 +12,6 @@ let
       march = [ "-march=x86-64-v3" ];
       hardening = [ "-fcf-protection=full" ];
       interp.glibc = "ld-linux-x86-64.so.2";
-      glibcConfigure = [
-        "libc_cv_have_x86_lahf_sahf=yes"
-        "libc_cv_have_x86_movbe=yes"
-      ];
     };
     aarch64 = {
       names = {
@@ -25,7 +21,6 @@ let
       march = [ "-march=armv8.2-a+lse" ];
       hardening = [ "-mbranch-protection=standard" ];
       interp.glibc = "ld-linux-aarch64.so.1";
-      glibcConfigure = [ ];
     };
     riscv64 = {
       names = {
@@ -41,7 +36,6 @@ let
       ];
       hardening = [ ];
       interp.glibc = "ld-linux-riscv64-lp64d.so.1";
-      glibcConfigure = [ ];
     };
     # Loongson 3A5000+ (LA464): the LA64 v1.0 baseline every shipped core has
     loongarch64 = {
@@ -55,11 +49,8 @@ let
       ];
       hardening = [ ];
       interp.glibc = "ld-linux-loongarch-lp64d.so.1";
-      glibcConfigure = [ ];
     };
-    # POWER9 and later, little endian, ELFv2, IEEE long double (what current distros ship).
-    # musl only: glibc's powerpc64le configure requires -mno-gnu-attribute and ld
-    # --no-tls-get-addr-optimize, which clang/lld do not have
+    # POWER9 and later, little endian, ELFv2, IEEE long double (what current distros ship)
     powerpc64le = {
       names = {
         kernel = "powerpc";
@@ -70,7 +61,7 @@ let
       march = [ "-mcpu=power9" ];
       hardening = [ ];
       interp.glibc = "ld64.so.2";
-      glibcConfigure = [ "--with-long-double-format=ieee" ];
+
     };
   };
   mk =
@@ -122,7 +113,7 @@ let
 in
 {
   forSystem = system: libc: mk (builtins.head (builtins.split "-" system)) libc;
-  glibc = builtins.mapAttrs (cpu: _: mk cpu "glibc") (removeAttrs cpus [ "powerpc64le" ]);
+  glibc = builtins.mapAttrs (cpu: _: mk cpu "glibc") cpus;
   musl = builtins.mapAttrs (cpu: _: mk cpu "musl") cpus;
   mingw = {
     x86_64 = mingw "x86_64";

@@ -1,0 +1,37 @@
+glibc's powerpc64le Makefile manages GCC's .gnu.attributes long-double ABI tags with
+-m[no-]gnu-attribute and objcopy. clang emits no such section and has neither flag.
+`with-clang` is set by configparms (bootstrap/default.nix).
+
+--- a/sysdeps/powerpc/powerpc64/le/Makefile
++++ b/sysdeps/powerpc/powerpc64/le/Makefile
+@@ -9,7 +9,13 @@
+ ifeq ($(ibm128-fcts),yes)
+ ibm128-abi-CFLAGS := -mabi=ibmlongdouble
+ type-ldouble-CFLAGS += $(ibm128-abi-CFLAGS)
++# clang emits no .gnu.attributes for the long double ABI, so there is nothing to suppress,
++# extract or re-insert (and it has neither -mno-gnu-attribute nor -mgnu-attribute)
++ifeq ($(with-clang),yes)
++no-gnu-attribute-CFLAGS =
++else
+ no-gnu-attribute-CFLAGS = -mno-gnu-attribute
++endif
+ 
+ # This is a very gnarly workaround to static libgcc providing a .gnu.attribute
+ # in ibm128 functions.  This is not a bug in static libgcc as normal users
+@@ -24,6 +30,8 @@
+ # Build everything with IEEE 128-bit long double.
+ sysdep-CFLAGS += -mabi=ieeelongdouble -Wno-psabi $(no-gnu-attribute-CFLAGS)
+ 
++ifneq ($(with-clang),yes)
++
+ before-compile += $(common-objpfx)no_ldbl_gnu_attribute.bin
+ 
+ $(common-objpfx)no_ldbl_gnu_attribute.bin: $(..)sysdeps/powerpc/powerpc64/le/no_ldbl_gnu_attribute.c
+@@ -45,6 +53,7 @@
+ $(objpfx)m_ldexpl.os: CFLAGS += -mgnu-attribute
+ $(objpfx)s_ldexpl.os: CFLAGS += -mgnu-attribute
+ endif
++endif # with-clang
+ 
+ endif # ifeq ($(build-shared),yes)
+ endif # ifeq ($(ibm128-fcts),yes)

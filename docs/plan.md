@@ -16,8 +16,7 @@ and the few pure libraries C projects import at build time. Applications bring `
 `fetch.pythonDeps { source }` is a dynamic derivation like cargoVendor.
 
 **Seed 3** (building): LLVM 23.1.1 from our own pin with LoongArch and PowerPC backends.
-Then: loongarch64 cross verified; powerpc64le stays musl-only until glibc's configure stops
-requiring GCC/BFD-only flags (`-mno-gnu-attribute`, `--no-tls-get-addr-optimize`) or we patch it (platform entries,
+Then: loongarch64 and powerpc64le cross platforms verified (platform entries,
 builtins lists, qemu targets, rust-std, GOARCH are in); aarch64 seed uploaded. Later the seed is
 built from this set's own musl-static packages instead of nixpkgs `pkgsStatic`, fixed point in CI.
 

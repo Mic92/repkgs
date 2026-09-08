@@ -3,12 +3,19 @@
 # libc headers before libc can be linked against compiler-rt).
 use ../../../bootstrap/lib.nu *
 
+# per-cpu configure arguments: probes that cannot run when cross compiling, ABI choices, and
+# checks for GCC-only flags clang does not need (glibc-ppc64le-clang.patch)
+const CPU_FLAGS = {
+  x86_64: [libc_cv_have_x86_lahf_sahf=yes libc_cv_have_x86_movbe=yes]
+  powerpc64le: [--with-long-double-format=ieee libc_cv_no_gnu_attr_ok=yes]
+}
+
 def configure [src: path, out: path]: nothing -> string {
   (x sh $"($src)/configure" $"--prefix=($out)" $"--host=($env.triple)" --build=x86_64-build-linux-gnu
     $"--with-headers=($env.linuxHeaders)/include" --enable-kernel=5.10 --disable-werror --disable-nscd
     --enable-bind-now --enable-fortify-source --enable-stack-protector=strong
     $"libc_cv_slibdir=($out)/lib" $"libc_cv_rtlddir=($out)/lib"
-    ...($env.configureFlags | split row " " | where { $in != "" }))
+    ...($CPU_FLAGS | get -o $env.cpu | default []))
 }
 
 def main []: nothing -> nothing {
@@ -19,6 +26,7 @@ def main []: nothing -> nothing {
   let build = $"($env.NIX_BUILD_TOP)/build"
   mkdir $build
   cd $build
+  "with-clang = yes\n" | save configparms  # read by Makeconfig; sysdeps Makefiles branch on it
 
   # the headers-only pass has no compiler-rt yet. The seed's resource dir (headers only) suffices
   let rt = (if "compiler-rt" in $env { $env."compiler-rt" } else { ^clang --print-resource-dir | str trim })
