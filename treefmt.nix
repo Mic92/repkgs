@@ -30,7 +30,6 @@ pkgs.treefmt.withConfig {
       "pkgs/ll/llvm/*.txt"
       "result*"
       "**/lock.json"
-      "pkgs/co/corrodemo/src/**"
     ];
     formatter = {
       nix = {
