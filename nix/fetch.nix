@@ -17,6 +17,18 @@ let
     name = "producers";
     filter = p: _: builtins.match ".*/(dynamic|fetch-[a-z]+|sys-crates)\\.nu" p != null;
   };
+  sysLibsFile =
+    libs:
+    builtins.toFile "sys-libs.json" (
+      builtins.toJSON (
+        builtins.mapAttrs (_: p: {
+          drv = builtins.unsafeDiscardOutputDependency p.drvPath;
+          out = builtins.unsafeDiscardStringContext p.outPath;
+        }) libs
+      )
+    );
+  defaultSysLibs = sysLibsFile sysLibs; # once per set, not per cargo package
+
   dynamic =
     name: script: env:
     let
@@ -56,18 +68,11 @@ in
   cargoVendor =
     {
       source,
-      libs ? sysLibs,
+      libs ? null,
     }:
     dynamic "cargo-vendor" "fetch-cargo.nu" {
       inherit source;
-      sysLibs = builtins.toFile "sys-libs.json" (
-        builtins.toJSON (
-          builtins.mapAttrs (_: p: {
-            drv = builtins.unsafeDiscardOutputDependency p.drvPath;
-            out = builtins.unsafeDiscardStringContext p.outPath;
-          }) libs
-        )
-      );
+      sysLibs = if libs == null then defaultSysLibs else sysLibsFile libs;
     };
 
   # Registry tarballs from the package-lock.json (v2/v3) inside `source` (at `root`), same

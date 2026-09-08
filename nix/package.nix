@@ -51,6 +51,35 @@ let
     "prebuilt"
   ];
 
+  # the part of every derivation that is the same across the set: built once
+  setCommon = {
+    inherit (platform) system;
+    __structuredAttrs = true;
+    builder = "${nu}/bin/nu";
+    # platform facts autoconf would otherwise probe (or guess, when cross): nix/config.site
+    CONFIG_SITE = "${../nix/config.site}";
+    platform = {
+      inherit (platform)
+        name
+        cpu
+        os
+        names
+        triple
+        cross
+        emulator
+        ;
+      probe = if platform.cross then "${toolchain.sysroot}/lib/${platform.interp}" else "";
+      # for `prebuilt`: foreign ELFs run under our dynamic linker via launch
+      interp = "${toolchain.sysroot}/lib/${platform.interp}";
+      launch = "${launch}/bin/launch";
+    };
+  };
+  preludeBase = [
+    "use ${tree}/core.nu *"
+    "use ${tree}/prepare.nu"
+    "use ${tree}/finish.nu"
+  ];
+
   stepRe = "([a-z]+)\\.([a-zA-Z]+)";
   isTest =
     s:
@@ -137,12 +166,7 @@ let
         ""
       else
         "note step ${s}\n${elemAt p 0} ${elemAt p 1}";
-  prelude = [
-    "use ${tree}/core.nu *"
-    "use ${tree}/prepare.nu"
-    "use ${tree}/finish.nu"
-  ]
-  ++ map (u: "use ${tree}/${buildSystems.${u}.module}") uses;
+  prelude = preludeBase ++ map (u: "use ${tree}/${buildSystems.${u}.module}") uses;
   setups = map (u: "note setup ${u}\n${u} setup") uses;
   script = concatStringsSep "\n" (
     prelude
@@ -171,31 +195,11 @@ let
     // {
       inherit steps;
     };
-  common = {
-    inherit (platform) system;
-    __structuredAttrs = true;
-    builder = "${nu}/bin/nu";
+  common = setCommon // {
     src = args.source;
     inherit (args) version;
     patches = args.patches or [ ];
     inherit spec;
-    # platform facts autoconf would otherwise probe (or guess, when cross): nix/config.site
-    CONFIG_SITE = "${../nix/config.site}";
-    platform = {
-      inherit (platform)
-        name
-        cpu
-        os
-        names
-        triple
-        cross
-        emulator
-        ;
-      probe = if platform.cross then "${toolchain.sysroot}/lib/${platform.interp}" else "";
-      # for `prebuilt`: foreign ELFs run under our dynamic linker via launch
-      interp = "${toolchain.sysroot}/lib/${platform.interp}";
-      launch = "${launch}/bin/launch";
-    };
     buildDependencies = [
       toolchain
     ]

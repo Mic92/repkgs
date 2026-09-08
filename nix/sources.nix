@@ -30,27 +30,25 @@ let
     }) (t.source or [ ])
   );
   # "llvm-project-21.1.8.src" from …/llvm-project-21.1.8.src.tar.xz, "fd-v10.5.0" for github tag archives
+  # strip one extension, and a ".tar" before it
   stripExt =
     name:
     let
-      one =
-        n:
-        if builtins.match "(.*)\\.[a-z0-9]+" n == null then
-          n
-        else
-          builtins.head (builtins.match "(.*)\\.[a-z0-9]+" n);
-      once = one name;
+      m = builtins.match "((.*)\\.tar|(.*))\\.[a-z0-9]+" name;
     in
-    if builtins.match ".*\\.tar" once != null then one once else once;
+    if m == null then
+      name
+    else if builtins.elemAt m 1 != null then
+      builtins.elemAt m 1
+    else
+      builtins.elemAt m 2;
   urlName =
     url:
     let
-      gh = builtins.match "https://github.com/[^/]+/([^/]+)/archive/refs/tags/(.*)" (stripExt url);
+      base = stripExt url;
+      gh = builtins.match "https://github.com/[^/]+/([^/]+)/archive/refs/tags/(.*)" base;
     in
-    if gh != null then
-      "${builtins.elemAt gh 0}-${builtins.elemAt gh 1}"
-    else
-      stripExt (builtins.baseNameOf url);
+    if gh != null then "${builtins.elemAt gh 0}-${builtins.elemAt gh 1}" else builtins.baseNameOf base;
   fetch =
     key:
     let
