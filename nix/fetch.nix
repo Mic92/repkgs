@@ -7,6 +7,11 @@ let
 
   # A dynamic derivation: `script` (under builder-rpc-v0, with `jig nix-store`) writes the real
   # derivation into the store and submits its .drv as the output. Callers get that drv's "out".
+  producers = builtins.path {
+    path = ../builder;
+    name = "producers";
+    filter = p: _: builtins.match ".*/(dynamic|fetch-[a-z]+)\\.nu" p != null;
+  };
   dynamic =
     name: script: env:
     let
@@ -16,7 +21,7 @@ let
           inherit system;
           seed = nu;
           builder = "${nu}/bin/nu";
-          args = [ script ];
+          args = [ "${producers}/${script}" ];
           PATH = "${tools.jig}/bin:${nu}/bin";
           requiredSystemFeatures = [ "builder-rpc-v0" ];
           preferLocalBuild = true;
@@ -63,7 +68,7 @@ in
   # derivation unpacking them. The result is that derivation's output (builtins.outputOf), so Nix
   # itself does the downloading, caching and hash checking per crate. Needs the daemon to have
   # `dynamic-derivations ca-derivations`. Git dependencies are rejected (they would need a hash).
-  cargoVendor = { source }: dynamic "cargo-vendor" ../builder/fetch-cargo.nu { inherit source; };
+  cargoVendor = { source }: dynamic "cargo-vendor" "fetch-cargo.nu" { inherit source; };
 
   # Registry tarballs from the package-lock.json (v2/v3) inside `source` (at `root`), same
   # mechanism as cargoVendor: one builtin:fetchurl per `resolved` URL fixed by its `integrity`.
@@ -75,7 +80,7 @@ in
       root ? ".",
       lockFile ? null,
     }:
-    dynamic "npm-deps" ../builder/fetch-npm.nu {
+    dynamic "npm-deps" "fetch-npm.nu" {
       inherit source root;
       lockFile = if lockFile == null then "" else lockFile;
     };
@@ -89,7 +94,6 @@ in
       inherit hash;
       path = [
         tools.go
-        tools.bsdtar
         tools.jig
       ];
       env = {
@@ -100,7 +104,7 @@ in
         GOTOOLCHAIN = "local";
       };
       script = ''
-        mkdir src; ^bsdtar -xf $env.source -C src --strip-components 1
+        ^cp -r $"($env.source)/." src; ^chmod -R u+w src
         cd src
         let mods = (open go.sum | lines | split column " " mod ver h1 | where ver !~ "/go.mod$"
           | insert dir {|m| $"($m.mod | str replace -ar "[A-Z]" { $"!($in | str lowercase)" })/@v" })
