@@ -84,6 +84,14 @@ on `sources.toml`. Next: lock generation for `fetch.*Deps` packages, reports/`sy
 
 ## Follow-ups
 
+- Cache what still costs incremental time, in this order. Links: `plain-link` is 80–260 per
+  large package (llvm, cpython); key = ToolId(ld) + args + InputId of every input, which lld's
+  `--dependency-file` already lists. With links cached, rustc mode can stop bailing on
+  bin/proc-macro/build-script crates (`rs-plain-compile`). configure: the probes are jig hits
+  but the shell around them is 20–60 s; store autoconf's `config.cache` (and cmake's
+  try_compile dir) as a blob keyed on toolchain + platform + dependency closure. Unstable
+  failing probes: `miss-fail`/`miss-stored-fail` recur on identical rebuilds, so some conftest
+  key changes every run; find it with JIG_LOG_ARGS.
 - rustc cache keys change when only the vendor store path changes (fd: `rs-miss-stored=57`).
   Make source inputs content-keyed.
 - glibc shows `plain-compile=473`: find what jig treats as uncacheable there.
