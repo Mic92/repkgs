@@ -1,9 +1,10 @@
 # §3: every bin/ script and every program with runtimeDependencies becomes
-#   bin/foo -> ../../<hash>-launch/bin/launch   plus a record bin/.foo.launch (pkgs/la/launch/src/launch.cc).
+#   bin/foo -> ../../<hash>-launch/bin/launch, the real file bin/.foo, a record bin/.foo.launch
+# (pkgs/la/launch/src/launch.cc).
 # Interpreter from the #! line (resolved among dependencies if it was /usr/bin/env or bare),
 # runtimeDependencies' bin dirs prepended to PATH, their `env` exports applied as defaults.
 # `prebuilt = true`: upstream binaries keep their foreign PT_INTERP and run as
-#   <sysroot>/lib/ld.so --argv0 <bin/foo> --library-path <libc:deps' libDirs> libexec/foo
+#   <sysroot>/lib/ld.so --argv0 <bin/foo> --library-path <libc:deps' libDirs> bin/.foo
 # so nothing in the ELF is patched and argv[0] still names bin/foo (rustc finds its sysroot by it).
 use core.nu *
 
@@ -38,6 +39,35 @@ def script-interp [f: path, head: binary, owners: list<string>, inject: bool]: n
   {program: $prog, args: ($interp | skip 1)}
 }
 
+# ELF whose PT_INTERP is not ours (upstream binary in a `prebuilt` package)
+def is-foreign [f: path]: nothing -> bool {
+  (ctx).spec.prebuilt? == true and (^llvm-readelf --program-headers $f | str contains INTERP)
+}
+
+# what bin/<name> should launch. The real file moves to bin/.<name> (same dir, so $ORIGIN
+# RUNPATHs still hold). null = leave as is
+def target [c: record, f: path, owners: list<string>, rdeps: list<string>]: nothing -> oneof<record, nothing> {
+  let name = ($f | path basename)
+  let head = (open --raw $f | into binary | bytes at 0..<256)
+  let real = $"{root}/bin/.($name)"
+  let t = (if ($head | bytes starts-with 0x[23 21]) {
+    let i = (script-interp $f $head $owners ($rdeps | is-not-empty))
+    if $i == null { return null }
+    {program: (storerel $i.program $c.out), args: ($i.args ++ [$real])}
+  } else if not (is-elf $f) {
+    return null
+  } else if (is-foreign $f) {
+    # our libc dir first, then every dependency's lib dirs, relative to the package
+    let libpath = ([($c.platform.interp | path dirname)] ++ ($c.deps | each {|d| $d.libDirs | each {|l| $"($d.root)/($l)" } } | flatten)
+      | each {|p| storerel $p $c.out } | str join ":")
+    {program: (storerel $c.platform.interp $c.out), args: [--argv0 "{self}" --library-path $libpath $real]}
+  } else if ($rdeps | is-not-empty) {
+    {program: $real, argv0: "{self}"}
+  } else { return null })
+  mv $f $"($c.out)/bin/.($name)"
+  $t
+}
+
 export def main [c: record]: nothing -> nothing {
   let bindir = $"($c.out)/bin"
   if not ($bindir | path exists) { return }
@@ -45,33 +75,13 @@ export def main [c: record]: nothing -> nothing {
   let rdeps = ($a.runtimeDependencies? | default [])
   let renv = (runtime-env $rdeps $c.out)
   let owners = ([$c.out] ++ $a.dependencies ++ $rdeps)
-  let prebuilt = ($c.spec.prebuilt? | default false)
-  # our libc + runtimes first, then every dependency's lib dirs, relative to the package
-  let libpath = (if $prebuilt {
-    [($c.platform.interp | path dirname)] ++ ($c.deps | each {|d| $d.libDirs | each {|l| $"($d.root)/($l)" } } | flatten)
-    | each {|p| storerel $p $c.out } | str join ":"
-  })
   let launch_rel = $"../../($c.platform.launch | path relative-to $env.NIX_STORE)"
-  for f in (ls $bindir | where type == file | get name) {
-    let name = ($f | path basename)
-    let head = (open --raw $f | into binary | bytes at 0..<256)
-    let is_script = ($head | bytes starts-with 0x[23 21])
-    let rec = (if $is_script {
-      let i = (script-interp $f $head $owners ($rdeps | is-not-empty))
-      if $i == null { continue }
-      mv $f $"($bindir)/.($name).script"
-      {env: $renv, program: (storerel $i.program $c.out), args: ($i.args ++ [$"{root}/bin/.($name).script"])}
-    } else if $prebuilt and (is-elf $f) {
-      mkdir $"($c.out)/libexec"
-      mv $f $"($c.out)/libexec/($name)"
-      {env: $renv, program: (storerel $c.platform.interp $c.out), args: [--argv0 "{self}" --library-path $libpath $"{root}/libexec/($name)"]}
-    } else if (is-elf $f) and ($rdeps | is-not-empty) {
-      mkdir $"($c.out)/libexec"
-      mv $f $"($c.out)/libexec/($name)"
-      {env: $renv, program: $"{root}/libexec/($name)", argv0: "{self}"}
-    } else { continue })
-    $rec | to json -r | save -f $"($bindir)/.($name).launch"
+  for f in (ls $bindir | where type == file | get name | where { ($in | path basename) !~ '^\.' }) {
+    let t = (target $c $f $owners $rdeps)
+    if $t == null { continue }
+    let rec = ({env: $renv} | merge $t)
+    $rec | to json -r | save -f $"($bindir)/.($f | path basename).launch"
     ^ln -s $launch_rel $f
-    note launcher $"bin/($name) -> ($rec.program)"
+    note launcher $"bin/($f | path basename) -> ($rec.program)"
   }
 }

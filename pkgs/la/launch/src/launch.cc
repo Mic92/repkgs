@@ -8,8 +8,8 @@
 // relocate together. No shell is involved. Cost is one extra execve.
 //
 // Record (JSON, written by builder/core.nu `launchers`):
-//   {"program": "{root}/libexec/foo"                or "{store}/<hash>-cpython/bin/python3",
-//    "args":    ["{root}/bin/.foo.script"],        prepended before the user's args
+//   {"program": "{root}/bin/.foo"                    or "{store}/<hash>-cpython/bin/python3",
+//    "args":    ["{root}/bin/.foo"],               prepended before the user's args
 //    "argv0":   "{self}",                          optional, default = program (interpreters
 //                                                  derive their prefix from argv[0], as with #!)
 //    "env":     {"PATH":  {"prepend": ["{store}/<hash>-jq/bin"], "sep": ":"},
