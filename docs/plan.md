@@ -76,6 +76,17 @@ dynamic-derivation producer reading the upstream lock file, hashes upstream lack
   `bun install --frozen-lockfile --offline` expects (`$BUN_INSTALL_CACHE_DIR`), then `bun build
   --compile` or a launcher running `bun run`. Shares tarball fetching with fetch-npm.nu.
 
+**Lock-driven native dependencies beyond cargo.** cargoVendor already forwards `.drv` paths of
+an offered library set into the producer, which picks the ones Cargo.lock's -sys crates want and
+propagates them (builder/sys-crates.nu). The same shape for the other producers, each with its own
+explicit table: go (cgo packages: `mattn/go-sqlite3` -> sqlite, `libgit2/git2go`, taglib for
+navidrome, ...), npm/pnpm/bun (node-gyp addons: `sharp` -> libvips, `better-sqlite3`, `canvas` ->
+cairo/pango, `node-sass`), python `pythonDeps` (sdists with C extensions: `psycopg2` -> libpq,
+`lxml` -> libxml2/libxslt, `pillow` -> libjpeg/zlib/freetype, `cryptography` -> openssl), ruby
+gems (`nokogiri`, `pg`, `ffi`), luarocks. One `sysLibs` offer in default.nix shared by all; each
+table maps ecosystem package name -> our package + the env/flags that make it link ours instead of
+a bundled copy. `uptrack check` warns when a lock names a table entry whose package the set lacks.
+
 **Reproducibility check.** A `repro-check` job that rebuilds the set without the cache socket
 (`--rebuild`) and reports CA path mismatches; diffoscope only on those.
 
