@@ -38,9 +38,30 @@ let
     cc = pkg "llvm" + "/cc.nu";
     linux-headers = pkg "linux" + "/bootstrap.nu";
   };
+  # sources a recipe compiles from this repo, per recipe so that editing jig rebuilds jig and cc,
+  # not glibc (and eval touches them once, not per stage derivation)
+  json_hpp = source "nlohmann-json";
+  recipeInputs = {
+    jig = {
+      jig = builtins.path {
+        path = pkg "jig" + "/src";
+        name = "jig-src";
+        filter = p: _: builtins.match ".*\\.(cc|h)" p != null;
+      };
+      blake3 = source "blake3";
+      zstd = source "zstd";
+      inherit json_hpp;
+      inherit (builtins) storeDir;
+    };
+    launch = {
+      launch = pkg "launch" + "/src/launch.cc";
+      inherit json_hpp;
+    };
+    cc.crt_interp = pkg "crt-interp" + "/src/crt_interp.c";
+  };
   # run.nu + lib.nu + the one recipe, laid out as in the tree (bootstrap/, pkgs/x/x/) so the recipe's
   # relative `use ../../bootstrap/lib.nu` resolves, and an edit to one recipe rebuilds only its step
-  recipe =
+  recipe' =
     name:
     let
       file = recipes.${name} or (pkg name + "/bootstrap.nu");
@@ -60,6 +81,29 @@ let
         preferLocalBuild = true;
       };
     };
+  # memoised: one attrset lookup per use instead of a fresh derivation thunk per stage call
+  recipeDrvs = builtins.listToAttrs (
+    map
+      (n: {
+        name = n;
+        value = recipe' n;
+      })
+      (
+        builtins.attrNames recipes
+        ++ [
+          "musl"
+          "glibc"
+          "mingw-w64"
+          "jig"
+          "launch"
+          "gnu"
+          "toybox"
+          "dash"
+          "python"
+        ]
+      )
+  );
+  recipe = name: recipeDrvs.${name} or (recipe' name);
 
   # Once stage0 has built jig, every later clang call goes through the compile cache: jig's
   # bin/clang shadows the seed's, JIG_CC names the real one. Content identity so that editing a
@@ -71,6 +115,9 @@ let
       JIG_STORE_IDENTITY = "content";
     };
   };
+
+  configSite = "${../nix/config.site}";
+  seedBin = "${seedPath}/bin";
 
   # mkStage <platform> <tools>  ->  `run <recipe> <env>` for that platform with those tools on PATH
   mkStage =
@@ -108,23 +155,13 @@ let
           "${r.path}/bootstrap/run.nu"
           "${r.path}/${r.rel}"
         ];
-        PATH = builtins.concatStringsSep ":" (map (t: "${t}/bin") (extraTools ++ tools ++ [ seedPath ]));
+        PATH = builtins.concatStringsSep ":" (map (t: "${t}/bin") (extraTools ++ tools) ++ [ seedBin ]);
         # the seed's bison is relocated: tell it where its m4 and skeletons are
         M4 = "m4";
         BISON_PKGDATADIR = "${seedPath}/share/bison";
-        CONFIG_SITE = "${../nix/config.site}";
-        jig = builtins.path {
-          path = pkg "jig" + "/src";
-          name = "jig-src";
-          filter = p: _: builtins.match ".*\\.(cc|h)" p != null;
-        };
-        blake3 = source "blake3";
-        zstd = source "zstd";
-        json_hpp = source "nlohmann-json";
-        inherit (builtins) storeDir;
-        crt_interp = pkg "crt-interp" + "/src/crt_interp.c";
-        launch = pkg "launch" + "/src/launch.cc";
+        CONFIG_SITE = configSite;
       }
+      // (recipeInputs.${recipeName} or { })
       // env
       // removeAttrs args [ "recipe" ]
     );
