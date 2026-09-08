@@ -6,10 +6,7 @@
 package {
   name = "fzf";
   uses = [ "go" ];
-  go.vendor = fetch.goModules {
-    source = sources.default;
-    hash = "sha256-DkMe8f5Mq83BseZsaxEbY/BQvQn73DtkXXLwT0+7KMs=";
-  };
+  go.modules = fetch.goModules { source = sources.default; };
   go.ldflags = [
     "-s"
     "-w"

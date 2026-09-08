@@ -10,11 +10,6 @@ only a build dependency of `rust`: rustc + cargo from the rustc-src tarball with
 LLVM (an `llvm` library package), `vendor = true`. cargo.nu and maturin take `buildPkgs.rust`,
 `libgcc-shim` stays for `rust-bootstrap` only. The pin follows `rust` one release behind.
 
-**goModules without a vendor hash.** go.sum's `h1:` is a dirhash, not a file hash, so uptrack's
-locks stage writes `lock.json` (module → zip sha256) from go.sum; goModules then becomes dynamic
-like cargoVendor (one fetchurl per zip + an assemble step). Go is that stage's first user; npm and
-cargo need nothing.
-
 **Python beyond the build stack**, with the first application: no generated library set. Named
 packages are the interpreter, the build stack, native extensions that must link our libraries,
 and the few pure libraries C projects import at build time. Applications bring `uv.lock` and
@@ -43,7 +38,7 @@ maps to `@executable_path/../lib` install names instead of RUNPATH, fixup via
 **Reproducibility check.** A `repro-check` job that rebuilds the set without the cache socket
 (`--rebuild`) and reports CA path mismatches; diffoscope only on those.
 
-**uptrack.** Lock generation for `fetch.*Deps` packages, reports, `sync-github`.
+**uptrack.** `pythonDeps` locks (uv.lock → locks/pypi.toml where wheels lack hashes), reports, `sync-github`.
 
 **CI.** buildbot-nix/nixbot on the two build platforms plus riscv64 cross, harmonia cache with
 realisations.

@@ -71,11 +71,7 @@ let
   };
 
   fetch = import ./nix/fetch.nix {
-    tools = {
-      bsdtar = bootstrap.seed;
-      inherit (bootstrap.stage0) jig;
-      inherit (buildPkgs) go cacert;
-    };
+    inherit (bootstrap.stage0) jig;
     nu = bootstrap.seed;
   };
 

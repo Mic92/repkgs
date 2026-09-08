@@ -115,7 +115,7 @@
       "packages"
       "testPackages"
       "root"
-      "vendor"
+      "modules"
       "cgo"
     ];
   };

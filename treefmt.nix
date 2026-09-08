@@ -84,6 +84,16 @@ pkgs.treefmt.withConfig {
         command = "${pkgs.taplo}/bin/taplo";
         options = [ "format" ];
         includes = [ "*.toml" ];
+        excludes = [ "locks/*.toml" ];
+      };
+      # one entry per line, sorted, so additions merge textually (.gitattributes merge=union)
+      locks = {
+        command = "${pkgs.nushell}/bin/nu";
+        options = [
+          "--no-config-file"
+          "${./pkgs/up/uptrack/src/locks.nu}"
+        ];
+        includes = [ "locks/*.toml" ];
       };
       # nu has no stable formatter, these two only check. nu-lint is the strict-typing/idiom
       # policy in .nu-lint.toml

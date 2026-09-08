@@ -51,8 +51,8 @@ checked = "2025-09-08T11:04:00Z"
 [watch]                            # optional; default is the purl's datasource
 # url = "…/LATEST"  regex = "([0-9.]+)"   |  feed = "…/releases.atom"  |  purl = "pkg:npm/x"
 
-[locks]                            # optional deltas for generated lock files
-# roots = ["crates/web"]  constraints = ["numpy==2.3.*"]  platforms = [...]  generate = false
+[locks]                            # dependency hashes to record in the repo-wide locks/<eco>.toml
+# go = "."                         # dir in the source holding go.sum (`uptrack lock`, and on apply)
 ```
 
 `package.nix` keeps behaviour only:
@@ -92,13 +92,15 @@ sources, locks:[{file, resolver, why}], pins, advisories, provenance}` or `{name
 JSON is the interface for CI, reviewers and LLMs. `apply` consumes it unchanged or edited.
 
 **apply**, only for changed entries: substitute `{version}` into source URLs, prefetch with
-`nix store prefetch-file`, write `hash` and `[pin]`. Unpack the primary source and run lock
-detectors (pyproject.toml without uv.lock, Cargo.toml without Cargo.lock, package.json without a
-lock). Where a lock is missing, build a resolver-script derivation (pinned uv/cargo/npm and
-interpreter, the unpacked source as input), run its output outside the sandbox, commit the
-result next to `sources.toml`. Dependencies, extras and workspace layout are upstream's, read by
-upstream's tool, `[locks]` only carries deltas. `--commit-each` makes one commit per entry or
-group. Entries already matching `[pin]` are no-ops, so runs resume.
+`nix store prefetch-file`, write `hash` and `[pin]`, then the **lock** stage for packages with
+`[locks]`: fetch the pinned source through the tree (`nix-build -A {name}.src`) and record what
+the ecosystem's own lock cannot give Nix in a tree-wide table, `$UPTRACK_LOCKS/<eco>.toml`
+(default `<root>/locks/`; another tree points `fetch.goModules { locks = ./its/go.toml; }` at its
+own). Today that is `go`: go.sum's `h1:` is a dirhash, so `[go]` maps `module@version` to the
+proxy's `.mod`/`.zip` sha256. The table is one sorted line per entry and `merge=union` in
+.gitattributes, so parallel additions merge textually; `treefmt` re-normalises. Cargo and npm
+locks carry file hashes already and need nothing. `uptrack lock [pkg…]` runs the stage alone.
+Entries already matching `[pin]` are no-ops, so runs resume.
 
 **verify** builds through a tree adapter (`nix-build -A {name}` here) and appends evidence to the
 plan entry: the `version:` line our build prints, closure size delta, test result.
@@ -159,4 +161,4 @@ the cache directory, golden plans for a fixture tree.
 
 State here: every `pkgs/*/sources.toml` (bootstrap inputs and seed included) exists and is what Nix reads (`nix/sources.nix`, and `package` defaults `version`/`source` from it).
 Implemented: purl, versioning, github/pypi/cargo/npm/gnu/generic datasources, cached http,
-`list check apply [--verify] verify init` and hooks. Not yet: lock generation, reports.
+`list check apply [--verify] verify rehash lock init` and hooks. Not yet: reports.

@@ -9,3 +9,6 @@ hash = "sha256-DIz3Nudiov2uwxAtq6++rt2zwz0adOlv9W+c0SW3EHc="
 [pin]
 version = "0.74.3"
 tag = "v0.74.3"
+
+[locks]
+go = "."

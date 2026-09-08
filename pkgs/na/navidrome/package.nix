@@ -16,10 +16,7 @@ package {
     source = sources.default;
     root = "ui";
   };
-  go.vendor = fetch.goModules {
-    source = sources.default;
-    hash = "sha256-ybfPzmmnBh3DH3oP53QUt5juc3vRZHUOrefctDJ+DeI=";
-  };
+  go.modules = fetch.goModules { source = sources.default; };
   go.tags = [
     "netgo"
     "sqlite_fts5"

@@ -57,8 +57,12 @@ single files via `builtin:fetchurl`. Ecosystem lock files are not copied into th
 `fetch.cargoVendor`/`fetch.npmDeps { source }` are dynamic derivations whose producer reads the
 lock file from the source and writes one `builtin:fetchurl` per crate/tarball plus a collector,
 through jig's own worker-protocol client (`jig nix-store`, no `nix` binary, no recursive-nix).
-`fetch.goModules` stays one fixed-output `go mod vendor` (go.sum hashes trees, not zips) with
-module zips served from the build cache and a go.sum staleness check.
+`fetch.goModules { source }` works the same, except go.sum's `h1:` hashes a file listing, not the
+zip, so the producer looks each module version up in the repo-wide `locks/go.toml`
+(proxy.golang.org .mod/.zip sha256, written by `uptrack lock`) and lays the results out as a
+`GOPROXY=file://` tree. The shared table only reaches the producer; its output drv holds the
+package's subset, so additions for other packages cut off early. The file is one sorted line per
+entry with `merge=union`, so parallel additions merge without conflicts.
 
 ## 2. Relocatable outputs
 

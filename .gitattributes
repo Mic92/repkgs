@@ -1,0 +1,2 @@
+# one entry per line, additions from two branches merge textually; `treefmt` normalises
+locks/*.toml merge=union

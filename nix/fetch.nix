@@ -1,7 +1,7 @@
 # Dependency fetchers. Upstream tarballs themselves come from sources.toml (nix/sources.nix).
-# cargoVendor emits per-crate fetchurl derivations at build time (dynamic derivations, no hash of
-# ours). goModules is still a fixed-output `go mod vendor` (go.sum hashes are not tarball hashes).
-{ tools, nu }:
+# All three emit per-file builtin:fetchurl derivations at build time (dynamic derivations): the
+# hashes come from the lock file, none of ours.
+{ jig, nu }:
 let
   system = builtins.currentSystem;
 
@@ -22,7 +22,7 @@ let
           seed = nu;
           builder = "${nu}/bin/nu";
           args = [ "${producers}/${script}" ];
-          PATH = "${tools.jig}/bin:${nu}/bin";
+          PATH = "${jig}/bin:${nu}/bin";
           requiredSystemFeatures = [ "builder-rpc-v0" ];
           preferLocalBuild = true;
           __contentAddressed = true;
@@ -34,31 +34,6 @@ let
     in
     builtins.outputOf producer.outPath "out";
 
-  vendor =
-    {
-      name,
-      hash,
-      path,
-      script,
-      env ? { },
-    }:
-    derivation (
-      {
-        inherit name system;
-        builder = "${nu}/bin/nu";
-        args = [
-          "-c"
-          script
-        ];
-        PATH = builtins.concatStringsSep ":" (map (p: "${p}/bin") (path ++ [ nu ]));
-        SSL_CERT_FILE = "${tools.cacert}/etc/ssl/certs/ca-bundle.crt";
-        outputHashMode = "recursive";
-        outputHashAlgo = "sha256";
-        outputHash = hash;
-        preferLocalBuild = true;
-      }
-      // env
-    );
 in
 {
   # Registry crates from the Cargo.lock *inside* `source`, as a directory cargo accepts under
@@ -85,46 +60,18 @@ in
       lockFile = if lockFile == null then "" else lockFile;
     };
 
-  # `go mod vendor` output plus the go.sum it came from (go.nu rejects a stale `hash` with it).
-  # Module zips are served from the build cache first, downloads are put back into it.
+  # GOPROXY=file:// tree for the go.sum inside `source`, hashes from a shared locks table
+  # (`uptrack lock`; go.sum's h1: is not a file hash), this repo's locks/go.toml unless the caller
+  # passes its own. Same mechanism as cargoVendor; the table only reaches the producer, whose
+  # output is this package's subset, so unrelated additions rebuild nothing. go.nu builds with
+  # -mod=mod against the tree, offline.
   goModules =
-    { source, hash }:
-    vendor {
-      name = "go-modules";
-      inherit hash;
-      path = [
-        tools.go
-        tools.jig
-      ];
-      env = {
-        inherit source;
-        GOPATH = "/tmp/go";
-        GOCACHE = "/tmp/go-cache";
-        GOFLAGS = "-mod=mod";
-        GOTOOLCHAIN = "local";
-      };
-      script = ''
-        ^cp -r $"($env.source)/." src; ^chmod -R u+w src
-        cd src
-        let mods = (open go.sum | lines | split column " " mod ver h1 | where ver !~ "/go.mod$"
-          | insert dir {|m| $"($m.mod | str replace -ar "[A-Z]" { $"!($in | str lowercase)" })/@v" })
-        let local = "/tmp/proxy"
-        let cached = ($mods | where {|m|
-          mkdir $"($local)/($m.dir)"
-          [zip mod info] | all {|ext| (do { ^jig cache get $"gomod/($m.mod)@($m.ver)/($m.h1)/($ext)" $"($local)/($m.dir)/($m.ver).($ext)" } | complete).exit_code == 0 }
-        })
-        $env.GOPROXY = $"file://($local),https://proxy.golang.org"
-        ^go mod vendor -o $"($env.out)/vendor"
-        cp go.sum $env.out
-        let dl = $"($env.GOPATH)/pkg/mod/cache/download"
-        for m in ($mods | where {|m| $m not-in $cached }) {
-          for ext in [zip mod info] {
-            let f = $"($dl)/($m.dir)/($m.ver).($ext)"
-            if ($f | path exists) { ^jig cache put $"gomod/($m.mod)@($m.ver)/($m.h1)/($ext)" $f | ignore }
-          }
-        }
-      '';
-    };
+    {
+      source,
+      root ? ".",
+      locks ? ../locks/go.toml,
+    }:
+    dynamic "go-modules" "fetch-go.nu" { inherit source root locks; };
 
   empty = builtins.path {
     path = ./empty;
