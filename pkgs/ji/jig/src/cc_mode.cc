@@ -51,6 +51,16 @@ auto IsObjectInput(std::string_view arg) -> bool {
   return !arg.starts_with('-') && (HasSuffix(arg, kExts) || arg.contains(".so."));
 }
 
+auto HasLinkerSideOutput(std::string_view arg) -> bool {
+  static constexpr std::array kMarkers{
+      "-Map"sv,    "--print-map"sv, ",-M,"sv,      "--dependency-file"sv,   "--out-implib"sv,
+      "--trace"sv, ",-t,"sv,        "--verbose"sv, "--print-gc-sections"sv, "--stats"sv,
+  };
+  return (arg.starts_with("-Wl,") || arg.starts_with("-Xlinker")) &&
+         (std::ranges::any_of(kMarkers, [&](std::string_view marker) -> bool { return arg.contains(marker); }) ||
+          arg.ends_with(",-M") || arg.ends_with(",-t"));
+}
+
 // Options after which caching is pointless: preprocess/asm/dependency-only/query runs.
 auto IsNoOutputOption(std::string_view arg) -> bool {
   static constexpr std::array kExact{
@@ -61,25 +71,50 @@ auto IsNoOutputOption(std::string_view arg) -> bool {
          arg.starts_with("-dump");
 }
 
-auto ComputeRequestKey(const std::string& compiler, const Invocation& inv, std::string_view source_bytes)
-    -> RequestKey {
+// `primary`: the source bytes, or for a link the InputId of every object/archive argument
+auto ComputeRequestKey(const std::string& compiler, const Invocation& inv, std::string_view primary) -> RequestKey {
   const Store& store = Store::Get();
+  const bool links = inv.link_one || inv.link;
   Hasher hasher;
   hasher.Field("cc=" + Store::ToolId(compiler));
   // cwd: relative -I/-include and __FILE__ depend on it. Inside the sandbox it is stable
   hasher.Field("cwd=" + store.Key(fs::current_path().string()));
-  hasher.Field(inv.link_one ? "mode=link" : "mode=compile");
-  if (inv.link_one) {
+  std::string_view mode = "mode=compile";
+  if (inv.link) {
+    mode = "mode=link";
+  } else if (inv.link_one) {
+    mode = "mode=link-one";
+  }
+  hasher.Field(mode);
+  if (links) {
     hasher.Field("LIBRARY_PATH=" + store.MaskForReplay(Env("LIBRARY_PATH")));
   }
+  // never masked: paths the binary embeds verbatim (PT_INTERP, RUNPATH), and anything naming our
+  // own output prefix (-DENGINESDIR="$out/lib/..."), which ends up in .rodata
+  const std::string out = Env("out");
   for (const std::string& arg : inv.key_args) {
-    // paths the executable embeds verbatim (PT_INTERP, RUNPATH) are never masked: a probe binary
-    // built against another toolchain instance would name a dynamic linker that may not exist here
-    const bool embedded = inv.link_one && (arg.contains("dynamic-linker") || arg.contains("rpath"));
+    const bool embedded =
+        (links && (arg.contains("dynamic-linker") || arg.contains("rpath"))) || (!out.empty() && arg.contains(out));
     hasher.Field(embedded ? arg : store.Key(arg));
   }
-  hasher.Field(source_bytes);
+  hasher.Field(primary);
   return {Tool::kCc, hasher.Finish()};
+}
+
+// what the request key hashes besides the arguments. nullopt = an input is unreadable
+auto PrimaryIdentity(const Invocation& inv) -> std::optional<std::string> {
+  if (!inv.link) {
+    return ReadFile(inv.source);
+  }
+  std::string ids;
+  for (const std::string& input : inv.inputs) {
+    const std::optional<std::string> input_id = Store::Get().InputId(input);
+    if (!input_id) {
+      return std::nullopt;
+    }
+    ids += input + "=" + *input_id + "\n";
+  }
+  return ids;
 }
 
 // Everything a hit has to reproduce. nullopt = not usable, compile for real.
@@ -101,7 +136,7 @@ auto Lookup(CacheClient& cache, const RequestKey& request_key, const Invocation&
   }
   CachedResult result{};
   // an exit status slot exists only for cached failures. Link failures are never cached (see header)
-  if (!inv.link_one) {
+  if (!inv.link_one && !inv.link) {
     if (const std::optional<std::string> status = cache.Get(slot::ExitStatus(*result_key))) {
       result.status = static_cast<int>(ParseUint(*status).value_or(1));
     }
@@ -126,7 +161,7 @@ auto Lookup(CacheClient& cache, const RequestKey& request_key, const Invocation&
 auto Replay(const CachedResult& result, const Invocation& inv) -> int {
   if (result.object) {
     WriteFile(inv.output, *result.object);
-    if (inv.link_one) {
+    if (inv.link_one || inv.link) {
       std::error_code ignored;
       fs::permissions(inv.output, fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec,
                       fs::perm_options::add, ignored);
@@ -146,25 +181,27 @@ auto CompileAndStore(CacheClient& cache, const std::string& compiler, const Requ
   std::vector<std::string> real_args = inv.args;
   const fs::path out_dir = inv.output.has_parent_path() ? inv.output.parent_path() : fs::path(".");
   const std::string tmp_base = (out_dir / std::format(".jig{}", ::getpid())).string();
+  const bool links = inv.link_one || inv.link;
   fs::path depfile = inv.depfile;
-  if (!inv.wants_depfile) {
+  if (!inv.wants_depfile && !inv.link) {
     depfile = tmp_base + ".d";
     real_args.insert(real_args.end(), {"-MD", "-MF", depfile.string()});
   }
   const fs::path link_depfile = tmp_base + ".link.d";
-  if (inv.link_one) {
+  if (links) {
     real_args.push_back("-Wl,--dependency-file=" + link_depfile.string());
   }
 
   const RunResult run = Run(compiler, real_args, StderrMode::kCapture);
   std::print(stderr, "{}", run.stderr_text);
-  const std::optional<std::string> dep_text = ReadFile(depfile);
-  const std::optional<std::string> link_dep_text = inv.link_one ? ReadFile(link_depfile) : std::nullopt;
+  // a pure link has no preprocessor depfile; an empty one keeps the flow uniform
+  const std::optional<std::string> dep_text = inv.link ? std::optional<std::string>("") : ReadFile(depfile);
+  const std::optional<std::string> link_dep_text = links ? ReadFile(link_depfile) : std::nullopt;
   std::error_code ignored;
-  if (!inv.wants_depfile) {
+  if (!inv.wants_depfile && !inv.link) {
     fs::remove(depfile, ignored);
   }
-  if (inv.link_one) {
+  if (links) {
     fs::remove(link_depfile, ignored);
   }
 
@@ -181,7 +218,7 @@ auto CompileAndStore(CacheClient& cache, const std::string& compiler, const Requ
   if (run.status != 0) {
     // replayable only if every input is known. A missing header or any link error depends on
     // something absent that a later build may provide
-    if (!dep_text || inv.link_one || run.stderr_text.contains("file not found")) {
+    if (!dep_text || links || run.stderr_text.contains("file not found")) {
       LogOutcome(Outcome::kMissFail, inv.source, clock);
       return run.status;
     }
@@ -194,7 +231,7 @@ auto CompileAndStore(CacheClient& cache, const std::string& compiler, const Requ
   }
 
   const std::optional<std::string> object = ReadFile(inv.output);
-  if (!dep_text || !object || (inv.link_one && !link_dep_text)) {
+  if (!dep_text || !object || (links && !link_dep_text)) {
     LogOutcome(Outcome::kMissUnstored, inv.source, clock);
     return 0;
   }
@@ -245,6 +282,33 @@ auto TakeDepfileOption(std::span<const std::string> args, size_t& idx, Invocatio
 
 }  // namespace
 
+namespace {
+
+// compile / link-one (configure probe) / link, default output and depfile names
+void Classify(Invocation& inv, int sources, bool objects) {
+  if (inv.compile_only) {
+    inv.cacheable = inv.cacheable && sources == 1;
+    if (inv.output.empty()) {
+      inv.output = fs::path(inv.source).stem().string() + ".o";
+    }
+  } else {
+    inv.link_one = !objects && sources == 1;
+    inv.link = objects && sources == 0 && !inv.inputs.empty();
+    inv.cacheable = inv.cacheable && (inv.link_one || inv.link);
+    if (inv.output.empty()) {
+      inv.output = "a.out";
+    }
+    if (inv.link) {
+      inv.source = inv.output.filename().string();  // log label
+    }
+  }
+  if (inv.wants_depfile && inv.depfile.empty()) {
+    inv.depfile = fs::path(inv.output).replace_extension(".d");  // -MD without -MF
+  }
+}
+
+}  // namespace
+
 auto ParseInvocation(std::span<const std::string> args) -> Invocation {
   Invocation inv;
   inv.args.assign(args.begin(), args.end());
@@ -266,30 +330,18 @@ auto ParseInvocation(std::span<const std::string> args) -> Invocation {
     } else if (IsSourceFile(arg)) {
       inv.source = arg;
       ++sources;
+    } else if (IsObjectInput(arg)) {
+      objects = true;
+      inv.inputs.push_back(arg);
+      inv.key_args.push_back(arg);
     } else {
-      objects = objects || IsObjectInput(arg) || arg == "-shared" || arg == "-r";
+      objects = objects || arg == "-shared" || arg == "-r";
+      // @rsp hides inputs; -Map and friends write or print a second output
+      inv.cacheable = inv.cacheable && !arg.starts_with('@') && !arg.contains(",@") && !HasLinkerSideOutput(arg);
       inv.key_args.push_back(arg);
     }
   }
-  if (sources != 1) {
-    inv.cacheable = false;  // none, or several translation units in one call
-  }
-  if (inv.compile_only) {
-    if (inv.output.empty()) {
-      inv.output = fs::path(inv.source).stem().string() + ".o";  // compiler default
-    }
-  } else {
-    // a real link (objects, archives, -shared) is the linker's job. One source straight to an
-    // executable is a configure/cmake probe and cached like a compile
-    inv.link_one = !objects;
-    inv.cacheable = inv.cacheable && !objects;
-    if (inv.output.empty()) {
-      inv.output = "a.out";
-    }
-  }
-  if (inv.wants_depfile && inv.depfile.empty()) {
-    inv.depfile = fs::path(inv.output).replace_extension(".d");  // compiler default for -MD without -MF
-  }
+  Classify(inv, sources, objects);
   return inv;
 }
 
@@ -315,16 +367,16 @@ auto RunCcMode(std::string_view argv0, std::span<const std::string> user_args, c
   }
 
   CacheClient cache;
-  std::optional<std::string> source_bytes;
+  std::optional<std::string> primary;
   if (inv.cacheable) {
-    source_bytes = ReadFile(inv.source);
+    primary = PrimaryIdentity(inv);
   }
-  if (!inv.cacheable || !source_bytes || !cache.Connect(socket_path)) {
+  if (!inv.cacheable || !primary || !cache.Connect(socket_path)) {
     const int status = Run(conf->cc, inv.args, StderrMode::kInherit).status;
     Outcome outcome = Outcome::kPlainNoSocket;
     if (!inv.cacheable) {
       outcome = inv.compile_only ? Outcome::kPlainCompile : Outcome::kPlainLink;
-    } else if (!source_bytes) {
+    } else if (!primary) {
       outcome = Outcome::kPlainNoSource;
     }
     LogOutcome(outcome, inv.source, clock);
@@ -340,7 +392,7 @@ auto RunCcMode(std::string_view argv0, std::span<const std::string> user_args, c
     store.LearnRoots(arg);
   }
 
-  const RequestKey request_key = ComputeRequestKey(conf->cc, inv, *source_bytes);
+  const RequestKey request_key = ComputeRequestKey(conf->cc, inv, *primary);
   if (const std::optional<CachedResult> hit = Lookup(cache, request_key, inv)) {
     const int status = Replay(*hit, inv);
     LogOutcome(status == 0 ? Outcome::kHit : Outcome::kHitFail, inv.source, clock);

@@ -82,6 +82,21 @@ void TestParseJoinedOutput() {
   assert(inv.cacheable && inv.output == "/tmp/b/x.o" && inv.key_args.empty());
 }
 
+void TestParseLink() {
+  Invocation inv = ParseInvocation(V({"-o", "prog", "main.o", "libutil.a", "-lz", "-shared"}));
+  assert(inv.cacheable && inv.link && !inv.link_one && inv.output == "prog" && inv.source == "prog");
+  assert(inv.inputs == V({"main.o", "libutil.a"}));
+
+  inv = ParseInvocation(V({"-o", "prog", "@objs.rsp"}));
+  assert(!inv.cacheable);
+
+  inv = ParseInvocation(V({"-shared", "-o", "x.so"}));
+  assert(!inv.cacheable);
+
+  inv = ParseInvocation(V({"-r", "-o", "m.o", "a.os", "-Wl,-Map,m.mapT"}));
+  assert(inv.link && !inv.cacheable);
+}
+
 void TestParseInvocation() {
   Invocation inv = ParseInvocation(V({"-O2", "-c", "foo.c", "-o", "out/foo.o", "-MD", "-MF", "out/foo.d", "-MT", "x"}));
   assert(inv.cacheable && inv.compile_only && !inv.link_one);
@@ -101,9 +116,6 @@ void TestParseInvocation() {
 
   inv = ParseInvocation(V({"-O2", "conftest.c"}));
   assert(inv.cacheable && inv.link_one && inv.output == "a.out");
-
-  inv = ParseInvocation(V({"-o", "prog", "main.o", "util.o", "-lz"}));
-  assert(!inv.cacheable && !inv.link_one);
 
   inv = ParseInvocation(V({"-o", "conftest", "conftest.c", "conftstm.o"}));
   assert(!inv.cacheable);
@@ -307,6 +319,7 @@ auto main() -> int {
   TestBase();
   TestStore();
   TestParseInvocation();
+  TestParseLink();
   TestParseJoinedOutput();
   TestDepfile();
   TestManifest();
