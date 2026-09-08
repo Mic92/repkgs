@@ -1,0 +1,45 @@
+use core.nu *
+
+# ./configure && make [check] && make install. Also plain-Makefile projects via steps/knobs.
+def knobs []: nothing -> record<flags: list<string>, makeFlags: list<string>, configureScript: string, outOfTree: bool> { knobs-for autotools {flags: [], makeFlags: [], configureScript: "configure", outOfTree: true} }
+def --env goto []: nothing -> nothing { let c = (ctx); cd (if (knobs).outOfTree { $c.build } else { $c.src }) }
+
+# CONFIG_SHELL = bash when on PATH (configure scripts in the wild need it), else stage0's dash
+# (the base userland itself). Dependencies arrive via pkg-config/CPPFLAGS/LDFLAGS from core
+export def --env setup []: nothing -> nothing {
+  $env.CONFIG_SHELL = (if (which bash | is-not-empty) { tool bash } else { tool sh })
+  $env.SHELL = $env.CONFIG_SHELL
+}
+
+# ./configure --prefix=$out (shared only), --host/--build when cross, plus `autotools.flags`
+export def --env configure []: nothing -> nothing {
+  let c = (ctx); let k = (knobs)
+  goto
+  let script = $"($c.src)/($k.configureScript)"
+  # --host makes configure cross-aware (no running of test programs) Triple, not a nixpkgs "system"
+  let host_flags = (if $c.platform.cross { [$"--host=($c.platform.triple)" "--build=x86_64-build-linux-gnu"] } else { [] })
+  x $env.CONFIG_SHELL $script $"--prefix=($c.out)" --disable-static --enable-shared ...$host_flags ...($k.flags)
+}
+
+# make -j (`autotools.buildTarget`, `autotools.makeFlags`)
+export def build []: nothing -> nothing {
+  let c = (ctx); let k = (knobs)
+  goto
+  x make $"-j($c.njobs)" ...($k.buildTarget? | default [] ) ...($k.makeFlags)
+}
+
+# make check (or `autotools.testTarget`) when tests run on this builder
+export def test []: nothing -> nothing {
+  let c = (ctx); let k = (knobs)
+  goto
+  if not $c.testsRun { return }
+  x make $"-j($c.njobs)" ...($k.testTarget? | default "check" | split row " ") ...($k.makeFlags)
+}
+
+# make install (`autotools.installTarget`, `autotools.makeFlags`)
+export def install []: nothing -> nothing {
+  let c = (ctx); let k = (knobs)
+  goto
+  # PREFIX/prefix for configure-less Makefiles. Harmless after configure
+  x make install $"PREFIX=($c.out)" $"prefix=($c.out)" ...($k.makeFlags) ...($k.installFlags? | default [])
+}
