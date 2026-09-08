@@ -57,6 +57,9 @@ single files via `builtin:fetchurl`. Ecosystem lock files are not copied into th
 `fetch.cargoVendor`/`fetch.npmDeps { source }` are dynamic derivations whose producer reads the
 lock file from the source and writes one `builtin:fetchurl` per crate/tarball plus a collector,
 through jig's own worker-protocol client (`jig nix-store`, no `nix` binary, no recursive-nix).
+Every configure also sees `CONFIG_SITE=nix/config.site`: the `*_cv_*` answers that are facts of
+our platforms (run-time probes gnulib would otherwise guess pessimistically when cross), while
+package-specific probe results are cached per (script, toolchain, deps) by jig.
 `fetch.goModules { source }` works the same, except go.sum's `h1:` hashes a file listing, not the
 zip, so the producer looks each module version up in the repo-wide `locks/go.toml`
 (proxy.golang.org .mod/.zip sha256, written by `uptrack lock`) and lays the results out as a

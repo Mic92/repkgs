@@ -179,6 +179,8 @@ let
     inherit (args) version;
     patches = args.patches or [ ];
     inherit spec;
+    # platform facts autoconf would otherwise probe (or guess, when cross): nix/config.site
+    CONFIG_SITE = "${../nix/config.site}";
     platform = {
       inherit (platform)
         name

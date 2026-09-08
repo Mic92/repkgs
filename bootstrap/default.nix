@@ -112,6 +112,7 @@ let
         # the seed's bison is relocated: tell it where its m4 and skeletons are
         M4 = "m4";
         BISON_PKGDATADIR = "${seedPath}/share/bison";
+        CONFIG_SITE = "${../nix/config.site}";
         jig = builtins.path {
           path = pkg "jig" + "/src";
           name = "jig-src";
@@ -200,9 +201,11 @@ let
         };
       glibcArgs = {
         src = source "glibc";
-        patches = [ (pkg "glibc" + "/glibc-gconv-relative.patch") ];
+        patches = [
+          (pkg "glibc" + "/glibc-gconv-relative.patch")
+          (pkg "glibc" + "/glibc-ppc64le-clang.patch")
+        ];
         linuxHeaders = linux-headers;
-        configureFlags = toString platform.glibcConfigure;
       };
       linux-headers = run "linux-headers" { src = source "linux"; };
       glibc-headers = run "glibc" (glibcArgs // { headersOnly = "1"; });
