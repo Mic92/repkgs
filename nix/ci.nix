@@ -23,6 +23,8 @@ let
     "qemu"
     "uglify-js"
     "navidrome"
+    "svgo"
+    "maturin"
     "pkgs-cache"
   ];
   cross = [

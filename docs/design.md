@@ -98,7 +98,8 @@ check, exports.json, cache summary). `builder/`:
 ```
 core.nu prepare.nu finish.nu launchers.nu     shared
 autotools.nu cmake.nu meson.nu cargo.nu go.nu python.nu npm.nu   one module per build system
-fetch-cargo.nu fetch-npm.nu                   dynamic-derivation producers
+autotools.nu cmake.nu meson.nu cargo.nu go.nu python.nu npm.nu pnpm.nu
+dynamic.nu fetch-cargo.nu fetch-npm.nu fetch-pnpm.nu fetch-go.nu sys-crates.nu   dynamic-derivation producers
 ```
 
 - **No generic builder, no phases, no hooks** (blind LLM test over five API variants, exp.
@@ -112,6 +113,23 @@ fetch-cargo.nu fetch-npm.nu                   dynamic-derivation producers
   `exports.propagate` makes propagated packages real inputs.
 - Dependency kinds: `buildDependencies` (build platform, on PATH), `dependencies` (target,
   visible to the compiler), `runtimeDependencies` (target, exec'd/dlopen'd). No six-way lists.
+- Platform facts a configure script would probe (or guess wrong when cross) are pinned once in
+  `nix/config.site` (`CONFIG_SITE`), keyed on `site_os`/`site_cpu`; meson gets generated
+  cross/native machine files from the same platform record; cmake a toolchain file. Package-specific
+  probe results stay in jig's cache, not in the repo.
+- Lock files and native libraries: a lock file reaches Nix only as a path handed to a
+  dynamic-derivation producer (§1), so its size costs eval nothing. Libraries a locked dependency
+  links against (`openssl-sys`, `libz-sys`, …) cannot be discovered at eval without IFD, so the set
+  forwards the `.drv` paths of a fixed list (`sysLibs` in default.nix, context reduced with
+  `unsafeDiscardOutputDependency`) to the producer; the producer reads the lock, picks by an explicit
+  per-ecosystem table (`builder/sys-crates.nu`), makes the picked ones inputs of the derivation it
+  writes and lists them in that output's `exports.json` `propagate` + `env`, which `prepare` already
+  honours. A package therefore does not name pcre2 because a crate three levels down wants it; an
+  unknown -sys crate is a normal `dependencies` entry plus env.
+- Repo growth rules for locks: never commit a copy of an upstream lock file; generate one only when
+  upstream ships none (`uptrack lock`); shared hash tables are TOML, one sorted line per entry,
+  `merge=union` (`locks/go.toml`); anything generated that is large or changes wholesale is a
+  fixed-output derivation, not a file.
 - Defaults every package gets: `-O2 -g`, frame pointers, `_FORTIFY_SOURCE=3`,
   stack-protector-strong, stack-clash-protection, trivial-auto-var-init=zero, `-Werror=date-time`,
   relro/now/noexecstack/as-needed; `-march` and `-fcf-protection`/`-mbranch-protection` come from
