@@ -56,6 +56,10 @@ def cache-summary []: nothing -> nothing {
   for l in ($ls | where { str starts-with "gocacheprog" }) { note cache $l }
   let kinds = ($ls | where { not ($in | str starts-with "gocacheprog") } | each { split row " " | first } | uniq -c)
   if ($kinds | is-not-empty) { note cache ($kinds | each { $"($in.value)=($in.count)" } | str join " ") }
+  # a few of the command lines jig would not cache, to spot shapes worth teaching it
+  if ($env.JIG_LOG_ARGS | path exists) {
+    for l in (open --raw $env.JIG_LOG_ARGS | lines | shuffle | first 5) { note uncached ($l | str substring 0..300) }
+  }
 }
 
 export def main [
