@@ -1,6 +1,9 @@
 #include "base.h"
 
 #include <blake3.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <array>
@@ -20,6 +23,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 #include "keys.h"
@@ -48,12 +52,41 @@ void UniqueFd::Reset(int raw_fd) {
   fd_ = raw_fd;
 }
 
+constexpr size_t kReadChunk = size_t{1} << 16U;
+
 auto ReadFile(const fs::path& path) -> std::optional<std::string> {
-  std::ifstream stream(path, std::ios::binary);
-  if (!stream) {
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg): open(2) is variadic in POSIX, no mode needed for O_RDONLY
+  const UniqueFd file(::open(path.c_str(), O_RDONLY | O_CLOEXEC));
+  if (!file.valid()) {
     return std::nullopt;
   }
-  return std::string(std::istreambuf_iterator<char>(stream), {});
+  // regular files: one read of the known size (+1 to see EOF). Others grow chunk by chunk
+  struct stat info{};
+  const size_t known = ::fstat(file.get(), &info) == 0 && info.st_size > 0 ? static_cast<size_t>(info.st_size) : 0;
+  std::string out;
+  size_t filled = 0;
+  bool failed = false;
+  for (size_t want = known > 0 ? known + 1 : kReadChunk; !failed; want = filled + kReadChunk) {
+    out.resize_and_overwrite(want, [&](char* data, size_t capacity) -> size_t {
+      const std::span<char> buf(data, capacity);
+      while (filled < capacity) {
+        const ssize_t got = ::read(file.get(), buf.subspan(filled).data(), capacity - filled);
+        if (got <= 0) {
+          failed = got < 0;
+          break;
+        }
+        filled += static_cast<size_t>(got);
+        if (known > 0) {
+          break;  // a short read of a regular file is EOF
+        }
+      }
+      return filled;
+    });
+    if (filled < want) {
+      break;
+    }
+  }
+  return failed ? std::nullopt : std::optional(std::move(out));
 }
 
 auto WriteFile(const fs::path& path, std::string_view data) -> bool {
