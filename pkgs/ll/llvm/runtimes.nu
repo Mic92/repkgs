@@ -85,32 +85,29 @@ def main []: nothing -> nothing {
   ]
   let link = (ccflags) ++ [-nostdlib++ -shared "-Wl,-z,defs" $"-L($out)/lib"]
 
-  mut built = {}
-  for l in $LIBS {
+  # objects per library built so far: each static archive carries the layers below it (upstream's
+  # LIBCXX{,ABI}_STATICALLY_LINK_UNWINDER_IN_STATIC_LIBRARY), so `-static -lc++` needs no -lc++abi -lunwind
+  $LIBS | reduce -f {} {|l, built|
     let std = {|f| if ($f | str ends-with ".cpp") { [$"-std=($l.std)"] } else if ($f | str ends-with ".c") { [-std=c11] } else { [] } }
     let items = (glob $"($l.dir)/($l.glob)" | each { path relative-to $env.PWD } | sort
       | where {|f| ($f | path relative-to $l.dir) not-in $l.skip }
       | each {|f| {src: $f, obj: $"($obj)/($l.name)/($f).o", flags: (do $std $f)} })
     say $"lib($l.name): ($items | length) files"
     let objs = (compile ($common ++ $l.flags) $items)
-    # as upstream's LIBCXX{,ABI}_STATICALLY_LINK_UNWINDER_IN_STATIC_LIBRARY etc.: each static archive
-    # carries the layers below it so `-static -lc++` needs no -lc++abi -lunwind
-    let below = (match $l.name { "c++abi" => [unwind], "c++" => [unwind "c++abi"], _ => [] })
-    let snapshot = $built
-    let carried = ($below | each {|b| $snapshot | get $b } | flatten)
+    let carried = (match $l.name { "c++abi" => [unwind], "c++" => [unwind "c++abi"], _ => [] } | each {|b| $built | get $b } | flatten)
     archive $"($out)/lib/lib($l.name).a" ($objs ++ $carried)
-    $built = ($built | upsert $l.name $objs)
     if $l.so != null {
       let so = $"lib($l.name).so.1"
       x clang ...$link $"-Wl,-soname,($so)" -o $"($out)/lib/($so).0" ...$objs ...$carried ...$l.so
       x ln -s $"($so).0" $"($out)/lib/($so)"
     }
-  }
+    $built | insert $l.name $objs
+  } | ignore
   # link-time names. libc++.so is a linker script (as upstream installs it) so -lc++ alone is enough
   x ln -s libunwind.so.1 $"($out)/lib/libunwind.so"
   x ln -s libc++abi.so.1 $"($out)/lib/libc++abi.so"
   "INPUT(libc++.so.1 -lc++abi -lunwind)\n" | save $"($out)/lib/libc++.so"
   # rustc's and go's prebuilt std hard-code -lgcc_s for the unwinder. libunwind has the same _Unwind_* ABI
   "INPUT(-lunwind)\n" | save $"($out)/lib/libgcc_s.so"
-  x ln -s libunwind.a $"($out)/lib/libgcc_s.a" | ignore  # nu-lint-ignore: redundant_ignore
+  x ln -s libunwind.a $"($out)/lib/libgcc_s.a" | ignore
 }

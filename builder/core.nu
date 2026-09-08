@@ -33,6 +33,7 @@ export def tool [name: string]: nothing -> path {
 # the derivation's structured attrs (nix/package.nix `common`)
 export def attrs []: nothing -> record { open $env.NIX_ATTRS_JSON_FILE }
 
+# starts with \x7fELF
 export def is-elf [f: path]: nothing -> bool { (open --raw $f | into binary | bytes at 0..<4) == 0x[7f 45 4c 46] }
 
 def existing [root: path, rels: list<string>]: nothing -> list<string> { $rels | where {|d| $"($root)/($d)" | path exists } }
@@ -48,7 +49,7 @@ export def exports-of [p: path]: nothing -> record<includeDirs: list<string>, li
     pkgconfigDirs: ($e.pkgconfigDirs? | default (existing $p ["lib/pkgconfig" "share/pkgconfig"]))
     aclocalDirs: ($e.aclocalDirs? | default (existing $p ["share/aclocal"]))
     # `{root}` in values: this package's own store path (kept relative in exports.json so the output stays relocatable)
-    env: ($e.env? | default {} | items {|k, v| {$k: ($v | str replace -a "{root}" $p)} } | reduce -f {} {|it, acc| $acc | merge $it })
+    env: ($e.env? | default {} | transpose k v | update v { str replace -a "{root}" $p } | transpose -rd | default {})
     propagate: ($e.propagate? | default [])
   }
 }
@@ -68,10 +69,14 @@ export def dep-closure [roots: list<string>]: nothing -> list<record> {
   $done
 }
 
-# store path -> launcher template relative to the package ({root}/..., {store}/<basename>/...)
+# store path -> launcher template relative to the package: {root}/... for our own files,
+# {store}/<basename>/... for siblings, anything else verbatim
 export def storerel [p: string, out: string]: nothing -> string {
-  let store = $"($env.NIX_STORE)/"
-  if ($p | str starts-with $out) { $"{root}($p | str substring ($out | str length)..)" } else if ($p | str starts-with $store) { $"{store}/($p | str substring ($store | str length)..)" } else { $p }
+  if ($p | str starts-with $out) {
+    $"{root}($p | str substring ($out | str length)..)"
+  } else if ($p | str starts-with $"($env.NIX_STORE)/") {
+    $"{store}/($p | path relative-to $env.NIX_STORE)"
+  } else { $p }
 }
 
 # key = kind + every explicit input of the probes: the script that defines them, the masked
@@ -79,16 +84,23 @@ export def storerel [p: string, out: string]: nothing -> string {
 export def probe-cache-key [kind: string, scripts: list<path>]: nothing -> string {
   let c = (ctx)
   let roots = ($env.JIG_STORE_ROOTS | split row " " | each { path basename | str substring 33.. } | sort)
-  let id = ({kind: $kind, script: ($scripts | sort | each { open --raw $in | hash sha256 }), triple: $c.platform.triple, roots: $roots, out: $c.out
-    flags: [$env.CFLAGS? $env.CXXFLAGS? $env.CPPFLAGS? $env.LDFLAGS? $env.PKG_CONFIG_PATH?]} | to json -r | hash sha256)
+  let id = ({
+    kind: $kind
+    script: ($scripts | sort | each { open --raw $in | hash sha256 })
+    triple: $c.platform.triple
+    roots: $roots
+    out: $c.out
+    flags: [$env.CFLAGS? $env.CXXFLAGS? $env.CPPFLAGS? $env.LDFLAGS? $env.PKG_CONFIG_PATH?]
+  } | to json -r | hash sha256)
   $"probe/($kind)/($id)"
 }
 
+# restore a build system's probe results (config.cache, cmake -C init) from the cache daemon
 export def probe-cache-get [key: string, file: path]: nothing -> bool {
-  if not (ctx).cache { return false }
-  (do { ^jig cache get $key $file } | complete).exit_code == 0
+  (ctx).cache and (^jig cache get $key $file | complete).exit_code == 0
 }
 
+# store them for the next build with the same key
 export def probe-cache-put [key: string, file: path]: nothing -> nothing {
   if (ctx).cache and ($file | path exists) { ^jig cache put $key $file | complete | ignore }
 }

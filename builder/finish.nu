@@ -54,7 +54,7 @@ def cache-summary []: nothing -> nothing {
   if not ($env.JIG_LOG | path exists) { return }
   let ls = (open --raw $env.JIG_LOG | lines)
   for l in ($ls | where { str starts-with "gocacheprog" }) { note cache $l }
-  let kinds = ($ls | where { not ($in | str starts-with "gocacheprog") } | each { split row " " | first } | uniq -c)
+  let kinds = ($ls | where { $in !~ "^gocacheprog" } | each { split row " " | first } | uniq -c)
   if ($kinds | is-not-empty) { note cache ($kinds | each { $"($in.value)=($in.count)" } | str join " ") }
   # a few of the command lines jig would not cache, to spot shapes worth teaching it
   if ($env.JIG_LOG_ARGS | path exists) {

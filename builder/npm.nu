@@ -30,7 +30,7 @@ export def --env setup []: nothing -> nothing {
 }
 
 # `run` is a nu keyword. The verb is build = `npm run <script>`
-export def build []: nothing -> nothing { cd $"((ctx).src)/((knobs).root)"; let k = (knobs); x npm run $k.script ...$k.flags }
+export def build []: nothing -> nothing { let k = (knobs); cd $"((ctx).src)/($k.root)"; x npm run $k.script ...$k.flags }
 # npm test unless `npm.test = false`
 export def test []: nothing -> nothing { cd $"((ctx).src)/((knobs).root)"; if (knobs).test { x npm test } }
 # for packages whose product is the node package itself

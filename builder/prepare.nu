@@ -3,7 +3,8 @@
 # dir, decide whether tests can run here, and publish it all as PKGS_CTX for `ctx`.
 use core.nu *
 
-def abs [d: record, field: string]: nothing -> list<string> { $d | get $field | each {|r| $"($d.root)/($r)" } }
+# every dependency's `field` dirs, absolute
+def dirs [deps: list<record>, field: string]: nothing -> list<string> { $deps | each {|d| $d | get $field | each {|r| $"($d.root)/($r)" } } | flatten }
 
 # PATH, the toolchain's view of dependencies (CPPFLAGS/LDFLAGS/PKG_CONFIG_PATH/…), compile-cache
 # identity, prefix map, §4 default CFLAGS, deps' and the spec's `env`
@@ -24,16 +25,15 @@ def --env build-env [a: record, deps: list<record>, out: string]: nothing -> not
   $env.JIG_STORE_ROOTS = ($a.dependencies ++ $a.buildDependencies
     ++ (which cc | each {|c| open --raw ($c.path | path dirname | path dirname | path join etc/roots) | str trim })
     | str join " ")
-  $env.CPPFLAGS = ($deps | each {|d| abs $d includeDirs } | flatten | each { $"-I($in)" } | str join " ")
-  $env.LDFLAGS = (["-Wl,-z,relro,-z,now,-z,noexecstack,--as-needed"] ++ ($deps | each {|d| abs $d libDirs } | flatten | each { $"-L($in)" }) | str join " ")
-  $env.PKG_CONFIG_PATH = ($deps | each {|d| abs $d pkgconfigDirs } | flatten | str join ":")
+  $env.CPPFLAGS = (dirs $deps includeDirs | each { $"-I($in)" } | str join " ")
+  $env.LDFLAGS = (["-Wl,-z,relro,-z,now,-z,noexecstack,--as-needed"] ++ (dirs $deps libDirs | each { $"-L($in)" }) | str join " ")
+  $env.PKG_CONFIG_PATH = (dirs $deps pkgconfigDirs | str join ":")
   $env.CMAKE_PREFIX_PATH = ($deps | get root | str join ";")
-  $env.ACLOCAL_PATH = ($deps | each {|d| abs $d aclocalDirs } | flatten | str join ":")
+  $env.ACLOCAL_PATH = (dirs $deps aclocalDirs | str join ":")
   load-env {CC: cc, CXX: c++, AR: llvm-ar, RANLIB: llvm-ranlib, NM: llvm-nm, STRIP: llvm-strip}
   # no build/store paths in DWARF/__FILE__. Handed to the cc wrapper out of band so recorded CFLAGS stay clean
-  $env.PKGS_PREFIX_MAP = ([[$env.NIX_BUILD_TOP "/build"]] ++ ($deps | each {|d| [$d.root $"/deps/($d.root | path basename | str substring 33..)"] })
-    ++ ($a.buildDependencies | each { [$in $"/tools/($in | path basename | str substring 33..)"] })
-    | each {|m| $"($m.0)=($m.1)" } | str join ":")
+  let mask = {|p: string, under: string| $"($p)=/($under)/($p | path basename | str substring 33..)" }
+  $env.PKGS_PREFIX_MAP = ([$"($env.NIX_BUILD_TOP)=/build"] ++ ($deps | get root | each { do $mask $in deps }) ++ ($a.buildDependencies | each { do $mask $in tools }) | str join ":")
   # per-package defaults (§4): profiling-friendly, hardened. -march and the platform's hardening
   # flag are in the cc conf, so build systems that ignore CFLAGS still get them.
   $env.CFLAGS = (["-O2" "-fno-omit-frame-pointer" "-mno-omit-leaf-frame-pointer" "-g"
@@ -72,11 +72,9 @@ def fix-env-shebangs [njobs: int]: nothing -> nothing {
 
 def --env unpack [a: record, src: path, njobs: int]: nothing -> nothing {
   note unpack $a.src
-  # sources arrive unpacked (nix/sources.nix); a tarball only when a package says unpack = false.
-  # -p: the store's uniform mtimes keep generated files "newer" than their inputs for make
-  if ($a.src | path type) == "dir" { ^cp -rp $"($a.src)/." $src } else {
-    ^bsdtar -xf $a.src -C $src --strip-components 1 --no-same-owner --no-same-permissions
-  }
+  # sources arrive unpacked (nix/sources.nix). -p: the store's uniform mtimes keep generated
+  # files "newer" than their inputs for make
+  ^cp -rp $"($a.src)/." $src
   ^chmod -R u+w $src
   cd $src
   for p in $a.patches { note patch $p; ^patch -p1 -i $p }

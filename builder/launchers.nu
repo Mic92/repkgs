@@ -11,8 +11,8 @@ use core.nu *
 # env block shared by all of a package's launchers: runtimeDependencies on PATH + their exported env
 def runtime-env [rdeps: list<string>, out: string]: nothing -> record {
   if ($rdeps | is-empty) { return {} }
-  let exported = ($rdeps | each {|d| (exports-of $d).env | items {|k, v| {k: $k, v: {default: (storerel $v $out)}} } }
-    | flatten | reduce -f {} {|it, acc| $acc | insert $it.k $it.v })
+  let exported = ($rdeps | each {|d| (exports-of $d).env } | reduce -f {} {|it, acc| $acc | merge $it }
+    | transpose k v | update v {|e| {default: (storerel $e.v $out)} } | transpose -rd | default {})
   {PATH: {prepend: ($rdeps | each {|d| storerel $"($d)/bin" $out })}} | merge $exported
 }
 
@@ -44,28 +44,23 @@ def is-foreign [f: path]: nothing -> bool {
   (ctx).spec.prebuilt? == true and (^llvm-readelf --program-headers $f | str contains INTERP)
 }
 
-# what bin/<name> should launch. The real file moves to bin/.<name> (same dir, so $ORIGIN
-# RUNPATHs still hold). null = leave as is
+# what bin/<name> should launch (the launch record minus env), or null to leave the file as is
 def target [c: record, f: path, owners: list<string>, rdeps: list<string>]: nothing -> oneof<record, nothing> {
-  let name = ($f | path basename)
   let head = (open --raw $f | into binary | bytes at 0..<256)
-  let real = $"{root}/bin/.($name)"
-  let t = (if ($head | bytes starts-with 0x[23 21]) {
+  let real = $"{root}/bin/.($f | path basename)"
+  if ($head | bytes starts-with 0x[23 21]) {
     let i = (script-interp $f $head $owners ($rdeps | is-not-empty))
-    if $i == null { return null }
-    {program: (storerel $i.program $c.out), args: ($i.args ++ [$real])}
+    if $i != null { {program: (storerel $i.program $c.out), args: ($i.args ++ [$real])} }
   } else if not (is-elf $f) {
-    return null
+    null
   } else if (is-foreign $f) {
     # our libc dir first, then every dependency's lib dirs, relative to the package
-    let libpath = ([($c.platform.interp | path dirname)] ++ ($c.deps | each {|d| $d.libDirs | each {|l| $"($d.root)/($l)" } } | flatten)
-      | each {|p| storerel $p $c.out } | str join ":")
+    let libdirs = [($c.platform.interp | path dirname)] ++ ($c.deps | each {|d| $d.libDirs | each {|l| $"($d.root)/($l)" } } | flatten)
+    let libpath = ($libdirs | each {|p| storerel $p $c.out } | str join ":")
     {program: (storerel $c.platform.interp $c.out), args: [--argv0 "{self}" --library-path $libpath $real]}
   } else if ($rdeps | is-not-empty) {
     {program: $real, argv0: "{self}"}
-  } else { return null })
-  mv $f $"($c.out)/bin/.($name)"
-  $t
+  }
 }
 
 export def main [c: record]: nothing -> nothing {
@@ -79,9 +74,11 @@ export def main [c: record]: nothing -> nothing {
   for f in (ls $bindir | where type == file | get name | where { ($in | path basename) !~ '^\.' }) {
     let t = (target $c $f $owners $rdeps)
     if $t == null { continue }
-    let rec = ({env: $renv} | merge $t)
-    $rec | to json -r | save -f $"($bindir)/.($f | path basename).launch"
+    let name = ($f | path basename)
+    # the real file moves to bin/.<name> (same dir, so $ORIGIN RUNPATHs still hold)
+    mv $f $"($bindir)/.($name)"
+    {env: $renv} | merge $t | to json -r | save -f $"($bindir)/.($name).launch"
     ^ln -s $launch_rel $f
-    note launcher $"bin/($f | path basename) -> ($rec.program)"
+    note launcher $"bin/($name) -> ($t.program)"
   }
 }
