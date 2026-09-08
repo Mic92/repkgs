@@ -1,4 +1,5 @@
 use core.nu *
+use sys-crates.nu
 
 # cargo build/test/install, offline against a vendored registry snapshot. rustc goes through jig's cache.
 def knobs []: nothing -> record<features: list<string>, noDefaultFeatures: bool, root: string, vendor: any> { knobs-for cargo {features: [], noDefaultFeatures: false, root: ".", vendor: null} }
@@ -23,6 +24,11 @@ export def --env setup []: nothing -> nothing {
   # cc targets the platform, cc-build the build machine (rust spells some cpus differently)
   let target = ($c.platform.triple | str replace $c.platform.cpu $c.platform.names.rust)
   $env.CARGO_BUILD_TARGET = $target
+  # -sys crates: link our libraries (builder/sys-crates.nu); the vendor dir propagates the ones
+  # Cargo.lock asks for. pkg-config, their usual probe, refuses to answer under --target without ALLOW_CROSS
+  let sys = (sys-crates env-for $c.deps)
+  load-env ({PKG_CONFIG_ALLOW_CROSS: "1"} | merge $sys)
+  if ($sys | is-not-empty) { note sys-crates ($sys | columns | str join " ") }
   {
     source: (if $k.vendor != null { {crates-io: {replace-with: vendored}, vendored: {directory: $k.vendor}} } else { {} })
     net: {offline: true}

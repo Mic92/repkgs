@@ -153,6 +153,17 @@ auto MakeStorePath(std::string_view store_dir, std::string_view type, std::strin
   return std::format("{}/{}-{}", store_dir, Nix32(CompressHash(Sha256(fingerprint))), name);
 }
 
+// what Nix substitutes for a CA input derivation's output path in the consumer's env/args before
+// the build (DownstreamPlaceholder::unknownCaOutput): the only way to name such a path up front
+auto DownstreamPlaceholder(std::string_view drv_path, std::string_view output) -> std::string {
+  const std::string_view base = drv_path.substr(drv_path.rfind('/') + 1);
+  const std::string_view hash_part = base.substr(0, base.find('-'));
+  std::string_view drv_name = base.substr(base.find('-') + 1);
+  drv_name.remove_suffix(4);  // ".drv"
+  const std::string output_path_name = output == "out" ? std::string{drv_name} : std::format("{}-{}", drv_name, output);
+  return "/" + Nix32(Sha256(std::format("nix-upstream-output:{}:{}", hash_part, output_path_name)));
+}
+
 }  // namespace
 
 // flat (file) ingestion only. `algo` is the hash the *file* is fixed by (sha256, sha512, …). The
@@ -504,12 +515,16 @@ auto ReadStdin() -> std::string { return {std::istreambuf_iterator<char>(std::ci
 
 auto RunNixStoreMode(std::span<const std::string> args) -> int {
   if (args.empty()) {
-    std::println(stderr, "usage: jig nix-store add-text|add-drv|submit|fod-path …");
+    std::println(stderr, "usage: jig nix-store add-text|add-drv|submit|fod-path|placeholder …");
     return 2;
   }
   const std::string& verb = args.at(0);
   if (verb == "fod-path" && args.size() == 4) {
     std::println("{}", FixedOutputPath(JIG_STORE_DIR, args.at(1), args.at(2), args.at(3)));
+    return 0;
+  }
+  if (verb == "placeholder" && args.size() == 3) {
+    std::println("{}", DownstreamPlaceholder(args.at(1), args.at(2)));
     return 0;
   }
   if (verb == "aterm") {  // offline: JSON on stdin -> ATerm on stdout

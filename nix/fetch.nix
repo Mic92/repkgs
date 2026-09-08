@@ -5,6 +5,8 @@
   jig,
   nu,
   system,
+  # name -> package, offered to cargoVendor for -sys crates (builder/sys-crates.nu)
+  sysLibs ? { },
 }:
 let
 
@@ -13,7 +15,7 @@ let
   producers = builtins.path {
     path = ../builder;
     name = "producers";
-    filter = p: _: builtins.match ".*/(dynamic|fetch-[a-z]+)\\.nu" p != null;
+    filter = p: _: builtins.match ".*/(dynamic|fetch-[a-z]+|sys-crates)\\.nu" p != null;
   };
   dynamic =
     name: script: env:
@@ -46,7 +48,27 @@ in
   # derivation unpacking them. The result is that derivation's output (builtins.outputOf), so Nix
   # itself does the downloading, caching and hash checking per crate. Needs the daemon to have
   # `dynamic-derivations ca-derivations`. Git dependencies are rejected (they would need a hash).
-  cargoVendor = { source }: dynamic "cargo-vendor" "fetch-cargo.nu" { inherit source; };
+  #
+  # `sysLibs`: C libraries the -sys crates in the lock may link (openssl-sys -> openssl, table in
+  # builder/sys-crates.nu). Only their .drv paths reach the producer (unsafeDiscardOutputDependency:
+  # nothing is built for it); the ones the lock wants become inputs of cargo-vendor and are
+  # propagated to the package build, which so never lists them by hand.
+  cargoVendor =
+    {
+      source,
+      libs ? sysLibs,
+    }:
+    dynamic "cargo-vendor" "fetch-cargo.nu" {
+      inherit source;
+      sysLibs = builtins.toFile "sys-libs.json" (
+        builtins.toJSON (
+          builtins.mapAttrs (_: p: {
+            drv = builtins.unsafeDiscardOutputDependency p.drvPath;
+            out = builtins.unsafeDiscardStringContext p.outPath;
+          }) libs
+        )
+      );
+    };
 
   # Registry tarballs from the package-lock.json (v2/v3) inside `source` (at `root`), same
   # mechanism as cargoVendor: one builtin:fetchurl per `resolved` URL fixed by its `integrity`.
@@ -62,6 +84,16 @@ in
       inherit source root;
       lockFile = if lockFile == null then "" else lockFile;
     };
+
+  # Registry tarballs for the pnpm-lock.yaml (v9) inside `source`: `packages:` entries carry
+  # `resolution.integrity`, so again one builtin:fetchurl each. Result: { tarballs/, index.json },
+  # which pnpm.nu seeds an offline store from.
+  pnpmDeps =
+    {
+      source,
+      root ? ".",
+    }:
+    dynamic "pnpm-deps" "fetch-pnpm.nu" { inherit source root; };
 
   # GOPROXY=file:// tree for the go.sum inside `source`, hashes from a shared locks table
   # (`uptrack lock`; go.sum's h1: is not a file hash), this repo's locks/go.toml unless the caller

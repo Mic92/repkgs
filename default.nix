@@ -74,6 +74,29 @@ let
     inherit (bootstrap.stage0) jig;
     nu = bootstrap.seed;
     inherit system;
+    # what cargoVendor may hand to -sys crates; names as in builder/sys-crates.nu, absent ones are skipped
+    sysLibs = builtins.listToAttrs (
+      map
+        (n: {
+          name = n;
+          value = self.${n};
+        })
+        (
+          builtins.filter (n: self ? ${n}) [
+            "openssl"
+            "zlib"
+            "zstd"
+            "bzip2"
+            "xz"
+            "sqlite"
+            "curl"
+            "pcre2"
+            "oniguruma"
+            "libffi"
+            "expat"
+          ]
+        )
+    );
   };
 
   scope = {

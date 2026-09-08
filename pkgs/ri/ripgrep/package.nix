@@ -2,13 +2,11 @@
   package,
   sources,
   fetch,
-  pkgs,
 }:
 package {
   name = "ripgrep";
   uses = [ "cargo" ];
   cargo.features = [ "pcre2" ];
-  cargo.vendor = fetch.cargoVendor { source = sources.default; };
-  dependencies = [ pkgs.pcre2 ];
+  cargo.vendor = fetch.cargoVendor { source = sources.default; }; # brings pcre2 for pcre2-sys
   bin = [ "rg" ];
 }

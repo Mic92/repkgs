@@ -87,7 +87,7 @@ export def main [
   # RUNPATH/PT_INTERP -> $ORIGIN-relative, in place (pkgs/ji/jig/src/fixup_mode.cc)
   if not $prebuilt { x reloc-fixup $c.out }
   version-check $c
-  let exports = (exports-of $c.out | merge ($c.spec.exports? | default {}))
+  let exports = (exports-of $c.out | merge ($c.spec.exports? | default {}) | upsert name $c.spec.name)
   $exports | to json | save -f $"($c.out)/exports.json"
   note exports ($exports | to json -r)
   cache-summary
