@@ -1,0 +1,50 @@
+# nu-lint policy. nu --ide-check (treefmt) is the authoritative parser/type check. nu-lint adds
+# "strict mode" (every custom command fully typed) and idiom checks. Each exception has a reason.
+[groups]
+type-safety = "error"
+upstream = "error"
+formatting = "warning"
+
+[rules]
+# formatting: keep spacing rules, drop the width/quoting ones (long lines are command lines, "-O2"
+# in a flag list is quoted for the reader)
+# `let f = {|x| … }` is a closure, not a block; and {k: v} records stay tight like nu prints them
+block_brace_spacing = "off"
+record_brace_spacing = "off"
+wrap_wide_records = "off"
+reflow_wide_lists = "off"
+reflow_wide_pipelines = "off"
+max_function_body_length = "off"
+string_may_be_bare = "off"
+explicit_long_flags = "off"
+# hint-level rules whose suggestion is wrong here: `x`/`compile` take argv lists on purpose,
+# `^tool` marks externals explicitly even where nu has no builtin of that name
+positional_to_pipeline = "off"
+remove_hat_not_builtin = "off"
+spread_list_to_external = "off"
+# a named closure parameter reads better than $in once closures nest
+where_closure_drop_parameter = "off"
+# hints worth enforcing
+screaming_snake_constants = "warning"
+contains_to_regex_op = "warning"
+split_first_to_parse = "warning"
+unused_variable = "error"
+# obsolete since nu 0.111: externals raise on non-zero exit and pipefail is default
+unhandled_external_error = "off"
+non_final_failure_check = "off"
+# a recipe wants the hard error on a missing index/key. `-o`/`?` turns it into a null seen later
+unchecked_get_index = "off"
+unchecked_cell_path_index = "off"
+unsafe_dynamic_record_access = "off"
+# `try { ^tool } catch { … }` is how a recipe probes an external without dying
+catch_builtin_error_try = "off"
+# progress and command echo go to stderr on purpose (stdout is data), not errors
+error_make_for_non_fatal = "off"
+# our errors report a failed tool or compile. There is no user source span to label
+add_label_to_error = "off"
+# list parameters are lists built programmatically (objects, flags). Variadics would just add spreads
+list_param_to_variadic = "off"
+max_positional_params = "off"
+# recipes and tools are run by computed store path by design
+external_script_as_argument = "off"
+dynamic_script_import = "off"

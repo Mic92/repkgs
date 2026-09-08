@@ -1,0 +1,2 @@
+# `go.vendor = …; go.tags = …;` is the package spec vocabulary (one line per knob), not an accident
+disabled = ["repeated_keys"]
