@@ -19,13 +19,13 @@ export def --env setup []: nothing -> nothing {
   cd (project-dir go)
 }
 
-# always link through cc so RUNPATH/interp policy and fixup apply to Go binaries too.
+# cgo builds link through cc so RUNPATH/interp policy and fixup apply (cgo=false: static, internal linker).
 # cgo modules whose library the modules tree propagated get their "use the system one" tags (sys-libs.nu)
-def common-args [k: record<tags: list<string>, ldflags: list<string>>]: nothing -> list<string> {
+def common-args [k: record<tags: list<string>, ldflags: list<string>, cgo: bool>]: nothing -> list<string> {
   let tags = ($k.tags ++ (sys-libs go-tags (ctx).deps) | uniq)
   [
     (if ($tags | is-not-empty) { $"-tags=($tags | str join ',')" })
-    $"-ldflags=-linkmode=external ($k.ldflags | str join ' ')"
+    $"-ldflags=((if $k.cgo { ['-linkmode=external'] } else { [] }) ++ $k.ldflags | str join ' ')"
   ] | compact
 }
 
