@@ -7,7 +7,8 @@
 package {
   name = "go-bootstrap";
   source = sources.fetch platform.cpu;
-  prebuilt = true;
+  # static binaries, nothing to implant: "ldso" just skips debug split and fixup without pulling in formatelf (and thereby rust)
+  prebuilt = "ldso";
   steps = [
     {
       name = "install";

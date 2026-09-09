@@ -3,9 +3,11 @@
 # (pkgs/la/launch/src/launch.cc).
 # Interpreter from the #! line (resolved among dependencies if it was /usr/bin/env or bare),
 # runtimeDependencies' bin dirs prepended to PATH, their `env` exports applied as defaults.
-# `prebuilt = true`: upstream binaries keep their foreign PT_INTERP and run as
+# `prebuilt = "ldso"` (rust, which formatelf is built with): upstream binaries keep their foreign
+# PT_INTERP and run as
 #   <sysroot>/lib/ld.so --argv0 <bin/foo> --library-path <libc:deps' libDirs> bin/.foo
 # so nothing in the ELF is patched and argv[0] still names bin/foo (rustc finds its sysroot by it).
+# /proc/self/exe is ld.so then. Every other prebuilt package gets the implant (builder/finish.nu).
 use core.nu *
 
 # env block shared by all of a package's launchers: runtimeDependencies on PATH + their exported env
@@ -39,9 +41,9 @@ def script-interp [f: path, head: binary, owners: list<string>, inject: bool]: n
   {program: $prog, args: ($interp | skip 1)}
 }
 
-# ELF whose PT_INTERP is not ours (upstream binary in a `prebuilt` package)
+# ELF whose PT_INTERP is not ours (upstream binary in a `prebuilt = "ldso"` package)
 def is-foreign [f: path]: nothing -> bool {
-  (ctx).spec.prebuilt? == true and (^llvm-readelf --program-headers $f | str contains INTERP)
+  (ctx).spec.prebuilt? == "ldso" and (^llvm-readelf --program-headers $f | str contains INTERP)
 }
 
 # what bin/<name> should launch (the launch record minus env), or null to leave the file as is

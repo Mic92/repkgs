@@ -1,6 +1,7 @@
-# Upstream's rustc + cargo + rust-std binaries, run under our dynamic linker (`prebuilt`, see
-# builder/launchers.nu). A build tool: taken from buildPkgs by the cargo build system, never linked
-# into outputs.
+# Upstream's rustc + cargo + rust-std binaries, run under our dynamic linker. `prebuilt = "ldso"`
+# (launcher, builder/launchers.nu) rather than the implant every other prebuilt package gets:
+# formatelf, which does the implanting, is built with this cargo. A build tool: taken from
+# buildPkgs by the cargo build system, never linked into outputs.
 {
   package,
   pkgs,
@@ -19,7 +20,7 @@ package {
     (sources.fetch "rust-std-loongarch64")
     (sources.fetch "rust-std-powerpc64le")
   ];
-  prebuilt = true;
+  prebuilt = "ldso";
   dependencies = [
     pkgs.zlib
     pkgs.libgcc-shim

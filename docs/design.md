@@ -83,7 +83,7 @@ appears literally, so the reference scanner, GC and `nix copy` work unchanged.
 | PT_INTERP | linked with an absolute `--dynamic-linker` and `crt_interp.o` (pkgs/cr/crt-interp). fixup makes `.interp` file-relative, flips the phdr to `PT_NULL` and points `e_entry` at the stub, which maps ld.so relative to `/proc/self/exe` at startup and jumps into it. glibc unmodified, `ldd` works, +0.09 ms per exec. |
 | glibc data | gconv/locale found relative to the loaded `libc.so.6` (one patch); no `ld.so.cache`. |
 | scripts, wrappers | one static `launch` binary (pkgs/la/launch): `bin/foo` → `launch`, record `bin/.foo.launch` (program, args, env with `{root}`/`{store}` templates), real file `bin/.foo`. Replaces shebang patching and makeWrapper. |
-| upstream binaries | `prebuilt = true`: not patched, launch runs them as `ld.so --argv0 … --library-path … bin/.foo` (rust, go-bootstrap). |
+| upstream binaries | `prebuilt = true`: formatelf implants the same stub (`reloc_stub.bin`, `--set-entry-stub`), our interp and a RUNPATH, then `reloc-fixup` treats the file like ours. `/proc/self/exe` stays the program. `prebuilt = "ldso"` only for rust, which formatelf is built with: not patched, launch runs it as `ld.so --argv0 … --library-path … bin/.foo`. |
 | dlopen-only deps | `runtimeDependencies`: linked as DT_NEEDED so scanner and relocation see them. |
 | debug info | always `-g`; finish.nu splits DWARF to `lib/debug` with a relative debuglink, keeps `.symtab`. |
 | pkg-config, cmake | `${pcfiledir}`-relative / relative by default; `.la` deleted. |

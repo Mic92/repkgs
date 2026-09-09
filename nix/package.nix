@@ -8,6 +8,7 @@
   launch,
   buildSystems,
   baseTools,
+  relocTools,
   nu,
 }:
 let
@@ -69,9 +70,10 @@ let
         emulator
         ;
       probe = if platform.cross then "${toolchain.sysroot}/lib/${platform.interp}" else "";
-      # for `prebuilt`: foreign ELFs run under our dynamic linker via launch
+      # `prebuilt`: upstream ELFs get our dynamic linker implanted (true) or via launch ("ldso")
       interp = "${toolchain.sysroot}/lib/${platform.interp}";
       launch = "${launch}/bin/launch";
+      relocStub = "${toolchain}/lib/reloc_stub.bin";
     };
   };
   preludeBase = [
@@ -210,6 +212,7 @@ let
       toolchain
     ]
     ++ (args.buildDependencies or [ ])
+    ++ (if (args.prebuilt or false) == true then relocTools else [ ])
     ++ concatMap (u: buildSystems.${u}.tools ++ stackBefore (buildSystems.${u}.stack or [ ])) uses
     ++ (if args.bootstrapTools or false then baseTools.bootstrap else baseTools.full);
     dependencies = args.dependencies or [ ];
