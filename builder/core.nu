@@ -81,6 +81,21 @@ export def storerel [p: string, out: string]: nothing -> string {
   } else { $p }
 }
 
+# bin/<name> as a launch record (builder/launchers.nu, pkgs/la/launch): `program` with `args`
+# before the user's, `env` name -> value set for it. For build systems whose entry points are not
+# files with a #! line (deno modules); paths are made package-relative here
+export def write-launcher [name: string, program: string, args: list<string>, vars: record = {}]: nothing -> nothing {
+  let c = (ctx)
+  let rel = {|p| storerel $p $c.out }
+  mkdir $"($c.out)/bin"
+  {
+    program: (do $rel $program), args: ($args | each { do $rel $in })
+    env: ($vars | items {|k, v| {$k: {set: (do $rel $v)}} } | into record)
+  } | to json -r | save -f $"($c.out)/bin/.($name).launch"
+  ^ln -sf $"../../($c.platform.launch | path relative-to $env.NIX_STORE)" $"($c.out)/bin/($name)"
+  note launcher $"bin/($name) -> ($program)"
+}
+
 # key = kind + every explicit input of the probes: the script that defines them, the masked
 # toolchain/dependency/tool set, platform, flags. $out is the fixed CA placeholder, so stable
 export def probe-cache-key [kind: string, scripts: list<path>]: nothing -> string {

@@ -1,6 +1,5 @@
-# Shared by the dynamic-derivation producers (fetch-cargo.nu, fetch-npm.nu): they run under
-# builder-rpc-v0 and write derivations through `jig nix-store` (worker protocol) instead of
-# fetching anything themselves.
+# Shared by the dynamic-derivation producers (fetch-*.nu): they run under builder-rpc-v0 and
+# write derivations through `jig nix-store` (worker protocol) instead of fetching anything themselves.
 
 # add a derivation (json on stdin) to the store, returns its .drv path
 export def add-drv [name: string, ...refs: string]: record -> string {
@@ -18,6 +17,11 @@ export def parse-sri []: string -> record<algo: string, hex: string, sri: string
 export def fetchurl-sri [name: string, url: string, integrity: string]: nothing -> record<drv: string, out: string> {
   let h = ($integrity | parse-sri)
   fetchurl-drv $name $url $h.algo $h.hex $h.sri
+}
+
+# fetchurl-drv for a bare sha256 hex digest (jsr, PyPI)
+export def fetchurl-sha256 [name: string, url: string, hex: string]: nothing -> record<drv: string, out: string> {
+  fetchurl-drv $name $url sha256 $hex $hex
 }
 
 # a builtin:fetchurl derivation, identical in shape to what <nix/fetchurl.nix> makes.
@@ -42,6 +46,32 @@ export def fetchurl-drv [wanted_name: string, url: string, algo: string, hex: st
     }
   } | add-drv $name)
   {drv: $drv, out: $out}
+}
+
+# a second producer stage, for locks whose hashes pin metadata that in turn pins the files (jsr):
+# `script` (a sibling of this file) runs exactly like the first stage (same environment plus
+# `stage_attrs`, the path of a JSON file with `attrs`) once `inputs` (.drv paths) are built. What
+# it submits is this producer's result, so nix/fetch.nix unwraps such fetchers with one more outputOf.
+export def stage [name: string, script: string, attrs: record, inputs: list<string>]: nothing -> nothing {
+  let here = (path self .)
+  let drv_name = $"($name).drv"
+  let attrs_file = ($attrs | to json --raw | ^jig nix-store add-text $"($name)-attrs.json" | str trim)
+  let drv = ({
+    name: $drv_name
+    system: $env.system
+    builder: $"($env.seed)/bin/nu"
+    args: [$"($here)/($script)"]
+    outputs: {out: {hashAlgo: "t:sha256"}}
+    inputDrvs: ($inputs | reduce --fold {} {|d, acc| $acc | insert $d [out] })
+    inputSrcs: [$env.seed $env.jig $here $attrs_file]
+    env: {
+      name: $drv_name, system: $env.system, seed: $env.seed, jig: $env.jig, PATH: $env.PATH
+      stage_attrs: $attrs_file, requiredSystemFeatures: "builder-rpc-v0", preferLocalBuild: "1"
+      outputHashMode: "text", outputHashAlgo: "sha256"
+    }
+  } | add-drv $drv_name $env.seed $env.jig $here $attrs_file ...$inputs)
+  print -e $"($name): second stage after ($inputs | length) inputs -> ($drv)"
+  ^jig nix-store submit $drv out
 }
 
 # the collecting derivation: a nu script run by the seed with structured attrs, floating CA so its

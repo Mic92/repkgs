@@ -1,0 +1,16 @@
+[upstream]
+purl = "pkg:github/denoland/deno"
+
+[[source]]
+key = "x86_64"
+url = "https://github.com/denoland/deno/releases/download/v{version}/deno-x86_64-unknown-linux-gnu.zip"
+hash = "sha256-+dx+Z9JDL5eW8mc/7oclQvXycTAxcYpnVfyAoiHj994="
+
+[[source]]
+key = "aarch64"
+url = "https://github.com/denoland/deno/releases/download/v{version}/deno-aarch64-unknown-linux-gnu.zip"
+hash = "sha256-kWCo8wO8dvJiu5nTogJEdhzobTHyZvImsbe1a06JMEw="
+
+[pin]
+version = "2.9.6"
+tag = "v2.9.6"

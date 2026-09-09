@@ -8,8 +8,7 @@
 # directories into $BUN_INSTALL_CACHE_DIR under the names bun expects (builder/bun-cache.ts).
 # workspace: entries are the project itself; github:/git:/file: ones carry no hash and are rejected.
 use dynamic.nu
-
-const NPM_REGISTRY = "https://registry.npmjs.org"
+use npm-registry.nu [split-id tarball-url flat-name]
 
 def main []: nothing -> nothing {
   let lock = (read-jsonc ([$env.source $env.root bun.lock] | path join))
@@ -23,10 +22,9 @@ def main []: nothing -> nothing {
   }
 
   let fetched = ($from_registry | uniq-by id | each {|entry|
-    let package = (split-id $entry.id)
-    let flat_name = ($package.name | str replace "/" "+")  # @scope/name -> @scope+name, one path component
-    {id: $entry.id, dir: $"p/($flat_name)@($package.version)"}
-      | merge (dynamic fetchurl-sri $"($flat_name)-($package.version).tgz" (tarball-url $entry.registry $package) $entry.integrity)
+    let p = (split-id $entry.id)
+    {id: $entry.id, dir: $"p/(flat-name $p.name)@($p.version)"}
+      | merge (dynamic fetchurl-sri $"(flat-name $p.name)-($p.version).tgz" (tarball-url $p.name $p.version $entry.registry) $entry.integrity)
   })
   let unpack = '
     let attrs = (open $env.NIX_ATTRS_JSON_FILE)
@@ -43,13 +41,3 @@ def main []: nothing -> nothing {
 # bun writes trailing commas but no comments
 def read-jsonc [file: path]: nothing -> record { open --raw $file | str replace -ar ',(\s*[}\]])' '$1' | from json }
 
-# "@scope/name@1.2.3" | "name@1.2.3" -> {name, version}: the version starts at the last "@" past position 0
-def split-id [id: string]: nothing -> record<name: string, version: string> {
-  let at = ($id | str substring 1.. | str index-of -e "@") + 1
-  {name: ($id | str substring ..<$at), version: ($id | str substring ($at + 1)..)}
-}
-
-def tarball-url [registry: string, package: record]: nothing -> string {
-  let base = (if $registry == "" { $NPM_REGISTRY } else { $registry | str trim -r -c "/" })
-  $"($base)/($package.name)/-/($package.name | split row "/" | last)-($package.version).tgz"
-}

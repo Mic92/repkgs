@@ -24,7 +24,8 @@ let
   producers = builtins.path {
     path = ../builder;
     name = "producers";
-    filter = p: _: builtins.match ".*/(dynamic|fetch-[a-z]+|sys-libs|pep508)\\.nu" p != null;
+    filter =
+      p: _: builtins.match ".*/(dynamic|fetch-[a-z-]+|sys-libs|pep508|npm-registry)\\.nu" p != null;
   };
 
   # {name: {drv, out}} as a file in the store; the default one is built once per set
@@ -49,6 +50,7 @@ let
           name = "${name}.drv";
           inherit system;
           seed = nu;
+          inherit jig;
           builder = "${nu}/bin/nu";
           args = [ "${producers}/${script}" ];
           PATH = "${jig}/bin:${nu}/bin";
@@ -62,6 +64,11 @@ let
       );
     in
     builtins.outputOf producer.outPath "out";
+
+  # for producers that end in `dynamic stage` (a second producer) instead of `dynamic submit`
+  twoStage =
+    name: script: env:
+    builtins.outputOf (dynamic name script env) "out";
 
 in
 {
@@ -107,6 +114,15 @@ in
       root ? ".",
     }:
     dynamic "bun-deps" "fetch-bun.nu" { inherit source root; };
+
+  # deno.lock (v4+) -> a $DENO_DIR (npm/ and remote/ caches) for `deno … --cached-only`; jsr
+  # hashes pin metadata that pins the files, hence two stages (builder/fetch-deno.nu, -files.nu).
+  denoDeps =
+    {
+      source,
+      root ? ".",
+    }:
+    twoStage "deno-deps" "fetch-deno.nu" { inherit source root; };
 
   # uv.lock -> { dist/, plan.json }: one artefact per package of the application's runtime closure,
   # a compatible wheel if the lock has one, else the sdist (sys-libs.nu and pyproject's

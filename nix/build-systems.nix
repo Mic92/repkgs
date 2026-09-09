@@ -182,6 +182,24 @@
       "flags"
     ];
   };
+  deno = {
+    module = "deno.nu";
+    steps = [
+      "deno.build"
+      "deno.test"
+      "deno.install"
+    ];
+    tools = [ buildPkgs.deno ];
+    knobs = [
+      "root"
+      "deps"
+      "entry"
+      "permissions"
+      "test"
+      "check"
+      "flags"
+    ];
+  };
   bun = {
     module = "bun.nu";
     steps = [

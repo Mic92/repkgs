@@ -5,18 +5,7 @@
 # builtin:fetchurl fixed by that hash. Output: { tarballs/*.tgz, index.json [{id, file}] }, which
 # pnpm.nu seeds an offline pnpm store from (`pnpm store add`), then installs --offline.
 use dynamic.nu
-
-const REGISTRY = "https://registry.npmjs.org"
-
-# '@scope/name@1.2.3' | 'name@1.2.3' -> {name, version}; the version starts at the last '@' past position 0
-def split-id [id: string]: nothing -> record<name: string, version: string> {
-  let at = ($id | str substring 1.. | str index-of -e "@") + 1
-  {name: ($id | str substring ..<$at), version: ($id | str substring ($at + 1)..)}
-}
-
-def tarball-url [name: string, version: string]: nothing -> string {
-  $"($REGISTRY)/($name)/-/($name | split row "/" | last)-($version).tgz"
-}
+use npm-registry.nu [split-id tarball-url]
 
 def main []: nothing -> nothing {
   let lock_file = ([$env.source $env.root pnpm-lock.yaml] | path join)

@@ -89,7 +89,7 @@ export def --env main [
   let njobs = ($env.NIX_BUILD_CORES? | default "4" | into int)
   # lock-derived trees (cargo vendor, go modules, gems) are dependencies too: they propagate the
   # libraries their locked packages link (sys-libs.nu)
-  let deps = (dep-closure ($a.dependencies ++ ([$a.spec.cargo?.vendor? $a.spec.go?.modules? $a.spec.bundler?.gems? $a.spec.pyapp?.deps?] | compact)))
+  let deps = (dep-closure ($a.dependencies ++ ([$a.spec.cargo?.vendor? $a.spec.go?.modules? $a.spec.bundler?.gems? $a.spec.pyapp?.deps? $a.spec.deno?.deps?] | compact)))
   build-env $a $deps $out
   let plat = (resolve-platform $a.platform)
 

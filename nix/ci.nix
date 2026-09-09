@@ -30,6 +30,7 @@ let
     "create-hono"
     "ruby-lsp"
     "copier"
+    "deployctl"
   ];
   cross = [
     "zlib"

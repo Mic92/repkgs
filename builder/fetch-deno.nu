@@ -1,0 +1,46 @@
+#!/usr/bin/env nu
+# Producer for fetch.denoDeps { source, root? }, first stage. deno.lock (version 4 or 5) pins
+#   npm    "<name>@<version>[_peers]" -> sha512 SRI of the registry tarball
+#   jsr    "@scope/name@<version>"    -> sha256 of jsr.io/@scope/name/<version>_meta.json, whose
+#                                        `manifest` then pins every file of the package
+#   remote "https://…"                 -> sha256 of that module
+# This stage fetches tarballs, _meta.json files and https: modules; fetch-deno-files.nu runs once
+# they exist, fetches the jsr modules the manifests list and lays out the DENO_DIR.
+use dynamic.nu
+use npm-registry.nu [split-id tarball-url flat-name]
+
+const JSR = "https://jsr.io"
+
+def main []: nothing -> nothing {
+  let lock = (open --raw ([$env.source $env.root deno.lock] | path join) | from json)
+  if ($lock.version? | default "3" | into int) < 4 {
+    error make {msg: "denoDeps: deno.lock older than version 4, regenerate it with deno >= 2"}
+  }
+
+  # npm keys may carry a peer-dependency suffix: "vite@5.0.0_@types+node@20.0.0"
+  let npm = ($lock.npm? | default {} | transpose key entry | each {|p|
+    let id = (split-id ($p.key | str replace -r '_.*' ''))
+    let url = (tarball-url $id.name $id.version)
+    {name: $id.name, version: $id.version, url: $url, integrity: $p.entry.integrity}
+      | merge (dynamic fetchurl-sri $"(flat-name $id.name)-($id.version).tgz" $url $p.entry.integrity)
+  } | uniq-by name version)
+
+  let jsr = ($lock.jsr? | default {} | transpose key entry | each {|p|
+    let id = (split-id $p.key)
+    let url = $"($JSR)/($id.name)/($id.version)_meta.json"
+    {name: $id.name, version: $id.version, url: $url}
+      | merge (dynamic fetchurl-sha256 $"jsr-(flat-name $id.name)-($id.version)_meta.json" $url $p.entry.integrity)
+  })
+
+  let https = ($lock.remote? | default {} | items {|url, sha256|
+    let store_name = ($url | url parse | $"($in.host)($in.path)" | str replace -ar '[^A-Za-z0-9._-]' "_")
+    {url: $url} | merge (dynamic fetchurl-sha256 $store_name $url $sha256)
+  })
+
+  print -e $"denoDeps: ($npm | length) npm, ($jsr | length) jsr, ($https | length) https"
+  dynamic stage deno-deps fetch-deno-files.nu {
+    npm: ($npm | select name version url integrity out | rename -c {out: tarball})
+    jsr: ($jsr | select name version url out | rename -c {out: meta})
+    https: ($https | select url out | rename -c {out: src})
+  } ([$npm $jsr $https] | flatten | get drv)
+}
