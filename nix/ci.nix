@@ -26,6 +26,10 @@ let
     "svgo"
     "maturin"
     "pkgs-cache"
+    "dbmate"
+    "create-hono"
+    "ruby-lsp"
+    "copier"
   ];
   cross = [
     "zlib"
