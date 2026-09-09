@@ -17,6 +17,29 @@ export def ctx []: nothing -> record<spec: record, out: string, deps: list<recor
 # a build system's knobs: its defaults overridden by the package's `<bs>.*` attrset
 export def knobs-for [bs: string, defaults: record]: nothing -> record { $defaults | merge ((ctx).spec | get -o $bs | default {}) }
 
+# the directory a build system works in: the source, or `<bs>.root` below it for monorepos
+export def project-dir [bs: string]: nothing -> string {
+  let root = ((ctx).spec | get -o $bs | get -o root | default ".")
+  [(ctx).src $root] | path join
+}
+
+# store path of the dependency called `name` (its exports name), or an error saying why it is needed
+export def dep-root [name: string, why: string]: nothing -> string {
+  let d = ((ctx).deps | where name == $name)
+  if ($d | is-empty) { error make {msg: $"($why): pkgs.($name) must be in dependencies"} }
+  $d.0.root
+}
+
+# absolute directories of one exports field (libDirs, includeDirs, …) across dependencies
+export def dep-dirs [deps: list<record>, field: string]: nothing -> list<string> {
+  $deps | each {|d| $d | get $field | each {|rel| $"($d.root)/($rel)" } } | flatten
+}
+
+# `tests.parallel = false` -> 1, else njobs; and the `tests.skip` patterns
+export def test-jobs []: nothing -> string { let c = (ctx); if ($c.spec.tests?.parallel? | default true) { $c.njobs } else { 1 } | into string }
+# regexes of test names to leave out
+export def test-skips []: nothing -> list<string> { (ctx).spec.tests?.skip? | default [] }
+
 # run an external, echoing the command line first (the build log is the `set -x` of this tree)
 export def --wrapped x [cmd: string, ...args: string]: nothing -> nothing {
   print -e $"+ ($cmd) ($args | str join ' ')"

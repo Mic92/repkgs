@@ -7,8 +7,8 @@ use sys-libs.nu
 # Native extensions compile with the cc on PATH (mkmf takes CC from rbconfig, which says "cc").
 # Gems that can link one of our libraries get it via the lock: fetch.gems propagates the library,
 # sys-libs.nu supplies `bundle config build.<gem>` flags and env.
-def knobs []: nothing -> record<root: string, gems: any, without: list<string>, test: any, flags: list<string>> {
-  knobs-for bundler {root: ".", gems: null, without: [development test], test: null, flags: []}
+def knobs []: nothing -> record<gems: any, without: list<string>, test: any, flags: list<string>> {
+  knobs-for bundler {gems: null, without: [development test], test: null, flags: []}
 }
 
 def app-dir []: nothing -> string { let c = (ctx); $"($c.out)/lib/($c.spec.name)" }
@@ -20,7 +20,7 @@ export def --env setup []: nothing -> nothing {
   let k = (knobs)
   let app = (app-dir)
   mkdir ($app | path dirname)
-  ^cp -r $"($c.src)/($k.root)" $app
+  ^cp -r (project-dir bundler) $app
   cd $app
   if $k.gems != null {
     mkdir vendor
@@ -57,7 +57,7 @@ export def test []: nothing -> nothing {
 export def install []: nothing -> nothing {
   let c = (ctx)
   let app = (app-dir)
-  let ruby = ($c.deps | where name == ruby | first | get root)
+  let ruby = (dep-root ruby "the bin stubs run the target ruby")
   mkdir $"($c.out)/bin"
   for name in ($c.spec.bin? | default []) {
     bin-stub $name $app $ruby | save -f $"($c.out)/bin/($name)"

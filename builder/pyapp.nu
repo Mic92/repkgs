@@ -8,11 +8,9 @@ use sys-libs.nu
 # isolation, so their PEP 517 backends come from buildDependencies (uv does not lock them).
 # ELFs inside binary wheels get our dynamic linker and a RUNPATH into the sysroot and the
 # dependencies (auto-formatelf), the same treatment nixpkgs' autoPatchelfHook gives them.
-def knobs []: nothing -> record<root: string, deps: any, check: list<string>> { knobs-for pyapp {root: ".", deps: null, check: []} }
+def knobs []: nothing -> record<deps: any, check: list<string>> { knobs-for pyapp {deps: null, check: []} }
 
 def site-packages []: nothing -> string { let c = (ctx); $"($c.out)/lib/($c.spec.name)/site-packages" }
-
-def project-dir []: nothing -> string { $"((ctx).src)/((knobs).root)" }
 
 # PYTHONPATH: the application's site-packages (filling up during build) and the build backends
 export def --env setup []: nothing -> nothing {
@@ -25,7 +23,7 @@ export def --env setup []: nothing -> nothing {
     PYTHONDONTWRITEBYTECODE: "1", PYTHONNOUSERSITE: "1", PIP_NO_INDEX: "1"
   }
   load-env (sys-libs env-for python $c.deps)
-  cd (project-dir)
+  cd (project-dir pyapp)
 }
 
 # dependencies (wheels as fetched, sdists compiled), then the project, then relink foreign ELFs
@@ -40,7 +38,7 @@ export def build []: nothing -> nothing {
   let wheels = ($plan | where kind == wheel | each { $"($deps)/dist/($in.file)" }) ++ (glob $"($built)/*.whl")
   for wheel in $wheels { install-wheel $wheel }
 
-  cd (project-dir)
+  cd (project-dir pyapp)
   x python3 -m build --wheel --no-isolation --skip-dependency-check --outdir $"($c.build)/project" .
   install-wheel (glob $"($c.build)/project/*.whl" | first) --scripts
 
@@ -98,6 +96,6 @@ def install-wheel [wheel: string, --scripts]: nothing -> nothing {
 def relink-foreign-elfs []: nothing -> nothing {
   let c = (ctx)
   let sysroot_lib = ($c.platform.interp | path dirname)
-  let dep_libs = ($c.deps | each {|d| $d.libDirs | each {|rel| $"($d.root)/($rel)" } } | flatten)
+  let dep_libs = (dep-dirs $c.deps libDirs)
   x auto-formatelf --paths (site-packages) --libs $sysroot_lib ...$dep_libs --interpreter $c.platform.interp
 }

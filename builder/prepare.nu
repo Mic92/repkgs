@@ -4,8 +4,6 @@
 use core.nu *
 
 # every dependency's `field` dirs, absolute
-def dirs [deps: list<record>, field: string]: nothing -> list<string> { $deps | each {|d| $d | get $field | each {|r| $"($d.root)/($r)" } } | flatten }
-
 # PATH, the toolchain's view of dependencies (CPPFLAGS/LDFLAGS/PKG_CONFIG_PATH/…), compile-cache
 # identity, prefix map, §4 default CFLAGS, deps' and the spec's `env`
 def --env build-env [a: record, deps: list<record>, out: string]: nothing -> nothing {
@@ -25,11 +23,11 @@ def --env build-env [a: record, deps: list<record>, out: string]: nothing -> not
   $env.JIG_STORE_ROOTS = ($a.dependencies ++ $a.buildDependencies
     ++ (which cc | each {|c| open --raw ($c.path | path dirname | path dirname | path join etc/roots) | str trim })
     | str join " ")
-  $env.CPPFLAGS = (dirs $deps includeDirs | each { $"-I($in)" } | str join " ")
-  $env.LDFLAGS = (["-Wl,-z,relro,-z,now,-z,noexecstack,--as-needed"] ++ (dirs $deps libDirs | each { $"-L($in)" }) | str join " ")
-  $env.PKG_CONFIG_PATH = (dirs $deps pkgconfigDirs | str join ":")
+  $env.CPPFLAGS = (dep-dirs $deps includeDirs | each { $"-I($in)" } | str join " ")
+  $env.LDFLAGS = (["-Wl,-z,relro,-z,now,-z,noexecstack,--as-needed"] ++ (dep-dirs $deps libDirs | each { $"-L($in)" }) | str join " ")
+  $env.PKG_CONFIG_PATH = (dep-dirs $deps pkgconfigDirs | str join ":")
   $env.CMAKE_PREFIX_PATH = ($deps | get root | str join ";")
-  $env.ACLOCAL_PATH = (dirs $deps aclocalDirs | str join ":")
+  $env.ACLOCAL_PATH = (dep-dirs $deps aclocalDirs | str join ":")
   load-env {CC: cc, CXX: c++, AR: llvm-ar, RANLIB: llvm-ranlib, NM: llvm-nm, STRIP: llvm-strip}
   # no build/store paths in DWARF/__FILE__. Handed to the cc wrapper out of band so recorded CFLAGS stay clean
   let mask = {|p: string, under: string| $"($p)=/($under)/($p | path basename | str substring 33..)" }

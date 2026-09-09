@@ -3,9 +3,9 @@ use core.nu *
 # cmake configure / build / ctest / install with Ninja.
 def knobs []: nothing -> record<defs: record, sourceDir: string, generator: string> { knobs-for cmake {defs: {}, sourceDir: ".", generator: "Ninja"} }
 
-# option values are bools, ints or strings
-def render [v]: nothing -> string {  # nu-lint-ignore: add_type_hints_arguments
-  if ($v | describe) == "bool" { if $v { "ON" } else { "OFF" } } else { $v | into string }
+# -D values: bools as ON/OFF, everything else as written
+def render [v: oneof<bool, int, string>]: nothing -> string {
+  match $v { true => "ON", false => "OFF", _ => ($v | into string) }
 }
 
 # out-of-tree: work in the build directory
@@ -47,8 +47,8 @@ export def build []: nothing -> nothing { cd (ctx).build; x cmake --build . -j (
 export def test []: nothing -> nothing {
   let c = (ctx); cd $c.build
   if not $c.testsRun { return }
-  let skip = ($c.spec.tests?.skip? | default [])
-  x ctest --output-on-failure -j (if ($c.spec.tests?.parallel? | default true) { $c.njobs } else { 1 }) ...(if ($skip | is-empty) { [] } else { ["-E" ($skip | str join "|")] })
+  let exclude = (if (test-skips | is-empty) { [] } else { [-E (test-skips | str join "|")] })
+  x ctest --output-on-failure -j (test-jobs) ...$exclude
 }
 # cmake --install
 export def install []: nothing -> nothing { cd (ctx).build; x cmake --install . }

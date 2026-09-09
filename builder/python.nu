@@ -1,7 +1,7 @@
 use core.nu *
 
 # PEP 517 wheel build + install (setuptools/flit/hatch via `build`, maturin directly), import check, optional pytest.
-def knobs []: nothing -> record<backend: string, module: any, root: string, pytest: bool> { knobs-for python {backend: "setuptools", module: null, root: ".", pytest: false} }
+def knobs []: nothing -> record<backend: string, module: any, pytest: bool> { knobs-for python {backend: "setuptools", module: null, pytest: false} }
 
 def site-packages [roots: list<string>]: nothing -> list<string> { $roots | each {|r| glob $"($r)/lib/python3*/site-packages" } | flatten }
 
@@ -11,7 +11,7 @@ export def --env setup []: nothing -> nothing {
   load-env {PYTHONDONTWRITEBYTECODE: "1", PIP_NO_INDEX: "1"}
   # python deps and build backends are packages with a site-packages dir. The source tree comes
   # last so a backend can build itself (flit_core, setuptools) before any of the stack exists
-  let root = $"($c.src)/((knobs).root)"
+  let root = (project-dir python)
   let own = ([$root $"($root)/src"] | where { $in | path exists })
   $env.PYTHONPATH = ((site-packages (($c.deps | get root) ++ ($env.PATH | each { path dirname }))) ++ $own | str join ":")
   cd $root
@@ -20,7 +20,7 @@ export def --env setup []: nothing -> nothing {
 # build one wheel into the build dir: `python -m build` for PEP 517 backends, `maturin build` for maturin
 export def build []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
-  cd $"($c.src)/($k.root)"
+  cd (project-dir python)
   let dist = $"($c.build)/dist"
   if $k.backend == "maturin" {
     # maturin's PEP 517 backend only shells out to `maturin`. Call it directly. cargo setup came from `uses`.

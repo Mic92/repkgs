@@ -5,11 +5,9 @@ use core.nu *
 # `deno.entry` (bin name -> module path) running `deno run --cached-only` on it. pkgs.deno must be
 # a dependency. No `deno compile` yet: it splices into upstream's denort ELF, which would need
 # relinking first.
-def knobs []: nothing -> record<root: string, deps: any, entry: record, permissions: list<string>, test: bool, check: bool, flags: list<string>> {
-  knobs-for deno {root: ".", deps: null, entry: {}, permissions: ["-A"], test: true, check: true, flags: []}
+def knobs []: nothing -> record<deps: any, entry: record, permissions: list<string>, test: bool, check: bool, flags: list<string>> {
+  knobs-for deno {deps: null, entry: {}, permissions: ["-A"], test: true, check: true, flags: []}
 }
-
-def project-dir []: nothing -> string { $"((ctx).src)/((knobs).root)" }
 
 # DENO_DIR: a writable copy of deno.deps (deno adds gen/ and *_cache_v2 next to npm/ and remote/)
 export def --env setup []: nothing -> nothing {
@@ -20,30 +18,29 @@ export def --env setup []: nothing -> nothing {
   ^cp -r $k.deps $deno_dir
   ^chmod -R u+w $deno_dir
   load-env {DENO_DIR: $deno_dir, DENO_NO_UPDATE_CHECK: "1", NO_COLOR: "1"}
-  cd (project-dir)
+  cd (project-dir deno)
 }
 
 # type-check the entry points unless deno.check = false
 export def build []: nothing -> nothing {
   let k = (knobs)
-  if $k.check and ($k.entry | is-not-empty) { cd (project-dir); x deno check --cached-only --frozen ...($k.entry | values) }
+  if $k.check and ($k.entry | is-not-empty) { cd (project-dir deno); x deno check --cached-only --frozen ...($k.entry | values) }
 }
 
 # `deno test` unless deno.test = false
 export def test []: nothing -> nothing {
   let k = (knobs)
-  if $k.test { cd (project-dir); x deno test --cached-only --frozen ...$k.permissions ...$k.flags }
+  if $k.test { cd (project-dir deno); x deno test --cached-only --frozen ...$k.permissions ...$k.flags }
 }
 
 # lib/<name>/ = project + its DENO_DIR; bin/<bin> = launch record running deno on the entry module
 export def install []: nothing -> nothing {
   let c = (ctx)
   let k = (knobs)
-  let deno = ($c.deps | where name == deno | get -o 0.root)
-  if $deno == null { error make {msg: "deno: the package needs pkgs.deno in dependencies to run"} }
+  let deno = (dep-root deno "deno applications run on it")
   let app = $"($c.out)/lib/($c.spec.name)"
   mkdir ($app | path dirname)
-  ^cp -r (project-dir) $app
+  ^cp -r (project-dir deno) $app
   ^cp -r $k.deps $"($app)/deno-dir"
   let config = ([deno.json deno.jsonc] | each { $"($app)/($in)" } | where { path exists } | each { $"--config=($in)" })
   for bin in ($k.entry | transpose name module) {

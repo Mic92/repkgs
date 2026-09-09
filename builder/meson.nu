@@ -3,20 +3,15 @@ use core.nu *
 # meson setup / compile / test / install.
 def knobs []: nothing -> record<options: record, sourceDir: string> { knobs-for meson {options: {}, sourceDir: "."} }
 
-# option values are bools, ints or strings
-def render [v]: nothing -> string {  # nu-lint-ignore: add_type_hints_arguments
-  if ($v | describe) == "bool" { if $v { "true" } else { "false" } } else { $v | into string }
-}
-
 # out-of-tree: work in the build directory
 export def --env setup []: nothing -> nothing { cd (ctx).build }
 
-# meson machine file syntax: values are meson literals ('str', [list], true, 1)
-def literal [v: any]: nothing -> string {  # nu-lint-ignore: add_type_hints_arguments
+# machine file values are meson literals: 'str', [list], true, 1
+def literal [v: oneof<string, list<any>, bool, int>]: nothing -> string {
   match ($v | describe | str replace -r '<.*' '') {
     "string" => $"'($v)'"
     "list" => $"[($v | each {|e| literal $e } | str join ', ')]"
-    _ => (render $v)
+    _ => ($v | into string)
   }
 }
 
@@ -69,7 +64,7 @@ export def configure []: nothing -> nothing {
   # when cross the flags live in the machine files; meson would apply env CFLAGS to both machines
   let cross = (if $c.platform.cross { cross-files $c } else { [] })
   let clean = (if $c.platform.cross { {CFLAGS: "", CXXFLAGS: "", CPPFLAGS: "", LDFLAGS: ""} } else { {} })
-  with-env $clean { x meson setup . $"($c.src)/($k.sourceDir)" ...$cross ...($opts | items {|k, v| $"-D($k)=(render $v)" }) }
+  with-env $clean { x meson setup . $"($c.src)/($k.sourceDir)" ...$cross ...($opts | items {|k, v| $"-D($k)=($v | into string)" }) }
 }
 
 # ninja
@@ -78,10 +73,10 @@ export def build []: nothing -> nothing { cd (ctx).build; x ninja -j ((ctx).njob
 export def test []: nothing -> nothing {
   let c = (ctx); cd $c.build
   if not $c.testsRun { return }
-  let skip = ($c.spec.tests?.skip? | default [])
-  # meson has no exclude flag. Skipped tests are listed by name and filtered from `meson test --list`
+  # meson has no exclude flag: name every test that no tests.skip pattern matches
+  let skip = (test-skips)
   let names = (if ($skip | is-empty) { [] } else { ^meson test --list | lines | where {|t| not ($skip | any {|s| $t =~ $s }) } })
-  x meson test --no-rebuild --print-errorlogs --num-processes (if ($c.spec.tests?.parallel? | default true) { $c.njobs } else { 1 }) ...$names
+  x meson test --no-rebuild --print-errorlogs --num-processes (test-jobs) ...$names
 }
 # meson install
 export def install []: nothing -> nothing { cd (ctx).build; x meson install --no-rebuild }

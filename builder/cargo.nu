@@ -2,7 +2,7 @@ use core.nu *
 use sys-libs.nu
 
 # cargo build/test/install, offline against a vendored registry snapshot. rustc goes through jig's cache.
-def knobs []: nothing -> record<features: list<string>, noDefaultFeatures: bool, root: string, vendor: any> { knobs-for cargo {features: [], noDefaultFeatures: false, root: ".", vendor: null} }
+def knobs []: nothing -> record<features: list<string>, noDefaultFeatures: bool, vendor: any> { knobs-for cargo {features: [], noDefaultFeatures: false, vendor: null} }
 
 def feature-args [k: record]: nothing -> list<string> {
   [
@@ -46,15 +46,15 @@ export def --env setup []: nothing -> nothing {
       | merge (if $c.platform.cross { {$host: {linker: cc-build, rustflags: $rustflags}} } else { {} }))
   } | to toml | save -f $"($env.CARGO_HOME)/config.toml"
   hide-env -i RUSTFLAGS
-  cd $"($c.src)/($k.root)"
+  cd (project-dir cargo)
 }
 
 # cargo build --release
-export def build []: nothing -> nothing { cd $"((ctx).src)/((knobs).root)"; x cargo build --release --offline ...(feature-args (knobs)) }
+export def build []: nothing -> nothing { cd (project-dir cargo); x cargo build --release --offline ...(feature-args (knobs)) }
 # cargo test --release
 export def test []: nothing -> nothing {
   if not (ctx).testsRun { return }
-  cd $"((ctx).src)/((knobs).root)"
+  cd (project-dir cargo)
   x cargo test --release --offline ...(feature-args (knobs))
 }
 # every executable in target/release -> $out/bin

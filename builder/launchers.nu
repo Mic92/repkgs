@@ -55,7 +55,7 @@ def target [c: record, f: path, owners: list<string>, rdeps: list<string>]: noth
     null
   } else if (is-foreign $f) {
     # our libc dir first, then every dependency's lib dirs, relative to the package
-    let libdirs = [($c.platform.interp | path dirname)] ++ ($c.deps | each {|d| $d.libDirs | each {|l| $"($d.root)/($l)" } } | flatten)
+    let libdirs = [($c.platform.interp | path dirname)] ++ (dep-dirs $c.deps libDirs)
     let libpath = ($libdirs | each {|p| storerel $p $c.out } | str join ":")
     {program: (storerel $c.platform.interp $c.out), args: [--argv0 "{self}" --library-path $libpath $real]}
   } else if ($rdeps | is-not-empty) {

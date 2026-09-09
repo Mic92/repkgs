@@ -3,7 +3,7 @@ use sys-libs.nu
 
 # go build/test/install, modules from a GOPROXY=file:// tree (fetch.goModules) or the source's
 # own vendor/.
-def knobs []: nothing -> record<tags: list<string>, ldflags: list<string>, packages: list<string>, root: string, modules: any, cgo: bool> { knobs-for go {tags: [], ldflags: [], packages: ["./..."], root: ".", modules: null, cgo: true} }
+def knobs []: nothing -> record<tags: list<string>, ldflags: list<string>, packages: list<string>, modules: any, cgo: bool> { knobs-for go {tags: [], ldflags: [], packages: ["./..."], modules: null, cgo: true} }
 
 # offline module resolution, cgo per `go.cgo` (GOCACHEPROG comes from prepare.nu)
 export def --env setup []: nothing -> nothing {
@@ -16,7 +16,7 @@ export def --env setup []: nothing -> nothing {
     # cross: cc already targets the platform, go needs GOARCH; build-machine helpers use CC_FOR_BUILD
     GOOS: "linux", GOARCH: $c.platform.names.go
   }
-  cd $"($c.src)/($k.root)"
+  cd (project-dir go)
 }
 
 # always link through cc so RUNPATH/interp policy and fixup apply to Go binaries too.
@@ -32,7 +32,7 @@ def common-args [k: record]: nothing -> list<string> {
 # go build `go.packages` into the build dir (external linker = cc)
 export def build []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
-  cd $"($c.src)/($k.root)"
+  cd (project-dir go)
   mkdir $"($c.build)/bin"
   x go build -p $c.njobs -o $"($c.build)/bin/" ...(common-args $k) ...$k.packages
 }
@@ -41,7 +41,7 @@ export def build []: nothing -> nothing {
 export def test []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
   if not $c.testsRun { return }
-  cd $"($c.src)/($k.root)"
+  cd (project-dir go)
   x go test -p $c.njobs -vet=off ...(common-args $k) ...($k.testPackages? | default $k.packages)
 }
 
