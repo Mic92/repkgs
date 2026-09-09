@@ -41,8 +41,5 @@ package {
     "cargo"
   ];
   tests.version = "-V";
-  exports = {
-    libDirs = [ ];
-    libs = [ ];
-  };
+  exports = false;
 }

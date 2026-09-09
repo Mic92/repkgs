@@ -1,12 +1,9 @@
 # Upstream's static Go toolchain, only ever a buildDependency of pkgs/go/go
 {
   package,
-  platform,
-  sources,
 }:
 package {
   name = "go-bootstrap";
-  source = sources.fetch platform.cpu;
   # static binaries, nothing to implant: "ldso" just skips debug split and fixup without pulling in formatelf (and thereby rust)
   prebuilt = "ldso";
   steps = [
@@ -21,8 +18,5 @@ package {
   ];
   bin = [ "go" ];
   tests.version = "version";
-  exports = {
-    libDirs = [ ];
-    libs = [ ];
-  };
+  exports = false;
 }

@@ -36,8 +36,5 @@ package {
     "gofmt"
   ];
   tests.version = "version";
-  exports = {
-    libDirs = [ ];
-    libs = [ ];
-  };
+  exports = false;
 }

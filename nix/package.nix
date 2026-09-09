@@ -105,7 +105,8 @@ let
       else
         {
           inherit (sources) version;
-          source = sources.default;
+          # one tarball for all, or one per cpu (prebuilt toolchains keyed "x86_64", "aarch64")
+          source = if sources.has "default" then sources.default else sources.fetch platform.cpu;
         }
     )
     // args0;

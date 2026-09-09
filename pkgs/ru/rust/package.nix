@@ -83,8 +83,5 @@ package {
   ];
   tests.version = "-V";
   tests.relocated = true;
-  exports = {
-    libDirs = [ ];
-    libs = [ ];
-  };
+  exports = false;
 }

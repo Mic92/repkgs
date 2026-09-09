@@ -4,12 +4,9 @@
   package,
   pkgs,
   buildPkgs,
-  platform,
-  sources,
 }:
 package {
   name = "ghc-bootstrap";
-  source = sources.fetch platform.cpu;
   prebuilt = true;
   dependencies = [
     pkgs.gmp
@@ -40,8 +37,5 @@ package {
   ];
   tests.version = "--numeric-version";
   tests.relocated = true;
-  exports = {
-    libDirs = [ ];
-    libs = [ ];
-  };
+  exports = false;
 }

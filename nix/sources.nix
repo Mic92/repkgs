@@ -95,6 +95,7 @@ let
 in
 {
   inherit version tag fetch;
+  has = key: byKey ? ${key};
   extra = pin.extra or { };
   default = fetch "default";
 }

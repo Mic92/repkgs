@@ -113,7 +113,9 @@ export def main [
   # RUNPATH/PT_INTERP -> $ORIGIN-relative, in place (pkgs/ji/jig/src/fixup_mode.cc)
   if $prebuilt != "ldso" { x reloc-fixup $c.out }
   version-check $c
-  let exports = (exports-of $c.out | merge ($c.spec.exports? | default {}) | upsert name $c.spec.name)
+  # exports = false: a toolchain or application whose lib/ is its own business, nothing to link
+  let own = (if $c.spec.exports? == false { {includeDirs: [], libDirs: [], libs: [], pkgconfigDirs: [], aclocalDirs: []} } else { $c.spec.exports? | default {} })
+  let exports = (exports-of $c.out | merge $own | upsert name $c.spec.name)
   $exports | to json | save -f $"($c.out)/exports.json"
   note exports ($exports | to json -r)
   cache-summary

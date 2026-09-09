@@ -114,7 +114,8 @@ dynamic.nu fetch-cargo.nu fetch-npm.nu fetch-pnpm.nu fetch-go.nu sys-libs.nu   d
 - Dependencies contribute data, never behaviour: each output carries `exports.json`
   (`includeDirs libDirs libs pkgconfigDirs aclocalDirs env propagate`, defaults derived from the
   tree), and `prepare` renders the closure into CPPFLAGS/LDFLAGS/PKG_CONFIG_PATH/CMAKE_PREFIX_PATH.
-  `exports.propagate` makes propagated packages real inputs.
+  `exports.propagate` makes propagated packages real inputs. `exports = false` for toolchains and
+  applications: nothing of their tree reaches a consumer's search paths.
 - Dependency kinds: `buildDependencies` (build platform, on PATH), `dependencies` (target,
   visible to the compiler), `runtimeDependencies` (target, exec'd/dlopen'd). No six-way lists.
 - Platform facts a configure script would probe (or guess wrong when cross) are pinned once in

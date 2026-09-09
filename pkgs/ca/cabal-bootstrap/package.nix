@@ -2,12 +2,9 @@
 {
   package,
   pkgs,
-  platform,
-  sources,
 }:
 package {
   name = "cabal-bootstrap";
-  source = sources.fetch platform.cpu;
   prebuilt = true;
   dependencies = [
     pkgs.gmp

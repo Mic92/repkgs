@@ -2,12 +2,9 @@
 # system like `rust` is for cargo. From source later (docs/plan.md).
 {
   package,
-  platform,
-  sources,
 }:
 package {
   name = "bun";
-  source = sources.fetch platform.cpu;
   prebuilt = true;
   steps = [
     {
