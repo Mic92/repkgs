@@ -11,7 +11,7 @@ const CPU_FLAGS = {
   powerpc64le: [--with-long-double-format=ieee libc_cv_no_gnu_attr_ok=yes libc_cv_mlong_double_128=yes]
 }
 
-def configure [src: path, out: path]: nothing -> string {
+def configure [src: path, out: path]: nothing -> nothing {
   (x sh $"($src)/configure" $"--prefix=($out)" $"--host=($env.triple)" --build=x86_64-build-linux-gnu
     $"--with-headers=($env.linuxHeaders)/include" --enable-kernel=5.10 --disable-werror --disable-nscd
     --enable-bind-now --enable-fortify-source --enable-stack-protector=strong

@@ -8,14 +8,12 @@ export def cores []: nothing -> int {
   if $n == 0 { sys cpu | length } else { $n }
 }
 
-# Run an external command. On failure raise with its stderr, otherwise return stdout.
-# Takes the whole argv so callers can spread a list that includes the program.
-export def --wrapped x [...argv: string]: [nothing -> string, string -> string] {
-  let r = (^($argv | first) ...($argv | skip 1) | complete)
-  if $r.exit_code != 0 {
-    error make {msg: $"($argv | first) failed \(($r.exit_code)\): ($argv | last 3 | str join ' ')\n($r.stderr)"}
-  }
-  $r.stdout
+# Run an external command, echoing the command line first, stdout/stderr straight to the build
+# log (`complete` would swallow stderr of a child that dies by signal: nu raises before returning
+# it). Takes the whole argv so callers can spread a list that includes the program.
+export def --wrapped x [...argv: string]: [nothing -> nothing, string -> nothing] {
+  print -e $"+ ($argv | str join ' ')"
+  ^($argv | first) ...($argv | skip 1)
 }
 
 # Absolute path of a tool on PATH (configure scripts write it into #! lines, so "sh" is not enough).
