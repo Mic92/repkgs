@@ -10,6 +10,16 @@ only a build dependency of `rust`: rustc + cargo from the rustc-src tarball with
 LLVM (an `llvm` library package), `vendor = true`. cargo.nu and maturin take `buildPkgs.rust`,
 `libgcc-shim` stays for `rust-bootstrap` only. The pin follows `rust` one release behind.
 
+**Compilers that arrive as upstream binaries, from source.** The same `<x>-bootstrap` (prebuilt,
+build dependency only) → `<x>` (ours) shape as go and rust for the rest: `zig` (zig-bootstrap
+tarball builds zig from source against our `llvm` library package; needed by bun and useful as a
+package in its own right), then `bun` (zig + our clang/lld + cmake, its vendored WebKit/JSC built
+with our toolchain, `bun.lock` of its own JS parts through `fetch.bunDeps`; large, ~1 h), and
+`node`'s bundled deps swapped for ours where configure allows (`--shared-zlib/openssl/…`, partly
+done). Until then each prebuilt one is a build tool only, never linked into outputs, and its
+sources.toml pins per-cpu tarballs (x86_64, aarch64; no riscv64/loongarch64/ppc64le upstream, so
+packages using them are build-platform-only there).
+
 **Python beyond the build stack**, with the first application: no generated library set. Named
 packages are the interpreter, the build stack, native extensions that must link our libraries,
 and the few pure libraries C projects import at build time. Applications bring `uv.lock` and
@@ -69,16 +79,17 @@ dynamic-derivation producer reading the upstream lock file, hashes upstream lack
   --offline --frozen-lockfile`), `yarn.lock` v1 (small text parser, `resolved` + `integrity`;
   output a yarn-offline-mirror dir), `bun.lock` (below). Yarn berry is deferred: its `checksum`
   is over the zip yarn repacks, not the registry tarball, so it cannot fix a fetch.
-- *Bun.* `bun` itself is `prebuilt` first (upstream static-ish binaries for x86_64/aarch64
-  linux, launcher via crt_interp like `rust`), from source later (zig + our LLVM/clang, large).
-  Build system `bun`: `fetch.bunDeps { source }` reads `bun.lock` (text JSONC since 1.2, carries
+- *Bun.* `bun` itself is `prebuilt` (upstream glibc binaries for x86_64/aarch64 linux under our
+  dynamic linker like `rust`; from source see above). Build system `bun`: `fetch.bunDeps { source }` reads `bun.lock` (text JSONC since 1.2, carries
   sha512 integrity like package-lock, so no `locks/` table), lays out the same cache tree
-  `bun install --frozen-lockfile --offline` expects (`$BUN_INSTALL_CACHE_DIR`), then `bun build
-  --compile` or a launcher running `bun run`. Shares tarball fetching with fetch-npm.nu.
+  `bun install --frozen-lockfile --offline` expects (`$BUN_INSTALL_CACHE_DIR`: `<name>@<version>@@@1`,
+  pre-release parts spelled as bun's Wyhash11, computed under bun by builder/bun-cache.ts as
+  bun2nix's cache-entry-creator does in zig), then `bun build --compile` or bin links run by bun.
+  github:/git:/file: dependencies are rejected (no hash in the lock).
 
 **Lock-driven native dependencies beyond cargo.** cargoVendor already forwards `.drv` paths of
 an offered library set into the producer, which picks the ones Cargo.lock's -sys crates want and
-propagates them (builder/sys-crates.nu). The same shape for the other producers, each with its own
+propagates them (builder/sys-libs.nu). The same shape for the other producers, each with its own
 explicit table: go (cgo packages: `mattn/go-sqlite3` -> sqlite, `libgit2/git2go`, taglib for
 navidrome, ...), npm/pnpm/bun (node-gyp addons: `sharp` -> libvips, `better-sqlite3`, `canvas` ->
 cairo/pango, `node-sass`), python `pythonDeps` (sdists with C extensions: `psycopg2` -> libpq,
