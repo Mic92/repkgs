@@ -2,10 +2,13 @@
 # interpreter and a RUNPATH resolved against given lib dirs. Used on binary wheels (builder/uv.nu).
 {
   package,
+  buildPkgs,
 }:
 package {
   name = "formatelf";
   uses = [ "cargo" ];
+  # tree infrastructure (finish.nu implants prebuilt ELFs with it): must not wait for llvm + rust
+  cargo.toolchain = buildPkgs.rust-bootstrap;
   steps = [
     "cargo.build"
     "cargo.test"

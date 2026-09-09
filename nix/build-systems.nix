@@ -21,7 +21,8 @@ builtins.mapAttrs
     defaults =
       args:
       builtins.mapAttrs (_: f: f { inherit (args) source; }) (bs.lock or { }) // (bs.defaults or { });
-    inherit (bs) tools knobs;
+    inherit (bs) knobs;
+    tools = if builtins.isFunction bs.tools then bs.tools else _: bs.tools;
     stack = bs.stack or [ ];
   })
   {
@@ -102,13 +103,16 @@ builtins.mapAttrs
       ];
     };
     cargo = {
-      tools = [ buildPkgs.rust ];
+      # `cargo.toolchain = buildPkgs.rust-bootstrap` for what must exist before llvm and rust are
+      # built: formatelf, which every `prebuilt = true` package needs
+      tools = args: [ (args.cargo.toolchain or buildPkgs.rust) ];
       lock.vendor = fetch.cargoVendor;
       knobs = [
         "features"
         "noDefaultFeatures"
         "root"
         "vendor"
+        "toolchain"
       ];
     };
     cabal = {
