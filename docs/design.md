@@ -1,224 +1,266 @@
 # Design
 
-What the tree does today and why. Measurements that led here are in `experiments/` (kept as
-they were run; they import nixpkgs, the tree does not). What is not built yet is in plan.md, not here.
+Why the set is built the way it is: what it does differently from nixpkgs, which problem each
+choice addresses, and the drawbacks we accepted.
+Things not built yet are in `plan.md`.
 
-## 0. Scope
+Contents: [Goals](#goals) · [Evaluation](#evaluation) · [Sources and lock files](#sources-and-lock-files)
+· [Relocatable outputs](#relocatable-outputs) · [Builders](#builders) · [The compile cache](#the-compile-cache-jig-and-pkgs-cache)
+· [Toolchain and bootstrap](#toolchain-bootstrap-cross) · [Updates](#updates)
 
-Goals, in priority order:
+## Goals
 
-1. Cheap evaluation: ≤0.2 ms and ≤10 KB per package (nixpkgs ≈2.6 ms / 135 KB per drv).
-2. Relocatable outputs: no output contains its own store path, dependencies are referenced
-   relative to the output, so floating content-addressed outputs and early cut-off are the default.
-3. nushell as the builder language; the binary seed is a handful of static executables.
-4. One LLVM toolchain for all targets; cross compilation is an argument to the set.
-5. A compile cache in the compiler entry point, so incremental work on the set is cheap.
+In priority order, with the number that says whether we got there:
 
-Constraints: stock Nix with `ca-derivations dynamic-derivations`, normal `/nix/store` via the
-daemon, no IFD, no fetching at eval time. glibc is the libc; musl only for the static seed and
-stage0. Build platforms x86_64-linux and aarch64-linux; riscv64-linux is cross-only. CPU
-baseline is part of the platform: x86-64-v3, armv8.2-a+lse, rv64gc (`nix/platforms.nix`); the
-cc conf injects `-march`, there are no per-package `-march` flags and no hwcaps subdirectories.
-nixpkgs appears only in `shell.nix`/`treefmt.nix` (dev tools) and `pkgs/se/seed/build.nix`.
+1. **Cheap evaluation.** ≤ 0.2 ms and ≤ 10 KB per package. nixpkgs is about 2.6 ms and 135 KB
+   per derivation, which is why `nix search` needs a cache and CI evaluations take minutes.
+2. **Relocatable outputs.** No output contains its own store path, and dependencies are found
+   relative to the output. This is what makes content-addressed outputs and early cut-off work
+   by default instead of as a special mode, and it lets a closure run from any directory.
+3. **Nushell as the build language.** Structured data instead of word splitting, real error
+   handling, and a binary seed that is a handful of static executables rather than a bootstrap
+   tarball of a whole userland.
+4. **One toolchain.** A single LLVM targets every platform. Cross compilation is an argument to
+   the set, not a parallel universe of wrapped compilers.
+5. **A compile cache under Nix.** Working on the set (editing a recipe, bumping a dependency)
+   should recompile what changed, not everything downstream.
 
-Out of scope: NixOS modules, nixpkgs API compatibility, hex0 bootstrap, GCC as system compiler,
-darwin.
+The constraints we hold ourselves to: stock Nix (with `ca-derivations` and `dynamic-derivations`),
+the normal daemon and `/nix/store`, no import-from-derivation, nothing fetched at eval time.
+glibc is the libc. musl appears only in the static seed and stage0. Build machines are
+x86_64-linux and aarch64-linux, further targets (riscv64, loongarch64, ppc64le, mingw) are cross
+only. The CPU baseline is part of the platform definition (x86-64-v3, armv8.2-a+lse, rv64gc) and
+injected by the compiler driver, so no package carries `-march` flags. nixpkgs is used for dev
+tools (`shell.nix`, treefmt) and to build the seed, nowhere else.
 
-## 1. Evaluation
+Not goals: NixOS modules, nixpkgs API compatibility, a hex0-style full-source bootstrap, GCC as
+the system compiler, Darwin.
 
-**Packages are functions returning a spec; `package` turns the spec into one derivation.** No
-module system, no `callPackage`/`makeOverridable`, no overlays (exp. eval-cost: plain attrsets
-0.44 s / 38 MB for 5000 packages, `evalModules` per package 5.8 s / 1.4 GB).
+## Evaluation
+
+In nixpkgs a package is a function wrapped in `callPackage`, `makeOverridable`,
+`mkDerivation` and its `stdenv` fixpoint, often a module evaluation on top. Each layer allocates.
+We measured the extremes: 5000 packages as plain attrsets evaluate in 0.44 s and
+38 MB, the same 5000 through `evalModules` take 5.8 s and 1.4 GB.
+
+Here a package is a plain function returning a small attrset (the *spec*), and
+`package` turns a spec into exactly one derivation. There is no module system, no override
+mechanism, no overlay. If you want a different zlib you edit `pkgs/zl/zlib/package.nix`.
 
 ```
-pkgs/zl/zlib/package.nix     attribute name == directory name, sharded by two letters
-pkgs/zl/zlib/sources.toml    upstream pin read with fromTOML (docs/uptrack.md)
-pkgs/cp/cpython314/          a second language line is a second package; pkgs/aliases.toml maps cpython -> cpython314
+pkgs/zl/zlib/package.nix     attribute name = directory name, sharded by two letters
+pkgs/zl/zlib/sources.toml    the upstream pin, read with fromTOML
+pkgs/cp/cpython314/          a second major version is simply a second package
+                             (pkgs/aliases.toml maps cpython → cpython314)
 ```
 
-`default.nix { platform }` walks `pkgs/*/*` with `readDir` and calls each `package.nix` with the
-scope names it asks for (`package pkgs buildPkgs platform fetch sources toolchain`). Values are
-lazy: `-A jq` imports one file. `buildPkgs` is the set for the build machine (itself when
-native). There are no nested sets: other platforms are `import ./. { platform = … }`, library
-universes are lock-driven fetchers per application (below).
+`default.nix { platform }` lists `pkgs/*/*` with `readDir` and calls each `package.nix` with the
+arguments it names (`package pkgs buildPkgs platform fetch sources toolchain`). Everything is
+lazy, so `nix-build -A jq` imports one package file. `buildPkgs` is the set for the build machine
+(the same set when not cross compiling). There are no nested package sets. Another platform is
+`import ./. { platform = … }`.
 
-`nix/package.nix` checks field and knob names (unknown → eval error), then emits one derivation
-with structured attrs whose builder is `nu -c "<script>"`: `use core.nu *; use <bs>.nu; prepare;
-<bs> setup; <steps…>; finish`. Everything context-free (knobs, steps, env, exports) travels as
-one `spec` JSON attribute; each dependency appears once as a path. That is the drv shape
-`derivationStrict` is cheapest on (exp. proto: 0.36 s / 10 MB for 1000 packages, cross the same).
+`nix/package.nix` validates the spec (unknown field or knob → evaluation error, not a silently
+ignored attribute) and emits a derivation whose builder is `nu -c "<script>"`. Everything that
+does not depend on other derivations (knobs, steps, env) travels as one JSON attribute, and each
+dependency appears exactly once as a path, which is also the shape `derivationStrict` is
+cheapest on: 1000 packages in 0.36 s and 10 MB, native or cross.
 
-**Sources.** `sources.toml` holds URL template, hash and pin; `nix/sources.nix` turns it into
-`<nix/fetchurl.nix>` (builtin, no seed needed) named after the URL's basename, so a version bump
-with a stale hash cannot resolve to an old `(name, hash)` path. Archives land in the store unpacked by one fixed-output derivation running the seed's
-nu (`http get`, rustls with built-in roots) and bsdtar (`hash` is the tree's NAR hash; builds
-copy the tree); `unpack = false` keeps
-single files via `builtin:fetchurl`. Ecosystem lock files are not copied into the repo and get no hash of ours:
-`fetch.cargoVendor`/`fetch.npmDeps { source }` are dynamic derivations whose producer reads the
-lock file from the source and writes one `builtin:fetchurl` per crate/tarball plus a collector,
-through jig's own worker-protocol client (`jig nix-store`, no `nix` binary, no recursive-nix).
-Every configure also sees `CONFIG_SITE=nix/config.site`: the `*_cv_*` answers that are facts of
-our platforms (run-time probes gnulib would otherwise guess pessimistically when cross), while
-package-specific probe results are cached per (script, toolchain, deps) by jig.
-`fetch.goModules { source }` works the same, except go.sum's `h1:` hashes a file listing, not the
-zip, so the producer looks each module version up in the repo-wide `locks/go.toml`
-(proxy.golang.org .mod/.zip sha256, written by `uptrack lock`) and lays the results out as a
-`GOPROXY=file://` tree. The shared table only reaches the producer; its output drv holds the
-package's subset, so additions for other packages cut off early. The file is one sorted line per
-entry with `merge=union`, so parallel additions merge without conflicts. `fetch.pnpmDeps`,
-`bunDeps`, `gems`, `pythonDeps` (uv.lock) follow the cargo shape; `fetch.denoDeps` needs two
-producer stages because a jsr lock hash pins the package's `_meta.json`, which in turn pins the
-module files (`dynamic stage`, unwrapped by a second `outputOf`). All producers describe their
-output as a `{link|unpack|write} to` layout that one collector script in `dynamic.nu` realises.
+The drawback: without overrides, downstream users change a package by editing its file rather
+than composing functions.
 
-## 2. Relocatable outputs
+## Sources and lock files
 
-Rule: an output references other store objects only relative to itself; the store stays flat, so
-from depth *d* a dependency is `$ORIGIN` + `../`×(d+1) + `<hash>-<name>/…`. The hash still
-appears literally, so the reference scanner, GC and `nix copy` work unchanged.
+`sources.toml` holds a URL template, a hash and the pinned version. `nix/sources.nix` turns it
+into a fixed-output fetch named after the URL's basename, so bumping the version while forgetting
+the hash is an error instead of silently reusing the old tarball. Archives are unpacked once into
+the store by the seed's nu and bsdtar, and builds copy from there.
 
-| reference | mechanism |
+Lock-file ecosystems are where nixpkgs repositories grow without bound (vendored `Cargo.lock`
+copies, `npmDepsHash` that breaks on every bump). Our rules:
+
+- **Never copy an upstream lock file into the repo, never invent a hash for it.**
+  `fetch.cargoVendor { source }` is a *dynamic derivation*: at build time a small producer reads
+  `Cargo.lock` out of the already-fetched source and writes one `builtin:fetchurl` derivation per
+  crate, using the sha256 the lock file already contains, plus one derivation that lays them out
+  as a vendor directory. Nix then builds those. Evaluation never sees the lock file, so a
+  3000-line lock costs nothing. npm, pnpm, Yarn, Bundler, uv and Deno work the same way. The
+  producer talks to the Nix daemon through jig's own worker-protocol client, so this needs
+  neither a `nix` binary in the sandbox nor recursive Nix.
+- **Hashes a lock file lacks live in one shared table per ecosystem.** Go's `go.sum` hashes a
+  file listing rather than the zip Nix downloads, and Hackage has no lock files at all. For these,
+  `locks/go.toml` and `locks/hackage.toml` map module@version to sha256, one sorted line each,
+  `merge=union` in `.gitattributes` so parallel additions never conflict. `uptrack lock <pkg>`
+  fills them in. Only the producer reads the whole table. Its output mentions just the package's
+  own subset, so adding entries for one package does not rebuild another.
+- **Native libraries behind locked dependencies are picked at build time too.** Whether some
+  crate three levels down is `openssl-sys` cannot be known at eval time without IFD. So the set
+  hands the producer a fixed menu of library derivations (`sysLibs` in `default.nix`), the
+  producer matches lock entries against a per-ecosystem table (`builder/sys-libs.nu`), and the
+  ones needed become real inputs of the vendor derivation, propagated to the package through
+  `exports.json`. A package never lists pcre2 because ripgrep's regex crate wants it.
+
+Autoconf gets the same treatment for a different reason: `nix/config.site` pins the probe
+results that are facts of our platforms (the ones gnulib guesses pessimistically when cross
+compiling), while package-specific probe results are cached by jig, not committed.
+
+## Relocatable outputs
+
+A nixpkgs output has its own absolute store path compiled into RUNPATHs, script
+shebangs, wrapper scripts and config files. That is why content-addressed derivations need a
+rewriting pass, why you cannot run a closure from `~/Downloads`, and why every prebuilt binary
+needs `patchelf` and `autoPatchelfHook`.
+
+The rule here: an output refers to other store objects only relative to itself. The store is flat,
+so from a file at depth *d* inside an output, a dependency is `$ORIGIN/` + `../` × (d+1) +
+`<hash>-<name>/lib`. The dependency's hash still appears literally in that string, so Nix's
+reference scanner, garbage collection and `nix copy` work unchanged.
+
+How each kind of reference is made relative:
+
+| reference | how |
 |---|---|
-| ELF RUNPATH | jig (as `cc`) emits absolute store RUNPATH entries for exactly the directories that satisfy a `-l`, plus libc and the C++ runtimes, plus build-tree rpaths the build system asked for; `reloc-fixup` rewrites the same bytes `$ORIGIN`-relative for the file's depth. No patchelf, no layout changes. |
-| PT_INTERP | linked with an absolute `--dynamic-linker` and `crt_interp.o` (pkgs/cr/crt-interp). fixup makes `.interp` file-relative, flips the phdr to `PT_NULL` and points `e_entry` at the stub, which maps ld.so relative to `/proc/self/exe` at startup and jumps into it. glibc unmodified, `ldd` works, +0.09 ms per exec. |
-| glibc data | gconv/locale found relative to the loaded `libc.so.6` (one patch); no `ld.so.cache`. |
-| scripts, wrappers | one static `launch` binary (pkgs/la/launch): `bin/foo` → `launch`, record `bin/.foo.launch` (program, args, env with `{root}`/`{store}` templates), real file `bin/.foo`. Replaces shebang patching and makeWrapper. |
-| upstream binaries | `prebuilt = true`: formatelf implants the same stub (`reloc_stub.bin`, `--set-entry-stub`), our interp and a RUNPATH, then `reloc-fixup` treats the file like ours. `/proc/self/exe` stays the program. `prebuilt = "ldso"` only for rust, which formatelf is built with: not patched, launch runs it as `ld.so --argv0 … --library-path … bin/.foo`. |
-| dlopen-only deps | `runtimeDependencies`: linked as DT_NEEDED so scanner and relocation see them. |
-| debug info | always `-g`; finish.nu splits DWARF to `lib/debug` with a relative debuglink, keeps `.symtab`. |
-| pkg-config, cmake | `${pcfiledir}`-relative / relative by default; `.la` deleted. |
-| exported env | `exports.json` values may use `{root}`, expanded by the consumer (cacert's `SSL_CERT_FILE`). |
-| compiled-in prefix | packages that need it get dirname-relative patches (openssl providers); the rest is caught by fixup's absolute-store-ref warning and `tests.relocated` (run `bin/x --version` from a copied prefix). |
+| **ELF RUNPATH** | jig, acting as `cc`, emits absolute RUNPATH entries for exactly the directories that satisfied a `-l` (plus libc and the C++ runtime). After install, `reloc-fixup` rewrites those same bytes in place to the `$ORIGIN`-relative form for the file's depth. No patchelf, no section growth. |
+| **The dynamic loader** (PT_INTERP) | The kernel resolves PT_INTERP before any of our code runs, so it cannot be relative. Every executable is linked with a 300-byte stub (`crt-interp`). Fixup turns the PT_INTERP header off and points the entry at the stub, which at startup maps ld.so from a path relative to `/proc/self/exe` and jumps into it. glibc is unmodified, `ldd` still works, cost is 0.09 ms per exec. |
+| **Upstream binaries** | `prebuilt = true`: formatelf implants that same stub and a RUNPATH into the foreign ELF, after which fixup treats it like one of ours. (`prebuilt = "ldso"` instead wraps it in an `ld.so --library-path` launcher, used only where formatelf itself is not built yet.) |
+| **Scripts and wrappers** | One 40 KB static binary, `launch`. `bin/foo` is a hardlink to it, `bin/.foo.launch` is a small record (interpreter, args, env, with `{root}` placeholders), `bin/.foo` is the real script. This replaces both shebang patching and `makeWrapper`. |
+| **glibc's own data** | gconv modules and locales are found relative to the loaded `libc.so.6` (one small patch). There is no `ld.so.cache`. |
+| **dlopen-only dependencies** | listed as `runtimeDependencies` and linked as `DT_NEEDED`, so both the scanner and relocation see them. |
+| **pkg-config, CMake configs** | `${pcfiledir}`-relative, which both support natively. `.la` files are deleted. |
+| **Environment a dependency exports** | `exports.json` values may contain `{root}`, expanded by the consumer (this is how cacert sets `SSL_CERT_FILE`). |
+| **A prefix compiled into the binary** | the few packages that do this get a dirname-relative patch (openssl's provider path). The rest is caught mechanically: fixup warns on any absolute store reference, and `tests.relocated` copies the output elsewhere and runs `bin/x --version` from there. |
 
-Ambient data (CA bundle, tz, locales) is never compiled in as a store path: env var first,
-conventional system path second. glibc ships only the `C.UTF-8` locale.
+Ambient data (CA bundle, timezones, locales, fonts) is never a store path: environment variable
+first, conventional system path second. Debug info is always built (`-g`) and split into
+`lib/debug` with a relative debuglink.
 
-## 3. Builders
+## Builders
 
-nushell replaces setup.sh. One nu process per build runs `prepare` (env, unpack/copy, patch),
-the build system's verbs, and `finish` (checks, debug split, launchers, reloc-fixup, version
-check, exports.json, cache summary). `builder/`:
+nixpkgs' `setup.sh` is 1500 lines of bash that every build sources, extended by setup
+hooks that dependencies inject into your build implicitly. Phases are strings, evaluated. Whether
+`cmake` runs depends on whether something put it in `nativeBuildInputs`. We ran a blind test of
+five builder API shapes against people and LLMs writing packages. Explicit
+build systems with a plain step list won every round.
 
+Here one nu process per build runs three things: `prepare` (environment, unpack,
+patch), the package's steps, and `finish` (output checks, debug split, launchers, relocation
+fixup, version test, `exports.json`, cache summary). Build systems are nu modules in `builder/`
+exporting `setup configure build test install`. A package names them:
+
+```nix
+uses = [ "cmake" ];                         # steps default to cmake's configure/build/test/install
+cmake.defs = { WITH_FOO = true; };          # knobs are per build system and checked at eval time
+steps = [ "cmake.configure" … { name = "x"; run = "<nu>"; } ];   # only when the default does not fit
 ```
-core.nu prepare.nu finish.nu launchers.nu     shared
-autotools.nu cmake.nu meson.nu cargo.nu go.nu python.nu npm.nu   one module per build system
-autotools.nu cmake.nu meson.nu cargo.nu go.nu python.nu npm.nu pnpm.nu
-dynamic.nu fetch-cargo.nu fetch-npm.nu fetch-pnpm.nu fetch-go.nu sys-libs.nu   dynamic-derivation producers
-```
 
-- **No generic builder, no phases, no hooks** (blind LLM test over five API variants, exp.
-  builder-api). A package says `uses = [ "cmake" ]`; `steps` defaults to that build system's list
-  and is required when several are used. Entries are `"<bs>.<verb>"` or `{ name; run = "<nu>"; }`.
-  Knobs are namespaced and checked per build system (`autotools.flags`, `cmake.defs`,
-  `meson.options`, `cargo.features`, `go.tags`, …; the table is `nix/build-systems.nix`).
-- Dependencies contribute data, never behaviour: each output carries `exports.json`
-  (`includeDirs libDirs libs pkgconfigDirs aclocalDirs env propagate`, defaults derived from the
-  tree), and `prepare` renders the closure into CPPFLAGS/LDFLAGS/PKG_CONFIG_PATH/CMAKE_PREFIX_PATH.
-  `exports.propagate` makes propagated packages real inputs. `exports = false` for toolchains and
-  applications: nothing of their tree reaches a consumer's search paths.
-- Dependency kinds: `buildDependencies` (build platform, on PATH), `dependencies` (target,
-  visible to the compiler), `runtimeDependencies` (target, exec'd/dlopen'd). No six-way lists.
-- Platform facts a configure script would probe (or guess wrong when cross) are pinned once in
-  `nix/config.site` (`CONFIG_SITE`), keyed on `site_os`/`site_cpu`; meson gets generated
-  cross/native machine files from the same platform record; cmake a toolchain file. Package-specific
-  probe results stay in jig's cache, not in the repo.
-- Lock files and native libraries: a lock file reaches Nix only as a path handed to a
-  dynamic-derivation producer (§1), so its size costs eval nothing. Libraries a locked dependency
-  links against (`openssl-sys`, `libz-sys`, …) cannot be discovered at eval without IFD, so the set
-  forwards the `.drv` paths of a fixed list (`sysLibs` in default.nix, context reduced with
-  `unsafeDiscardOutputDependency`) to the producer; the producer reads the lock, picks by an explicit
-  per-ecosystem table (`builder/sys-libs.nu`), makes the picked ones inputs of the derivation it
-  writes and lists them in that output's `exports.json` `propagate` + `env`, which `prepare` already
-  honours. A package therefore does not name pcre2 because a crate three levels down wants it; an
-  unknown -sys crate is a normal `dependencies` entry plus env.
-- Repo growth rules for locks: never commit a copy of an upstream lock file; generate one only when
-  upstream ships none (`uptrack lock`); shared hash tables are TOML, one sorted line per entry,
-  `merge=union` (`locks/go.toml`); anything generated that is large or changes wholesale is a
-  fixed-output derivation, not a file.
-- Defaults every package gets: `-O2 -g`, frame pointers, `_FORTIFY_SOURCE=3`,
-  stack-protector-strong, stack-clash-protection, trivial-auto-var-init=zero,
-  relro/now/noexecstack/as-needed; `-march` and `-fcf-protection`/`-mbranch-protection` come from
-  the cc conf so build systems that ignore CFLAGS still get them; libc++ is built hardened.
-  Reproducibility pins: `SOURCE_DATE_EPOCH` (clang also derives `__DATE__`/`__TIME__` from it), `TZ=UTC LC_ALL=C.UTF-8 PYTHONHASHSEED=0 PERL_HASH_SEED=0
-  ZERO_AR_DATE KBUILD_*`, `-ffile-prefix-map` for build dir and every dependency (handed to jig
-  out of band so recorded CFLAGS stay clean), man/info pages uncompressed.
-- Tests run in the build by default; `tests.separate` moves them to a second derivation that
-  restores the build tree; `tests.version` checks `bin/x --version` prints the pinned version.
-- `bootstrapTools = true` builds the GNU userland itself with only the seed on PATH; everything
-  else gets coreutils/sed/grep/gawk/findutils/diffutils/patch/make/bash/pkgconf from the set.
+The resulting rules:
 
-## 4. jig: compiler entry point and build cache
+- **Dependencies contribute data, never behaviour.** Each output carries an `exports.json`
+  (include dirs, lib dirs, pkg-config dirs, env, what it propagates), derived from the tree by
+  default. `prepare` renders the dependency closure into `CPPFLAGS`, `LDFLAGS`, `PKG_CONFIG_PATH`,
+  `CMAKE_PREFIX_PATH`. Nothing a dependency ships can run code in your build. `exports = false`
+  marks toolchains and applications whose `lib/` is nobody's link input.
+- **Three dependency kinds, not six.** `buildDependencies` run on the build machine and go on
+  `PATH`. `dependencies` are for the target and visible to the compiler. `runtimeDependencies`
+  are exec'd or dlopen'd at run time.
+- **Cross compilation is the build system's job, done once.** autotools gets `--host` and
+  `config.site`, meson a generated cross file, cmake a toolchain file, cargo `CARGO_TARGET_*`,
+  go `GOARCH`, all from the same platform record. Tests run under qemu where the build system
+  has a hook for it, and are reported as "untested" otherwise.
+- **Hardening and reproducibility are defaults of the compiler driver, not flags packages
+  remember to set.** `-O2 -g`, frame pointers, `_FORTIFY_SOURCE=3`, stack protector, stack clash
+  protection, zero-initialised locals, CET/BTI, full RELRO, `--as-needed`. `-march` comes from
+  the platform. `SOURCE_DATE_EPOCH` (clang derives `__DATE__` from it), `-ffile-prefix-map` for
+  the build directory and every dependency, fixed hash seeds for Python and Perl, deterministic
+  archives, uncompressed man pages.
+- **Tests run**, in the build by default. `tests.separate` moves them to a second derivation
+  that restores the build tree, so a flaky test cannot change the package's hash.
+  `tests.version` checks that `bin/x --version` prints the pinned version, which catches
+  many broken installs (missing data files, wrong rpath, stale version string).
 
-`pkgs/ji/jig` is a static C++ binary dispatching on argv[0]: `cc c++ cpp` (driver policy +
-cache), `rustc` (RUSTC_WRAPPER), `gocacheprog` (Go's external cache protocol), `reloc-fixup`,
-`nix-store` (worker protocol for dynamic derivations), `jig cache get|put` (blobs). It is the only
-compiler on PATH, so every build system goes through it unchanged.
+## The compile cache (jig and pkgs-cache)
 
-As driver it adds `--target --sysroot -fuse-ld=lld`, compiler-rt/libunwind/libc++, the platform
-flags, prefix maps, the RUNPATH policy and `crt_interp.o`. As cache it talks to
-`/run/pkgs-cache.sock` if present (the daemon maps the host socket in with `extra-sandbox-paths`;
-no socket → plain compile, derivations never mention the cache):
+Nix caches derivations. Change one line of a recipe, or rebuild a dependency to
+an identical result under a new hash, and every compiler invocation downstream runs again. ccache
+does not help inside a sandbox that sees a fresh store path for the same header every time.
+
+`jig` (`pkgs/ji/jig`, static C++) is the only compiler on `PATH`. It dispatches
+on its name: as `cc`/`c++` it is the driver (adds `--target`, `--sysroot`, lld, compiler-rt,
+libc++, platform flags, prefix maps, the RUNPATH policy, the interp stub) and the cache client.
+As `rustc` it is a `RUSTC_WRAPPER`, as `gocacheprog` it speaks Go's cache protocol. It also
+does `reloc-fixup` and is the Nix worker-protocol client for dynamic derivations.
+
+If `/run/pkgs-cache.sock` exists in the sandbox (the user maps the host daemon's socket in with
+`extra-sandbox-paths`), jig asks it before compiling. If not, it just compiles. Derivations never
+mention the cache, so outputs are identical either way, and with content-addressed outputs that
+is verifiable by rebuilding without the socket.
+
+What is cached and what the key is:
 
 | cached | key |
 |---|---|
-| `cc -c x.c` | tool store path + normalised args + source bytes; headers by hash-masked store name or content, list learned from `-MD` on the first miss (manifest) |
-| `cc x.c -o x` probes, `cc *.o *.a -o x` links | as above over object InputIds; lld `--dependency-file` supplies libraries and linker scripts |
-| compile failures with all inputs known | replayed as failures (configure probes) |
-| rustc crates | args + dep-info inputs + `--extern` hashes |
-| Go actions | Go's own action IDs (GOCACHEPROG) |
-| autoconf `config.cache`, cmake probe results | sha256 of the scripts + masked toolchain/dependency set + platform + flags + `$out` |
-| go module zips | `gomod/<mod>@<ver>/<h1>` |
+| `cc -c x.c` → object | compiler identity + normalised arguments + source bytes, then the headers it actually read (learned from `-MD` on the first miss and stored as a manifest). Store paths in arguments and header names are masked to their content identity, so an identical toolchain under a new hash still hits. |
+| `cc x.c -o x` (configure probes), `cc *.o -o x` (links) | the same over object identities. lld's `--dependency-file` supplies the libraries and linker scripts read. |
+| compile *failures* | replayed too, when all inputs are known. Most of a configure run is failing probes. |
+| rustc crates | arguments + dep-info inputs + `--extern` rlib identities |
+| Go build actions | Go's own action IDs |
+| Haskell | cabal's unit id, which already hashes source, flags and dependencies |
+| autoconf `config.cache`, cmake's probe results | hash of the configure scripts + toolchain and dependency identities + platform + flags |
 
-Values are zstd-1 compressed by the client (3x on objects and manifests; content-defined chunking
-and store-path normalisation were measured and add <10 %, experiments/cdc). Store identity is by
-content, so a rebuilt-but-identical toolchain still hits. The host side is `pkgs/pk/pkgs-cache`: a
-bitcask-style store (append-only 256 MiB pack files, in-memory index, hint files for startup,
-whole-pack eviction past `PKGS_CACHE_SIZE` GiB) under `$XDG_CACHE_HOME/pkgs-cache/packs`,
-served with sendfile from the pack fd. Trust: cache writers can inject code; CA outputs make that
-detectable by rebuilding without the socket.
+The daemon (`pkgs/pk/pkgs-cache`, Go) is a bitcask-style store: append-only 256 MiB pack files,
+an in-memory index, hint files for fast startup, whole-pack eviction past a size limit, values
+served with `sendfile`. Clients compress with zstd-1 (3× on objects). It also memoises store-file
+identities so a cache hit does not re-hash a hundred headers, and hands out build slots so that
+384 sandboxes each running `make -j384` do not oversubscribe the machine.
 
-## 5. Toolchain, bootstrap, cross
+Numbers: sqlite3.c 82 s → 0.08 s, fd's 200 rlibs 218 s → 1.4 s, outputs
+bit-identical. A full stage1 toolchain rebuild after touching its recipe: 5 min → 2.5 min, all of
+the remainder being glibc's non-compiler work.
+
+The drawback is trust: whoever can write to the cache can inject object code. It is a
+per-user, per-machine daemon for that reason. CA outputs make tampering detectable, not
+impossible.
+
+## Toolchain, bootstrap, cross
 
 ```
-seed.nar.xz   static-pie musl: nu, LLVM multicall (clang, lld, llvm-*), bsdtar, toybox, dash, make,
-              gawk sed grep m4 bison, minimal python   (pkgs/se/seed, fetched with <nix/fetchurl.nix> unpack)
-  → stage0 (musl, PATH = seed): musl-headers, compiler-rt, musl, linux-headers, runtimes, jig, cc
-  → stage1 (glibc, per platform, built by stage0 cc through jig): linux-headers, glibc,
-    compiler-rt, runtimes, sysroot-<triple> (symlink view), cc-<platform> (jig + etc/jig.conf), launch
-  → packages
+seed          static musl binaries: nu, the LLVM multicall binary (clang, lld, llvm-ar …),
+              bsdtar, toybox, dash, make, gawk/sed/grep/m4/bison, a minimal python
+  → stage0    musl headers → compiler-rt → musl → linux headers → libc++ → jig → cc     ~3 min
+              a C/C++ compiler for the build machine, PATH is only the seed
+  → stage1    linux headers → glibc → compiler-rt → libc++ → cc-<platform>              ~5 min
+              once per target platform, built by stage0's cc through jig
+  → pkgs/*
 ```
 
-Recipes are nu (`pkgs/*/bootstrap.nu`, `pkgs/ll/llvm/{compiler-rt,runtimes,cc}.nu`): musl,
-compiler-rt and the C++ runtimes are compiled from file lists without cmake; glibc and the kernel
-headers use their own build systems under the seed's dash/make. The only vendored generated input
-is compiler-rt's per-cpu builtins list (`pkgs/ll/llvm/update.nu`).
+The recipes are nu (`pkgs/*/bootstrap.nu`). musl, compiler-rt and the C++ runtimes are compiled
+straight from file lists without cmake, which is what lets stage0 need nothing but the seed.
+glibc and the kernel headers use their own build systems under the seed's dash and make. The one
+generated file we vendor is compiler-rt's per-CPU list of builtins sources.
 
-One LLVM per build machine; a target is kernel headers + glibc + compiler-rt + runtimes (~5 min).
-Cross is `import ./. { platform = "riscv64-linux"; }`: same code path, `buildPkgs` is the native
-set, build systems get `--host`/toolchain file/cross file/`CARGO_TARGET_*`/GOARCH from the
-platform record, tests run under `buildPkgs.qemu` where the harness has a hook (cmake, meson,
-cargo, go) and are reported "untested" otherwise unless the builder has transparent binfmt.
-Language toolchains bootstrap from upstream binaries run as `prebuilt` packages (`go-bootstrap`
-→ `go` from source; `rust` is still the upstream binary, plan.md 5b).
+There is one LLVM per build machine. A *target* is kernel headers + glibc + compiler-rt + libc++,
+about five minutes. Cross compiling is the same code path with `buildPkgs` pointing at the native
+set. RISC-V needed `-mno-relax` (lld's relaxation and IRELATIVE relocations disagree). That was
+the only per-target surprise.
 
-## 6. Updates
+Languages with self-hosting compilers follow one pattern: the upstream binary release is packaged
+as `<lang>-bootstrap` (`prebuilt`, relocated like everything else, a build dependency only), and
+`<lang>` is built from source with it. Go, Rust (against our libLLVM), GHC and OpenJDK work this
+way. Zig needs no binary at all: its source ships a WASM blob of the compiler that a small C
+program interprets to build stage 1.
 
-`pkgs/up/uptrack`: purl-driven datasources, one batched cached poll, `sources.toml` as the only
-file it writes, optional per-package hook. docs/uptrack.md.
+The seed is built by `pkgs/se/seed/build.nix`, today from nixpkgs' static packages, eventually
+from this set's own (plan.md).
 
-## 7. Where the numbers came from
+## Updates
 
-| exp. | question | answer |
-|---|---|---|
-| eval-cost, lib-bench, proto | eval cost of package abstraction | plain functions, one JSON spec attr: 0.36 s / 1000 packages |
-| ldwrap, reloc-interp | relocatable ELF without patching ld.so | link-time `crt_interp.o` + RUNPATH policy + in-place fixup; x86_64/aarch64/riscv64 |
-| cc-cache | compile cache inside the sandbox | socket via `extra-sandbox-paths`; sqlite3.c 82 s → 0.08 s, fd's rlibs 218 s → 1.4 s, bit-identical |
-| nu-noshell, seed | can nu + clang build without sh/make; own seed | yes for musl/compiler-rt/libc++/dash/toybox; 60 MB nar.xz, stage0 → cc in 6 min |
-| builder-api | builder API | build systems as nu modules + name-only step list won 15/15 |
-| glibc-clang | glibc with clang/lld | 2.43+; a few GCC-only configure probes pinned |
-| platforms | one LLVM for all targets | target is a flag; lld RISC-V relaxation vs IRELATIVE needs `-mno-relax` |
+`uptrack` polls upstreams by package URL (`pkg:github/…`, `pkg:pypi/…`, `pkg:hackage/…`) in one
+batched, cached pass, and `sources.toml` is the only file it writes, plus `locks/*.toml` for
+`uptrack lock`. A package may add an `update.nu` hook for generated inputs. See `docs/uptrack.md`.
 
-Prior art used: Ekala EEPs (path = attr, explicit build systems), Aux tidepool (eval-time
-exports, one code path for native and cross), nuenv, zig (target as flag), Spack/Guix/conda
-(relocation), wrap-buddy and fzakaria (relocatable binaries, DT_NEEDED hardening), llm-agents.nix
-(declarative updater).
+## Prior art
+
+Ekala's EEPs (path = attribute, explicit build systems), Aux tidepool
+(exports as data, one code path for native and cross), nuenv, Zig (target as a flag), Spack,
+Guix and conda (relocation), wrap-buddy and fzakaria's posts (relocatable binaries, DT_NEEDED
+hardening), llm-agents.nix (declarative updater).
