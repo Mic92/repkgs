@@ -17,16 +17,17 @@ export def sums [dir: path]: nothing -> table {
 }
 
 # {"<module>@<version>": {mod: sri, zip?: sri}} for the go.sum under `dir`. `old` is the previous
-# lock: unchanged entries are not fetched again
+# lock: hashes already there are not fetched again (another package may have recorded the
+# module mod-only; the zip is added when this go.sum needs it)
 export def lock [dir: path, old: record = {}]: nothing -> record {
   sums $dir | group-by key --to-table | par-each --threads 8 {|g|
-    let prev = $old | get -o $g.key
-    if $prev != null { return {key: $g.key, val: $prev} }
+    let prev = ($old | get -o $g.key | default {})
     let i = $g.items.0
     let base = $"https://proxy.golang.org/(escape $i.mod)/@v/($i.ver | str replace '/go.mod' '')"
     # go.sum lists h1 for go.mod alone when only the module graph needed it: no zip then
-    let want_zip = $g.items | any {|r| $r.ver !~ '/go.mod$' }
-    print -e $"  ($g.key)"
-    {key: $g.key, val: ({mod: (prefetch $"($base).mod"), zip: (if $want_zip { prefetch $"($base).zip" })} | compact)}
-  } | sort-by key | transpose -rd | default {}
+    let want_zip = ($g.items | any {|r| $r.ver !~ '/go.mod$' })
+    let val = {mod: ($prev.mod? | default { prefetch $"($base).mod" }), zip: ($prev.zip? | default { if $want_zip { prefetch $"($base).zip" } })} | compact
+    if $val != $prev { print -e $"  ($g.key)" }
+    {key: $g.key, val: $val}
+  } | sort-by key | each {|r| [$r.key $r.val] } | into record
 }

@@ -228,7 +228,7 @@
 "github.com/creack/pty@v1.1.9" = { mod = "sha256-6rBwW8ShjdMVwnpOPbqPIKnhIwZfogYzlmMytczPdzE=" }
 "github.com/davecgh/go-spew@v0.0.0-20161028175848-04cdfd42973b" = { mod = "sha256-vLKTkyUSN7eaF7bBm/KRNPQ+j0OMMZiYj81GGhzfBcw=" }
 "github.com/davecgh/go-spew@v1.1.0" = { mod = "sha256-vLKTkyUSN7eaF7bBm/KRNPQ+j0OMMZiYj81GGhzfBcw=" }
-"github.com/davecgh/go-spew@v1.1.1" = { mod = "sha256-vLKTkyUSN7eaF7bBm/KRNPQ+j0OMMZiYj81GGhzfBcw=" }
+"github.com/davecgh/go-spew@v1.1.1" = { mod = "sha256-vLKTkyUSN7eaF7bBm/KRNPQ+j0OMMZiYj81GGhzfBcw=", zip = "sha256-a0SoQ5UfNxtwEMdU7MPKvv6BXVztHFuUCfstaX6KiQ0=" }
 "github.com/davecgh/go-spew@v1.1.2-0.20180830191138-d8f796af33cc" = { mod = "sha256-vLKTkyUSN7eaF7bBm/KRNPQ+j0OMMZiYj81GGhzfBcw=", zip = "sha256-tNCSOxabGU8AFuxG898asMaOJ5mXQ+Q/4t5Z7LJIQSg=" }
 "github.com/decred/dcrd/dcrec/secp256k1/v4@v4.4.1" = { mod = "sha256-K5x+0s5XzSrbTBCQLhDRdVTczMmSnuOmUzxtg+vZ89E=", zip = "sha256-AP81dW13r/S+Ikh6SzWBn/I1NxdFswR1Jk6o3LBMN8o=" }
 "github.com/deluan/go-taglib@v0.0.0-20260619222856-1975cb12f59d" = { mod = "sha256-xYLb5V/cLYN+aK/vySQVYIOV1aJwBN+VK78bnz7B8Co=", zip = "sha256-fsJVGOb1vKAG0vVYYzeGeSKLKmO+kdwljNy+iDWQYis=" }
@@ -476,7 +476,7 @@
 "github.com/rogpeppe/go-internal@v1.15.0" = { mod = "sha256-H/o/PB0q2dQFE69mEMIdUq4oOWKGeYVN9CEhL2op7Cc=", zip = "sha256-yE2VgYFhhAfmHw+DfAoiYBbMe7DebSbS2C/UduO/H3A=" }
 "github.com/rogpeppe/go-internal@v1.3.0" = { mod = "sha256-M7Veg5sHVCg8Pu7B8z4WzGZDLf+4uKltJPU20B5RSVs=" }
 "github.com/rogpeppe/go-internal@v1.9.0" = { mod = "sha256-kFmpfaKZDIGaCXZ6XpvYeEtFpXt6JeKQVbvRsKqhRP8=" }
-"github.com/russross/blackfriday/v2@v2.1.0" = { mod = "sha256-w5VHzOboZujPo5XSk3vOMIAc0H8LkBwhMySPH7oS9Y0=" }
+"github.com/russross/blackfriday/v2@v2.1.0" = { mod = "sha256-w5VHzOboZujPo5XSk3vOMIAc0H8LkBwhMySPH7oS9Y0=", zip = "sha256-eFJ1DVigU844sB8sIDIIgXVk9VLr83GytjAIHXAExq4=" }
 "github.com/sabhiram/go-gitignore@v0.0.0-20210923224102-525f6e181f06" = { mod = "sha256-htBE9omGKpaxUQGcyhEN7VZqFZrGdvHJatuLctS3v9w=", zip = "sha256-GDedT6YO0wULZR5R7LSKIaujv5UcgdNZqtvB12Af/vU=" }
 "github.com/sagikazarmark/locafero@v0.12.0" = { mod = "sha256-1JthR6VC6OqPy1/dHLoNBgzzMLnTltMi1bWpr/mC0fs=", zip = "sha256-5CdRrlM+T3ZC31ULL6+3Cg5dFtwc4FUcgAsHuGQH/RE=" }
 "github.com/sanity-io/litter@v1.5.8" = { mod = "sha256-kgLEtD1iopGzemzsqxCj2ER2eCbCLpr0vqmARmf+Bgs=", zip = "sha256-SID89Y9NL3Eic7/RI6FNkxYWWQVGhcyxGroxVh4bsXs=" }
