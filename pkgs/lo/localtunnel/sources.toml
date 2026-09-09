@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/localtunnel/localtunnel"
+
+[[source]]
+key = "default"
+url = "https://github.com/localtunnel/localtunnel/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-6gEK1VjF25Kbe2drxbxUKDNJGqZ+OXgkulPkAkMR2+k="
+
+[pin]
+version = "2.0.2"
+tag = "v2.0.2"

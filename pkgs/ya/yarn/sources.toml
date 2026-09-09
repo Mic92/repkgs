@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:npm/yarn"
+allow = "<2"
+
+[[source]]
+key = "default"
+url = "https://registry.npmjs.org/yarn/-/yarn-{version}.tgz"
+hash = "sha256-kFa+kmnBerTB7fY/IvfAFy/4LWvrl9lrRHMOUdOZ+Wg="
+
+[pin]
+version = "1.22.22"
+date = "2024-03-09"

@@ -220,6 +220,26 @@
       "compile"
     ];
   };
+  yarn = {
+    module = "yarn.nu";
+    steps = [
+      "yarn.build"
+      "yarn.test"
+      "yarn.install"
+    ];
+    tools = [
+      buildPkgs.yarn
+      buildPkgs.nodejs
+      sh
+    ];
+    knobs = [
+      "root"
+      "script"
+      "deps"
+      "test"
+      "flags"
+    ];
+  };
   npm = {
     module = "npm.nu";
     steps = [
