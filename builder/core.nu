@@ -146,8 +146,8 @@ export def probe-cache-put [key: string, file: path]: nothing -> nothing {
 }
 
 # no /usr/bin/env in the sandbox: point such scripts at the seed's env (build tree only; installed
-# scripts get launchers). Rewrite only real matches: bumping every mtime makes autotools
-# packages regenerate shipped files (coreutils' cu-progs.m4 -> aclocal)
+# scripts get launchers). mtimes are kept: a generator script newer than its shipped output makes
+# make regenerate it (coreutils' cu-progs.m4 -> aclocal, ruby's prism templates -> baseruby)
 export def fix-env-shebangs [dir: path, njobs: int = 4]: nothing -> nothing {
   let env_bin = (tool env)
   let magic = ("#!/usr/bin/env" | into binary)
@@ -156,7 +156,9 @@ export def fix-env-shebangs [dir: path, njobs: int = 4]: nothing -> nothing {
     if $m.size >= 1mb or ($m.mode | str substring 2..<3) != "x" { return }
     let bytes = (open --raw $f | into binary)
     if ($bytes | bytes starts-with $magic) {
+      ^chmod u+w $f
       ($"#!($env_bin)" | into binary) ++ ($bytes | bytes at ($magic | bytes length)..) | save -f --raw $f
+      ^touch -d $"@($m.modified | format date '%s')" $f
     }
-  }
+  } | ignore
 }
