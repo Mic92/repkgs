@@ -117,4 +117,7 @@ def main []: nothing -> nothing {
   # rustc's and go's prebuilt std hard-code -lgcc_s for the unwinder. libunwind has the same _Unwind_* ABI
   "INPUT(-lunwind)\n" | save $"($out)/lib/libgcc_s.so"
   x ln -s libunwind.a $"($out)/lib/libgcc_s.a" | ignore
+  # GCC-world build files add -latomic for __atomic_* libcalls. compiler-rt's builtins (always
+  # linked) provide them, so the name only has to resolve
+  "/* compiler-rt builtins */\n" | save $"($out)/lib/libatomic.so"
 }
