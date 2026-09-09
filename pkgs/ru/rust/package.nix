@@ -34,7 +34,8 @@ package {
         {
           change-id: "ignore"
           profile: "dist"
-          llvm: {link-shared: true, download-ci-llvm: false}
+          # use-libcxx: rustc_llvm links -lstdc++ otherwise, this toolchain has libc++ only
+          llvm: {link-shared: true, download-ci-llvm: false, use-libcxx: true}
           build: {
             build: $triple
             host: [$triple]
