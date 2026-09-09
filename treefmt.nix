@@ -94,7 +94,7 @@ pkgs.treefmt.withConfig {
         command = "${pkgs.nushell}/bin/nu";
         options = [
           "--no-config-file"
-          "${./pkgs/up/uptrack/src/locks.nu}"
+          "${./pkgs/up/uptrack/src}/locks.nu"
         ];
         includes = [ "locks/*.toml" ];
       };
