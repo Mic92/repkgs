@@ -131,10 +131,10 @@ dynamic.nu fetch-cargo.nu fetch-npm.nu fetch-pnpm.nu fetch-go.nu sys-libs.nu   d
   `merge=union` (`locks/go.toml`); anything generated that is large or changes wholesale is a
   fixed-output derivation, not a file.
 - Defaults every package gets: `-O2 -g`, frame pointers, `_FORTIFY_SOURCE=3`,
-  stack-protector-strong, stack-clash-protection, trivial-auto-var-init=zero, `-Werror=date-time`,
+  stack-protector-strong, stack-clash-protection, trivial-auto-var-init=zero,
   relro/now/noexecstack/as-needed; `-march` and `-fcf-protection`/`-mbranch-protection` come from
   the cc conf so build systems that ignore CFLAGS still get them; libc++ is built hardened.
-  Reproducibility pins: `SOURCE_DATE_EPOCH TZ=UTC LC_ALL=C.UTF-8 PYTHONHASHSEED=0 PERL_HASH_SEED=0
+  Reproducibility pins: `SOURCE_DATE_EPOCH` (clang also derives `__DATE__`/`__TIME__` from it), `TZ=UTC LC_ALL=C.UTF-8 PYTHONHASHSEED=0 PERL_HASH_SEED=0
   ZERO_AR_DATE KBUILD_*`, `-ffile-prefix-map` for build dir and every dependency (handed to jig
   out of band so recorded CFLAGS stay clean), man/info pages uncompressed.
 - Tests run in the build by default; `tests.separate` moves them to a second derivation that

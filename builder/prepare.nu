@@ -35,10 +35,10 @@ def --env build-env [a: record, deps: list<record>, out: string]: nothing -> not
   let mask = {|p: string, under: string| $"($p)=/($under)/($p | path basename | str substring 33..)" }
   $env.PKGS_PREFIX_MAP = ([$"($env.NIX_BUILD_TOP)=/build"] ++ ($deps | get root | each { do $mask $in deps }) ++ ($a.buildDependencies | each { do $mask $in tools }) | str join ":")
   # per-package defaults (§4): profiling-friendly, hardened. -march and the platform's hardening
-  # flag are in the cc conf, so build systems that ignore CFLAGS still get them.
+  # flag are in the cc conf, so build systems that ignore CFLAGS still get them. __DATE__/__TIME__
+  # need no ban: clang derives them from SOURCE_DATE_EPOCH (set above)
   $env.CFLAGS = (["-O2" "-fno-omit-frame-pointer" "-mno-omit-leaf-frame-pointer" "-g"
-    "-D_FORTIFY_SOURCE=3" "-fstack-protector-strong" "-fstack-clash-protection" "-ftrivial-auto-var-init=zero"
-    "-Werror=date-time"]
+    "-D_FORTIFY_SOURCE=3" "-fstack-protector-strong" "-fstack-clash-protection" "-ftrivial-auto-var-init=zero"]
     ++ ($a.spec.cc?.cflags? | default []) | str join " ")
   $env.CXXFLAGS = $env.CFLAGS
   load-env ($deps | get env | reduce -f {} {|it, acc| $acc | merge $it })
