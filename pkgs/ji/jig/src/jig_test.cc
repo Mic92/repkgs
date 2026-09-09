@@ -215,19 +215,19 @@ void TestDriver() {
   const std::string joined = jig::Join(out, " ");
   assert(!joined.contains("/usr/lib"));
   assert(!joined.contains("/lib/ld.so "));
-  assert(joined.contains("-Wl,-rpath,/build/lib:/sr/libc/lib:/_"));
+  assert(joined.contains("-Wl,-rpath,/build/lib:/sr/libc/lib/.:/_"));
   // cmake links with "-rpath,<build>:" and its install step insists on finding "<build>:" verbatim
   out = jig::BuildDriverArgs(conf, jig::Language::kC, V({"-o", "x", "x.c", "-Wl,-rpath,/build/build:"}));
-  assert(jig::Join(out, " ").contains("-Wl,-rpath,/build/build::/sr/libc/lib:/_"));
+  assert(jig::Join(out, " ").contains("-Wl,-rpath,/build/build::/sr/libc/lib/.:/_"));
   assert(!joined.contains("/sr/rt/lib"));
   assert(joined.contains(
       "/cc/lib/crt_interp.o -Wl,--dynamic-linker=/sr/libc/lib/././././././././././././ld-linux-x86-64.so.2 "
       "-Wl,--export-dynamic-symbol=__reloc_start"));
 
   out = jig::BuildDriverArgs(conf, jig::Language::kCxx, V({"-o", "x", "x.cc"}));
-  assert(jig::Join(out, " ").contains("/sr/rt/lib:/sr/libc/lib:/_"));
+  assert(jig::Join(out, " ").contains("/sr/rt/lib/.:/sr/libc/lib/.:/_"));
   out = jig::BuildDriverArgs(conf, jig::Language::kC, V({"-o", "x", "x.c", "-lc++"}));
-  assert(jig::Join(out, " ").contains("/sr/rt/lib:/sr/libc/lib:/_"));
+  assert(jig::Join(out, " ").contains("/sr/rt/lib/.:/sr/libc/lib/.:/_"));
 
   // shared: rpath but no interp. Static / -r / -nostartfiles: nothing
   out = jig::BuildDriverArgs(conf, jig::Language::kC, V({"-shared", "-o", "l.so", "l.c"}));
@@ -238,7 +238,7 @@ void TestDriver() {
   }
   // store .so by path -> its dir is rpath'd
   out = jig::BuildDriverArgs(conf, jig::Language::kC, V({"-o", "x", "x.c", (store + "/h-zlib/lib/libz.so.1").c_str()}));
-  assert(jig::Join(out, " ").contains("-rpath," + store + "/h-zlib/lib:/sr/libc/lib:/_"));
+  assert(jig::Join(out, " ").contains("-rpath," + store + "/h-zlib/lib/.:/sr/libc/lib/.:/_"));
 
   assert(jig::IsSharedLibName("libz.so") && jig::IsSharedLibName("libz.so.1.3") && !jig::IsSharedLibName("libz.son") &&
          !jig::IsSharedLibName("x.o"));

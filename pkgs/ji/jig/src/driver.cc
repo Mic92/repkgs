@@ -51,11 +51,13 @@ class RunpathList {
     }
   }
   // verbatim prefix first, then ours, then one pad entry giving `jig fixup` kRunpathSlack bytes
-  // per store entry to rewrite them $ORIGIN-relative in place
+  // per store entry to rewrite them $ORIGIN-relative in place. Ours end in "/.": meson's install
+  // step deletes every RUNPATH element that string-equals a build rpath or dependency libdir it
+  // knows, which would take ours with it. fixup normalises the spelling away
   [[nodiscard]] auto Render() const -> std::string {
     std::string out = verbatim_;
     for (const std::string& entry : entries_) {
-      out.append(entry).push_back(':');
+      out.append(entry).append("/.:");
     }
     const size_t stores = entries_.size() + static_cast<size_t>(std::ranges::count(verbatim_, ':'));
     return out + "/" + std::string((std::max<size_t>(stores, 1) * kRunpathSlack) - 1, '_');
