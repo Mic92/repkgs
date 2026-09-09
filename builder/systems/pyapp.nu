@@ -7,8 +7,8 @@ use ../sys-libs.nu
 #   $out/bin/<script>                its entry points, started by our python with that dir first on sys.path
 # Wheels are unpacked with `installer`; sdists are built here with our toolchain and no build
 # isolation, so their PEP 517 backends come from buildDependencies (uv does not lock them).
-# ELFs inside binary wheels get our dynamic linker and a RUNPATH into the sysroot and the
-# dependencies (auto-formatelf), the same treatment nixpkgs' autoPatchelfHook gives them.
+# ELFs inside binary wheels were linked elsewhere: the build system defaults `prebuilt = true`
+# (nix/build-systems.nix) so finish implants our dynamic linker and a RUNPATH into them.
 def knobs []: nothing -> record<deps: any, check: list<string>> { knobs-for pyapp {deps: null, check: []} }
 
 def site-packages []: nothing -> string { let c = (ctx); $"($c.out)/lib/($c.spec.name)/site-packages" }
@@ -40,8 +40,6 @@ export def build []: nothing -> nothing {
   cd (project-dir pyapp)
   x python3 -m build --wheel --no-isolation --skip-dependency-check --outdir $"($c.build)/project" .
   install-wheel (glob $"($c.build)/project/*.whl" | first) --scripts
-
-  relink-foreign-elfs
 }
 
 # `pyapp.check`: modules that must import with the final layout
@@ -90,11 +88,3 @@ def install-wheel [wheel: string, --scripts]: nothing -> nothing {
   }
 }
 
-# shared objects that came out of binary wheels were linked elsewhere: give them our ld.so and a
-# RUNPATH that finds libc/libstdc++ shims and the package's dependencies
-def relink-foreign-elfs []: nothing -> nothing {
-  let c = (ctx)
-  let sysroot_lib = ($c.platform.interp | path dirname)
-  let dep_libs = (dep-dirs $c.deps libDirs)
-  x auto-formatelf --paths (site-packages) --libs $sysroot_lib ...$dep_libs --interpreter $c.platform.interp
-}

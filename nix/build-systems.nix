@@ -1,6 +1,6 @@
 # What `uses = [ "<name>" ]` means: builder/systems/<name>.nu implements the verbs, `verbs` is the default
 # step order (build test install unless said otherwise), `tools` go on PATH, `libs` into
-# `dependencies`, and `knobs` are what a
+# `dependencies`, `prebuilt` is the package's default for that field, and `knobs` are what a
 # package may set under `<name>.*` (anything else is an eval error). `lock = knob: fetcher` gives
 # that knob the package's own lock file, fetched from its source, as default. `sh` is for tools
 # that spawn a shell by name (ninja, npm run, libtool).
@@ -26,6 +26,7 @@ builtins.mapAttrs
     inherit (bs) knobs;
     tools = if builtins.isFunction bs.tools then bs.tools else _: bs.tools;
     libs = bs.libs or [ ];
+    prebuilt = bs.prebuilt or false;
     stack = bs.stack or [ ];
   })
   {
@@ -184,6 +185,9 @@ builtins.mapAttrs
       ];
     };
     pyapp = {
+      # binary wheels carry upstream-linked .so files: finish implants interp/RUNPATH like for any
+      # prebuilt package (after split-debug, llvm-objcopy crashes on formatelf's layout)
+      prebuilt = true;
       tools = with buildPkgs; [
         cpython
         python-build
@@ -193,7 +197,6 @@ builtins.mapAttrs
         python-flit-core
         python-setuptools
         python-hatchling
-        formatelf
       ];
       knobs = [
         "root"

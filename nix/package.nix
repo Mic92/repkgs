@@ -13,6 +13,7 @@
 }:
 let
   inherit (builtins)
+    any
     attrNames
     concatMap
     concatStringsSep
@@ -199,6 +200,8 @@ let
     ++ [ "finish tests" ]
   );
 
+  # an upstream-binary package says `prebuilt`, or one of its build systems does (pyapp: wheels)
+  prebuilt = args.prebuilt or (any (u: buildSystems.${u}.prebuilt == true) uses);
   spec =
     removeAttrs args [
       "source"
@@ -215,7 +218,7 @@ let
       }) (filter (u: args ? ${u} || buildSystems.${u}.defaults args != { }) uses)
     )
     // {
-      inherit steps;
+      inherit steps prebuilt;
     };
   common = setCommon // {
     src = args.source;
@@ -226,7 +229,7 @@ let
       toolchain
     ]
     ++ (args.buildDependencies or [ ])
-    ++ (if (args.prebuilt or false) == true then relocTools else [ ])
+    ++ (if prebuilt == true then relocTools else [ ])
     ++ concatMap (u: buildSystems.${u}.tools args ++ stackBefore buildSystems.${u}.stack) uses
     ++ (if args.bootstrapTools or false then baseTools.bootstrap else baseTools.full);
     dependencies = (args.dependencies or [ ]) ++ concatMap (u: buildSystems.${u}.libs) uses;
