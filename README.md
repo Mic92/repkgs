@@ -1,6 +1,7 @@
-# pkgs
+# repkgs
 
-An experimental package set for stock Nix that revisits a few nixpkgs fundamentals:
+An experimental package set for stock Nix that revisits a few nixpkgs fundamentals
+(re- as in relocatable, reproducible, and nixpkgs once more):
 
 - **One toolchain.** A single LLVM (clang, lld, compiler-rt, libc++) targets every platform.
   Cross compiling is a flag, not a second compiler: `--argstr platform riscv64-linux`.
