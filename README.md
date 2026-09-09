@@ -1,91 +1,137 @@
 # pkgs
 
-A small package set for stock Nix: ~1k packages, x86_64/aarch64-linux (+ cross riscv64),
-one LLVM toolchain with target-as-a-flag, glibc, nushell as the only build language,
-relocatable outputs, low eval cost. Design and rationale: [docs/design.md](docs/design.md).
+An experimental package set for stock Nix that revisits a few nixpkgs fundamentals:
+
+- **One toolchain.** A single LLVM (clang, lld, compiler-rt, libc++) targets every platform.
+  Cross compiling is a flag, not a second compiler: `--argstr platform riscv64-linux`.
+- **Relocatable outputs.** Binaries find their libraries relative to themselves, so a store
+  path can be copied anywhere and still run. Even upstream prebuilt binaries get this treatment.
+- **Nushell builders.** No bash, no setup hooks, no string-typed phases. Each build system is a
+  small nu module with `configure / build / test / install` verbs.
+- **A compile cache below Nix.** `cc`, `rustc`, `go` and configure probes are cached by content
+  on the host, across derivations. Changing a recipe rebuilds the derivation but recompiles
+  almost nothing. Optional. Derivations do not mention it.
+- **Cheap evaluation.** A package is a small attrset. No overrides, no fixpoints per package,
+  arguments passed by name as with `callPackage`, nothing more.
+- **Bootstrapped from a small static seed** to glibc in two short stages, and languages
+  (Rust, Go, Zig, GHC, OpenJDK) built from source on top, each seeded by its upstream binary.
+
+The reasoning behind each of these is in [docs/design.md](docs/design.md). What is planned
+next is in [docs/plan.md](docs/plan.md).
+
+## Try it
+
+Needs Nix with `experimental-features = nix-command ca-derivations dynamic-derivations`.
+
+```console
+$ nix-build -A jq                                   # for this machine
+$ nix-build -A jq --argstr platform aarch64-linux   # cross
+$ nix-build -A ripgrep -A fd -A deno -A pandoc      # cargo, prebuilt, haskell …
+$ nix-build bootstrap -A stage1.x86_64.cc           # only the toolchain
+```
+
+The first build fetches the seed and builds the toolchain (about 8 minutes), everything after
+that is incremental.
+
+To get the compile cache, run the daemon once and let the sandbox see its socket:
+
+```console
+$ nix-build -A pkgs-cache && ./result/bin/pkgs-cache /tmp/pkgs-cache.sock &
+$ echo 'extra-sandbox-paths = /run/pkgs-cache.sock=/tmp/pkgs-cache.sock' >> ~/.config/nix/nix.conf
+```
+
+Every build log then ends in a line like `cache: hit=812 miss-stored=3`.
+
+## What a package looks like
 
 ```
-nix-build -A jq                                     # build machine's platform
-nix-build -A jq --argstr platform riscv64-linux     # cross
-nix-build -A jq.tests                               # packages with tests.separate
-nix-build bootstrap -A stage1.x86_64.cc             # just the toolchain
+pkgs/li/libpng/
+├── package.nix     how to build it
+└── sources.toml    where it comes from: upstream id, URL template, pinned version + hash
 ```
-
-## Layout
-
-Every named thing is a directory under `pkgs/`. Everything else is machinery, in the order it is used:
-
-```
-bootstrap/   default.nix: seed → stage0 (musl cc for the build machine) → stage1 cc-<platform> (glibc).
-             run.nu, lib.nu, sysroot.nu. Per-package recipes are pkgs/xx/<name>/bootstrap.nu
-nix/         eval time: package.nix (spec → derivation), build-systems.nix (what `uses` means),
-             sources.nix (reads sources.toml), fetch.nix (cargo/npm/go dependency fetchers), platforms.nix
-builder/     build time, one nu process per package: core/prepare/finish/launchers.nu, one module per
-             build system (cmake.nu, cargo.nu …), fetch-{cargo,npm}.nu for the dynamic derivations
-pkgs/xx/<name>/ (xx = first two letters) any of: sources.toml (upstream pin), package.nix (set member), bootstrap.nu (stage0/1 recipe),
-             update.nu (uptrack hook), src/ (in-tree source), patches and data files.
-             Language lines are separate names (cpython314); pkgs/aliases.toml maps cpython → the default line
-docs/        design.md (why), uptrack.md (updates), plan.md (what is next)
-default.nix  { platform } → the set
-```
-
-In-tree programs: `pkgs/ji/jig` (compiler entry point, compile cache client, ELF fixup, Nix
-worker-protocol client), `pkgs/pk/pkgs-cache` (the host-side cache daemon), `pkgs/la/launch` (the static launcher behind every
-script), `pkgs/cr/crt-interp` (the PT_INTERP stub linked into every executable), `pkgs/up/uptrack`
-(the update tool), `pkgs/se/seed/build.nix` (rebuilds the binary seed). `pkgs/ll/llvm` carries the
-toolchain recipes (compiler-rt, runtimes, cc) and compiler-rt's generated file lists.
-
-## Writing a package
 
 ```nix
-# pkgs/li/libpng/package.nix (version and source come from sources.toml beside it)
 { package, pkgs }:
 package {
   name = "libpng";
   uses = [ "cmake" ];
   cmake.defs = { PNG_STATIC = false; PNG_TOOLS = true; };
   dependencies = [ pkgs.zlib ];
-  exports.propagate = [ pkgs.zlib ];
 }
 ```
 
-`sources.toml` beside it names the upstream (`purl`), the URL template and the pinned
-version+hash. `pkgs/up/uptrack/src/uptrack init pkgs/li/libpng pkg:github/pnggroup/libpng <url>` writes it,
-`uptrack check` / `apply` keep it current (docs/uptrack.md).
+Version and tarball come from `sources.toml`, the steps come from the
+build system named in `uses`, and its knobs (`cmake.defs` here) are checked at eval time, so
+a typo is an error rather than a silently ignored attribute.
 
-Fields: `name version source patches uses steps dependencies buildDependencies
-runtimeDependencies bin tests.{run,separate,skip,parallel,version,relocated} exports env root cc.cflags bootstrapTools prebuilt install links` plus one
-attrset per build system in `uses` (knobs listed in `nix/build-systems.nix`, unknown fields and
-knobs are eval errors). `steps` defaults to the build system's. Entries are `"<bs>.<verb>"` or
-`{ name, run = "<nu>" }`. Inside `run`, `(ctx)` gives `src build out deps njobs platform`.
-`install."<dest>" = "<glob>"` copies into `$out` after the steps (prebuilt binaries need no
-step at all), `links."<path>" = "<target>"` adds symlinks, `exports = false` marks a toolchain or
-application whose lib/ is nobody's link input.
+When the defaults do not fit, `steps` lists what runs, mixing build system verbs with inline nu:
 
-## Bootstrap chain
-
-```
-seed.nar.xz     static nu, LLVM multicall, bsdtar, toybox, dash, make, gawk/sed/grep/m4/bison, python
-            ──► stage0 (musl):  musl-headers → compiler-rt → musl → linux-headers
-                                → libunwind/libc++abi/libc++ → jig → cc            (~3 min)
-            ──► stage1 (glibc, per platform, built by stage0 cc + seed tools, through jig):
-                                linux-headers → glibc-headers → compiler-rt(+profile) → glibc
-                                → libunwind/libc++abi/libc++ → cc-<platform>   (~5 min, ~2.5 cached)
-            ──► pkgs/*
+```nix
+steps = [
+  "autotools.configure"
+  "autotools.build"
+  { name = "fixup"; run = ''rm $"((ctx).out)/bin/unwanted"''; }
+  "autotools.install"
+];
 ```
 
-Everything after stage0's `jig` compiles through the compile cache (below) in content-identity
-mode, so editing a recipe rebuilds the derivations but recompiles almost nothing.
+Other things a package can say, by example:
 
-`NIX_PATH= nix-build bootstrap -A stage0.cc` evaluates (70 ms, 1.2k thunks) and builds with
-nothing but Nix and the network. The seed is rebuilt by `pkgs/se/seed/build.nix` (today from nixpkgs
-pkgsStatic, later from this set's own musl-static packages) and pinned in `pkgs/se/seed/sources.toml`.
+| | |
+|---|---|
+| `buildDependencies = [ buildPkgs.cpython ];` | tools that run during the build (build platform) |
+| `dependencies = [ pkgs.openssl ];` | libraries to link (target platform), found via the usual search paths |
+| `cargo.features = [ "pcre2" ];` | build system knobs, listed per system in `nix/build-systems.nix` |
+| `bin = [ "rg" ];` `tests.version = true;` | sanity checks on the output, including "still runs after being moved" |
+| `prebuilt = true;` | upstream binary: skip compiling, make it relocatable anyway |
+| `install."bin/deno" = "deno";` | just copy files into `$out`, no steps needed |
+| `exports = false;` | a toolchain or application: dependents should not link against its lib/ |
+| `patches = [ ./fix.patch ];` | applied with `patch -p1` after unpacking |
 
-## Compile cache
+Lock-file ecosystems (Cargo, Go, npm, pnpm, Yarn, Bundler, Deno, Hackage) need nothing in the
+package: the lock file in the source is turned into fixed-output fetches at build time through
+dynamic derivations, using the hashes the lock file already carries. Hashes it lacks (Go, Hackage)
+live in `locks/*.toml`, filled in by `uptrack lock`.
 
-Optional and transparent: if `/run/pkgs-cache.sock` exists in the sandbox
-(`--option extra-sandbox-paths /run/pkgs-cache.sock=/path/to/sock`, daemon:
-`pkgs-cache /path/to/sock`, `nix-build -A pkgs-cache` or `go build` in pkgs/pk/pkgs-cache/src), `cc` caches C/C++ objects, probes and links, `rustc` rlibs,
-`gocacheprog` Go actions and the build systems' configure results, keyed on content + flags (docs/design.md §4). Without the socket everything compiles normally.
-Each build log ends with a `cache` line (`hit=812 miss-stored=3 plain=40 …`). To never forget the
-option, put `extra-sandbox-paths = /run/pkgs-cache.sock=/path/to/sock` in `nix.conf`.
+## Keeping it current
+
+`uptrack` (in `pkgs/up/uptrack`) reads every `sources.toml`, asks the upstreams for new versions,
+and rewrites pin and hash:
+
+```console
+$ uptrack check          # what is outdated
+$ uptrack apply zlib     # bump it, prefetch, update the hash
+$ uptrack lock fzf       # refresh locks/go.toml for its go.sum
+```
+
+Details in [docs/uptrack.md](docs/uptrack.md).
+
+## Repository layout
+
+```
+pkgs/xx/<name>/   the packages (xx = first two letters). Some carry more than package.nix:
+                  bootstrap.nu (toolchain recipe), src/ (in-tree programs), patches
+bootstrap/        seed → stage0 (musl cc) → stage1 (glibc cc per platform)
+nix/              evaluation: package.nix turns a spec into a derivation, build-systems.nix
+                  says what each `uses` entry means, fetch.nix does the lock-file fetchers
+builder/          build time: prepare/finish and one nu module per build system
+locks/            hashes lock files do not carry (go.sum, hackage)
+docs/             design.md (why), uptrack.md, plan.md
+```
+
+The in-tree programs that make this work: **jig** (`pkgs/ji/jig`, C++) is the `cc`/`rustc`
+entry point, cache client and ELF fixup tool. **pkgs-cache** (`pkgs/pk/pkgs-cache`, Go) is the
+host-side cache daemon. **launch** and **crt-interp** are the few hundred bytes that make scripts
+and ELF binaries relocatable. **uptrack** (nu) does updates.
+
+## How the bootstrap goes
+
+```
+seed (static: nu, clang/lld, bsdtar, toybox, make …)
+  → stage0: musl + libc++ + jig → a C/C++ compiler for the build machine        ~3 min
+  → stage1: glibc + compiler-rt + libc++ → cc-<platform>, one per target        ~5 min
+  → pkgs/*
+  → rust, go, zig, ghc, jdk: upstream binary as <lang>-bootstrap → built from source
+```
+
+The seed itself is reproducible from `pkgs/se/seed/build.nix`.
