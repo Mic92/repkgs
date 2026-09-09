@@ -12,5 +12,6 @@ package {
   dependencies = [
     pkgs.python-packaging
     pkgs.python-setuptools
+    pkgs.python-vcs-versioning
   ];
 }

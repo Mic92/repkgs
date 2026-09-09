@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:pypi/vcs-versioning"
+
+[[source]]
+key = "default"
+url = "https://files.pythonhosted.org/packages/source/v/vcs-versioning/vcs_versioning-{version}.tar.gz"
+hash = "sha256-1SpmQocSQAxOtU6/l6/i6jvh/Ie5CUG8d7D18QIAUHI="
+
+[pin]
+version = "2.3.4"
+date = "2026-09-03"
