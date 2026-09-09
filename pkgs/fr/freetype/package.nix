@@ -5,7 +5,7 @@
 package {
   name = "freetype";
   uses = [ "meson" ];
-  meson.options = {
+  meson.defs = {
     zlib = "system";
     png = "enabled";
     bzip2 = "enabled";

@@ -1,7 +1,7 @@
 use ../core.nu *
 
 # meson setup / compile / test / install.
-def knobs []: nothing -> record<options: record, flags: list<string>> { knobs-for meson {options: {}, flags: []} }
+def options []: nothing -> record<defs: record, flags: list<string>> { options-for meson {defs: {}, flags: []} }
 
 # out-of-tree: work in the build directory
 export def --env setup []: nothing -> nothing { cd (ctx).build }
@@ -49,9 +49,9 @@ def cross-files [c: record]: nothing -> list<string> {
   [--cross-file $host --native-file $native]
 }
 
-# meson setup with prefix/libdir/buildtype defaults, a generated cross file when cross, then `meson.options`
+# meson setup with prefix/libdir/buildtype defaults, a generated cross file when cross, then `meson.defs`
 export def configure []: nothing -> nothing {
-  let c = (ctx); let k = (knobs)
+  let c = (ctx); let o = (options)
   let opts = ({
     prefix: $c.out
     libdir: "lib"
@@ -59,11 +59,11 @@ export def configure []: nothing -> nothing {
     default_library: "shared"
     wrap_mode: "nodownload"
     auto_features: "disabled"   # nothing found by accident; packages enable what they declare
-  } | merge $k.options)
+  } | merge $o.defs)
   # when cross the flags live in the machine files; meson would apply env CFLAGS to both machines
   let cross = (if $c.platform.cross { cross-files $c } else { [] })
   let clean = (if $c.platform.cross { {CFLAGS: "", CXXFLAGS: "", CPPFLAGS: "", LDFLAGS: ""} } else { {} })
-  with-env $clean { x meson setup . (project-dir meson) ...$cross ...($opts | items {|k, v| $"-D($k)=($v | into string)" }) ...$k.flags }
+  with-env $clean { x meson setup . (project-dir meson) ...$cross ...($opts | items {|k, v| $"-D($k)=($v | into string)" }) ...$o.flags }
 }
 
 # ninja

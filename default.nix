@@ -160,4 +160,6 @@ self
 // {
   inherit bootstrap toolchain;
   platform = plat;
+  # for tools/options: name -> { doc, type } per build system
+  options = builtins.mapAttrs (_: bs: bs.options) buildSystems;
 }

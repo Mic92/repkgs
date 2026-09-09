@@ -1,7 +1,7 @@
 use ../core.nu *
 
 # PEP 517 wheel build + install (setuptools/flit/hatch via `build`, maturin directly), import check, optional pytest.
-def knobs []: nothing -> record<backend: string, module: any, pytest: bool> { knobs-for python {backend: "setuptools", module: null, pytest: false} }
+def options []: nothing -> record<backend: string, module: any, pytest: bool> { options-for python {backend: "setuptools", module: null, pytest: false} }
 
 def site-packages [roots: list<string>]: nothing -> list<string> { $roots | each {|r| glob $"($r)/lib/python3*/site-packages" } | flatten }
 
@@ -25,13 +25,13 @@ export def --env setup []: nothing -> nothing {
 
 # build one wheel into the build dir: `python -m build` for PEP 517 backends, `maturin build` for maturin
 export def build []: nothing -> nothing {
-  let c = (ctx); let k = (knobs)
+  let c = (ctx); let o = (options)
   let dist = $"($c.build)/dist"
-  if $k.backend == "maturin" {
+  if $o.backend == "maturin" {
     # maturin's PEP 517 backend only shells out to `maturin`. Call it directly. cargo setup came from `uses`.
     # auditwheel=skip: the wheel is installed into this closure, not shipped to PyPI. Bundling our libunwind is wrong
     x maturin build --release --offline $"-j($c.njobs)" --interpreter python3 --auditwheel skip -o $dist
-  } else if $k.backend == "flit_core" {
+  } else if $o.backend == "flit_core" {
     # flit_core builds wheels stand-alone: no `build`/`pyproject_hooks` needed (bootstraps the stack)
     x python3 -m flit_core.wheel --outdir $dist .
   } else {
@@ -71,10 +71,10 @@ export def install []: nothing -> nothing {
 
 # runs after install: imports from $out, not from the source tree
 export def test []: nothing -> nothing {
-  let c = (ctx); let k = (knobs)
-  let mod = ($k.module | default ($c.spec.name | str replace -a "-" "_"))
+  let c = (ctx); let o = (options)
+  let mod = ($o.module | default ($c.spec.name | str replace -a "-" "_"))
   cd $c.build
   $env.PYTHONPATH = (site-packages [$c.out] | append $env.PYTHONPATH | str join ":")
   x python3 -c $"import ($mod)"
-  if $k.pytest { x python3 -m pytest -q $"($c.src)/tests" }
+  if $o.pytest { x python3 -m pytest -q $"($c.src)/tests" }
 }

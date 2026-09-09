@@ -2,19 +2,19 @@ use ../core.nu *
 use ../sys-libs.nu
 
 # cargo build/test/install, offline against a vendored registry snapshot. rustc goes through jig's cache.
-def knobs []: nothing -> record<features: list<string>, noDefaultFeatures: bool, deps: any, flags: list<string>> { knobs-for cargo {features: [], noDefaultFeatures: false, deps: null, flags: []} }
+def options []: nothing -> record<features: list<string>, noDefaultFeatures: bool, deps: any, flags: list<string>> { options-for cargo {features: [], noDefaultFeatures: false, deps: null, flags: []} }
 
 # features and `cargo.flags`, for build and test alike
-def args [k: record<features: list<string>, noDefaultFeatures: bool, flags: list<string>>]: nothing -> list<string> {
+def args [o: record<features: list<string>, noDefaultFeatures: bool, flags: list<string>>]: nothing -> list<string> {
   [
-    (if $k.noDefaultFeatures { "--no-default-features" })
-    (if ($k.features | is-not-empty) { $"--features=($k.features | str join ',')" })
-  ] | compact | append $k.flags
+    (if $o.noDefaultFeatures { "--no-default-features" })
+    (if ($o.features | is-not-empty) { $"--features=($o.features | str join ',')" })
+  ] | compact | append $o.flags
 }
 
 # CARGO_HOME + config.toml (vendored registry, offline, linker=cc), path remaps
 export def --env setup []: nothing -> nothing {
-  let c = (ctx); let k = (knobs)
+  let c = (ctx); let o = (options)
   load-env {CARGO_HOME: $"($c.build)/cargo-home", CARGO_TARGET_DIR: $"($c.build)/target", RUSTC: (tool rustc)}
   mkdir $env.CARGO_HOME
   let host = (^rustc -vV | lines | parse "host: {t}" | get t.0)
@@ -28,9 +28,9 @@ export def --env setup []: nothing -> nothing {
   if ($sys | is-not-empty) { note sys-libs ($sys | columns | str join " ") }
   # rustflags per target in config (RUSTFLAGS from the environment would replace them): panic
   # strings embed source paths, map build tree, cargo home and vendor dir away
-  let rustflags = [$"--remap-path-prefix=($c.src)=/src" $"--remap-path-prefix=($env.CARGO_HOME)=/cargo" $"--remap-path-prefix=($k.deps)=/vendor"]
+  let rustflags = [$"--remap-path-prefix=($c.src)=/src" $"--remap-path-prefix=($env.CARGO_HOME)=/cargo" $"--remap-path-prefix=($o.deps)=/vendor"]
   {
-    source: {crates-io: {replace-with: vendored}, vendored: {directory: $k.deps}}
+    source: {crates-io: {replace-with: vendored}, vendored: {directory: $o.deps}}
     net: {offline: true}
     build: {jobs: $c.njobs}
     target: ({$target: {linker: cc, rustflags: $rustflags}}
@@ -41,10 +41,10 @@ export def --env setup []: nothing -> nothing {
 }
 
 # cargo build --release
-export def build []: nothing -> nothing { x cargo build --release --offline ...(args (knobs)) }
+export def build []: nothing -> nothing { x cargo build --release --offline ...(args (options)) }
 # cargo test --release, tests.parallel as --test-threads, tests.skip as --skip filters
 export def test []: nothing -> nothing {
-  x cargo test --release --offline ...(args (knobs)) -- --test-threads (test-jobs) ...(test-skips | each { [--skip $in] } | flatten)
+  x cargo test --release --offline ...(args (options)) -- --test-threads (test-jobs) ...(test-skips | each { [--skip $in] } | flatten)
 }
 # the executables cargo built -> $out/bin (those in `bin` when the spec names some), as go does
 export def install []: nothing -> nothing {

@@ -1,5 +1,5 @@
 # The `package` function: spec attrset -> derivation (+ `.tests` when tests.separate).
-# Validates field and knob names at eval time, then generates the nu script
+# Validates field and option names at eval time, then generates the nu script
 #   use core.nu *; use prepare.nu; use finish.nu; use prebuilt.nu; use <bs>.nu …; prepare; <bs> setup …; <step> …; finish
 # that nu executes in a single nu process. Vocabulary: README.md "Writing a package".
 {
@@ -121,17 +121,34 @@ let
 
   unknownUses = filter (u: !(buildSystems ? ${u})) uses;
   unknownFields = filter (f: !(elem f (reserved ++ uses))) (attrNames args);
-  unknownKnobs = concatMap (
+  # one message per option the package sets that its build system does not declare, or declares
+  # with another type. Shallow (`typeOf`) on set options only, so it costs nothing per default.
+  badOptions = concatMap (
     u:
-    map (k: "${u}.${k}") (filter (k: !(elem k buildSystems.${u}.knobs)) (attrNames (args.${u} or { })))
+    let
+      declared = buildSystems.${u}.options;
+    in
+    concatMap (
+      k:
+      let
+        got = builtins.typeOf args.${u}.${k};
+        want = declared.${k}.type;
+      in
+      if !(declared ? ${k}) then
+        [ "unknown option ${u}.${k} (have: ${toString (attrNames declared)})" ]
+      else if !(elem got want) then
+        [ "option ${u}.${k} is a ${got}, expected ${builtins.concatStringsSep " or " want}" ]
+      else
+        [ ]
+    ) (attrNames (args.${u} or { }))
   ) (filter (u: buildSystems ? ${u}) uses);
   checks =
     if unknownUses != [ ] then
       fail "unknown build systems ${toString unknownUses} (have: ${toString (attrNames buildSystems)})"
     else if unknownFields != [ ] then
       fail "unknown fields ${toString unknownFields}"
-    else if unknownKnobs != [ ] then
-      fail "unknown knobs ${toString unknownKnobs}"
+    else if badOptions != [ ] then
+      fail (builtins.concatStringsSep "; " badOptions)
     else
       true;
 

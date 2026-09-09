@@ -60,9 +60,9 @@ lazy, so `nix-build -A jq` imports one package file. `buildPkgs` is the set for 
 (the same set when not cross compiling). There are no nested package sets. Another platform is
 `import ./. { platform = … }`.
 
-`nix/package.nix` validates the spec (unknown field or knob → evaluation error, not a silently
-ignored attribute) and emits a derivation whose builder is `nu -c "<script>"`. Everything that
-does not depend on other derivations (knobs, steps, env) travels as one JSON attribute, and each
+`nix/package.nix` validates the spec (unknown field or option, option of the wrong type →
+evaluation error, not a silently ignored attribute) and emits a derivation whose builder is `nu -c "<script>"`. Everything that
+does not depend on other derivations (options, steps, env) travels as one JSON attribute, and each
 dependency appears exactly once as a path, which is also the shape `derivationStrict` is
 cheapest on: 1000 packages in 0.36 s and 10 MB, native or cross.
 
@@ -85,7 +85,7 @@ copies, `npmDepsHash` that breaks on every bump). Our rules:
   crate, using the sha256 the lock file already contains, plus one derivation that lays them out
   as a vendor directory. Nix then builds those. Evaluation never sees the lock file, so a
   3000-line lock costs nothing. npm, pnpm, Yarn, Bundler, uv, Bun and Deno work the same way,
-  and every build system receives the result as its `deps` knob, defaulted from the source. The
+  and every build system receives the result as its `deps` option, defaulted from the source. The
   producer talks to the Nix daemon through jig's own worker-protocol client, so this needs
   neither a `nix` binary in the sandbox nor recursive Nix.
 - **Hashes a lock file lacks live in one shared table per ecosystem.** Go's `go.sum` hashes a
@@ -153,7 +153,7 @@ names them:
 
 ```nix
 uses = [ "cmake" ];                         # steps default to cmake's configure/build/test/install
-cmake.defs = { WITH_FOO = true; };          # knobs are per build system and checked at eval time
+cmake.defs = { WITH_FOO = true; };          # options are per build system and checked at eval time
 steps = [ "cmake.configure" … { name = "x"; run = "<nu>"; } ];   # only when the default does not fit
 module = ./build.nu;                          # longer steps: the package's own verbs, "self.<verb>"
 ```

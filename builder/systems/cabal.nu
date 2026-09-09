@@ -5,7 +5,7 @@ use ../core.nu *
 # compiler and the dependency closure, so a unit built once on this host (by any package) is
 # fetched from pkgs-cache instead of compiled. The store directory is the same fixed path in
 # every sandbox so the paths inside cached units agree.
-def knobs []: nothing -> record<deps: string, flags: list<string>, exes: list<string>, project: string> { knobs-for cabal {deps: "", flags: [], exes: [], project: ""} }
+def options []: nothing -> record<deps: string, flags: list<string>, exes: list<string>, project: string> { options-for cabal {deps: "", flags: [], exes: [], project: ""} }
 
 const STORE = "/build/cabal-store"
 
@@ -14,11 +14,11 @@ def unit-dir []: nothing -> string { $env.CABAL_UNITS }
 
 # CABAL_DIR with config: no hackage, the set as file+noindex repository, fixed store dir
 export def --env setup []: nothing -> nothing {
-  let c = (ctx); let k = (knobs)
+  let c = (ctx); let o = (options)
   # cabal writes its index cache into a noindex repository's directory: a writable one of symlinks
   let repo = $"($c.build)/repo"
   mkdir $repo
-  for f in (glob $"($k.deps)/*.{tar.gz,cabal}") { ^ln -s $f $repo }
+  for f in (glob $"($o.deps)/*.{tar.gz,cabal}") { ^ln -s $f $repo }
   load-env {CABAL_DIR: $"($c.build)/cabal", CABAL_UNITS: $"($STORE)/ghc-(^ghc --numeric-version | str trim)-inplace"}
   mkdir $env.CABAL_DIR $"(unit-dir)/package.db"
   $"repository local
@@ -33,12 +33,12 @@ with-compiler: (tool ghc)
   let j = ([$c.njobs 256] | math min)
   # ghc links through cc without LDFLAGS: dependencies' lib dirs (gmp, libffi, zlib) spelled out
   let libdirs = (dep-dirs $c.deps libDirs | str join ", ")
-  $"program-locations\n  gcc-location: (tool cc)\npackage *\n  ghc-options: -j($j)\n  split-sections: True\n  extra-lib-dirs: ($libdirs)\n($k.project)"
+  $"program-locations\n  gcc-location: (tool cc)\npackage *\n  ghc-options: -j($j)\n  split-sections: True\n  extra-lib-dirs: ($libdirs)\n($o.project)"
   | save -f cabal.project.local
 }
 
 # `cabal.flags` ("--flags=…", "--allow-newer", …) go to every cabal subcommand: build, test and list-bin must agree
-def targets [k: record]: nothing -> list<string> { $k.flags ++ ($k.exes | each {|e| $"exe:($e)" }) }
+def targets [o: record]: nothing -> list<string> { $o.flags ++ ($o.exes | each {|e| $"exe:($e)" }) }
 
 # dependency units of the build plan
 def plan-units []: nothing -> list<string> {
@@ -74,26 +74,26 @@ def save-units [c: record, before: list<string>]: nothing -> nothing {
 
 # plan, restore cached units, cabal build, store new units
 export def build []: nothing -> nothing {
-  let c = (ctx); let k = (knobs)
-  x cabal build --dry-run ...(targets $k)
+  let c = (ctx); let o = (options)
+  x cabal build --dry-run ...(targets $o)
   if $c.cache { restore $c }
   let before = (ls -s (unit-dir) | get name)
-  x jig slot cabal build ...(targets $k)
+  x jig slot cabal build ...(targets $o)
   if $c.cache { save-units $c $before }
 }
 
 export def test []: nothing -> nothing {
-  let k = (knobs)
+  let o = (options)
   # the package's own test suites (`all:tests` in the project's package, flags still apply)
-  x cabal test --enable-tests ...$k.flags all:tests
+  x cabal test --enable-tests ...$o.flags all:tests
 }
 
 # the built executables -> $out/bin
 export def install []: nothing -> nothing {
-  let c = (ctx); let k = (knobs)
+  let c = (ctx); let o = (options)
   mkdir $"($c.out)/bin"
-  for e in $k.exes {
+  for e in $o.exes {
     # list-bin takes exactly one target
-    cp (^cabal list-bin ...$k.flags $"exe:($e)" | str trim) $"($c.out)/bin/($e)"
+    cp (^cabal list-bin ...$o.flags $"exe:($e)" | str trim) $"($c.out)/bin/($e)"
   }
 }

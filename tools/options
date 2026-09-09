@@ -1,0 +1,13 @@
+#!/usr/bin/env nu
+# The options every build system accepts (`<name>.* ` in a package.nix), from nix/build-systems.nix.
+#   tools/options            all systems, markdown
+#   tools/options cmake go   just those
+def main [...systems: string]: nothing -> nothing {
+  let all = (^nix-instantiate --eval --strict --json (($env.FILE_PWD | path dirname) + "/default.nix") -A options | from json)
+  let names = (if ($systems | is-empty) { $all | columns } else { $systems })
+  for bs in $names {
+    print $"## ($bs)\n"
+    print ($all | get $bs | transpose option v | each {|r| {option: $"`($bs).($r.option)`", type: ($r.v.type | str join " | " | str replace "set | string" package), meaning: $r.v.doc} } | to md --pretty)
+    print ""
+  }
+}

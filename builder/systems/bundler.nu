@@ -7,8 +7,8 @@ use ../sys-libs.nu
 # Native extensions compile with the cc on PATH (mkmf takes CC from rbconfig, which says "cc").
 # Gems that can link one of our libraries get it via the lock: fetch.gems propagates the library,
 # sys-libs.nu supplies `bundle config build.<gem>` flags and env.
-def knobs []: nothing -> record<deps: any, without: list<string>, test: any, flags: list<string>> {
-  knobs-for bundler {deps: null, without: [development test], test: null, flags: []}
+def options []: nothing -> record<deps: any, without: list<string>, test: any, flags: list<string>> {
+  options-for bundler {deps: null, without: [development test], test: null, flags: []}
 }
 
 def app-dir []: nothing -> string { let c = (ctx); $"($c.out)/lib/($c.spec.name)" }
@@ -17,18 +17,18 @@ def app-dir []: nothing -> string { let c = (ctx); $"($c.out)/lib/($c.spec.name)
 # configure bundler entirely through BUNDLE_* env (no .bundle/config to clean up afterwards)
 export def --env setup []: nothing -> nothing {
   let c = (ctx)
-  let k = (knobs)
+  let o = (options)
   let app = (app-dir)
   mkdir ($app | path dirname)
   ^cp -r (project-dir bundler) $app
   cd $app
   mkdir vendor
-  ^cp -rL $"($k.deps)/vendor/cache" vendor/cache
-  ^cp -f $"($k.deps)/Gemfile.lock" Gemfile.lock
+  ^cp -rL $"($o.deps)/vendor/cache" vendor/cache
+  ^cp -f $"($o.deps)/Gemfile.lock" Gemfile.lock
   chmod -R u+w vendor Gemfile.lock
   load-env {
     BUNDLE_PATH: $"($app)/vendor/bundle", BUNDLE_CACHE_PATH: $"($app)/vendor/cache", BUNDLE_FROZEN: "true"
-    BUNDLE_WITHOUT: ($k.without | str join ":"), BUNDLE_JOBS: $"($c.njobs)", BUNDLE_RETRY: "0"
+    BUNDLE_WITHOUT: ($o.without | str join ":"), BUNDLE_JOBS: $"($c.njobs)", BUNDLE_RETRY: "0"
     BUNDLE_USER_HOME: $"($c.build)/bundle-home", GEM_HOME: $"($c.build)/gem-home"
     MAKEFLAGS: $"-j($c.njobs)"
   }
@@ -38,7 +38,7 @@ export def --env setup []: nothing -> nothing {
 
 # unpack the cached .gem files into vendor/bundle, compiling native extensions
 export def build []: nothing -> nothing {
-  x bundle install --local --no-cache ...((knobs).flags)
+  x bundle install --local --no-cache ...((options).flags)
   # the .gem archives, bundler's download cache and extension build logs (which embed the build dir)
   rm -rf vendor/cache ...(glob vendor/bundle/ruby/*/cache) ...(glob vendor/bundle/ruby/*/extensions/**/{gem_make.out,mkmf.log})
   fix-env-shebangs vendor/bundle (ctx).njobs
@@ -46,8 +46,8 @@ export def build []: nothing -> nothing {
 
 # `bundler.test`: a command run with `bundle exec` (off by default: test gems are in `without`)
 export def test []: nothing -> nothing {
-  let command = (knobs).test
-  if $command != null { x bundle exec ...($command | split row " ") }
+  let command = (options).test
+  if $command != null { x bundle exec ...$command }
 }
 
 # bin/<name> for each `bin` of the spec
@@ -76,7 +76,7 @@ def bin-stub [name: string, app: string, ruby: string]: nothing -> string {
     $"#!($ruby)/bin/ruby"
     $"ENV['BUNDLE_GEMFILE'] = '($app)/Gemfile'"
     $"ENV['BUNDLE_PATH'] = '($app)/vendor/bundle'"
-    $"ENV['BUNDLE_WITHOUT'] = '((knobs).without | str join ":")'"
+    $"ENV['BUNDLE_WITHOUT'] = '((options).without | str join ":")'"
     "ENV['BUNDLE_FROZEN'] = 'true'"
     "require 'bundler/setup'"
     $"load '($exe)'"

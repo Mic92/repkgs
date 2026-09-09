@@ -4,27 +4,27 @@ use ../node-common.nu
 # npm ci from fetch.npmDeps (`npm.deps`: a package-lock.json whose `resolved` point at store
 # tarballs; npm checks each against the lock's integrity), `npm run <script>`, `npm test`, and the
 # pruned package as lib/node_modules/<name> with its bin links.
-def knobs []: nothing -> record<script: string, deps: any, flags: list<string>> {
-  knobs-for npm {script: "build", deps: null, flags: []}
+def options []: nothing -> record<script: string, deps: any, flags: list<string>> {
+  options-for npm {script: "build", deps: null, flags: []}
 }
 
 # offline `npm ci` against the rewritten lock
 export def --env setup []: nothing -> nothing {
   let c = (ctx)
-  let k = (knobs)
+  let o = (options)
   load-env {
     npm_config_cache: $"($c.build)/npm-cache", npm_config_offline: "true", npm_config_progress: "false", npm_config_audit: "false"
     npm_config_fund: "false", npm_config_update_notifier: "false", npm_config_loglevel: "warn", NODE_OPTIONS: "--no-deprecation"
   }
   cd (project-dir npm)
-  cp $"($k.deps)/package-lock.json" package-lock.json
+  cp $"($o.deps)/package-lock.json" package-lock.json
   ^chmod u+w package-lock.json  # npm prune rewrites it
-  x npm ci --ignore-scripts ...$k.flags
+  x npm ci --ignore-scripts ...$o.flags
   node-common after-install $env.PWD
 }
 
 # npm run <npm.script>
-export def build []: nothing -> nothing { x npm run (knobs).script ...(knobs).flags }
+export def build []: nothing -> nothing { x npm run (options).script ...(options).flags }
 
 # npm test
 export def test []: nothing -> nothing { x npm test }

@@ -9,7 +9,7 @@ use ../sys-libs.nu
 # isolation, so their PEP 517 backends come from buildDependencies (uv does not lock them).
 # ELFs inside binary wheels were linked elsewhere: the build system defaults `prebuilt = true`
 # (nix/build-systems.nix) so finish implants our dynamic linker and a RUNPATH into them.
-def knobs []: nothing -> record<deps: any, check: list<string>> { knobs-for pyapp {deps: null, check: []} }
+def options []: nothing -> record<deps: any, check: list<string>> { options-for pyapp {deps: null, check: []} }
 
 def site-packages []: nothing -> string { let c = (ctx); $"($c.out)/lib/($c.spec.name)/site-packages" }
 
@@ -28,7 +28,7 @@ export def --env setup []: nothing -> nothing {
 # dependencies (wheels as fetched, sdists compiled), then the project, then relink foreign ELFs
 export def build []: nothing -> nothing {
   let c = (ctx)
-  let deps = (knobs).deps
+  let deps = (options).deps
   let plan = (open $"($deps)/plan.json")
   let built = $"($c.build)/wheels"
   mkdir $built
@@ -43,7 +43,7 @@ export def build []: nothing -> nothing {
 
 # `pyapp.check`: modules that must import with the final layout
 export def test []: nothing -> nothing {
-  for module in (knobs).check {
+  for module in (options).check {
     with-env {PYTHONPATH: (site-packages)} { x python3 -c $"import ($module)" }
   }
 }

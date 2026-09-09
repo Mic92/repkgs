@@ -7,7 +7,7 @@
 package {
   name = "glib";
   uses = [ "meson" ];
-  meson.options = {
+  meson.defs = {
     tests = false;
     nls = "disabled";
     introspection = "disabled";

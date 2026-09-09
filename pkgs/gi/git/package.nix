@@ -27,7 +27,11 @@ package {
     "INSTALL_SYMLINKS=1"
   ];
   buildDependencies = [ buildPkgs.rust-bootstrap ];
-  autotools.testTarget = "-C t T=t0000-basic.sh"; # the full suite is an hour, one script proves harness and binary. t0001 checks --shared modes the sandbox umask distorts
+  autotools.testTarget = [
+    "-C"
+    "t"
+    "T=t0000-basic.sh"
+  ]; # the full suite is an hour, one script proves harness and binary. t0001 checks --shared modes the sandbox umask distorts
   dependencies = [
     pkgs.zlib
     pkgs.curl

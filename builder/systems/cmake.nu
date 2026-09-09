@@ -2,7 +2,7 @@ use ../core.nu *
 use ../probe-cache.nu
 
 # cmake configure / build / ctest / install with Ninja.
-def knobs []: nothing -> record<defs: record, generator: string, flags: list<string>> { knobs-for cmake {defs: {}, generator: "Ninja", flags: []} }
+def options []: nothing -> record<defs: record, generator: string, flags: list<string>> { options-for cmake {defs: {}, generator: "Ninja", flags: []} }
 
 # -D values: bools as ON/OFF, everything else as written
 def render [v: oneof<bool, int, string>]: nothing -> string {
@@ -14,7 +14,7 @@ export def --env setup []: nothing -> nothing { cd (ctx).build }
 
 # cmake -G Ninja with prefix/libdir/prefix-path/shared/testing defaults, cross system + emulator, then `cmake.defs`
 export def configure []: nothing -> nothing {
-  let c = (ctx); let k = (knobs)
+  let c = (ctx); let o = (options)
   let defs = ({
     CMAKE_INSTALL_PREFIX: $c.out
     CMAKE_BUILD_TYPE: (if ($c.spec.profile? | default "release") == "debug" { "Debug" } else { "Release" })
@@ -25,14 +25,14 @@ export def configure []: nothing -> nothing {
   } | merge (if $c.platform.cross { {
     CMAKE_SYSTEM_NAME: "Linux"
     CMAKE_SYSTEM_PROCESSOR: $c.platform.cpu
-  } } else { {} }) | merge (if ($c.platform.emulator | is-empty) { {} } else { {CMAKE_CROSSCOMPILING_EMULATOR: ($c.platform.emulator | str join ";")} }) | merge $k.defs)
+  } } else { {} }) | merge (if ($c.platform.emulator | is-empty) { {} } else { {CMAKE_CROSSCOMPILING_EMULATOR: ($c.platform.emulator | str join ";")} }) | merge $o.defs)
   let srcdir = (project-dir cmake)
   # results of check_*/try_compile (the project's INTERNAL cache entries) carried across builds
   let key = (probe-cache key cmake (glob $"($srcdir)/**/{CMakeLists.txt,*.cmake}"))
   let init = $"($c.build)/probe-init.cmake"
   let had = (probe-cache restore $key $init)
   note cmake-probes (if $had { "restored" } else { "cold" })
-  x cmake -S $srcdir -B . -G $k.generator ...(if $had { [-C $init] } else { [] }) ...($defs | items {|k, v| $"-D($k)=(render $v)" }) ...$k.flags
+  x cmake -S $srcdir -B . -G $o.generator ...(if $had { [-C $init] } else { [] }) ...($defs | items {|k, v| $"-D($k)=(render $v)" }) ...$o.flags
   if not $had {
     open --raw CMakeCache.txt | lines | parse -r '^(?<k>[A-Za-z0-9_]+):INTERNAL=(?<v>.*)$'
       | where { not ($in.k | str starts-with "CMAKE_") and not ($in.k | str ends-with "-ADVANCED") and ($in.v !~ '/') }

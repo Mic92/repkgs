@@ -2,7 +2,7 @@
 package {
   name = "inih";
   uses = [ "meson" ];
-  meson.options = {
+  meson.defs = {
     with_INIReader = true;
   };
 }

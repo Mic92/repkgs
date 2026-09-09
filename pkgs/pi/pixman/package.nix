@@ -5,7 +5,7 @@
 package {
   name = "pixman";
   uses = [ "meson" ];
-  meson.options = {
+  meson.defs = {
     libpng = "enabled";
     tests = "enabled";
   };

@@ -1,7 +1,7 @@
 # The package builder's shared vocabulary. nix/package.nix generates, per package, the script
 #   use core.nu *; use prepare.nu; use finish.nu; use <bs>.nu …; prepare; <bs> setup …; <steps> …; finish
 # which runs in one nu process, so `def --env` verbs hand cwd and environment on to later steps.
-# This module is what build systems and custom steps import: ctx, knobs, x, tool, note, exports-of.
+# This module is what build systems and custom steps import: ctx, options, x, tool, note, exports-of.
 
 # One log line per event, in Nix's own structured-log form ("@nix {json}", libutil/logging.cc) so
 # `nix build`/nom show the current phase and `nix log` keeps the text. `step` events become the
@@ -14,8 +14,8 @@ export def note [step: string, msg: string = ""]: nothing -> nothing {
 # what build-system verbs and custom steps get to see: {spec out deps njobs src build platform testsRun}
 export def ctx []: nothing -> record<spec: record, out: string, deps: list<record<name: string, root: string>>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool> { $env.PKGS_CTX }
 
-# a build system's knobs: its defaults overridden by the package's `<bs>.*` attrset
-export def knobs-for [bs: string, defaults: record]: nothing -> record { $defaults | merge ((ctx).spec | get -o $bs | default {}) }
+# a build system's options: its defaults overridden by the package's `<bs>.*` attrset
+export def options-for [bs: string, defaults: record]: nothing -> record { $defaults | merge ((ctx).spec | get -o $bs | default {}) }
 
 # the directory a build system works in: the source, or `<bs>.root` below it for monorepos
 export def project-dir [bs: string]: nothing -> string {

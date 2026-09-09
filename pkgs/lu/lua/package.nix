@@ -20,7 +20,7 @@ package {
     "MYCFLAGS=-fPIC"
     "INSTALL_TOP=$(prefix)"
   ];
-  autotools.testTarget = "test";
+  autotools.testTarget = [ "test" ];
   bin = [
     "lua"
     "luac"

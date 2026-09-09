@@ -62,7 +62,8 @@ package {
 ```
 
 Version and tarball come from `sources.toml`, the steps come from the
-build system named in `uses`, and its knobs (`cmake.defs` here) are checked at eval time, so
+build system named in `uses`, and its options (`cmake.defs` here) are checked at eval time, name
+and type, so
 a typo is an error rather than a silently ignored attribute.
 
 When the defaults do not fit, `steps` lists what runs, mixing build system verbs with inline nu:
@@ -85,8 +86,8 @@ Other things a package can say, by example:
 |---|---|
 | `buildDependencies = [ buildPkgs.cpython ];` | tools that run during the build (build platform) |
 | `dependencies = [ pkgs.openssl ];` | libraries to link (target platform), found via the usual search paths |
-| `cargo.features = [ "pcre2" ];` | build system knobs, listed per system in `nix/build-systems.nix` |
-| `cmake.root = "build/cmake";` | every system has `root` (project subdirectory), `deps` (its fetched lock-file dependencies, defaulted from the source) and `flags` (extra command-line words) |
+| `cargo.features = [ "pcre2" ];` | build system options: `tools/options [system]` lists them with types and meaning (declared in `nix/build-systems.nix`) |
+| `cmake.root = "build/cmake";` | every system has `root` (project subdirectory); `deps` (fetched lock-file dependencies, defaulted from the source) and `flags` (extra arguments) mean the same wherever they exist |
 | `bin = [ "rg" "rgrep" ];` | executables that must exist. Defaults to the package name. `bin/<first> --version` must print the pinned version |
 | `tests.relocated = true;` | repeat that check after copying the output somewhere else |
 | `prebuilt = true;` | upstream binary: skip compiling, make it relocatable anyway |
