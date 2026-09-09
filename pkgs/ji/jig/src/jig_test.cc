@@ -221,7 +221,7 @@ void TestDriver() {
   assert(jig::Join(out, " ").contains("-Wl,-rpath,/build/build::/sr/libc/lib/.:/_"));
   assert(!joined.contains("/sr/rt/lib"));
   assert(joined.contains(
-      "/cc/lib/crt_interp.o -Wl,--dynamic-linker=/sr/libc/lib/././././././././././././ld-linux-x86-64.so.2 "
+      "-x none /cc/lib/crt_interp.o -Wl,--dynamic-linker=/sr/libc/lib/././././././././././././ld-linux-x86-64.so.2 "
       "-Wl,--export-dynamic-symbol=__reloc_start"));
 
   out = jig::BuildDriverArgs(conf, jig::Language::kCxx, V({"-o", "x", "x.cc"}));

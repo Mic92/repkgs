@@ -283,7 +283,10 @@ auto BuildDriverArgs(const DriverConf& conf, Language lang, std::span<const std:
   for (int i = 0; i < kInterpSlack; ++i) {
     dots += "./";
   }
+  // after the user's args, so a trailing `-x c` (ghc's configure) must not claim the object
   out.insert(out.end(), {
+                            "-x",
+                            "none",
                             conf.crt,
                             "-Wl,--dynamic-linker=" + libc_lib + "/" + dots + conf.interp,
                             "-Wl,--export-dynamic-symbol=__reloc_start",
