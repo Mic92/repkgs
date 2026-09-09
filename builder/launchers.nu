@@ -73,7 +73,9 @@ export def main [c: record<spec: record, out: string, deps: list<record>, njobs:
   let renv = (runtime-env $rdeps $c.out)
   let owners = ([$c.out] ++ $a.dependencies ++ $rdeps)
   let launch_rel = $"../../($c.platform.launch | path relative-to $env.NIX_STORE)"
-  for f in (ls $bindir | where type == file | get name | where { ($in | path basename) !~ '^\.' }) {
+  # files, and symlinks that resolve inside the package (npm's bin -> lib/node_modules/…/cli.js):
+  # the link moves to bin/.<name> beside itself and still resolves
+  for f in (ls $bindir | get name | where { ($in | path basename) !~ '^\.' and ($in | path exists) and ($in | path expand) =~ $"^($c.out)/" }) {
     let t = (target $c $f $owners $rdeps)
     if $t == null { continue }
     let name = ($f | path basename)
