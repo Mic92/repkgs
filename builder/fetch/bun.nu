@@ -5,7 +5,7 @@
 #   ["name@version", "<registry url or empty>", {metadata}, "sha512-…"]
 # Registry packages become builtin:fetchurl derivations fixed by that integrity and are unpacked
 # into the output: { p/<name>@<version>/…, index.json [{id, dir}] }. builder/bun.nu links those
-# directories into $BUN_INSTALL_CACHE_DIR under the names bun expects (builder/bun-cache.ts).
+# directories into $BUN_INSTALL_CACHE_DIR under the names bun expects (builder/systems/bun-cache.ts).
 # workspace: entries are the project itself; github:/git:/file: ones carry no hash and are rejected.
 use dyn-drv.nu
 use npm-registry.nu [split-id tarball-url flat-name]

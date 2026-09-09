@@ -33,6 +33,7 @@ export def fetchurls []: table -> table {
 # it submits is this producer's result, so nix/fetch.nix unwraps such fetchers with one more outputOf.
 export def stage [name: string, script: string, attrs: record, inputs: list<string>]: nothing -> nothing {
   const here = path self .
+  let producers = ($here | path dirname)  # the store path; fetch/ is a directory inside it
   let drv_name = $"($name).drv"
   let attrs_file = ($attrs | to json --raw | ^jig nix-store add-text $"($name)-attrs.json" | str trim)
   let drv = ({
@@ -42,13 +43,13 @@ export def stage [name: string, script: string, attrs: record, inputs: list<stri
     args: [$"($here)/($script)"]
     outputs: {out: {hashAlgo: "text:sha256"}}
     inputDrvs: ($inputs | each {|d| [$d [out]] } | into record)
-    inputSrcs: [$env.seed $env.jig ($here | path dirname) $attrs_file]  # the producers store path, fetch/'s parent
+    inputSrcs: [$env.seed $env.jig $producers $attrs_file]
     env: {
       name: $drv_name, system: $env.system, seed: $env.seed, jig: $env.jig, PATH: ($env.PATH | str join ":")
       stage_attrs: $attrs_file, requiredSystemFeatures: "builder-rpc-v0", preferLocalBuild: "1"
       outputHashMode: "text", outputHashAlgo: "sha256"
     }
-  } | add-drv $drv_name $env.seed $env.jig $here $attrs_file ...$inputs)
+  } | add-drv $drv_name $env.seed $env.jig $producers $attrs_file ...$inputs)
   print -e $"($name): second stage after ($inputs | length) inputs -> ($drv)"
   ^jig nix-store submit $drv out
 }
