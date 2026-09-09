@@ -8,6 +8,7 @@ use locks.nu
 
 const HOOKS = [resolve sources files verify]
 const LIB = path self .
+const UNPACK = path self unpack.nu
 const KNOWN = {top: [upstream source pin watch locks], upstream: [purl allow prerelease every group cpe], watch: [url regex purl], source: [key url hash unpack name], locks: [go]}
 
 def check-keys [file: path, what: string, r: record]: nothing -> nothing {
@@ -118,11 +119,10 @@ export def expand [tmpl: string, version: string, tag: string]: nothing -> strin
 export def prefetch [url: string, unpack: bool]: nothing -> string {
   let f = (^nix store prefetch-file --json $url | from json)
   if not $unpack { return $f.hash }
-  let tmp = (mktemp -d -t uptrack-tree.XXXX)
-  ^bsdtar -xf $f.storePath -C $tmp --strip-components 1 --no-same-owner --no-same-permissions
-  ^chmod -R u+w,a-st $tmp
+  let tmp = $"(mktemp -d -t uptrack-tree.XXXX)/src"
+  ^nu --no-config-file $UNPACK $f.storePath $tmp
   let tree = (^nix hash path --sri --type sha256 $tmp | str trim)
-  rm -rf $tmp
+  rm -rf ($tmp | path dirname)
   $tree
 }
 

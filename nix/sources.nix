@@ -59,10 +59,10 @@ let
       name = s.name or (urlName url);
       isNar = builtins.match ".*\\.nar(\\.[a-z0-9]+)?" url != null;
     in
-    # `hash` is the NAR hash of what lands in the store: for archives the unpacked tree
-    # (--strip-components 1, u+w), fetched and unpacked by one fixed-output derivation running the
-    # seed's nu (http get, rustls + built-in roots) and bsdtar, so builds copy a directory instead
-    # of decompressing every time.
+    # `hash` is the NAR hash of what lands in the store: for archives the unpacked tree (single
+    # top-level directory stripped, u+w; uptrack's unpack.nu so its hashes agree), fetched and
+    # unpacked by one fixed-output derivation running the seed's nu (http get, rustls + built-in
+    # roots) and bsdtar, so builds copy a directory instead of decompressing every time.
     # `unpack = false` and .nar urls (the seed itself) go through builtin:fetchurl.
     if !(s.unpack or true) || isNar then
       fetchurl {
@@ -77,8 +77,8 @@ let
         builder = "${unpacker}/bin/nu";
         args = [
           "--no-config-file"
-          "-c"
-          "mkdir $env.out; http get --raw --redirect-mode follow --max-time 10min $env.url | save tmp.src; ^$\"($env.unpacker)/bin/bsdtar\" -xf tmp.src -C $env.out --strip-components 1 --no-same-owner --no-same-permissions; ^$\"($env.unpacker)/bin/chmod\" -R u+w,a-st $env.out"
+          ../pkgs/up/uptrack/src/unpack.nu
+          "--fetch"
         ];
         inherit unpacker;
         outputHashMode = "recursive";
