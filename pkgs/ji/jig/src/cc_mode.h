@@ -2,8 +2,9 @@
 //
 // Cached: `cc -c x.c` (the object), `cc x.c -o x` with no object inputs (configure and cmake
 // probes), `cc *.o *.a -o x` (a link: keyed on the InputId of every object argument, lld's
-// --dependency-file adds crt files, -l libraries and linker scripts to the manifest), and compile
-// *failures* whose inputs are all known. Never cached: -E/-S/-M runs, several sources at once,
+// --dependency-file adds crt files, -l libraries and linker scripts to the manifest), `cc -E x.c`
+// and `cc -S x.c` (configure's preprocessor probes: the text, to stdout when no -o), and compile
+// *failures* whose inputs are all known. Never cached: -M runs, several sources at once,
 // sources mixed with objects, @response files, a failure caused by something absent (missing
 // header, any link error) that a later build might provide.
 #ifndef PKGS_CC_CC_MODE_H_
@@ -21,10 +22,11 @@ struct Invocation {
   std::vector<std::string> key_args;  // what influences the output: all but -o, depfile options, the source
   std::string source;                 // the one translation unit, or the output name of a link (log label)
   std::vector<std::string> inputs;    // object/archive/shared-object arguments of a link
-  std::filesystem::path output;       // object for -c, else the executable / shared object
-  bool compile_only = false;
-  bool link_one = false;  // one source straight to an executable, no object inputs
-  bool link = false;      // objects only
+  std::filesystem::path output;       // object for -c, text for -E/-S, else the executable / shared object
+  bool compile_only = false;          // -c, -S or -E: one translation unit in, one file out, no link
+  bool to_stdout = false;             // -E without -o
+  bool link_one = false;              // one source straight to an executable, no object inputs
+  bool link = false;                  // objects only
   bool cacheable = true;
   // depfile requested by the build system (-MD/-MMD/-MF/-MT/-Wp,-MD,…): left out of the key,
   // cached as an extra artifact so a hit reproduces it

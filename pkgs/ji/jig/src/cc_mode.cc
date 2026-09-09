@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdio>
 #include <filesystem>
 #include <format>
 #include <fstream>
@@ -64,8 +65,8 @@ auto HasLinkerSideOutput(std::string_view arg) -> bool {
 // Options after which caching is pointless: preprocess/asm/dependency-only/query runs.
 auto IsNoOutputOption(std::string_view arg) -> bool {
   static constexpr std::array kExact{
-      "-M"sv, "-MM"sv, "-E"sv,        "-S"sv,   "-"sv,  //
-      "-v"sv, "-V"sv,  "--version"sv, "-###"sv, "-fsyntax-only"sv,
+      "-M"sv, "-MM"sv,       "-"sv,    "-v"sv,  //
+      "-V"sv, "--version"sv, "-###"sv, "-fsyntax-only"sv,
   };
   return std::ranges::contains(kExact, arg) || arg.starts_with("-print") || arg.starts_with("--print") ||
          arg.starts_with("-dump");
@@ -158,8 +159,23 @@ auto Lookup(CacheClient& cache, const RequestKey& request_key, const Invocation&
   return result;
 }
 
+// -E without -o: the text the caller expects on stdout sits in (or was replayed instead of) a temp file
+void ForwardStdout(const Invocation& inv, const std::optional<std::string>& text) {
+  if (!inv.to_stdout) {
+    return;
+  }
+  std::error_code ignored;
+  fs::remove(inv.output, ignored);
+  if (text) {
+    std::print("{}", *text);
+    std::fflush(stdout);
+  }
+}
+
 auto Replay(const CachedResult& result, const Invocation& inv) -> int {
-  if (result.object) {
+  if (inv.to_stdout) {
+    ForwardStdout(inv, result.object);
+  } else if (result.object) {
     WriteFile(inv.output, *result.object);
     if (inv.link_one || inv.link) {
       std::error_code ignored;
@@ -174,48 +190,65 @@ auto Replay(const CachedResult& result, const Invocation& inv) -> int {
   return result.status;
 }
 
+// The real compiler run plus what it read: the preprocessor depfile (none for a pure link, then
+// ""), and for links lld's dependency file minus the driver's temp object. nullopt = not learnable
+struct Observed {
+  RunResult run;
+  std::optional<std::string> dep_text;
+  std::optional<std::string> link_dep_text;
+  std::vector<std::string> inputs;
+};
+
+auto RunObserved(const std::string& compiler, const Invocation& inv) -> Observed {
+  std::vector<std::string> args = inv.args;
+  const fs::path out_dir = inv.output.has_parent_path() ? inv.output.parent_path() : fs::path(".");
+  const std::string tmp_base = (out_dir / std::format(".jig{}", ::getpid())).string();
+  const bool links = inv.link_one || inv.link;
+  const bool own_depfile = !inv.wants_depfile && !inv.link;
+  const fs::path depfile = own_depfile ? fs::path(tmp_base + ".d") : inv.depfile;
+  const fs::path link_depfile = tmp_base + ".link.d";
+  if (own_depfile) {
+    args.insert(args.end(), {"-MD", "-MF", depfile.string()});
+  }
+  if (inv.to_stdout) {
+    args.insert(args.end(), {"-o", inv.output.string()});
+  }
+  if (links) {
+    args.push_back("-Wl,--dependency-file=" + link_depfile.string());
+  }
+
+  Observed obs{.run = Run(compiler, args, StderrMode::kCapture), .dep_text = {}, .link_dep_text = {}, .inputs = {}};
+  std::print(stderr, "{}", obs.run.stderr_text);
+  obs.dep_text = inv.link ? std::optional<std::string>("") : ReadFile(depfile);
+  obs.link_dep_text = links ? ReadFile(link_depfile) : std::nullopt;
+  std::error_code ignored;
+  if (own_depfile) {
+    fs::remove(depfile, ignored);
+  }
+  fs::remove(link_depfile, ignored);
+  if (obs.dep_text) {
+    obs.inputs = ParseDepfile(*obs.dep_text);
+  }
+  if (obs.link_dep_text) {
+    const std::string tmp = fs::temp_directory_path(ignored).string() + "/";
+    for (std::string& input : ParseDepfile(*obs.link_dep_text)) {
+      if (!input.starts_with(tmp)) {
+        obs.inputs.push_back(std::move(input));
+      }
+    }
+  }
+  return obs;
+}
+
 // Compile for real, learning the inputs. Store what is replayable. Returns the compiler's status.
 auto CompileAndStore(CacheClient& cache, const std::string& compiler, const RequestKey& request_key,
                      const Invocation& inv, const Stopwatch& clock) -> int {
   const Store& store = Store::Get();
-  std::vector<std::string> real_args = inv.args;
-  const fs::path out_dir = inv.output.has_parent_path() ? inv.output.parent_path() : fs::path(".");
-  const std::string tmp_base = (out_dir / std::format(".jig{}", ::getpid())).string();
   const bool links = inv.link_one || inv.link;
-  fs::path depfile = inv.depfile;
-  if (!inv.wants_depfile && !inv.link) {
-    depfile = tmp_base + ".d";
-    real_args.insert(real_args.end(), {"-MD", "-MF", depfile.string()});
-  }
-  const fs::path link_depfile = tmp_base + ".link.d";
-  if (links) {
-    real_args.push_back("-Wl,--dependency-file=" + link_depfile.string());
-  }
-
-  const RunResult run = Run(compiler, real_args, StderrMode::kCapture);
-  std::print(stderr, "{}", run.stderr_text);
-  // a pure link has no preprocessor depfile; an empty one keeps the flow uniform
-  const std::optional<std::string> dep_text = inv.link ? std::optional<std::string>("") : ReadFile(depfile);
-  const std::optional<std::string> link_dep_text = links ? ReadFile(link_depfile) : std::nullopt;
-  std::error_code ignored;
-  if (!inv.wants_depfile && !inv.link) {
-    fs::remove(depfile, ignored);
-  }
-  if (links) {
-    fs::remove(link_depfile, ignored);
-  }
-
-  std::vector<std::string> inputs = dep_text ? ParseDepfile(*dep_text) : std::vector<std::string>{};
-  if (link_dep_text) {
-    const std::string tmp = fs::temp_directory_path(ignored).string() + "/";  // the driver's intermediate object
-    for (std::string& input : ParseDepfile(*link_dep_text)) {
-      if (!input.starts_with(tmp)) {
-        inputs.push_back(std::move(input));
-      }
-    }
-  }
+  const auto [run, dep_text, link_dep_text, inputs] = RunObserved(compiler, inv);
 
   if (run.status != 0) {
+    ForwardStdout(inv, std::nullopt);
     // replayable only if every input is known. A missing header or any link error depends on
     // something absent that a later build may provide
     if (!dep_text || links || run.stderr_text.contains("file not found")) {
@@ -231,6 +264,7 @@ auto CompileAndStore(CacheClient& cache, const std::string& compiler, const Requ
   }
 
   const std::optional<std::string> object = ReadFile(inv.output);
+  ForwardStdout(inv, object);
   if (!dep_text || !object || (links && !link_dep_text)) {
     LogOutcome(Outcome::kMissUnstored, inv.source, clock);
     return 0;
@@ -284,12 +318,17 @@ auto TakeDepfileOption(std::span<const std::string> args, size_t& idx, Invocatio
 
 namespace {
 
-// compile / link-one (configure probe) / link, default output and depfile names
-void Classify(Invocation& inv, int sources, bool objects) {
+// compile / link-one (configure probe) / link, default output and depfile names. `stop` is the
+// last of -c/-S/-E given (0 if none)
+void Classify(Invocation& inv, int sources, bool objects, char stop) {
   if (inv.compile_only) {
     inv.cacheable = inv.cacheable && sources == 1;
-    if (inv.output.empty()) {
-      inv.output = fs::path(inv.source).stem().string() + ".o";
+    if (stop == 'E' && (inv.output.empty() || inv.output == "-")) {
+      // the text goes to our stdout; the compiler writes a temp file we replay from
+      inv.to_stdout = true;
+      inv.output = fs::path(Env("TMPDIR", "/tmp")) / std::format("jig{}.i", ::getpid());
+    } else if (inv.output.empty()) {
+      inv.output = fs::path(inv.source).stem().string() + (stop == 'S' ? ".s" : ".o");
     }
   } else {
     inv.link_one = !objects && sources == 1;
@@ -314,13 +353,16 @@ auto ParseInvocation(std::span<const std::string> args) -> Invocation {
   inv.args.assign(args.begin(), args.end());
   bool objects = false;
   int sources = 0;
+  char stop = 0;
   for (size_t i = 0; i < args.size(); ++i) {
     const std::string& arg = args.at(i);
     if (TakeDepfileOption(args, i, inv)) {
       continue;
     }
-    if (arg == "-c") {
+    if (arg == "-c" || arg == "-S" || arg == "-E") {
       inv.compile_only = true;
+      stop = arg.at(1);
+      inv.key_args.push_back(arg);
     } else if (arg == "-o" && i + 1 < args.size()) {
       inv.output = args.at(++i);
     } else if (arg.starts_with("-o") && arg.size() > 2) {
@@ -341,7 +383,7 @@ auto ParseInvocation(std::span<const std::string> args) -> Invocation {
       inv.key_args.push_back(arg);
     }
   }
-  Classify(inv, sources, objects);
+  Classify(inv, sources, objects, stop);
   return inv;
 }
 

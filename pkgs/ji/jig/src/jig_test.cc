@@ -79,7 +79,7 @@ void TestStore() {
 // cgo writes the joined -o form
 void TestParseJoinedOutput() {
   const Invocation inv = ParseInvocation(V({"-c", "foo.c", "-o/tmp/b/x.o"}));
-  assert(inv.cacheable && inv.output == "/tmp/b/x.o" && inv.key_args.empty());
+  assert(inv.cacheable && inv.output == "/tmp/b/x.o" && inv.key_args == V({"-c"}));
 }
 
 void TestParseLink() {
@@ -102,7 +102,7 @@ void TestParseInvocation() {
   assert(inv.cacheable && inv.compile_only && !inv.link_one);
   assert(inv.source == "foo.c" && inv.output == "out/foo.o");
   assert(inv.wants_depfile && inv.depfile == "out/foo.d");
-  assert(inv.key_args == V({"-O2"}));
+  assert(inv.key_args == V({"-O2", "-c"}));
 
   inv = ParseInvocation(V({"-c", "dir/foo.c"}));
   assert(inv.cacheable && inv.output == "foo.o" && !inv.wants_depfile);
@@ -123,13 +123,27 @@ void TestParseInvocation() {
   inv = ParseInvocation(V({"-shared", "-o", "lib.so", "a.c"}));
   assert(!inv.cacheable);
 
-  for (const char* flag : {"-E", "-S", "-M", "--version", "-print-search-dirs", "-fsyntax-only"}) {
+  for (const char* flag : {"-M", "--version", "-print-search-dirs", "-fsyntax-only"}) {
     inv = ParseInvocation(V({flag, "conftest.c"}));
     assert(!inv.cacheable);
   }
   inv = ParseInvocation(V({"-c", "a.c", "b.c"}));
   assert(!inv.cacheable);
   inv = ParseInvocation(V({"-c", "-x", "c", "-"}));
+  assert(!inv.cacheable);
+}
+
+// configure's preprocessor probes: cached like a compile, -E/-S part of the key, text to stdout without -o
+void TestParsePreprocess() {
+  Invocation inv = ParseInvocation(V({"-std=gnu23", "-E", "conftest.c"}));
+  assert(inv.cacheable && inv.compile_only && inv.to_stdout && inv.key_args == V({"-std=gnu23", "-E"}));
+  inv = ParseInvocation(V({"-E", "conftest.c", "-o", "-"}));
+  assert(inv.cacheable && inv.to_stdout);
+  inv = ParseInvocation(V({"-E", "-o", "x.i", "x.c"}));
+  assert(inv.cacheable && !inv.to_stdout && inv.output == "x.i");
+  inv = ParseInvocation(V({"-S", "x.c"}));
+  assert(inv.cacheable && !inv.to_stdout && inv.output == "x.s" && inv.key_args == V({"-S"}));
+  inv = ParseInvocation(V({"-E", "-"}));
   assert(!inv.cacheable);
 }
 
@@ -319,6 +333,7 @@ auto main() -> int {
   TestBase();
   TestStore();
   TestParseInvocation();
+  TestParsePreprocess();
   TestParseLink();
   TestParseJoinedOutput();
   TestDepfile();
