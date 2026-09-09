@@ -1,4 +1,4 @@
-# the Lua package manager, a build tool here (builder/luarocks.nu, `uptrack lock`): pure Lua,
+# the Lua package manager, a build tool here (builder/systems/luarocks.nu, `uptrack lock`): pure Lua,
 # its hand-written configure takes only --prefix and --with-lua. It unpacks .src.rock with unzip
 # and would compile C modules with a literal `gcc`: the installed config says cc.
 {

@@ -4,7 +4,7 @@
 # builtin:fetchurl fixed by that very hash. The collector writes a package-lock.json whose
 # `resolved` point at the store tarballs; npm.nu drops it in and `npm ci --offline` verifies
 # integrity itself.
-use dynamic.nu
+use dyn-drv.nu
 
 def main []: nothing -> nothing {
   let lock_file = (if $env.lockFile != "" { $env.lockFile } else { [$env.source $env.root package-lock.json] | path join })
@@ -21,7 +21,7 @@ def main []: nothing -> nothing {
   # the same tarball can appear under several node_modules paths: fetch once per URL
   let fetched = ($remote | each {|e| {url: $e.val.resolved, integrity: $e.val.integrity} } | uniq-by url
     | insert file {|e| $e.url | url parse | get path | path basename }
-    | dynamic fetchurls)
+    | dyn-drv fetchurls)
   let by_url = ($fetched | each {|f| [$f.url $f.out] } | into record)
   let new_lock = ($lock | reject -o dependencies | update packages {|l|
     $l.packages | items {|key, val|
@@ -29,5 +29,5 @@ def main []: nothing -> nothing {
     } | into record
   })
   # structured attrs: the lock is far beyond execve's env limit
-  dynamic collect npm-deps [(dynamic json-file package-lock.json $new_lock)] ($fetched | get drv)
+  dyn-drv collect npm-deps [(dyn-drv json-file package-lock.json $new_lock)] ($fetched | get drv)
 }

@@ -1,5 +1,5 @@
-use core.nu *
-use node-package.nu
+use ../core.nu *
+use ../node-common.nu
 
 # npm ci from fetch.npmDeps (`npm.deps`: a package-lock.json whose `resolved` point at store
 # tarballs; npm checks each against the lock's integrity), `npm run <script>`, `npm test`, and the
@@ -20,7 +20,7 @@ export def --env setup []: nothing -> nothing {
   cp $"($k.deps)/package-lock.json" package-lock.json
   ^chmod u+w package-lock.json  # npm prune rewrites it
   x npm ci --ignore-scripts ...$k.flags
-  node-package after-install $env.PWD
+  node-common after-install $env.PWD
 }
 
 # npm run <npm.script>
@@ -33,5 +33,5 @@ export def test []: nothing -> nothing { cd (project-dir npm); if (knobs).test {
 export def install []: nothing -> nothing {
   cd (project-dir npm)
   x npm prune --omit=dev --ignore-scripts
-  node-package install-tree
+  node-common install-tree
 }

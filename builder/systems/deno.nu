@@ -1,4 +1,4 @@
-use core.nu *
+use ../core.nu *
 
 # A deno application: type-checked and tested against its fetch.denoDeps DENO_DIR (`deno.deps`),
 # installed as lib/<name>/ (project tree + that DENO_DIR) with a bin/<bin> launcher per

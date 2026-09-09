@@ -1,4 +1,4 @@
-# What `uses = [ "<name>" ]` means: builder/<name>.nu implements the verbs, `verbs` is the default
+# What `uses = [ "<name>" ]` means: builder/systems/<name>.nu implements the verbs, `verbs` is the default
 # step order (build test install unless said otherwise), `tools` go on PATH, and `knobs` are what a
 # package may set under `<name>.*` (anything else is an eval error). `lock = knob: fetcher` gives
 # that knob the package's own lock file, fetched from its source, as default. `sh` is for tools
@@ -10,7 +10,7 @@
 }:
 builtins.mapAttrs
   (name: bs: {
-    module = "${name}.nu";
+    module = "systems/${name}.nu";
     steps = map (v: "${name}.${v}") (
       bs.verbs or [
         "build"

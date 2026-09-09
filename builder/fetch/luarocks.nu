@@ -3,8 +3,8 @@
 # lock` maintains it) as a directory luarocks reads as a rocks server: <name>-<version>.src.rock
 # files plus the manifest-<lua major.minor> naming exactly those. One version per rock, so `luarocks make` against it
 # resolves every range to the locked version or fails loudly.
-use dynamic.nu
-use sys-libs.nu
+use dyn-drv.nu
+use ../sys-libs.nu
 
 const LUAROCKS = "https://luarocks.org"
 
@@ -13,7 +13,7 @@ def main []: nothing -> nothing {
   let files = ($table | items {|name, e|
     let file = $"($name)-($e.version).src.rock"
     {to: $file, file: $file, url: $"($LUAROCKS)/($file)", integrity: $e.sha256}
-  } | dynamic fetchurls)
+  } | dyn-drv fetchurls)
   let manifest = ([
     "commands = {}"
     "modules = {}"
@@ -26,7 +26,7 @@ def main []: nothing -> nothing {
   let layout = [
     ...($files | each {|f| {link: $f.out, to: $f.to} })
     {write: $manifest, to: $"manifest-($env.luaVersion | split row "." | take 2 | str join ".")"}
-    (dynamic json-file exports.json (sys-libs exports luarocks-set []))
+    (dyn-drv json-file exports.json (sys-libs exports luarocks-set []))
   ]
-  dynamic collect luarocks-set $layout ($files | get drv)
+  dyn-drv collect luarocks-set $layout ($files | get drv)
 }

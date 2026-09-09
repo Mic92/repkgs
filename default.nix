@@ -62,7 +62,7 @@ let
   package = import ./nix/package.nix {
     platform = plat;
     nu = bootstrap.seed;
-    # `prebuilt = true` patches upstream ELFs with it (builder/finish.nu implant)
+    # `prebuilt = true` patches upstream ELFs with it (builder/prebuilt.nu implant)
     relocTools = [ buildPkgs.formatelf ];
     inherit
       toolchain

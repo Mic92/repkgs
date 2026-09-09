@@ -7,9 +7,9 @@
 # our libraries (sys-libs.nu) and pyproject's `tool.uv.no-binary-package` are built from sdist.
 # Output: { dist/<file>…, plan.json [{name, version, file, kind}], exports.json }, installed by
 # builder/pyapp.nu.
-use dynamic.nu
-use pep508.nu
-use sys-libs.nu
+use dyn-drv.nu
+use ../pep508.nu
+use ../sys-libs.nu
 
 const NO_MATCH = 999
 
@@ -29,15 +29,15 @@ def main []: nothing -> nothing {
     let artefact = (choose-artefact $package ($name in $force_sdist))
     let file = ($artefact.url | path basename | url decode)
     {name: $name, version: $package.version, file: $file, kind: $artefact.kind, url: $artefact.url, sha256: ($artefact.hash | str replace "sha256:" "")}
-  } | dynamic fetchurls)
+  } | dyn-drv fetchurls)
   print -e $"pythonDeps: ($plan | length) packages, ($plan | where kind == sdist | get name | str join ' ') from sdist"
 
   let layout = [
     ...($plan | each {|p| {link: $p.out, to: $"dist/($p.file)"} })
-    (dynamic json-file plan.json ($plan | select name version file kind))
-    (dynamic json-file exports.json (sys-libs exports python-deps $libs))
+    (dyn-drv json-file plan.json ($plan | select name version file kind))
+    (dyn-drv json-file exports.json (sys-libs exports python-deps $libs))
   ]
-  dynamic collect python-deps $layout (($plan | get drv) ++ ($libs | get -o drv | default []))
+  dyn-drv collect python-deps $layout (($plan | get drv) ++ ($libs | get -o drv | default []))
 }
 
 # names of every package the project needs at run time: breadth-first from the project's own

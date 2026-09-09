@@ -1,5 +1,5 @@
 # patchelf reimplementation; `auto-formatelf` (argv[0] personality) gives foreign ELFs our
-# interpreter and a RUNPATH resolved against given lib dirs. Used on binary wheels (builder/uv.nu).
+# interpreter and a RUNPATH resolved against given lib dirs. Used on binary wheels (builder/systems/pyapp.nu).
 {
   package,
   buildPkgs,

@@ -1,5 +1,5 @@
-use core.nu *
-use sys-libs.nu
+use ../core.nu *
+use ../sys-libs.nu
 
 # go build/test/install, modules from a GOPROXY=file:// tree (fetch.goModules) or the source's
 # own vendor/.

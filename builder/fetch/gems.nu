@@ -7,8 +7,8 @@
 # from rubygems.org. Output: { vendor/cache/*.gem, Gemfile.lock, exports.json }, which is what
 # `bundle install --local` reads (builder/bundler.nu); exports.json propagates the libraries the
 # locked gems link (sys-libs.nu). `lockFile` is for upstreams that commit no Gemfile.lock.
-use dynamic.nu
-use sys-libs.nu
+use dyn-drv.nu
+use ../sys-libs.nu
 
 const RUBYGEMS = "https://rubygems.org/gems"
 
@@ -23,13 +23,13 @@ def main []: nothing -> nothing {
   let fetched = ($ours | each {|gem|
     let file = $"($gem.name)-($gem.version)(if $gem.platform != "" { $"-($gem.platform)" }).gem"
     {file: $file, url: $"($RUBYGEMS)/($file)", sha256: $gem.sha256}
-  } | dynamic fetchurls)
+  } | dyn-drv fetchurls)
   let layout = [
     ...($fetched | each {|g| {link: $g.out, to: $"vendor/cache/($g.file)"} })
     {write: $lock, to: "Gemfile.lock"}
-    (dynamic json-file exports.json (sys-libs exports gems $libs))
+    (dyn-drv json-file exports.json (sys-libs exports gems $libs))
   ]
-  dynamic collect gems $layout (($fetched | get drv) ++ ($libs | get -o drv | default []))
+  dyn-drv collect gems $layout (($fetched | get drv) ++ ($libs | get -o drv | default []))
 }
 
 # [{name, version, platform, sha256}] from the CHECKSUMS section; the application's own PATH gem

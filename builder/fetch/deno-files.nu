@@ -2,13 +2,13 @@
 # Second stage of fetch.denoDeps (after fetch-deno.nu; `stage_attrs` names its {npm, jsr, https}).
 # Reads the fetched jsr _meta.json files: each module they list becomes a builtin:fetchurl fixed
 # by the manifest's sha256, and the collecting derivation lays out what deno reads under $DENO_DIR.
-use dynamic.nu
+use dyn-drv.nu
 
 const JSR = "https://jsr.io"
 
 def main []: nothing -> nothing {
   let fetched = (open $env.stage_attrs)
-  let modules = ($fetched.jsr | each {|p| jsr-modules $p } | flatten | dynamic fetchurls)
+  let modules = ($fetched.jsr | each {|p| jsr-modules $p } | flatten | dyn-drv fetchurls)
   print -e $"denoDeps: ($modules | length) jsr modules"
 
   # remote/<scheme>/<host>[_PORT<n>]/<sha256 of path?query>, each with deno's metadata trailer
@@ -27,11 +27,11 @@ def main []: nothing -> nothing {
     ...($fetched.npm | each {|v| {unpack: $v.tarball, to: $"npm/registry.npmjs.org/($v.name)/($v.version)"} })
     ...($fetched.npm | group-by name | items {|name, versions|
       let listed = ($versions | each {|v| {$v.version: {version: $v.version, dependencies: {}, dist: {tarball: $v.url, integrity: $v.integrity}}} } | into record)
-      dynamic json-file $"npm/registry.npmjs.org/($name)/registry.json" {name: $name, dist-tags: {}, "_deno.packumentFormat": full, versions: $listed}
+      dyn-drv json-file $"npm/registry.npmjs.org/($name)/registry.json" {name: $name, dist-tags: {}, "_deno.packumentFormat": full, versions: $listed}
     })
   ]
   # the first stage's files are laid out too, so they are inputs of the collecting derivation as well
-  dynamic collect deno-deps [...$remote ...$version_lists ...$npm] (($modules | get drv) ++ ([$fetched.npm $fetched.jsr $fetched.https] | flatten | get drv))
+  dyn-drv collect deno-deps [...$remote ...$version_lists ...$npm] (($modules | get drv) ++ ([$fetched.npm $fetched.jsr $fetched.https] | flatten | get drv))
 }
 
 # where deno's global cache keeps a URL

@@ -1,5 +1,5 @@
-use core.nu *
-use node-package.nu
+use ../core.nu *
+use ../node-common.nu
 
 # A bun project: `bun install --offline` from fetch.bunDeps, optional `bun run <script>`, `bun test`,
 # then either standalone executables (`bun.compile = { <bin> = "<entry.ts>"; }`) or the package
@@ -23,7 +23,7 @@ export def --env setup []: nothing -> nothing {
   cd (project-dir bun)
   if $k.deps != null { x bun $LINK_CACHE $k.deps $cache }
   x bun install --frozen-lockfile --offline --ignore-scripts ...$k.flags
-  node-package after-install $env.PWD
+  node-common after-install $env.PWD
 }
 
 # `bun run <bun.script>` if set
@@ -42,7 +42,7 @@ export def install []: nothing -> nothing {
   let c = (ctx)
   let k = (knobs)
   cd (project-dir bun)
-  if ($k.compile | is-empty) { node-package install-tree; return }
+  if ($k.compile | is-empty) { node-common install-tree; return }
   mkdir $"($c.out)/bin"
   for exe in ($k.compile | transpose name entry) {
     x bun build --compile --minify $exe.entry --outfile $"($c.out)/bin/($exe.name)"

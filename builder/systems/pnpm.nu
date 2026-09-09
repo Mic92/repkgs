@@ -1,5 +1,5 @@
-use core.nu *
-use node-package.nu
+use ../core.nu *
+use ../node-common.nu
 
 # pnpm install --offline from fetch.pnpmDeps (`pnpm.deps`: registry tarballs that seed a fresh
 # content-addressed store; pnpm verifies each against pnpm-lock.yaml), `pnpm run <script>`,
@@ -23,7 +23,7 @@ export def --env setup []: nothing -> nothing {
   let tarballs = (open $"($k.deps)/index.json" | each {|t| $"($k.deps)/tarballs/($t.file)" })
   if ($tarballs | is-not-empty) { x pnpm store add ...$tarballs }
   x pnpm install --offline --frozen-lockfile --ignore-scripts ...$k.flags
-  node-package after-install $env.PWD
+  node-common after-install $env.PWD
 }
 
 # pnpm run <pnpm.script>
@@ -36,5 +36,5 @@ export def test []: nothing -> nothing { cd (project-dir pnpm); if (knobs).test 
 export def install []: nothing -> nothing {
   cd (project-dir pnpm)
   x pnpm prune --prod --ignore-scripts
-  node-package install-tree
+  node-common install-tree
 }

@@ -1,4 +1,4 @@
-use core.nu *
+use ../core.nu *
 
 # PEP 517 wheel build + install (setuptools/flit/hatch via `build`, maturin directly), import check, optional pytest.
 def knobs []: nothing -> record<backend: string, module: any, pytest: bool> { knobs-for python {backend: "setuptools", module: null, pytest: false} }

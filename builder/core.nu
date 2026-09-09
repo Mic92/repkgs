@@ -104,7 +104,7 @@ export def storerel [p: string, out: string]: nothing -> string {
   } else { $p }
 }
 
-# bin/<name> as a launch record (builder/launchers.nu, pkgs/la/launch): `program` with `args`
+# bin/<name> as a launch record (builder/prebuilt.nu, pkgs/la/launch): `program` with `args`
 # before the user's, `env` name -> value set for it. For build systems whose entry points are not
 # files with a #! line (deno modules); paths are made package-relative here
 export def write-launcher [name: string, program: string, args: list<string>, vars: record = {}]: nothing -> nothing {
@@ -117,32 +117,6 @@ export def write-launcher [name: string, program: string, args: list<string>, va
   } | to json -r | save -f $"($c.out)/bin/.($name).launch"
   ^ln -sf $"../../($c.platform.launch | path relative-to $env.NIX_STORE)" $"($c.out)/bin/($name)"
   note launcher $"bin/($name) -> ($program)"
-}
-
-# key = kind + every explicit input of the probes: the script that defines them, the masked
-# toolchain/dependency/tool set, platform, flags. $out is the fixed CA placeholder, so stable
-export def probe-cache-key [kind: string, scripts: list<path>]: nothing -> string {
-  let c = (ctx)
-  let roots = ($env.JIG_STORE_ROOTS | split row " " | each { path basename | str substring 33.. } | sort)
-  let id = ({
-    kind: $kind
-    script: ($scripts | sort | each { open --raw $in | hash sha256 })
-    triple: $c.platform.triple
-    roots: $roots
-    out: $c.out
-    flags: [$env.CFLAGS? $env.CXXFLAGS? $env.CPPFLAGS? $env.LDFLAGS? $env.PKG_CONFIG_PATH?]
-  } | to json -r | hash sha256)
-  $"probe/($kind)/($id)"
-}
-
-# restore a build system's probe results (config.cache, cmake -C init) from the cache daemon
-export def probe-cache-get [key: string, file: path]: nothing -> bool {
-  (ctx).cache and (^jig cache get $key $file | complete).exit_code == 0
-}
-
-# store them for the next build with the same key
-export def probe-cache-put [key: string, file: path]: nothing -> nothing {
-  if (ctx).cache and ($file | path exists) { ^jig cache put $key $file | complete }
 }
 
 # no /usr/bin/env in the sandbox: point such scripts at the seed's env (build tree only; installed

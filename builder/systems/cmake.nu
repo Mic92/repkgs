@@ -1,4 +1,5 @@
-use core.nu *
+use ../core.nu *
+use ../probe-cache.nu
 
 # cmake configure / build / ctest / install with Ninja.
 def knobs []: nothing -> record<defs: record, sourceDir: string, generator: string> { knobs-for cmake {defs: {}, sourceDir: ".", generator: "Ninja"} }
@@ -28,16 +29,16 @@ export def configure []: nothing -> nothing {
   } } else { {} }) | merge (if ($c.platform.emulator | is-empty) { {} } else { {CMAKE_CROSSCOMPILING_EMULATOR: ($c.platform.emulator | str join ";")} }) | merge $k.defs)
   let srcdir = $"($c.src)/($k.sourceDir)"
   # results of check_*/try_compile (the project's INTERNAL cache entries) carried across builds
-  let key = (probe-cache-key cmake (glob $"($srcdir)/**/{CMakeLists.txt,*.cmake}"))
+  let key = (probe-cache key cmake (glob $"($srcdir)/**/{CMakeLists.txt,*.cmake}"))
   let init = $"($c.build)/probe-init.cmake"
-  let had = (probe-cache-get $key $init)
+  let had = (probe-cache restore $key $init)
   note cmake-probes (if $had { "restored" } else { "cold" })
   x cmake -S $srcdir -B . -G $k.generator ...(if $had { [-C $init] } else { [] }) ...($defs | items {|k, v| $"-D($k)=(render $v)" })
   if not $had {
     open --raw CMakeCache.txt | lines | parse -r '^(?<k>[A-Za-z0-9_]+):INTERNAL=(?<v>.*)$'
       | where { not ($in.k | str starts-with "CMAKE_") and not ($in.k | str ends-with "-ADVANCED") and ($in.v !~ '/') }
       | each {|e| $"set\(($e.k) \"($e.v)\" CACHE INTERNAL \"\"\)" } | str join "\n" | save -f $init
-    probe-cache-put $key $init
+    probe-cache store $key $init
   }
 }
 

@@ -4,7 +4,7 @@
 # builtin:fetchurl fixed by that hash. Output is a yarn offline mirror: a flat directory of
 # tarballs named the way `yarn install --offline` looks them up (the URL's basename, prefixed
 # `@scope-` for scoped packages). yarn re-verifies each against the lock.
-use dynamic.nu
+use dyn-drv.nu
 
 # yarn.lock v1 -> [{keys, resolved, integrity}]. The format is yarn's own: unindented
 # `"a@^1", b@2:` headers, two-space indented `field value` lines, values optionally quoted
@@ -44,7 +44,7 @@ def main []: nothing -> nothing {
   let fetched = ($remote | each {|e|
     let url = ($e.resolved | split row "#" | first)
     {url: $url, integrity: $e.integrity, file: (mirror-name $url)}
-  } | uniq-by url | dynamic fetchurls)
+  } | uniq-by url | dyn-drv fetchurls)
   let layout = ($fetched | each {|f| {link: $f.out, to: $f.file} })
-  dynamic collect yarn-deps $layout ($fetched | get drv)
+  dyn-drv collect yarn-deps $layout ($fetched | get drv)
 }

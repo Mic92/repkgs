@@ -1,5 +1,5 @@
-use core.nu *
-use sys-libs.nu
+use ../core.nu *
+use ../sys-libs.nu
 
 # A Ruby application installed with Bundler from its Gemfile.lock (fetch.gems):
 #   $out/lib/<name>/                the application tree, gems under vendor/bundle (deployment layout)

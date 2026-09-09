@@ -87,7 +87,7 @@ export const TABLES = {
   }
 }
 
-# --- producer side (fetch-*.nu): which of the offered libraries does this lock want ----------------
+# --- producer side (fetch/*.nu): which of the offered libraries does this lock want ----------------
 
 # `sys_libs_file` is nix/fetch.nix's {name: {drv, out}}; `locked` the package names in the lock.
 # Returns [{name, drv, out}] for every library some locked package maps to; names the set does

@@ -30,7 +30,7 @@ def main []: nothing -> nothing {
     cp $env.crt_interp crt_interp.c  # compile from cwd: the STT_FILE symbol would otherwise record a store path
     let stubflags = [...(target) -O2 -fPIE -ffreestanding -nostdlib -nostdinc -fno-builtin -fno-stack-protector -fno-asynchronous-unwind-tables]
     x clang ...$stubflags -c crt_interp.c -o $"($out)/lib/crt_interp.o"
-    # the same code as a flat blob for `formatelf --set-entry-stub` (builder/finish.nu, prebuilt = "reloc")
+    # the same code as a flat blob for `formatelf --set-entry-stub` (builder/prebuilt.nu, prebuilt = "reloc")
     x clang ...$stubflags -DRELOC_STUB -fno-jump-tables -fvisibility=hidden -c crt_interp.c -o reloc_stub.o
     "SECTIONS { . = 0; .text : { KEEP(*(.text.header)) *(.text.entry) *(.text .text.* .rodata .rodata.*) } /DISCARD/ : { *(.dynsym .dynstr .hash .gnu.hash .dynamic .interp .comment .note.* .eh_frame*) } }\n" | save stub.ld
     x $lld -pie --no-dynamic-linker -e __reloc_start -T stub.ld reloc_stub.o -o reloc_stub.elf

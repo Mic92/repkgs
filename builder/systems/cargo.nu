@@ -1,5 +1,5 @@
-use core.nu *
-use sys-libs.nu
+use ../core.nu *
+use ../sys-libs.nu
 
 # cargo build/test/install, offline against a vendored registry snapshot. rustc goes through jig's cache.
 def knobs []: nothing -> record<features: list<string>, noDefaultFeatures: bool, vendor: any> { knobs-for cargo {features: [], noDefaultFeatures: false, vendor: null} }

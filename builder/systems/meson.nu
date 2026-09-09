@@ -1,4 +1,4 @@
-use core.nu *
+use ../core.nu *
 
 # meson setup / compile / test / install.
 def knobs []: nothing -> record<options: record, sourceDir: string> { knobs-for meson {options: {}, sourceDir: "."} }

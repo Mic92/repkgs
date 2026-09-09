@@ -1,5 +1,5 @@
-use core.nu *
-use sys-libs.nu
+use ../core.nu *
+use ../sys-libs.nu
 
 # A Python application installed from its uv.lock (fetch.pythonDeps):
 #   $out/lib/<name>/site-packages   every locked dependency, then the project itself

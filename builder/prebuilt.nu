@@ -1,13 +1,15 @@
-# §3: every bin/ script and every program with runtimeDependencies becomes
+# What happens to bin/ after install, for our own builds and for upstream binaries.
+# launchers (§3): every bin/ script and every program with runtimeDependencies becomes
 #   bin/foo -> ../../<hash>-launch/bin/launch, the real file bin/.foo, a record bin/.foo.launch
-# (pkgs/la/launch/src/launch.cc).
-# Interpreter from the #! line (resolved among dependencies if it was /usr/bin/env or bare),
-# runtimeDependencies' bin dirs prepended to PATH, their `env` exports applied as defaults.
-# `prebuilt = "ldso"` (rust, which formatelf is built with): upstream binaries keep their foreign
-# PT_INTERP and run as
+# (pkgs/la/launch/src/launch.cc). Interpreter from the #! line (resolved among dependencies if it
+# was /usr/bin/env or bare), runtimeDependencies' bin dirs prepended to PATH, their `env` exports
+# applied as defaults.
+# implant (`prebuilt = true`): upstream ELFs get our interp, reloc stub and RUNPATH via formatelf.
+# `prebuilt = "ldso"` (rust-bootstrap, which formatelf is built with): upstream binaries keep their
+# foreign PT_INTERP and run behind a launcher as
 #   <sysroot>/lib/ld.so --argv0 <bin/foo> --library-path <libc:deps' libDirs> bin/.foo
 # so nothing in the ELF is patched and argv[0] still names bin/foo (rustc finds its sysroot by it).
-# /proc/self/exe is ld.so then. Every other prebuilt package gets the implant (builder/finish.nu).
+
 use core.nu *
 
 # env block shared by all of a package's launchers: runtimeDependencies on PATH + their exported env
@@ -65,7 +67,7 @@ def target [c: record<spec: record, out: string, deps: list<record>, njobs: int,
   }
 }
 
-export def main [c: record<spec: record, out: string, deps: list<record>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool>]: nothing -> nothing {
+export def launchers [c: record<spec: record, out: string, deps: list<record>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool>]: nothing -> nothing {
   let bindir = $"($c.out)/bin"
   if not ($bindir | path exists) { return }
   let a = (attrs)
@@ -84,5 +86,25 @@ export def main [c: record<spec: record, out: string, deps: list<record>, njobs:
     {env: $renv} | merge $t | to json -r | save -f $"($bindir)/.($name).launch"
     ^ln -s $launch_rel $f
     note launcher $"bin/($name) -> ($t.program)"
+  }
+}
+
+# `prebuilt = true`: every upstream executable (ELF with PT_INTERP) gets what our linker would
+# have given it, via formatelf: the reloc stub as entry, our ld.so as absolute interp and a RUNPATH
+# over libc + dependencies' lib dirs, both with the slack reloc-fixup rewrites in place afterwards
+# (pkgs/ji/jig/src/driver.cc kInterpSlack/kRunpathSlack). The file then goes through reloc-fixup
+# like one of ours, and keeps a true /proc/self/exe (bun and node re-exec themselves through it).
+export def implant [c: record<spec: record, out: string, deps: list<record>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool>]: nothing -> nothing {
+  let exes = (glob $"($c.out)/{bin,lib,libexec}/**/*"
+    | where {|f| ($f | path type) == "file" and (is-elf $f) and (^llvm-readelf --program-headers $f | str contains "INTERP ") })
+  let interp = $"($c.platform.interp | path dirname)/(1..12 | each { './' } | str join)($c.platform.interp | path basename)"
+  let libdirs = [($c.platform.interp | path dirname)] ++ (dep-dirs $c.deps libDirs)
+  for f in $exes {
+    let own = (^formatelf --print-rpath $f | str trim)
+    let dirs = ($libdirs ++ ($own | split row ":" | where { $in != "" }))
+    let runpath = $"($dirs | str join ':'):/('' | fill -c '_' -w (($dirs | length) * 48 - 1))"
+    ^chmod u+w $f
+    x formatelf --set-entry-stub $c.platform.relocStub --set-interpreter $interp --set-rpath $runpath $f
+    note implant ($f | path relative-to $c.out)
   }
 }

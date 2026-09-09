@@ -7,7 +7,7 @@
 # into the output: { p/<name>@<version>/…, index.json [{id, dir}] }. builder/bun.nu links those
 # directories into $BUN_INSTALL_CACHE_DIR under the names bun expects (builder/bun-cache.ts).
 # workspace: entries are the project itself; github:/git:/file: ones carry no hash and are rejected.
-use dynamic.nu
+use dyn-drv.nu
 use npm-registry.nu [split-id tarball-url flat-name]
 
 def main []: nothing -> nothing {
@@ -25,12 +25,12 @@ def main []: nothing -> nothing {
     let p = (split-id $entry.id)
     {id: $entry.id, dir: $"p/(flat-name $p.name)@($p.version)", file: $"(flat-name $p.name)-($p.version).tgz"
       url: (tarball-url $p.name $p.version $entry.registry), integrity: $entry.integrity}
-  } | dynamic fetchurls)
+  } | dyn-drv fetchurls)
   let layout = [
     ...($fetched | each {|p| {unpack: $p.out, to: $p.dir} })
-    (dynamic json-file index.json ($fetched | select id dir))
+    (dyn-drv json-file index.json ($fetched | select id dir))
   ]
-  dynamic collect bun-deps $layout ($fetched | get drv)
+  dyn-drv collect bun-deps $layout ($fetched | get drv)
 }
 
 # bun writes trailing commas but no comments

@@ -7,7 +7,7 @@
 // root ({root}) or a store neighbour ({store} = dirname of root), so the package and its closure
 // relocate together. No shell is involved. Cost is one extra execve.
 //
-// Record (JSON, written by builder/core.nu `launchers`):
+// Record (JSON, written by builder/prebuilt.nu `launchers`):
 //   {"program": "{root}/bin/.foo"                    or "{store}/<hash>-cpython/bin/python3",
 //    "args":    ["{root}/bin/.foo"],               prepended before the user's args
 //    "argv0":   "{self}",                          optional, default = program (interpreters

@@ -1,7 +1,7 @@
 # Everything after the last verb: check the output, strip + split debug info, generate launchers,
 # reloc-fixup the tree, version/relocation check, write exports.json, print the cache summary.
 use core.nu *
-use launchers.nu
+use prebuilt.nu
 
 # split DWARF to lib/debug, keep .symtab (§4 profiling-friendly)
 def split-debug [c: record<spec: record, out: string, deps: list<record>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool>]: nothing -> nothing {
@@ -17,25 +17,6 @@ def split-debug [c: record<spec: record, out: string, deps: list<record>, njobs:
   } | ignore
 }
 
-# `prebuilt = true`: every upstream executable (ELF with PT_INTERP) gets what our linker would
-# have given it, via formatelf: the reloc stub as entry, our ld.so as absolute interp and a RUNPATH
-# over libc + dependencies' lib dirs, both with the slack reloc-fixup rewrites in place afterwards
-# (pkgs/ji/jig/src/driver.cc kInterpSlack/kRunpathSlack). The file then goes through reloc-fixup
-# like one of ours, and keeps a true /proc/self/exe (bun and node re-exec themselves through it).
-def implant [c: record<spec: record, out: string, deps: list<record>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool>]: nothing -> nothing {
-  let exes = (glob $"($c.out)/{bin,lib,libexec}/**/*"
-    | where {|f| ($f | path type) == "file" and (is-elf $f) and (^llvm-readelf --program-headers $f | str contains "INTERP ") })
-  let interp = $"($c.platform.interp | path dirname)/(1..12 | each { './' } | str join)($c.platform.interp | path basename)"
-  let libdirs = [($c.platform.interp | path dirname)] ++ (dep-dirs $c.deps libDirs)
-  for f in $exes {
-    let own = (^formatelf --print-rpath $f | str trim)
-    let dirs = ($libdirs ++ ($own | split row ":" | where { $in != "" }))
-    let runpath = $"($dirs | str join ':'):/('' | fill -c '_' -w (($dirs | length) * 48 - 1))"
-    ^chmod u+w $f
-    x formatelf --set-entry-stub $c.platform.relocStub --set-interpreter $interp --set-rpath $runpath $f
-    note implant ($f | path relative-to $c.out)
-  }
-}
 
 # `bin`, defaulting to the package's name when bin/<name> got installed
 def bins [c: record]: nothing -> list<string> {
@@ -136,10 +117,10 @@ export def main [
   if ($gz | is-not-empty) { x gzip -d ...$gz }
   let prebuilt = ($c.spec.prebuilt? | default false)
   # upstream binaries: no debug split. `true` implants interp + stub so they relocate like ours,
-  # "ldso" leaves them byte-identical behind an ld.so launcher (builder/launchers.nu)
+  # "ldso" leaves them byte-identical behind an ld.so launcher (builder/prebuilt.nu)
   if $prebuilt == false { split-debug $c }
-  if $prebuilt == true { implant $c }
-  launchers $c
+  if $prebuilt == true { prebuilt implant $c }
+  prebuilt launchers $c
   # RUNPATH/PT_INTERP -> $ORIGIN-relative, in place (pkgs/ji/jig/src/fixup_mode.cc)
   if $prebuilt != "ldso" { x reloc-fixup $c.out }
   version-check $c

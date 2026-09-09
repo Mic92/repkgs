@@ -6,8 +6,8 @@
 # producer, nothing is built for it); those that a -sys crate in the lock wants (sys-libs.nu)
 # become inputs of cargo-vendor and are listed in its exports.json `propagate`, so the package
 # build sees exactly them as dependencies without naming them in package.nix.
-use dynamic.nu
-use sys-libs.nu
+use dyn-drv.nu
+use ../sys-libs.nu
 
 const CRATES_IO = "registry+https://github.com/rust-lang/crates.io-index"
 
@@ -21,12 +21,12 @@ def main []: nothing -> nothing {
   let crates = ($packages | where {|p| $p.source? == $CRATES_IO } | each {|c|
     {dir: $"($c.name)-($c.version)", checksum: $c.checksum, file: $"($c.name)-($c.version).tar.gz"
       url: $"https://static.crates.io/crates/($c.name)/($c.name)-($c.version).crate", sha256: $c.checksum}
-  } | dynamic fetchurls)
+  } | dyn-drv fetchurls)
   let picked = (sys-libs pick cargo ($packages | get name) $env.sysLibs)
   let layout = [
-    ...($crates | each {|c| [{unpack: $c.out, to: $c.dir} (dynamic json-file $"($c.dir)/.cargo-checksum.json" {files: {}, package: $c.checksum})] } | flatten)
+    ...($crates | each {|c| [{unpack: $c.out, to: $c.dir} (dyn-drv json-file $"($c.dir)/.cargo-checksum.json" {files: {}, package: $c.checksum})] } | flatten)
     # a dependency record for prepare.nu: nothing to link here, the libraries ride along as propagated
-    (dynamic json-file exports.json (sys-libs exports cargo-vendor $picked))
+    (dyn-drv json-file exports.json (sys-libs exports cargo-vendor $picked))
   ]
-  dynamic collect cargo-vendor $layout (($crates | get drv) ++ ($picked | get -o drv | default []))
+  dyn-drv collect cargo-vendor $layout (($crates | get drv) ++ ($picked | get -o drv | default []))
 }

@@ -1,4 +1,4 @@
-# fetch-*.nu producers end to end on locks of real-world size (JIG_NIX_STORE_OFFLINE: no daemon).
+# builder/fetch/*.nu producers end to end on locks of real-world size (JIG_NIX_STORE_OFFLINE: no daemon).
 use fixtures.nu
 use ../builder/pep508.nu
 
@@ -26,9 +26,9 @@ export def benches [tmp: path]: nothing -> table<name: string, note: string, run
     sysLibs: $"($tmp)/sys-libs.json", locks: $"($tmp)/go-locks.json"}
   let markers = ($uv.package | get dependencies | flatten | get -o marker | compact)
   [
-    {name: "producer/cargo-vendor", note: "600 crates", run: {|| produce fetch-cargo.nu $vars }}
-    {name: "producer/go-modules", note: "900 modules", run: {|| produce fetch-go.nu $vars }}
-    {name: "producer/python-deps", note: "300 packages", run: {|| produce fetch-pypi.nu $vars }}
+    {name: "producer/cargo-vendor", note: "600 crates", run: {|| produce fetch/cargo.nu $vars }}
+    {name: "producer/go-modules", note: "900 modules", run: {|| produce fetch/go.nu $vars }}
+    {name: "producer/python-deps", note: "300 packages", run: {|| produce fetch/pypi.nu $vars }}
     {name: "pep508/evaluate", note: $"($markers | length) markers", run: {|| $markers | each {|m| pep508 evaluate $m $MARKER_ENV } | length }}
   ]
 }

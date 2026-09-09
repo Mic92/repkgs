@@ -1,4 +1,4 @@
-# Shared by the dynamic-derivation producers (fetch-*.nu): they run under builder-rpc-v0 and
+# Shared by the dynamic-derivation producers (its siblings in fetch/): they run under builder-rpc-v0 and
 # write derivations through `jig nix-store` (worker protocol) instead of fetching anything themselves.
 
 # add a derivation (json on stdin) to the store, returns its .drv path
@@ -42,7 +42,7 @@ export def stage [name: string, script: string, attrs: record, inputs: list<stri
     args: [$"($here)/($script)"]
     outputs: {out: {hashAlgo: "text:sha256"}}
     inputDrvs: ($inputs | each {|d| [$d [out]] } | into record)
-    inputSrcs: [$env.seed $env.jig $here $attrs_file]
+    inputSrcs: [$env.seed $env.jig ($here | path dirname) $attrs_file]  # the producers store path, fetch/'s parent
     env: {
       name: $drv_name, system: $env.system, seed: $env.seed, jig: $env.jig, PATH: ($env.PATH | str join ":")
       stage_attrs: $attrs_file, requiredSystemFeatures: "builder-rpc-v0", preferLocalBuild: "1"

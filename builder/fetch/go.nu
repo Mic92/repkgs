@@ -7,8 +7,8 @@
 # a GOPROXY=file:// tree, <module>/@v/<version>.{info,mod,zip}, plus exports.json propagating the
 # libraries cgo modules in the lock link (sys-libs.nu). Edits to the shared table that do not touch
 # this package's modules leave the output unchanged.
-use dynamic.nu
-use sys-libs.nu
+use dyn-drv.nu
+use ../sys-libs.nu
 
 const PROXY = "https://proxy.golang.org"
 
@@ -28,13 +28,13 @@ def main []: nothing -> nothing {
       let file = $"($m.version).($ext)"
       {to: $"($dir)/($file)", file: $"($m.path)-($file)", url: $"($PROXY)/($dir)/($file)", integrity: $sri}
     }
-  } | flatten | dynamic fetchurls)
+  } | flatten | dyn-drv fetchurls)
   let layout = [
     ...($files | each {|f| {link: $f.out, to: $f.to} })
-    ...($modules | each {|m| dynamic json-file $"(proxy-case $m.path)/@v/($m.version).info" {Version: $m.version} })
-    (dynamic json-file exports.json (sys-libs exports go-modules $libs))
+    ...($modules | each {|m| dyn-drv json-file $"(proxy-case $m.path)/@v/($m.version).info" {Version: $m.version} })
+    (dyn-drv json-file exports.json (sys-libs exports go-modules $libs))
   ]
-  dynamic collect go-modules $layout (($files | get drv) ++ ($libs | get -o drv | default []))
+  dyn-drv collect go-modules $layout (($files | get drv) ++ ($libs | get -o drv | default []))
 }
 
 # [{key: "path@version", path, version}], one per module version (go.sum lists most twice: tree and /go.mod)

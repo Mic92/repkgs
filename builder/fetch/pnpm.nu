@@ -4,7 +4,7 @@
 # registry's canonical one unless `resolution.tarball` says otherwise. Each becomes a
 # builtin:fetchurl fixed by that hash. Output: { tarballs/*.tgz, index.json [{id, file}] }, which
 # pnpm.nu seeds an offline pnpm store from (`pnpm store add`), then installs --offline.
-use dynamic.nu
+use dyn-drv.nu
 use npm-registry.nu [split-id tarball-url]
 
 def main []: nothing -> nothing {
@@ -20,10 +20,10 @@ def main []: nothing -> nothing {
     let url = ($p.val.resolution.tarball? | default (tarball-url $nv.name $nv.version))
     let file = $"($nv.name | str replace "/" "+")-($nv.version).tgz"
     {id: $p.id, file: $file, url: $url, integrity: $p.val.resolution.integrity}
-  } | dynamic fetchurls)
+  } | dyn-drv fetchurls)
   let layout = [
     ...($fetched | each {|f| {link: $f.out, to: $"tarballs/($f.file)"} })
-    (dynamic json-file index.json ($fetched | select id file))
+    (dyn-drv json-file index.json ($fetched | select id file))
   ]
-  dynamic collect pnpm-deps $layout ($fetched | get drv)
+  dyn-drv collect pnpm-deps $layout ($fetched | get drv)
 }

@@ -1,4 +1,4 @@
-use core.nu *
+use ../core.nu *
 
 # A Lua application or module: `luarocks make` of its rockspec into $out as the one rocks tree,
 # dependencies from the set's rock server (fetch.luaRocksSet, locks/luarocks.toml). luarocks'

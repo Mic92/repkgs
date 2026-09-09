@@ -1,4 +1,4 @@
-use core.nu *
+use ../core.nu *
 
 # cabal v2-build, offline against the set's shared hackage repository (locks/hackage.toml), with
 # ghc-bootstrap. Dependencies are cached per unit: cabal's unit-id already hashes source, flags,
