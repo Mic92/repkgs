@@ -2,7 +2,7 @@ use ../core.nu *
 use ../probe-cache.nu
 
 # cmake configure / build / ctest / install with Ninja.
-def knobs []: nothing -> record<defs: record, sourceDir: string, generator: string> { knobs-for cmake {defs: {}, sourceDir: ".", generator: "Ninja"} }
+def knobs []: nothing -> record<defs: record, generator: string> { knobs-for cmake {defs: {}, generator: "Ninja"} }
 
 # -D values: bools as ON/OFF, everything else as written
 def render [v: oneof<bool, int, string>]: nothing -> string {
@@ -26,7 +26,7 @@ export def configure []: nothing -> nothing {
     CMAKE_SYSTEM_NAME: "Linux"
     CMAKE_SYSTEM_PROCESSOR: $c.platform.cpu
   } } else { {} }) | merge (if ($c.platform.emulator | is-empty) { {} } else { {CMAKE_CROSSCOMPILING_EMULATOR: ($c.platform.emulator | str join ";")} }) | merge $k.defs)
-  let srcdir = $"($c.src)/($k.sourceDir)"
+  let srcdir = (project-dir cmake)
   # results of check_*/try_compile (the project's INTERNAL cache entries) carried across builds
   let key = (probe-cache key cmake (glob $"($srcdir)/**/{CMakeLists.txt,*.cmake}"))
   let init = $"($c.build)/probe-init.cmake"

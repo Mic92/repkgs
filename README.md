@@ -86,6 +86,7 @@ Other things a package can say, by example:
 | `buildDependencies = [ buildPkgs.cpython ];` | tools that run during the build (build platform) |
 | `dependencies = [ pkgs.openssl ];` | libraries to link (target platform), found via the usual search paths |
 | `cargo.features = [ "pcre2" ];` | build system knobs, listed per system in `nix/build-systems.nix` |
+| `cmake.root = "build/cmake";` | every system has `root` (project subdirectory) and `deps` (its fetched lock-file dependencies, defaulted from the source) |
 | `bin = [ "rg" "rgrep" ];` | executables that must exist. Defaults to the package name. `bin/<first> --version` must print the pinned version |
 | `tests.relocated = true;` | repeat that check after copying the output somewhere else |
 | `prebuilt = true;` | upstream binary: skip compiling, make it relocatable anyway |

@@ -3,17 +3,12 @@
 {
   package,
   sources,
-  fetch,
   pkgs,
   buildPkgs,
 }:
 package {
   name = "copier";
   uses = [ "pyapp" ];
-  pyapp.deps = fetch.pythonDeps {
-    source = sources.default;
-    python = pkgs.cpython;
-  };
   pyapp.check = [ "copier" ];
   buildDependencies = [
     buildPkgs.python-hatch-vcs

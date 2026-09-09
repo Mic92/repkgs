@@ -1,9 +1,9 @@
 use ../core.nu *
 use ../sys-libs.nu
 
-# go build/test/install, modules from a GOPROXY=file:// tree (fetch.goModules) or the source's
-# own vendor/.
-def knobs []: nothing -> record<tags: list<string>, ldflags: list<string>, packages: list<string>, modules: any, cgo: bool> { knobs-for go {tags: [], ldflags: [], packages: ["./..."], modules: null, cgo: true} }
+# go build/test/install, modules from a GOPROXY=file:// tree (fetch.goModules, `go.deps`) or,
+# with `go.deps = null`, the source's own vendor/.
+def knobs []: nothing -> record<tags: list<string>, ldflags: list<string>, packages: list<string>, deps: any, cgo: bool> { knobs-for go {tags: [], ldflags: [], packages: ["./..."], deps: null, cgo: true} }
 
 # offline module resolution, cgo per `go.cgo`
 export def --env setup []: nothing -> nothing {
@@ -11,8 +11,8 @@ export def --env setup []: nothing -> nothing {
   load-env {
     GOCACHE: $"($c.build)/go-cache", GOPATH: $"($c.build)/go", GOSUMDB: "off", GOTOOLCHAIN: "local"
     # compile/asm/link take a host-wide pkgs-cache slot like cc and rustc do (jig slot)
-    GOFLAGS: $"-mod=(if $k.modules != null { 'mod' } else { 'vendor' }) -trimpath -buildvcs=false '-toolexec=(tool jig) slot'"
-    GOPROXY: (if $k.modules != null { $"file://($k.modules)" } else { "off" })
+    GOFLAGS: $"-mod=(if $k.deps != null { 'mod' } else { 'vendor' }) -trimpath -buildvcs=false '-toolexec=(tool jig) slot'"
+    GOPROXY: (if $k.deps != null { $"file://($k.deps)" } else { "off" })
     # cgo reads CGO_CPPFLAGS/CGO_LDFLAGS, not CPPFLAGS/LDFLAGS: dependencies' include and lib dirs
     CGO_ENABLED: (if $k.cgo { "1" } else { "0" }), CGO_CPPFLAGS: ($env.CPPFLAGS? | default ""), CGO_LDFLAGS: ($env.LDFLAGS? | default "")
     # cross: cc already targets the platform, go needs GOARCH; build-machine helpers use CC_FOR_BUILD

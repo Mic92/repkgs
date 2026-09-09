@@ -2,7 +2,7 @@ use ../core.nu *
 use ../sys-libs.nu
 
 # cargo build/test/install, offline against a vendored registry snapshot. rustc goes through jig's cache.
-def knobs []: nothing -> record<features: list<string>, noDefaultFeatures: bool, vendor: any> { knobs-for cargo {features: [], noDefaultFeatures: false, vendor: null} }
+def knobs []: nothing -> record<features: list<string>, noDefaultFeatures: bool, deps: any> { knobs-for cargo {features: [], noDefaultFeatures: false, deps: null} }
 
 def feature-args [k: record<features: list<string>, noDefaultFeatures: bool>]: nothing -> list<string> {
   [
@@ -27,13 +27,9 @@ export def --env setup []: nothing -> nothing {
   if ($sys | is-not-empty) { note sys-libs ($sys | columns | str join " ") }
   # rustflags per target in config (RUSTFLAGS from the environment would replace them): panic
   # strings embed source paths, map build tree, cargo home and vendor dir away
-  let rustflags = ([
-    $"--remap-path-prefix=($c.src)=/src"
-    $"--remap-path-prefix=($env.CARGO_HOME)=/cargo"
-    (if $k.vendor != null { $"--remap-path-prefix=($k.vendor)=/vendor" })
-  ] | compact)
+  let rustflags = [$"--remap-path-prefix=($c.src)=/src" $"--remap-path-prefix=($env.CARGO_HOME)=/cargo" $"--remap-path-prefix=($k.deps)=/vendor"]
   {
-    source: (if $k.vendor != null { {crates-io: {replace-with: vendored}, vendored: {directory: $k.vendor}} } else { {} })
+    source: {crates-io: {replace-with: vendored}, vendored: {directory: $k.deps}}
     net: {offline: true}
     build: {jobs: $c.njobs}
     target: ({$target: {linker: cc, rustflags: $rustflags}}

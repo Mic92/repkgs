@@ -2,5 +2,5 @@
 package {
   name = "lz4";
   uses = [ "cmake" ];
-  cmake.sourceDir = "build/cmake";
+  cmake.root = "build/cmake";
 }

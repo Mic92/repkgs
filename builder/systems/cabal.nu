@@ -5,7 +5,7 @@ use ../core.nu *
 # compiler and the dependency closure, so a unit built once on this host (by any package) is
 # fetched from pkgs-cache instead of compiled. The store directory is the same fixed path in
 # every sandbox so the paths inside cached units agree.
-def knobs []: nothing -> record<set: string, flags: list<string>, exes: list<string>, project: string> { knobs-for cabal {set: "", flags: [], exes: [], project: ""} }
+def knobs []: nothing -> record<deps: string, flags: list<string>, exes: list<string>, project: string> { knobs-for cabal {deps: "", flags: [], exes: [], project: ""} }
 
 const STORE = "/build/cabal-store"
 
@@ -18,7 +18,7 @@ export def --env setup []: nothing -> nothing {
   # cabal writes its index cache into a noindex repository's directory: a writable one of symlinks
   let repo = $"($c.build)/repo"
   mkdir $repo
-  for f in (glob $"($k.set)/*.{tar.gz,cabal}") { ^ln -s $f $repo }
+  for f in (glob $"($k.deps)/*.{tar.gz,cabal}") { ^ln -s $f $repo }
   load-env {CABAL_DIR: $"($c.build)/cabal", CABAL_UNITS: $"($STORE)/ghc-(^ghc --numeric-version | str trim)-inplace"}
   mkdir $env.CABAL_DIR $"(unit-dir)/package.db"
   $"repository local

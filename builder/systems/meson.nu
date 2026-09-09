@@ -1,7 +1,7 @@
 use ../core.nu *
 
 # meson setup / compile / test / install.
-def knobs []: nothing -> record<options: record, sourceDir: string> { knobs-for meson {options: {}, sourceDir: "."} }
+def knobs []: nothing -> record<options: record> { knobs-for meson {options: {}} }
 
 # out-of-tree: work in the build directory
 export def --env setup []: nothing -> nothing { cd (ctx).build }
@@ -63,7 +63,7 @@ export def configure []: nothing -> nothing {
   # when cross the flags live in the machine files; meson would apply env CFLAGS to both machines
   let cross = (if $c.platform.cross { cross-files $c } else { [] })
   let clean = (if $c.platform.cross { {CFLAGS: "", CXXFLAGS: "", CPPFLAGS: "", LDFLAGS: ""} } else { {} })
-  with-env $clean { x meson setup . $"($c.src)/($k.sourceDir)" ...$cross ...($opts | items {|k, v| $"-D($k)=($v | into string)" }) }
+  with-env $clean { x meson setup . (project-dir meson) ...$cross ...($opts | items {|k, v| $"-D($k)=($v | into string)" }) }
 }
 
 # ninja

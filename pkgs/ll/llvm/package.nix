@@ -8,7 +8,7 @@
 package {
   name = "llvm";
   uses = [ "cmake" ];
-  cmake.sourceDir = "llvm";
+  cmake.root = "llvm";
   cmake.defs = import ./defs.nix;
   dependencies = [
     pkgs.zlib

@@ -13,7 +13,6 @@ def knobs []: nothing -> record<deps: any, entry: record, permissions: list<stri
 export def --env setup []: nothing -> nothing {
   let c = (ctx)
   let k = (knobs)
-  if $k.deps == null { error make {msg: "deno: set deno.deps = fetch.denoDeps { source = …; }"} }
   let deno_dir = $"($c.build)/deno-dir"
   ^cp -r $k.deps $deno_dir
   ^chmod -R u+w $deno_dir

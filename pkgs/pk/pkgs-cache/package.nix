@@ -5,7 +5,7 @@ package {
   version = "3";
   source = ./src;
   uses = [ "go" ];
-  go.modules = fetch.goModules { source = ./src; };
+  go.deps = fetch.goModules { source = ./src; };
   go.cgo = false;
   steps = [
     "go.build"

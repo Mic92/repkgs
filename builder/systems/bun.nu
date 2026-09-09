@@ -18,7 +18,7 @@ export def --env setup []: nothing -> nothing {
   let cache = $"($c.build)/bun-cache"
   load-env {BUN_INSTALL_CACHE_DIR: $cache, BUN_INSTALL: $"($c.build)/bun-home", DO_NOT_TRACK: "1"}
   cd (project-dir bun)
-  if $k.deps != null { x bun $LINK_CACHE $k.deps $cache }
+  x bun $LINK_CACHE $k.deps $cache
   x bun install --frozen-lockfile --offline --ignore-scripts ...$k.flags
   node-common after-install $env.PWD
 }

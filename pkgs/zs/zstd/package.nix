@@ -5,7 +5,7 @@
 package {
   name = "zstd";
   uses = [ "cmake" ];
-  cmake.sourceDir = "build/cmake";
+  cmake.root = "build/cmake";
   cmake.defs = {
     ZSTD_BUILD_CONTRIB = false;
     ZSTD_LEGACY_SUPPORT = false;

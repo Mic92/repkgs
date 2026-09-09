@@ -8,7 +8,7 @@
 package {
   name = "zig-llvm";
   uses = [ "cmake" ];
-  cmake.sourceDir = "llvm";
+  cmake.root = "llvm";
   # upstream a558d656 (LLVM 22): RDF specialised std::less/equal_to, which libc++ 23's
   # transparent-comparator machinery rejects
   patches = [ ./rdf-std-specializations.patch ];

@@ -84,7 +84,8 @@ copies, `npmDepsHash` that breaks on every bump). Our rules:
   `Cargo.lock` out of the already-fetched source and writes one `builtin:fetchurl` derivation per
   crate, using the sha256 the lock file already contains, plus one derivation that lays them out
   as a vendor directory. Nix then builds those. Evaluation never sees the lock file, so a
-  3000-line lock costs nothing. npm, pnpm, Yarn, Bundler, uv and Deno work the same way. The
+  3000-line lock costs nothing. npm, pnpm, Yarn, Bundler, uv, Bun and Deno work the same way,
+  and every build system receives the result as its `deps` knob, defaulted from the source. The
   producer talks to the Nix daemon through jig's own worker-protocol client, so this needs
   neither a `nix` binary in the sandbox nor recursive Nix.
 - **Hashes a lock file lacks live in one shared table per ecosystem.** Go's `go.sum` hashes a

@@ -1,8 +1,9 @@
 # What `uses = [ "<name>" ]` means: builder/systems/<name>.nu implements the verbs, `verbs` is the default
 # step order (build test install unless said otherwise), `tools` go on PATH, `libs` into
 # `dependencies`, `prebuilt` is the package's default for that field, and `knobs` are what a
-# package may set under `<name>.*` (anything else is an eval error). `lock = knob: fetcher` gives
-# that knob the package's own lock file, fetched from its source, as default. `sh` is for tools
+# package may set under `<name>.*` (anything else is an eval error). Two knobs mean the same
+# everywhere: `root` (the project's directory below the source) and `deps` (the fetched tree of
+# locked dependencies). `lock.deps = fetcher` defaults it to the package's own lock file. `sh` is for tools
 # that spawn a shell by name (ninja, npm run, libtool).
 {
   buildPkgs,
@@ -63,7 +64,7 @@ builtins.mapAttrs
       ];
       knobs = [
         "defs"
-        "sourceDir"
+        "root"
         "generator"
       ];
     };
@@ -81,7 +82,7 @@ builtins.mapAttrs
       ];
       knobs = [
         "options"
-        "sourceDir"
+        "root"
       ];
     };
     python = {
@@ -110,12 +111,12 @@ builtins.mapAttrs
       # `cargo.toolchain = buildPkgs.rust-bootstrap` for what must exist before llvm and rust are
       # built: formatelf, which every `prebuilt = true` package needs
       tools = args: [ (args.cargo.toolchain or buildPkgs.rust) ];
-      lock.vendor = fetch.cargoVendor;
+      lock.deps = fetch.cargoVendor;
       knobs = [
         "features"
         "noDefaultFeatures"
         "root"
-        "vendor"
+        "deps"
         "toolchain"
       ];
     };
@@ -132,9 +133,9 @@ builtins.mapAttrs
         pkgs.libffi # and the RTS -lffi
       ];
       # the shared version set (locks/hackage.toml) every cabal package solves against
-      defaults.set = fetch.hackageSet { };
+      defaults.deps = fetch.hackageSet { };
       knobs = [
-        "set"
+        "deps"
         "flags"
         "exes"
         "project"
@@ -148,9 +149,9 @@ builtins.mapAttrs
         sh
       ];
       # the shared rock versions (locks/luarocks.toml)
-      defaults.set = fetch.luaRocksSet { inherit (buildPkgs) lua; };
+      defaults.deps = fetch.luaRocksSet { inherit (buildPkgs) lua; };
       knobs = [
-        "set"
+        "deps"
         "rockspec"
         "root"
         "flags"
@@ -158,14 +159,14 @@ builtins.mapAttrs
     };
     go = {
       tools = [ buildPkgs.go ];
-      lock.modules = fetch.goModules;
+      lock.deps = fetch.goModules;
       knobs = [
         "tags"
         "ldflags"
         "packages"
         "testPackages"
         "root"
-        "modules"
+        "deps"
         "cgo"
       ];
     };
@@ -187,6 +188,7 @@ builtins.mapAttrs
       # binary wheels carry upstream-linked .so files: finish implants interp/RUNPATH like for any
       # prebuilt package (after split-debug, llvm-objcopy crashes on formatelf's layout)
       prebuilt = true;
+      lock.deps = args: fetch.pythonDeps (args // { python = pkgs.cpython; });
       tools = with buildPkgs; [
         cpython
         python-build
@@ -208,10 +210,10 @@ builtins.mapAttrs
         buildPkgs.ruby
         sh
       ];
-      lock.gems = fetch.gems;
+      lock.deps = fetch.gems;
       knobs = [
         "root"
-        "gems"
+        "deps"
         "without"
         "test"
         "flags"
@@ -234,6 +236,7 @@ builtins.mapAttrs
         buildPkgs.bun
         sh
       ];
+      lock.deps = fetch.bunDeps;
       knobs = [
         "root"
         "script"

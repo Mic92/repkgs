@@ -65,7 +65,7 @@ package {
   inherit (sources) version;
   source = fetch.pinned sources "default";
   uses = [ "cargo" ];
-  cargo.vendor = fetch.cargoVendor { inherit source; };
+  cargo.deps = fetch.cargoVendor { inherit source; };
 }
 ```
 

@@ -1,14 +1,14 @@
 use ../core.nu *
 use ../sys-libs.nu
 
-# A Ruby application installed with Bundler from its Gemfile.lock (fetch.gems):
+# A Ruby application installed with Bundler from its Gemfile.lock (fetch.gems, `bundler.deps`):
 #   $out/lib/<name>/                the application tree, gems under vendor/bundle (deployment layout)
 #   $out/bin/<exe>                  stubs that start our ruby with that bundle and load exe/<exe>
 # Native extensions compile with the cc on PATH (mkmf takes CC from rbconfig, which says "cc").
 # Gems that can link one of our libraries get it via the lock: fetch.gems propagates the library,
 # sys-libs.nu supplies `bundle config build.<gem>` flags and env.
-def knobs []: nothing -> record<gems: any, without: list<string>, test: any, flags: list<string>> {
-  knobs-for bundler {gems: null, without: [development test], test: null, flags: []}
+def knobs []: nothing -> record<deps: any, without: list<string>, test: any, flags: list<string>> {
+  knobs-for bundler {deps: null, without: [development test], test: null, flags: []}
 }
 
 def app-dir []: nothing -> string { let c = (ctx); $"($c.out)/lib/($c.spec.name)" }
@@ -22,12 +22,10 @@ export def --env setup []: nothing -> nothing {
   mkdir ($app | path dirname)
   ^cp -r (project-dir bundler) $app
   cd $app
-  if $k.gems != null {
-    mkdir vendor
-    ^cp -rL $"($k.gems)/vendor/cache" vendor/cache
-    ^cp -f $"($k.gems)/Gemfile.lock" Gemfile.lock
-    chmod -R u+w vendor Gemfile.lock
-  }
+  mkdir vendor
+  ^cp -rL $"($k.deps)/vendor/cache" vendor/cache
+  ^cp -f $"($k.deps)/Gemfile.lock" Gemfile.lock
+  chmod -R u+w vendor Gemfile.lock
   load-env {
     BUNDLE_PATH: $"($app)/vendor/bundle", BUNDLE_CACHE_PATH: $"($app)/vendor/cache", BUNDLE_FROZEN: "true"
     BUNDLE_WITHOUT: ($k.without | str join ":"), BUNDLE_JOBS: ($c.njobs | into string), BUNDLE_RETRY: "0"
