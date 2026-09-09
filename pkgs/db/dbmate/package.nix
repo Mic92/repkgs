@@ -4,6 +4,7 @@
   package,
   sources,
   fetch,
+  buildPkgs,
 }:
 package {
   name = "dbmate";
@@ -11,6 +12,7 @@ package {
   go.modules = fetch.goModules { source = sources.default; };
   go.ldflags = [ "-s" ];
   go.packages = [ "." ];
+  buildDependencies = [ buildPkgs.sqlite ]; # tests dump schemas through the sqlite3 cli
   go.testPackages = [
     "./pkg/dbutil/..."
     "./pkg/driver/sqlite/..."
