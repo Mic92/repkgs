@@ -70,7 +70,7 @@ When the defaults do not fit, `steps` lists what runs, mixing build system verbs
 steps = [
   "autotools.configure"
   "autotools.build"
-  { name = "fixup"; run = ''rm $"((ctx).out)/bin/unwanted"''; }
+  { name = "fixup"; run = ''rm $"($c.out)/bin/unwanted"''; }   # $c: out, src, build, njobs, platform, spec
   "autotools.install"
 ];
 ```
@@ -82,7 +82,8 @@ Other things a package can say, by example:
 | `buildDependencies = [ buildPkgs.cpython ];` | tools that run during the build (build platform) |
 | `dependencies = [ pkgs.openssl ];` | libraries to link (target platform), found via the usual search paths |
 | `cargo.features = [ "pcre2" ];` | build system knobs, listed per system in `nix/build-systems.nix` |
-| `bin = [ "rg" ];` `tests.version = true;` | sanity checks on the output, including "still runs after being moved" |
+| `bin = [ "rg" "rgrep" ];` | executables that must exist. Defaults to the package name. `bin/<first> --version` must print the pinned version |
+| `tests.relocated = true;` | repeat that check after copying the output somewhere else |
 | `prebuilt = true;` | upstream binary: skip compiling, make it relocatable anyway |
 | `install."bin/deno" = "deno";` | just copy files into `$out`, no steps needed |
 | `exports = false;` | a toolchain or application: dependents should not link against its lib/ |

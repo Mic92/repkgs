@@ -19,7 +19,6 @@ package {
     {
       name = "configure";
       run = ''
-        let c = (ctx)
         cd $c.build
         (x $env.CONFIG_SHELL $"($c.src)/configure" $"--prefix=($c.out)" --disable-download --without-default-features
           --enable-linux-user --disable-system --disable-tools --disable-docs --disable-werror
@@ -28,11 +27,11 @@ package {
     }
     {
       name = "build";
-      run = "x ninja -C (ctx).build $\"-j((ctx).njobs)\"";
+      run = "x ninja -C $c.build $\"-j($c.njobs)\"";
     }
     {
       name = "install";
-      run = "x meson install -C (ctx).build --no-rebuild";
+      run = "x meson install -C $c.build --no-rebuild";
     }
   ];
   tests.run = false;

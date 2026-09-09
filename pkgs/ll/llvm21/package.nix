@@ -32,5 +32,4 @@ package {
   buildDependencies = [ buildPkgs.cpython ];
   tests.run = false; # hours, as llvm
   bin = [ "llvm-config" ];
-  tests.version = "--version";
 }

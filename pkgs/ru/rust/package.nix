@@ -25,7 +25,6 @@ package {
     {
       name = "configure";
       run = ''
-        let c = (ctx)
         let triple = ($c.platform.triple | str replace $c.platform.cpu $c.platform.names.rust)
         let rb = (dep-root rust-bootstrap "stage0 rustc and cargo")
         {
@@ -69,7 +68,6 @@ package {
     {
       name = "install";
       run = ''
-        let c = (ctx)
         x python3 x.py install
         # rust-installer bookkeeping, install.log carries a timestamp
         rm -f ...(glob $"($c.out)/lib/rustlib/{install.log,uninstall.sh,manifest-*,components,rust-installer-version}")

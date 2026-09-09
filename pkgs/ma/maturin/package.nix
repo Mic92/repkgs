@@ -10,5 +10,4 @@ package {
     "cargo.build"
     "cargo.install"
   ];
-  bin = [ "maturin" ];
 }

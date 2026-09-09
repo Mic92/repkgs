@@ -13,5 +13,4 @@ package {
     "ruby-lsp"
     "ruby-lsp-check"
   ];
-  tests.version = true;
 }

@@ -15,7 +15,6 @@ package {
     {
       name = "configure";
       run = ''
-        let c = (ctx)
         # node's configure is a python script, not autoconf
         x python3 configure.py $"--prefix=($c.out)" --ninja --shared-zlib --shared-openssl --with-intl=small-icu --without-corepack
       '';
@@ -23,14 +22,12 @@ package {
     {
       name = "build";
       run = ''
-        let c = (ctx)
         x ninja -C out/Release $"-j($c.njobs)"
       '';
     }
     {
       name = "install";
       run = ''
-        let c = (ctx)
         x python3 tools/install.py install --dest-dir "" --prefix $c.out --build-dir out --config Release
       '';
     }

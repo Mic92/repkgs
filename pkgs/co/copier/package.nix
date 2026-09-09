@@ -24,6 +24,5 @@ package {
     pkgs.libgcc-shim
   ];
   env.SETUPTOOLS_SCM_PRETEND_VERSION = sources.version;
-  bin = [ "copier" ];
   tests.version = true;
 }

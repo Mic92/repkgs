@@ -9,5 +9,4 @@ package {
     docs = false;
   };
   buildDependencies = [ buildPkgs.cpython ]; # test runner
-  bin = [ "fribidi" ];
 }

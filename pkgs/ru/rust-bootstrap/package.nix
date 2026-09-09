@@ -23,7 +23,6 @@ package {
     {
       name = "install";
       run = ''
-        let c = (ctx)
         for d in (["."] ++ ($env.components | split row " ")) {
           x sh $"($d)/install.sh" $"--prefix=($c.out)" --disable-ldconfig
         }

@@ -5,5 +5,4 @@ package {
   uses = [ "cabal" ];
   cabal.exes = [ "pandoc" ];
   dependencies = [ pkgs.zlib ];
-  bin = [ "pandoc" ];
 }

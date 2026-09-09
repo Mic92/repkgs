@@ -30,5 +30,4 @@ package {
     "go.build"
     "go.install"
   ]; # go tests want a music library fixture set
-  bin = [ "navidrome" ];
 }

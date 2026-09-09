@@ -17,5 +17,4 @@ package {
   buildDependencies = [ buildPkgs.cpython ];
   tests.run = false; # LLVM_INCLUDE_TESTS off: hours
   bin = [ "llvm-config" ];
-  tests.version = "--version";
 }

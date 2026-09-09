@@ -5,7 +5,6 @@ package {
   uses = [ "autotools" ];
   bootstrapTools = true;
   autotools.flags = [
-    "--disable-dependency-tracking"
     # no built-in search path: core.nu sets PKG_CONFIG_PATH from dependencies
     "--with-pkg-config-dir="
     "--with-system-libdir=/nonexistent"
@@ -18,7 +17,7 @@ package {
     "autotools.install"
     {
       name = "pkg-config-alias";
-      run = "^ln -s pkgconf $\"((ctx).out)/bin/pkg-config\"";
+      run = "^ln -s pkgconf $\"($c.out)/bin/pkg-config\"";
     }
   ];
   bin = [

@@ -32,6 +32,5 @@ package {
     "java"
     "javac"
   ];
-  tests.version = "--version";
   exports = false;
 }

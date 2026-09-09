@@ -8,7 +8,6 @@ package {
     {
       name = "build";
       run = ''
-        let c = (ctx)
         cd $c.build
         let names = [depfile_parser lexer build build_log clean clparser debug_flags deps_log disk_interface
           dyndep dyndep_parser edit_distance elide_middle eval_env graph graphviz jobserver json line_printer
@@ -22,11 +21,9 @@ package {
     {
       name = "install";
       run = ''
-        let c = (ctx)
         mkdir $"($c.out)/bin"
         cp $"($c.build)/ninja" $"($c.out)/bin/ninja"
       '';
     }
   ];
-  bin = [ "ninja" ];
 }

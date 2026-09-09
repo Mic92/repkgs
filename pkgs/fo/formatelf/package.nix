@@ -12,12 +12,11 @@ package {
     "cargo.install"
     {
       name = "personalities";
-      run = "for n in [auto-formatelf patchelf] { ^ln -s formatelf $\"((ctx).out)/bin/($n)\" }";
+      run = "for n in [auto-formatelf patchelf] { ^ln -s formatelf $\"($c.out)/bin/($n)\" }";
     }
   ];
   bin = [
     "formatelf"
     "auto-formatelf"
   ];
-  tests.version = true;
 }

@@ -14,7 +14,6 @@ package {
     {
       name = "configure";
       run = ''
-        let c = (ctx)
         cd $c.src
         $"osvers=\"gnulinux\"\nmyuname=\"pkgs\"\nmyhostname=\"pkgs\"\ncf_by=\"pkgs\"\ncf_time=\"1970-01-01\"\n" | save -f config.over
         let z = ($c.deps | where { ($in.root | path basename) =~ "-zlib$" } | first)
@@ -30,5 +29,4 @@ package {
   ];
   tests.run = false; # hours; t/ wants a hostname, /etc/protocols, ...
   tests.relocated = true;
-  bin = [ "perl" ];
 }

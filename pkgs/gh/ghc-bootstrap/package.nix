@@ -18,7 +18,6 @@ package {
     {
       name = "install";
       run = ''
-        let c = (ctx)
         # the bindist's configure records cc/ld/ar for ghc's settings file and relinks nothing
         x sh ./configure $"--prefix=($c.out)" CC=cc CXX=c++ LD=ld AR=ar RANLIB=ranlib STRIP=llvm-strip
         x make install

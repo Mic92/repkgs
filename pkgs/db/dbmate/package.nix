@@ -14,6 +14,5 @@ package {
     "./pkg/dbutil/..."
     "./pkg/driver/sqlite/..."
   ]; # the other drivers' tests want running database servers
-  bin = [ "dbmate" ];
   tests.version = true;
 }

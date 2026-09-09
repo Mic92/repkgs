@@ -9,7 +9,6 @@ package {
     {
       name = "configure";
       run = ''
-        let c = (ctx)
         cd $c.build
         (x $env.CONFIG_SHELL $"($c.src)/bootstrap" $"--prefix=($c.out)" $"--parallel=($c.njobs)" --no-system-libs
           --no-qt-gui --docdir=share/doc/cmake --mandir=share/man

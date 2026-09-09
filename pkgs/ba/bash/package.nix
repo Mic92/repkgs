@@ -4,8 +4,6 @@ package {
   uses = [ "autotools" ];
   bootstrapTools = true;
   autotools.flags = [
-    "--disable-nls"
-    "--disable-dependency-tracking"
     "--without-bash-malloc"
     "--disable-readline" # build-machine shell for configure scripts, not for people
     "bash_cv_func_strtoimax=y"
@@ -21,7 +19,7 @@ package {
     "autotools.install"
     {
       name = "sh-alias";
-      run = "^ln -s bash $\"((ctx).out)/bin/sh\"";
+      run = "^ln -s bash $\"($c.out)/bin/sh\"";
     }
   ];
   bin = [

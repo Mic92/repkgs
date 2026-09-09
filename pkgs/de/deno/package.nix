@@ -9,6 +9,5 @@ package {
   prebuilt = true;
   dependencies = [ pkgs.libgcc-shim ]; # upstream links libgcc_s.so.1 for unwinding
   install."bin/deno" = "deno";
-  bin = [ "deno" ];
   tests.version = true;
 }

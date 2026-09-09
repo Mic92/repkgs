@@ -3,5 +3,4 @@ package {
   name = "gperf";
   uses = [ "autotools" ];
   bootstrapTools = true;
-  bin = [ "gperf" ];
 }

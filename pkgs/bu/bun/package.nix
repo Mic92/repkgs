@@ -8,6 +8,5 @@ package {
   prebuilt = true;
   install."bin/bun" = "bun";
   links."bin/bunx" = "bun";
-  bin = [ "bun" ];
   tests.version = true;
 }

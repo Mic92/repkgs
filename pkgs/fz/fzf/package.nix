@@ -17,5 +17,4 @@ package {
     "./src/util/..."
     "./src/tui/..."
   ]; # src/ reader test spawns $SHELL
-  bin = [ "fzf" ];
 }

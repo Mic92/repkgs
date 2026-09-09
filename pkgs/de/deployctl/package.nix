@@ -9,6 +9,5 @@ package {
   deno.entry.deployctl = "deployctl.ts";
   deno.test = false; # talks to dash.deno.com
   dependencies = [ pkgs.deno ];
-  bin = [ "deployctl" ];
   tests.version = true;
 }

@@ -24,5 +24,4 @@ package {
     pkgs.zstd
   ];
   buildDependencies = [ buildPkgs.perl ];
-  bin = [ "curl" ];
 }

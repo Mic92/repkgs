@@ -25,7 +25,6 @@ package {
     pkgs.libffi
   ];
   tests.run = false; # `make check` is hours; tests.version covers "it starts and finds its stdlib"
-  tests.version = true;
   bin = [
     "ruby"
     "gem"

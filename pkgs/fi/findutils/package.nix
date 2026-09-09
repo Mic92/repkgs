@@ -4,8 +4,6 @@ package {
   uses = [ "autotools" ];
   bootstrapTools = true;
   autotools.flags = [
-    "--disable-nls"
-    "--disable-dependency-tracking"
     "--without-selinux"
     "--localstatedir=/tmp" # locate's default db dir. install-data-hook mkdirs it
   ];

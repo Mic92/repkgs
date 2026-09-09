@@ -25,7 +25,6 @@ package {
     {
       name = "configure";
       run = ''
-        let c = (ctx)
         # not autotools proper: its own wrapper, and it wants bash
         (x bash configure
           $"--prefix=($c.out)"
@@ -50,12 +49,11 @@ package {
     }
     {
       name = "build";
-      run = "x make images JOBS=((ctx).njobs) LOG=info";
+      run = "x make images JOBS=($c.njobs) LOG=info";
     }
     {
       name = "install";
       run = ''
-        let c = (ctx)
         let img = (glob build/*/images/jdk | first)
         for d in [bin conf include jmods lib release] { cp -r $"($img)/($d)" $c.out }
       '';
@@ -66,6 +64,5 @@ package {
     "javac"
     "jar"
   ];
-  tests.version = "--version";
   exports = false;
 }

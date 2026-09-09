@@ -10,5 +10,4 @@ package {
     "bin/yarnpkg" = "../lib/node_modules/yarn/bin/yarn.js";
   };
   tests.version = "yarn --version";
-  bin = [ "yarn" ];
 }

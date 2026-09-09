@@ -3,11 +3,7 @@ package {
   name = "grep";
   uses = [ "autotools" ];
   bootstrapTools = true;
-  autotools.flags = [
-    "--disable-nls"
-    "--disable-dependency-tracking"
-    "--disable-perl-regexp"
-  ];
+  autotools.flags = [ "--disable-perl-regexp" ];
   tests.relocated = true;
   tests.run = false; # perl
   steps = [
@@ -17,8 +13,7 @@ package {
     {
       # deprecated sh wrappers whose #! would be the build shell
       name = "drop-egrep";
-      run = "rm $\"((ctx).out)/bin/egrep\" $\"((ctx).out)/bin/fgrep\"";
+      run = "rm $\"($c.out)/bin/egrep\" $\"($c.out)/bin/fgrep\"";
     }
   ];
-  bin = [ "grep" ];
 }

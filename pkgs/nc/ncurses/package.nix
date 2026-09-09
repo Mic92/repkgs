@@ -21,7 +21,7 @@ package {
       name = "configure";
       run = ''
         # configure derives the .pc dir from pkg-config's search path otherwise
-        $env.PKG_CONFIG_LIBDIR = $"((ctx).out)/lib/pkgconfig"
+        $env.PKG_CONFIG_LIBDIR = $"($c.out)/lib/pkgconfig"
         autotools configure
       '';
     }
@@ -30,7 +30,7 @@ package {
     {
       name = "compat-links";
       run = ''
-        let lib = $"((ctx).out)/lib"
+        let lib = $"($c.out)/lib"
         # -lncurses, -ltinfo etc. resolve to the wide variants
         for l in [ncurses form panel menu tinfo] {
           $"INPUT\(-l($l)w)\n" | save -f $"($lib)/lib($l).so"
@@ -38,7 +38,7 @@ package {
         }
         ^ln -sf ncursesw.pc $"($lib)/pkgconfig/ncurses.pc"
         # a #!$SHELL script duplicating the .pc files
-        rm $"((ctx).out)/bin/ncursesw6-config"
+        rm $"($c.out)/bin/ncursesw6-config"
       '';
     }
   ];

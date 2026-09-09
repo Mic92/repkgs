@@ -12,7 +12,7 @@ package {
     {
       name = "configure";
       run = ''
-        let c = (ctx); cd $c.build
+        cd $c.build
         let target = ({x86_64: "linux-x86_64", aarch64: "linux-aarch64", riscv64: "linux64-riscv64"} | get ($c.platform.triple | split row '-' | first))
         x perl $"($c.src)/Configure" $target $"--prefix=($c.out)" "--libdir=lib" "--openssldir=/etc/ssl" shared no-docs no-tests enable-ktls
       '';
@@ -20,11 +20,10 @@ package {
     "autotools.build"
     {
       name = "install";
-      run = "cd (ctx).build; x make install_sw install_ssldirs $\"OPENSSLDIR=((ctx).out)/etc/ssl\"; rm $\"((ctx).out)/bin/c_rehash\"";
+      run = "cd $c.build; x make install_sw install_ssldirs $\"OPENSSLDIR=($c.out)/etc/ssl\"; rm $\"($c.out)/bin/c_rehash\"";
     } # perl script; would make perl a runtime dependency
 
   ];
   buildDependencies = [ buildPkgs.perl ];
   tests.version = "version";
-  bin = [ "openssl" ];
 }

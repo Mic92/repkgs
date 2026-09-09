@@ -10,5 +10,4 @@ package {
     "bin/pnpx" = "../lib/node_modules/pnpm/bin/pnpx.cjs";
   };
   tests.version = "pnpm --version";
-  bin = [ "pnpm" ];
 }

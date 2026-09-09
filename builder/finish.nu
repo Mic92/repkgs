@@ -37,14 +37,19 @@ def implant [c: record<spec: record, out: string, deps: list<record>, njobs: int
   }
 }
 
-# `tests.version` (default `"--version"` when `bin` is set, false to skip): bin/<first bin> <flag>
+# `bin`, defaulting to the package's name when bin/<name> got installed
+def bins [c: record]: nothing -> list<string> {
+  $c.spec.bin? | default (if ($"($c.out)/bin/($c.spec.name)" | path exists) { [$c.spec.name] } else { [] })
+}
+
+# `tests.version` (a flag, true = `"--version"`, the default when there is a bin, false to skip): bin/<first bin> <flag>
 # must print spec.version (upstream part, "-rN" revision stripped). `tests.relocated = true` reruns
 # it after copying `out` under a scratch prefix with sibling store paths symlinked beside it, from /
 # with env -i: the §3 property, per package, for the cost of one cp.
 def version-check [c: record<spec: record, out: string, deps: list<record>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool>]: nothing -> nothing {
-  let bins = ($c.spec.bin? | default [])
-  let flag = ($c.spec.tests?.version? | default (if ($bins | is-empty) { false } else { "--version" }))
-  if ($flag | describe) == "bool" or ($c.platform.cross and not $c.testsRun) { return }
+  let bins = (bins $c)
+  let flag = (match ($c.spec.tests?.version? | default ($bins | is-not-empty)) { true => "--version", false => null, $f => $f })
+  if $flag == null or ($c.platform.cross and not $c.testsRun) { return }
   let want = ($c.spec.version | str replace -r '-r[0-9]+$' "")
   let run = {|bin: string|
     cd /
@@ -117,7 +122,7 @@ export def main [
     x bsdtar -c --zstd --options $"zstd:threads=($c.njobs)" -f $"($tree)/tree.tar.zst" source build
   }
   if not ($c.out | path exists) { error make {msg: "nothing was installed into $out"} }
-  for b in ($c.spec.bin? | default []) {
+  for b in (bins $c) {
     if not ($"($c.out)/bin/($b)" | path exists) { error make {msg: $"bin/($b) missing in output"} }
   }
   for f in (glob $"($c.out)/**/*.la") { rm $f }

@@ -11,5 +11,4 @@ package {
     "go.build"
     "go.install"
   ];
-  bin = [ "pkgs-cache" ];
 }

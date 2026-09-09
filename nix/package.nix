@@ -170,7 +170,7 @@ let
   stepLine =
     s:
     if isAttrs s then
-      "note step ${s.name}\ndo {\n${s.run}\n}"
+      "note step ${s.name}\ndo {\nlet c = (ctx)\n${s.run}\n}"
     else
       let
         p = match stepRe s;

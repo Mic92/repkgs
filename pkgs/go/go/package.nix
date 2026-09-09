@@ -12,7 +12,6 @@ package {
     {
       name = "build";
       run = ''
-        let c = (ctx)
         $env.GOROOT_BOOTSTRAP = $"(which go | get 0.path | path dirname)/.."
         $env.GOROOT_FINAL = $c.out
         $env.GOCACHE = $"($c.build)/go-cache"

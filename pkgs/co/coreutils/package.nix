@@ -4,8 +4,6 @@ package {
   uses = [ "autotools" ];
   bootstrapTools = true;
   autotools.flags = [
-    "--disable-nls"
-    "--disable-dependency-tracking"
     "--disable-acl"
     "--disable-xattr"
     "--disable-libcap"
