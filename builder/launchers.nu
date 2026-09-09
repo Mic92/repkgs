@@ -12,7 +12,7 @@ use core.nu *
 def runtime-env [rdeps: list<string>, out: string]: nothing -> record {
   if ($rdeps | is-empty) { return {} }
   let exported = ($rdeps | each {|d| (exports-of $d).env } | reduce -f {} {|it, acc| $acc | merge $it }
-    | transpose k v | update v {|e| {default: (storerel $e.v $out)} } | transpose -rd | default {})
+    | items {|k, v| [$k {default: (storerel $v $out)}] } | into record)
   {PATH: {prepend: ($rdeps | each {|d| storerel $"($d)/bin" $out })}} | merge $exported
 }
 
