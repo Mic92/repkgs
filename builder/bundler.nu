@@ -1,0 +1,87 @@
+use core.nu *
+use sys-libs.nu
+
+# A Ruby application installed with Bundler from its Gemfile.lock (fetch.gems):
+#   $out/lib/<name>/                the application tree, gems under vendor/bundle (deployment layout)
+#   $out/bin/<exe>                  stubs that start our ruby with that bundle and load exe/<exe>
+# Native extensions compile with the cc on PATH (mkmf takes CC from rbconfig, which says "cc").
+# Gems that can link one of our libraries get it via the lock: fetch.gems propagates the library,
+# sys-libs.nu supplies `bundle config build.<gem>` flags and env.
+def knobs []: nothing -> record<root: string, gems: any, without: list<string>, test: any, flags: list<string>> {
+  knobs-for bundler {root: ".", gems: null, without: [development test], test: null, flags: []}
+}
+
+def app-dir []: nothing -> string { let c = (ctx); $"($c.out)/lib/($c.spec.name)" }
+
+# copy the source to its final place, put the fetched gems and checksummed lock beside it, and
+# configure bundler entirely through BUNDLE_* env (no .bundle/config to clean up afterwards)
+export def --env setup []: nothing -> nothing {
+  let c = (ctx)
+  let k = (knobs)
+  let app = (app-dir)
+  mkdir ($app | path dirname)
+  ^cp -r $"($c.src)/($k.root)" $app
+  cd $app
+  if $k.gems != null {
+    mkdir vendor
+    ^cp -rL $"($k.gems)/vendor/cache" vendor/cache
+    ^cp -f $"($k.gems)/Gemfile.lock" Gemfile.lock
+    chmod -R u+w vendor Gemfile.lock
+  }
+  load-env {
+    BUNDLE_PATH: $"($app)/vendor/bundle", BUNDLE_CACHE_PATH: $"($app)/vendor/cache", BUNDLE_FROZEN: "true"
+    BUNDLE_WITHOUT: ($k.without | str join ":"), BUNDLE_JOBS: ($c.njobs | into string), BUNDLE_RETRY: "0"
+    BUNDLE_USER_HOME: $"($c.build)/bundle-home", GEM_HOME: $"($c.build)/gem-home", HOME: $c.build
+    MAKEFLAGS: $"-j($c.njobs)"
+  }
+  load-env (sys-libs env-for gems $c.deps)
+  load-env (gem-build-env $c.deps)
+}
+
+# unpack the cached .gem files into vendor/bundle, compiling native extensions
+export def build []: nothing -> nothing {
+  cd (app-dir)
+  x bundle install --local --no-cache ...((knobs).flags)
+  # the .gem archives, bundler's download cache and extension build logs (which embed the build dir)
+  rm -rf vendor/cache ...(glob vendor/bundle/ruby/*/cache) ...(glob vendor/bundle/ruby/*/extensions/**/{gem_make.out,mkmf.log})
+  fix-env-shebangs vendor/bundle (ctx).njobs
+}
+
+# `bundler.test`: a command run with `bundle exec` (off by default: test gems are in `without`)
+export def test []: nothing -> nothing {
+  let command = (knobs).test
+  if $command != null { cd (app-dir); x bundle exec ...($command | split row " ") }
+}
+
+# bin/<name> for each `bin` of the spec
+export def install []: nothing -> nothing {
+  let c = (ctx)
+  let app = (app-dir)
+  let ruby = ($c.deps | where name == ruby | first | get root)
+  mkdir $"($c.out)/bin"
+  for name in ($c.spec.bin? | default []) {
+    bin-stub $name $app $ruby | save -f $"($c.out)/bin/($name)"
+    chmod +x $"($c.out)/bin/($name)"
+  }
+}
+
+# BUNDLE_BUILD__<GEM> is how `bundle config build.<gem> <flags>` reaches `gem install` without a config file
+def gem-build-env [deps: list<record>]: nothing -> record {
+  let flags = (sys-libs gem-build-flags $deps)
+  if ($flags | is-not-empty) { note sys-libs ($flags | columns | str join " ") }
+  $flags | items {|gem, value| [$"BUNDLE_BUILD__($gem | str upcase | str replace -a "-" "___")" $value] } | into record
+}
+
+# a ruby script that activates the bundle and loads the application's own executable
+def bin-stub [name: string, app: string, ruby: string]: nothing -> string {
+  let exe = ([exe bin] | each { $"($app)/($in)/($name)" } | where { path exists } | first)
+  [
+    $"#!($ruby)/bin/ruby"
+    $"ENV['BUNDLE_GEMFILE'] = '($app)/Gemfile'"
+    $"ENV['BUNDLE_PATH'] = '($app)/vendor/bundle'"
+    $"ENV['BUNDLE_WITHOUT'] = '((knobs).without | str join ":")'"
+    "ENV['BUNDLE_FROZEN'] = 'true'"
+    "require 'bundler/setup'"
+    $"load '($exe)'"
+  ] | str join "\n"
+}

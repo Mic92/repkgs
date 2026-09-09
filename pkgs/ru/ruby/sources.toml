@@ -1,0 +1,13 @@
+[upstream]
+purl = "pkg:github/ruby/ruby"
+
+[[source]]
+key = "default"
+url = "https://cache.ruby-lang.org/pub/ruby/{major}.{minor}/ruby-{version}.tar.xz"
+hash = "sha256-YJXbqhn6zL2FPkio4wA3gCoJFPYEdsztyFH7aj1YjW0="
+
+[pin]
+version = "4.0.6"
+tag = "v4.0.6"
+date = "2026-07-14"
+checked = "2026-09-09"
