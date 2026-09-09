@@ -283,25 +283,25 @@ auto Stopwatch::ElapsedMs() const -> double {
 auto OutcomeName(Outcome outcome) -> std::string_view {
   switch (outcome) {
     case Outcome::kHit:
-      return "hit";
+      return "cached";
     case Outcome::kHitFail:
-      return "hit-fail";
+      return "cached-error";
     case Outcome::kMissStored:
-      return "miss-stored";
+      return "compiled";
     case Outcome::kMissStoredFail:
-      return "miss-stored-fail";
+      return "compiled-error";
     case Outcome::kMissFail:
-      return "miss-fail";
+      return "failed";
     case Outcome::kMissUnstored:
-      return "miss-unstored";
+      return "compiled-unstored";
     case Outcome::kPlainCompile:
-      return "plain-compile";
+      return "uncacheable";
     case Outcome::kPlainLink:
-      return "plain-link";
+      return "linked";
     case Outcome::kPlainNoSource:
-      return "plain-nosrc";
+      return "uncacheable-nosrc";
     case Outcome::kPlainNoSocket:
-      return "plain-nosock";
+      return "no-daemon";
   }
   return "?";
 }

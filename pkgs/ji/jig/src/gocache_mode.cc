@@ -229,8 +229,8 @@ auto RunGoCacheProg(const std::string& socket_path) -> int {
     std::fflush(stdout);
   }
   if (const std::string log = Env("JIG_LOG"); !log.empty()) {
-    std::ofstream(log, std::ios::app) << std::format("gocacheprog hits={} misses={} puts={} live={}\n", session.hits,
-                                                     session.misses, session.puts, session.live);
+    std::ofstream(log, std::ios::app) << std::format("go cached={} compiled={} stored={}\n", session.hits,
+                                                     session.misses, session.puts);
   }
   return 0;
 }

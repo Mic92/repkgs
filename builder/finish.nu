@@ -61,13 +61,23 @@ def version-check [c: record]: nothing -> nothing {
   note version $"($cmd | str join ' ') -> ($want)(if $relocated { ', relocated' })"
 }
 
-# compile-cache summary: "hit=812 miss-stored=3 plain=40 rs-hit=…"; gocacheprog reports its own line
+# jig's outcomes summed up per tool: "jig: cc cached=812/855 (95%) compiled=40 linked=3, rustc cached=…".
+# go's cache program writes its own counted line
 def cache-summary []: nothing -> nothing {
   if not ($env.JIG_LOG | path exists) { return }
   let ls = (open --raw $env.JIG_LOG | lines)
-  for l in ($ls | where { str starts-with "gocacheprog" }) { note cache $l }
-  let kinds = ($ls | where { $in !~ "^gocacheprog" } | each { split row " " | first } | uniq -c)
-  if ($kinds | is-not-empty) { note cache ($kinds | each { $"($in.value)=($in.count)" } | str join " ") }
+  let go = ($ls | where { str starts-with "go " } | each { str substring 3.. })
+  let tools = ($ls | where { $in !~ "^go " } | each { split row " " | first } | uniq -c
+    | each {|k| let p = ($k.value | parse -r '^(?:(?<tool>rustc)-)?(?<kind>.*)$' | first); {tool: (if ($p.tool | is-empty) { "cc" } else { $p.tool }), kind: $p.kind, count: $k.count} }
+    | group-by tool --to-table
+    | each {|t|
+      let total = ($t.items.count | math sum)
+      let cached = ($t.items | where kind == cached | get count | append 0 | math sum)
+      let rest = ($t.items | where kind != cached | each { $"($in.kind)=($in.count)" })
+      [$t.tool $"cached=($cached)/($total) \(($cached * 100 // $total)%)" ...$rest] | str join " "
+    })
+  let parts = ($tools ++ ($go | each { $"go ($in)" }))
+  if ($parts | is-not-empty) { note jig ($parts | str join ", ") }
   # a few of the command lines jig would not cache, to spot shapes worth teaching it
   if ($env.JIG_LOG_ARGS | path exists) {
     for l in (open --raw $env.JIG_LOG_ARGS | lines | shuffle | first 5) { note uncached ($l | str substring 0..300) }

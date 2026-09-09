@@ -243,7 +243,7 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
     } else if (!source_bytes) {
       outcome = Outcome::kPlainNoSource;
     }
-    LogOutcome(outcome, label, clock, "rs-");
+    LogOutcome(outcome, label, clock, "rustc-");
     return status;
   }
 
@@ -275,7 +275,7 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
       const std::optional<std::string> blob = cache.Get(slot::Object(*result_key));
       if (blob && UnpackFiles(*blob, inv.out_dir, inv.extra_filename)) {
         std::print(stderr, "{}", cache.Get(slot::Stderr(*result_key)).value_or(""));
-        LogOutcome(Outcome::kHit, label, clock, "rs-");
+        LogOutcome(Outcome::kHit, label, clock, "rustc-");
         return 0;
       }
     }
@@ -288,14 +288,14 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
   }
   std::print(stderr, "{}", run.stderr_text);
   if (run.status != 0) {
-    LogOutcome(Outcome::kMissFail, label, clock, "rs-");
+    LogOutcome(Outcome::kMissFail, label, clock, "rustc-");
     return run.status;
   }
   // with cargo the dep-info is exactly <out-dir>/<crate><extra>.d. Scanning would race sibling variants
   const std::optional<std::string> dep_text =
       ReadFile(fs::path(inv.out_dir) / (inv.crate_name + inv.extra_filename + ".d"));
   if (!dep_text) {
-    LogOutcome(Outcome::kMissUnstored, label, clock, "rs-");
+    LogOutcome(Outcome::kMissUnstored, label, clock, "rustc-");
     return 0;
   }
   const DepInfo info = ParseDepInfo(*dep_text);
@@ -305,7 +305,7 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
   cache.Put(slot::Manifest(request_key), manifest.text);
   cache.Put(slot::Object(manifest.result_key), PackFiles(info.outputs, inv.extra_filename));
   cache.Put(slot::Stderr(manifest.result_key), run.stderr_text);
-  LogOutcome(Outcome::kMissStored, label, clock, "rs-");
+  LogOutcome(Outcome::kMissStored, label, clock, "rustc-");
   return 0;
 }
 

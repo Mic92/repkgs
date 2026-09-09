@@ -97,7 +97,7 @@ realisations.
 
 ## Follow-ups
 
-- jig: teach the shapes that still show as `plain-link`/`plain-compile` (finish.nu prints
+- jig: teach the shapes that still show as `linked`/`uncacheable` (finish.nu prints
   samples: libtool relinks, `@rsp`, multi-source lines). rustc mode can cache bin/proc-macro
   crates now that links are cached. rustc keys should not change when only the vendor store path
   does. Recurring `miss-fail` on identical rebuilds means an unstable conftest key.

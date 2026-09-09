@@ -64,7 +64,7 @@ def restore [c: record]: nothing -> nothing {
     }
   })
   ^ghc-pkg recache $"--package-db=(unit-dir)/package.db"
-  note cabal-units $"($got | length)/($units | length) from cache"
+  note cabal $"($got | length)/($units | length) units cached"
 }
 
 # units cabal built this run -> the cache
@@ -76,7 +76,7 @@ def save-units [c: record, before: list<string>]: nothing -> nothing {
     ^jig cache put $"hs:($id)" $tar | complete | ignore
     rm $tar
   }
-  note cabal-units $"($new | length) stored"
+  note cabal $"($new | length) units stored"
 }
 
 # plan, restore cached units, cabal build, store new units

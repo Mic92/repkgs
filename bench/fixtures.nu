@@ -95,7 +95,7 @@ export def uv-lock [n: int = 300]: nothing -> record {
 }
 
 export def jig-log [file: path, lines: int = 20000]: nothing -> path {
-  let kinds = [hit hit hit hit miss-stored plain hit rs-hit]
+  let kinds = [cached cached cached cached compiled uncacheable cached rustc-cached]
   0..<$lines | each {|i| $"($kinds | get ($i mod ($kinds | length))) /build/source/f($i).c" }
     | append "gocacheprog gets=100 hits=90 puts=10"
     | str join "\n" | save -f $file
