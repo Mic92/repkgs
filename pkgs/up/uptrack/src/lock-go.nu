@@ -4,7 +4,7 @@
 # builtin:fetchurl per file; `go` re-verifies h1: against go.sum when it reads them.
 
 # module path as the proxy spells it: upper case -> !lower
-export def escape [m: string]: nothing -> string { $m | str replace -ar "([A-Z])" "!$1" | str downcase }
+export def escape [m: string]: nothing -> string { $m | str replace -ar "([A-Z])" "!$1" | str lowercase }
 
 def prefetch [url: string]: nothing -> string {
   ^nix store prefetch-file --json --hash-type sha256 $url | from json | get hash
