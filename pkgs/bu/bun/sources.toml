@@ -1,0 +1,16 @@
+[upstream]
+purl = "pkg:github/oven-sh/bun"
+
+[[source]]
+key = "x86_64"
+url = "https://github.com/oven-sh/bun/releases/download/bun-v{version}/bun-linux-x64.zip"
+hash = "sha256-Nq85/hrOkT7M4VJ9Uc7Kr9e+uNx8unD4d30RzaQlYxc="
+
+[[source]]
+key = "aarch64"
+url = "https://github.com/oven-sh/bun/releases/download/bun-v{version}/bun-linux-aarch64.zip"
+hash = "sha256-E9EOo0ihjqTrVS7RffpXUBeqdkvRoYnXAmscz1BmNwo="
+
+[pin]
+version = "1.4.2"
+tag = "bun-v1.4.2"
