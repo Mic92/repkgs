@@ -8,6 +8,7 @@ package {
   uses = [ "deno" ];
   deno.entry.deployctl = "deployctl.ts";
   tests.run = false; # talks to dash.deno.com
+  deno.check = false; # 1.x sources against deno 2 lib typings (Timeout, Uint8Array<ArrayBufferLike>)
   dependencies = [ pkgs.deno ];
   tests.version = true;
 }
