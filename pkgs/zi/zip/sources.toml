@@ -1,0 +1,8 @@
+# Info-ZIP, unmaintained since 2008: no upstream to track
+[[source]]
+key = "default"
+url = "https://downloads.sourceforge.net/infozip/zip30.tar.gz"
+hash = "sha256-10O+PGEw/qc1PXLB1RidFuy8oc3erFNh2sfphZtykkM="
+
+[pin]
+version = "3.0"

@@ -1,0 +1,10 @@
+[upstream]
+purl = 'pkg:generic/freetype?url=https://download.savannah.gnu.org/releases/freetype/&regex=freetype-(\d[0-9.]*)\.tar\.xz'
+
+[[source]]
+key = "default"
+url = "https://download.savannah.gnu.org/releases/freetype/freetype-{version}.tar.xz"
+hash = "sha256-Hquz5IxpO+W9qwyYHzQgXJM424SRbe2ovVR6kz2bUUE="
+
+[pin]
+version = "2.14.1"

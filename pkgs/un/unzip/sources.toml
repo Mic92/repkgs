@@ -1,0 +1,8 @@
+# Info-ZIP, unmaintained since 2009: no upstream to track
+[[source]]
+key = "default"
+url = "https://downloads.sourceforge.net/infozip/unzip60.tar.gz"
+hash = "sha256-qLgZcx1BdkPe8Y/hb6nqaVSvtt3KWbxkTNKVHyQAPGw="
+
+[pin]
+version = "6.0"

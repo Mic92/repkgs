@@ -1,0 +1,11 @@
+# only <fontconfig/*.h>: the JDK dlopens libfontconfig at run time
+[upstream]
+purl = "pkg:gitlab/fontconfig/fontconfig?repository_url=https://gitlab.freedesktop.org"
+
+[[source]]
+key = "default"
+url = "https://gitlab.freedesktop.org/api/v4/projects/890/packages/generic/fontconfig/{version}/fontconfig-{version}.tar.xz"
+hash = "sha256-MoAUBweqSqp6qlYfH9D5rP8HFqZJS/Wsf78WUy2JP00="
+
+[pin]
+version = "2.17.1"

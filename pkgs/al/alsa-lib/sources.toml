@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/alsa-project/alsa-lib"
+
+[[source]]
+key = "default"
+url = "https://www.alsa-project.org/files/pub/lib/alsa-lib-{version}.tar.bz2"
+hash = "sha256-ifAZ7NG/x34bTdLjz3MGwy07so/oLA1eGb6mB2Lv7cM="
+
+[pin]
+version = "1.2.14"
+tag = "v1.2.14"

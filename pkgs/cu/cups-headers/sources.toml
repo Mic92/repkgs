@@ -1,0 +1,12 @@
+# only the headers: what the JDK compiles its (dlopen-based) printing support against
+[upstream]
+purl = "pkg:github/OpenPrinting/cups"
+allow = "==2.4.*"
+
+[[source]]
+key = "default"
+url = "https://github.com/OpenPrinting/cups/releases/download/v{version}/cups-{version}-source.tar.gz"
+hash = "sha256-MHXUmQJdJx78G4rlLaY0cL0mBveog/rIqL0vUWmoMUY="
+
+[pin]
+version = "2.4.14"
