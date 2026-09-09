@@ -1,0 +1,10 @@
+[upstream]
+purl = 'pkg:generic/jdk?url=https://github.com/openjdk/jdk25u/tags&regex=jdk-(25[0-9.]*)-ga'
+
+[[source]]
+key = "default"
+url = "https://github.com/openjdk/jdk25u/archive/refs/tags/jdk-{version}-ga.tar.gz"
+hash = "sha256-i5PZZbIcHviwOQ5I41LDJxjbS64AOXudk1cXXFUypUo="
+
+[pin]
+version = "25.0.4.1"
