@@ -46,7 +46,8 @@ def version-check [c: record<spec: record, out: string, deps: list<record>, njob
     rm -rf $root
     mkdir $root
     let a = (attrs)
-    let closure = (dep-closure ($a.dependencies ++ $a.runtimeDependencies) | get root) ++ ($env.JIG_STORE_ROOTS | split row " ")
+    # launch: bin/ launchers are symlinks to it
+    let closure = (dep-closure ($a.dependencies ++ $a.runtimeDependencies) | get root) ++ ($env.JIG_STORE_ROOTS | split row " ") ++ [($c.platform.launch | path dirname | path dirname)]
     for d in ($closure | uniq | where { $in != $c.out }) { ^ln -s $d $"($root)/($d | path basename)" }
     ^cp -r $c.out $"($root)/($c.out | path basename)"
     do $run $"($root)/($c.out | path basename)/bin/($bins | first)"
