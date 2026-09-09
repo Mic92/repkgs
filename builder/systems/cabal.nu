@@ -88,7 +88,8 @@ export def test []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
   if not $c.testsRun { return }
   cd (project-dir cabal)
-  x cabal test --enable-tests ...(targets $k)
+  # the package's own test suites (`all:tests` in the project's package, flags still apply)
+  x cabal test --enable-tests ...($k.flags | each {|f| $"--flags=($f)" }) all:tests
 }
 
 # the built executables -> $out/bin
