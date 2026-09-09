@@ -1,0 +1,16 @@
+[upstream]
+purl = "pkg:generic/ghc?url=https://downloads.haskell.org/~ghc/"
+allow = "==9.12.*"
+
+[[source]]
+key = "x86_64"
+url = "https://downloads.haskell.org/~ghc/{version}/ghc-{version}-x86_64-deb12-linux.tar.xz"
+hash = "sha256-GwEpgQ3ZPgA6Fy08W9zjFrCH99vD/UYk0Pc62HeWK8o="
+
+[[source]]
+key = "aarch64"
+url = "https://downloads.haskell.org/~ghc/{version}/ghc-{version}-aarch64-deb12-linux.tar.xz"
+hash = "sha256-23NJbd+y+Ev1VvOqLiR8k3UYyVf7jbN+CQkrMEkVhyA="
+
+[pin]
+version = "9.12.2"

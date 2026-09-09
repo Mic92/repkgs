@@ -1,0 +1,18 @@
+[upstream]
+purl = "pkg:github/haskell/cabal"
+allow = "==3.16.*"
+
+[[source]]
+key = "x86_64"
+url = "https://downloads.haskell.org/~cabal/cabal-install-{version}/cabal-install-{version}-x86_64-linux-deb12.tar.xz"
+hash = "sha256-KPeatecEB7UNPn6Cv/baJFkxert1iV7j4AfL7DsJCDM="
+unpack = false
+
+[[source]]
+key = "aarch64"
+url = "https://downloads.haskell.org/~cabal/cabal-install-{version}/cabal-install-{version}-aarch64-linux-deb12.tar.xz"
+hash = "sha256-dueT9FoU84xjWpfg88S6XxJHl6opHK/GfvG4MTF/BuQ="
+unpack = false
+
+[pin]
+version = "3.16.0.0"
