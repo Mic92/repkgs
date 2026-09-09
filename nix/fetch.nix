@@ -180,6 +180,17 @@ in
     }:
     dynamic "hackage-set" "fetch-hackage.nu" { inherit locks; };
 
+  # locks/luarocks.toml -> a rocks server directory (.src.rock files + manifest) for luarocks.nu
+  luaRocksSet =
+    {
+      lua,
+      locks ? ../locks/luarocks.toml,
+    }:
+    dynamic "luarocks-set" "fetch-luarocks.nu" {
+      inherit locks;
+      luaVersion = lua.version;
+    };
+
   goModules =
     {
       source,

@@ -1,0 +1,10 @@
+[upstream]
+purl = 'pkg:generic/lua?url=https://www.lua.org/ftp/&regex=lua-(5\.4\.\d+)\.tar\.gz'
+
+[[source]]
+key = "default"
+url = "https://www.lua.org/ftp/lua-{version}.tar.gz"
+hash = "sha256-6TMsVp2D3WtvnwyhvwodjQH3kvTXz1rSMWwiHazvKys="
+
+[pin]
+version = "5.4.8"

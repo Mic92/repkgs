@@ -89,10 +89,10 @@ Other things a package can say, by example:
 | `exports = false;` | a toolchain or application: dependents should not link against its lib/ |
 | `patches = [ ./fix.patch ];` | applied with `patch -p1` after unpacking |
 
-Lock-file ecosystems (Cargo, Go, npm, pnpm, Yarn, Bundler, Deno, Hackage) need nothing in the
-package: the lock file in the source is turned into fixed-output fetches at build time through
-dynamic derivations, using the hashes the lock file already carries. Hashes it lacks (Go, Hackage)
-live in `locks/*.toml`, filled in by `uptrack lock`.
+Lock-file ecosystems (Cargo, Go, npm, pnpm, Yarn, Bundler, Deno, Hackage, LuaRocks) need nothing
+in the package: the lock file in the source is turned into fixed-output fetches at build time
+through dynamic derivations, using the hashes the lock file already carries. Hashes it lacks (Go,
+Hackage, LuaRocks) live in `locks/*.toml`, filled in by `uptrack lock`.
 
 ## Keeping it current
 
@@ -116,7 +116,7 @@ bootstrap/        seed → stage0 (musl cc) → stage1 (glibc cc per platform)
 nix/              evaluation: package.nix turns a spec into a derivation, build-systems.nix
                   says what each `uses` entry means, fetch.nix does the lock-file fetchers
 builder/          build time: prepare/finish and one nu module per build system
-locks/            hashes lock files do not carry (go.sum, hackage)
+locks/            hashes lock files do not carry (go.sum, hackage, luarocks)
 docs/             design.md (why), uptrack.md, plan.md
 ```
 

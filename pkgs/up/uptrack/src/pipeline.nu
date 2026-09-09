@@ -14,7 +14,7 @@ const KNOWN = {
   upstream: [purl allow prerelease every group cpe frozen relocks]
   watch: [url regex purl]
   source: [key url hash unpack name]
-  locks: [go hackage]
+  locks: [go hackage luarocks]
 }
 # stages an update.nu beside sources.toml may replace
 const HOOKS = [resolve files verify]

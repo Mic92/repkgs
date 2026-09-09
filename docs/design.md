@@ -88,8 +88,9 @@ copies, `npmDepsHash` that breaks on every bump). Our rules:
   producer talks to the Nix daemon through jig's own worker-protocol client, so this needs
   neither a `nix` binary in the sandbox nor recursive Nix.
 - **Hashes a lock file lacks live in one shared table per ecosystem.** Go's `go.sum` hashes a
-  file listing rather than the zip Nix downloads, and Hackage has no lock files at all. For these,
-  `locks/go.toml` and `locks/hackage.toml` map module@version to sha256, one sorted line each,
+  file listing rather than the zip Nix downloads, Hackage and LuaRocks have no lock files at all.
+  For these, `locks/go.toml`, `locks/hackage.toml` and `locks/luarocks.toml` map a version to its
+  sha256, one sorted line each,
   `merge=union` in `.gitattributes` so parallel additions never conflict. `uptrack lock <pkg>`
   fills them in. Only the producer reads the whole table. Its output mentions just the package's
   own subset, so adding entries for one package does not rebuild another.

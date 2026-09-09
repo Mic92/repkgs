@@ -1,0 +1,3 @@
+[luarocks]
+"argparse" = { sha256 = "sha256-wSKiUiSHbpO9OAzrUa8ozYpyKW4Jiy7tTwbYX1TxoLQ=", version = "0.7.2-1" }
+"luafilesystem" = { sha256 = "sha256-PeaNYZ9q2Von9HKIFDdUR9khMFGUtwUN7mGZBXwxKC8=", version = "1.9.0-1" }

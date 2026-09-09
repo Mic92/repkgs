@@ -4,6 +4,7 @@
 
 use lock-go.nu
 use lock-hackage.nu
+use lock-luarocks.nu
 use pipeline.nu
 
 # entries of <dir>/<eco>.toml, {} when absent
@@ -49,6 +50,7 @@ export def add [pkg: record]: nothing -> table<eco: string, keys: list<string>> 
     let mine = (match $eco {
       "go" => (lock-go lock ($src | path join $sub) $old)
       "hackage" => (lock-hackage lock ($src | path join $sub) $old)
+      "luarocks" => (lock-luarocks lock ($src | path join $sub) $old)
     })
     let new = ($old | merge $mine)
     print -e $"  ($eco): ($mine | columns | length) entries, (($new | columns | length) - ($old | columns | length)) new"

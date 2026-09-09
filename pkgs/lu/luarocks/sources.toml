@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/luarocks/luarocks"
+
+[[source]]
+key = "default"
+url = "https://luarocks.github.io/luarocks/releases/luarocks-{version}.tar.gz"
+hash = "sha256-7KJziDTTBECLAFv6YbBiRuc4rOKo0e7oNX421xDS2QQ="
+
+[pin]
+version = "3.13.0"
+tag = "v3.13.0"

@@ -1,0 +1,14 @@
+[upstream]
+purl = "pkg:github/lunarmodules/luacheck"
+
+[locks]
+luarocks = "."
+
+[[source]]
+key = "default"
+url = "https://github.com/lunarmodules/luacheck/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-6aDXZRLq2c36dbasyVzcecQKoMvY81RIGYasdF211UY="
+
+[pin]
+version = "1.2.0"
+tag = "v1.2.0"

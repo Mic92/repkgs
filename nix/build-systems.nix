@@ -130,6 +130,21 @@ builtins.mapAttrs
         "root"
       ];
     };
+    luarocks = {
+      verbs = [ "build" ];
+      tools = [
+        buildPkgs.luarocks
+        sh
+      ];
+      # the shared rock versions (locks/luarocks.toml)
+      defaults.set = fetch.luaRocksSet { inherit (buildPkgs) lua; };
+      knobs = [
+        "set"
+        "rockspec"
+        "root"
+        "flags"
+      ];
+    };
     go = {
       tools = [ buildPkgs.go ];
       lock.modules = fetch.goModules;

@@ -58,12 +58,8 @@ maps to `@executable_path/../lib` install names instead of RUNPATH, fixup via
 **More language ecosystems**, each an interpreter package plus a build system in the shape of
 the existing ones (named native packages, applications lock their own dependency graph, one
 dynamic-derivation producer reading the upstream lock file, hashes upstream lacks in `locks/`).
-Lua is specified already: `lua` (5.4, plain make, `LUA_ROOT` relative to the binary via launcher
-env) and `luajit` (`HOST_CC=cc-build` + `CROSS=` for cross. DynASM bitness matches, all
-platforms are 64-bit). Build system `luarocks` builds a rockspec against our lua with
-`LUA_INCDIR/LIBDIR`. `fetch.luaRocks { source }` reads a committed `luarocks.lock` and takes
-sha256 from `locks/luarocks.toml` since the manifest has none. cpath/path per application as
-launcher env. Yarn berry stays deferred: its `checksum` is over the zip yarn repacks, not the
+Lua is in (lua, luarocks, `uses = [ "luarocks" ]`, locks/luarocks.toml). `luajit` would be
+`HOST_CC=cc-build` + `CROSS=` for cross. Yarn berry stays deferred: its `checksum` is over the zip yarn repacks, not the
 registry tarball, so it cannot fix a fetch.
 
 **Further ecosystems**, in this order (value per effort). Each is again interpreter + build
@@ -73,7 +69,6 @@ and a sys-libs table where locked packages link C libraries.
 | ecosystem | toolchain | lock → producer | notes |
 |---|---|---|---|
 | Yarn v1 | node (have) | `yarn.lock` `resolved`+`integrity` → offline mirror dir | next, small |
-| Lua / LuaJIT | from C (above) | luarocks has no hashes → `locks/luarocks.toml` | small |
 | Erlang / Elixir | erlang from C, elixir on it | `mix.lock` carries hex sha256 → `fetch.mixDeps` (`MIX_ENV=prod mix deps.get` layout), rebar3 alike | medium, clean |
 | Perl CPAN | perl (have) | `cpanfile.snapshot` (carton) has no hashes → `locks/cpan.toml`. `uses = ["perl"]` for Makefile.PL/Build.PL dists | small |
 | JVM (Java, Kotlin, Scala, Clojure) | `temurin` prebuilt → openjdk from source later (needs a JDK to build) | gradle `verification-metadata.xml` sha256 / maven: producer lays out an offline `~/.m2`, gradle `--offline` | large, gradle is the pain |
