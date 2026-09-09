@@ -2,14 +2,11 @@
 # the `libsqlite3` tag (builder/sys-libs.nu), nothing here names it
 {
   package,
-  sources,
-  fetch,
   buildPkgs,
 }:
 package {
   name = "dbmate";
   uses = [ "go" ];
-  go.modules = fetch.goModules { source = sources.default; };
   go.ldflags = [ "-s" ];
   go.packages = [ "." ];
   buildDependencies = [ buildPkgs.sqlite ]; # tests dump schemas through the sqlite3 cli

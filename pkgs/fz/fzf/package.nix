@@ -1,12 +1,10 @@
 {
   package,
   sources,
-  fetch,
 }:
 package {
   name = "fzf";
   uses = [ "go" ];
-  go.modules = fetch.goModules { source = sources.default; };
   go.ldflags = [
     "-s"
     "-w"

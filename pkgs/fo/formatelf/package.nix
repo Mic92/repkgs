@@ -2,13 +2,10 @@
 # interpreter and a RUNPATH resolved against given lib dirs. Used on binary wheels (builder/uv.nu).
 {
   package,
-  sources,
-  fetch,
 }:
 package {
   name = "formatelf";
   uses = [ "cargo" ];
-  cargo.vendor = fetch.cargoVendor { source = sources.default; };
   steps = [
     "cargo.build"
     "cargo.test"

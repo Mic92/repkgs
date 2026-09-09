@@ -204,7 +204,7 @@ let
     // listToAttrs (
       map (u: {
         name = u;
-        value = (buildSystems.${u}.defaults or { }) // (args.${u} or { });
+        value = buildSystems.${u}.defaults args // (args.${u} or { });
       }) (filter (u: buildSystems.${u} ? defaults) uses)
     )
     // {

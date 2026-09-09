@@ -16,7 +16,6 @@ package {
     source = sources.default;
     root = "ui";
   };
-  go.modules = fetch.goModules { source = sources.default; };
   go.tags = [
     "netgo"
     "sqlite_fts5"

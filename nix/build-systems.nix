@@ -95,6 +95,8 @@
       "cargo.install"
     ];
     tools = [ buildPkgs.rust ];
+    # the package's own lock file, when root and hashes need nothing extra
+    defaults = args: { vendor = fetch.cargoVendor { inherit (args) source; }; };
     knobs = [
       "features"
       "noDefaultFeatures"
@@ -114,7 +116,7 @@
       buildPkgs.cabal-bootstrap
     ];
     # the shared version set (locks/hackage.toml) every cabal package solves against
-    defaults.set = fetch.hackageSet { };
+    defaults = _: { set = fetch.hackageSet { }; };
     knobs = [
       "set"
       "flags"
@@ -131,6 +133,8 @@
       "go.install"
     ];
     tools = [ buildPkgs.go ];
+    # the package's own lock file, when root and hashes need nothing extra
+    defaults = args: { modules = fetch.goModules { inherit (args) source; }; };
     knobs = [
       "tags"
       "ldflags"
@@ -153,6 +157,8 @@
       buildPkgs.nodejs
       sh
     ];
+    # the package's own lock file, when root and hashes need nothing extra
+    defaults = args: { deps = fetch.pnpmDeps { inherit (args) source; }; };
     knobs = [
       "root"
       "script"
@@ -196,6 +202,8 @@
       buildPkgs.ruby
       sh
     ];
+    # the package's own lock file, when root and hashes need nothing extra
+    defaults = args: { gems = fetch.gems { inherit (args) source; }; };
     knobs = [
       "root"
       "gems"
@@ -212,6 +220,8 @@
       "deno.install"
     ];
     tools = [ buildPkgs.deno ];
+    # the package's own lock file, when root and hashes need nothing extra
+    defaults = args: { deps = fetch.denoDeps { inherit (args) source; }; };
     knobs = [
       "root"
       "deps"
@@ -254,6 +264,8 @@
       buildPkgs.nodejs
       sh
     ];
+    # the package's own lock file, when root and hashes need nothing extra
+    defaults = args: { deps = fetch.yarnDeps { inherit (args) source; }; };
     knobs = [
       "root"
       "script"
@@ -273,6 +285,8 @@
       buildPkgs.nodejs
       sh
     ];
+    # the package's own lock file, when root and hashes need nothing extra
+    defaults = args: { deps = fetch.npmDeps { inherit (args) source; }; };
     knobs = [
       "root"
       "script"

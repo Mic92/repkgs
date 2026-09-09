@@ -1,8 +1,6 @@
 # mixed: python (maturin backend) + cargo in one tree
 {
   package,
-  sources,
-  fetch,
   buildPkgs,
 }:
 package {
@@ -13,7 +11,6 @@ package {
   ];
   python.backend = "maturin";
   python.module = "rpds";
-  cargo.vendor = fetch.cargoVendor { source = sources.default; };
   steps = [
     "python.build"
     "python.install"
