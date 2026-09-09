@@ -54,6 +54,7 @@ let
     "prebuilt"
     "install"
     "links"
+    "module"
   ];
 
   # the part of every derivation that is the same across the set: built once
@@ -177,13 +178,31 @@ let
       let
         p = match stepRe s;
       in
-      if p == null || !(elem (elemAt p 0) uses) then
-        fail "step '${s}' is not <one of ${toString uses}>.<verb>"
+      if p == null || !(elem (elemAt p 0) (uses ++ selfModule)) then
+        fail "step '${s}' is not <one of ${toString (uses ++ selfModule)}>.<verb>"
       else if elemAt p 1 == "test" && (!testsRun || separate) then
         ""
       else
         "note step ${s}\n${elemAt p 0} ${elemAt p 1}";
-  prelude = preludeBase ++ map (u: "use ${tree}/${buildSystems.${u}.module}") uses;
+  # `module = ./build.nu`: the package's own verbs, a nu module next to package.nix imported as
+  # `self`, for steps too long to read inline ("self.configure"). It says
+  # `use ../../../builder/core.nu *` like in the tree, so it is laid out that way beside `tree`
+  selfModule = if args ? module then [ "self" ] else [ ];
+  selfTree = derivation {
+    name = "${name}-module";
+    inherit (setCommon) system;
+    builder = "${nu}/bin/nu";
+    args = [
+      "--no-config-file"
+      "-c"
+      "mkdir $\"($env.out)/pkgs/x/x\"; cp ${args.module} $\"($env.out)/pkgs/x/x/self.nu\"; ^$\"${nu}/bin/ln\" -s ${tree} $\"($env.out)/builder\""
+    ];
+    preferLocalBuild = true;
+  };
+  prelude =
+    preludeBase
+    ++ map (u: "use ${tree}/${buildSystems.${u}.module}") uses
+    ++ map (_: "use ${selfTree}/pkgs/x/x/self.nu") selfModule;
   setups = map (u: "note setup ${u}\n${u} setup") uses;
   script = concatStringsSep "\n" (
     prelude

@@ -76,6 +76,9 @@ steps = [
 ];
 ```
 
+When the inline nu gets long, `module = ./build.nu;` next to package.nix exports the verbs and
+steps name them as `"self.configure"` (pkgs/ru/rust).
+
 Other things a package can say, by example:
 
 | | |
