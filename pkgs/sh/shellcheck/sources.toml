@@ -1,0 +1,13 @@
+[upstream]
+purl = "pkg:hackage/ShellCheck"
+
+[locks]
+hackage = "."
+
+[[source]]
+key = "default"
+url = "https://hackage.haskell.org/package/ShellCheck-{version}/ShellCheck-{version}.tar.gz"
+hash = "sha256-lHnIoNlmBleWeLzu4oVuSNtVcSEpU3C449JmE3IDQbM="
+
+[pin]
+version = "0.11.0"

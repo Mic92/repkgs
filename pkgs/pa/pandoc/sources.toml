@@ -1,0 +1,13 @@
+[upstream]
+purl = "pkg:hackage/pandoc-cli"
+
+[locks]
+hackage = "."
+
+[[source]]
+key = "default"
+url = "https://hackage.haskell.org/package/pandoc-cli-{version}/pandoc-cli-{version}.tar.gz"
+hash = "sha256-KaYuBXNhVoN0lVNdVD6ikVF7FRyKKJm7zJxdXkObY0c="
+
+[pin]
+version = "3.11"
