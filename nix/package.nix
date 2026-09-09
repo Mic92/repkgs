@@ -229,7 +229,7 @@ let
     ++ (if (args.prebuilt or false) == true then relocTools else [ ])
     ++ concatMap (u: buildSystems.${u}.tools args ++ stackBefore buildSystems.${u}.stack) uses
     ++ (if args.bootstrapTools or false then baseTools.bootstrap else baseTools.full);
-    dependencies = args.dependencies or [ ];
+    dependencies = (args.dependencies or [ ]) ++ concatMap (u: buildSystems.${u}.libs) uses;
     runtimeDependencies = args.runtimeDependencies or [ ];
   };
   drv = derivation (

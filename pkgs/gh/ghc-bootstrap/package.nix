@@ -12,6 +12,7 @@ package {
     pkgs.gmp
     pkgs.ncurses
     pkgs.libffi
+    pkgs.libgcc-shim # see nix/build-systems.nix cabal.libs
   ];
   buildDependencies = [ buildPkgs.cpython ];
   steps = [

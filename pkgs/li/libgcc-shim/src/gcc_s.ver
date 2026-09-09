@@ -8,5 +8,6 @@ GCC_3.0 {
   local: *;
 };
 GCC_3.3 { _Unwind_Backtrace; _Unwind_FindEnclosingFunction; _Unwind_GetCFA; _Unwind_Resume_or_Rethrow; } GCC_3.0;
-GCC_3.4 { __popcountdi2; __popcountti2; __ctzdi2; } GCC_3.3;
+GCC_3.3.1 { __gcc_personality_v0; } GCC_3.3;
+GCC_3.4 { __popcountdi2; __popcountti2; __ctzdi2; } GCC_3.3.1;
 GCC_4.2.0 { _Unwind_GetIPInfo; } GCC_3.4;

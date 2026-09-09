@@ -1,10 +1,12 @@
 # What `uses = [ "<name>" ]` means: builder/systems/<name>.nu implements the verbs, `verbs` is the default
-# step order (build test install unless said otherwise), `tools` go on PATH, and `knobs` are what a
+# step order (build test install unless said otherwise), `tools` go on PATH, `libs` into
+# `dependencies`, and `knobs` are what a
 # package may set under `<name>.*` (anything else is an eval error). `lock = knob: fetcher` gives
 # that knob the package's own lock file, fetched from its source, as default. `sh` is for tools
 # that spawn a shell by name (ninja, npm run, libtool).
 {
   buildPkgs,
+  pkgs,
   fetch,
   sh,
 }:
@@ -23,6 +25,7 @@ builtins.mapAttrs
       builtins.mapAttrs (_: f: f { inherit (args) source; }) (bs.lock or { }) // (bs.defaults or { });
     inherit (bs) knobs;
     tools = if builtins.isFunction bs.tools then bs.tools else _: bs.tools;
+    libs = bs.libs or [ ];
     stack = bs.stack or [ ];
   })
   {
@@ -119,6 +122,13 @@ builtins.mapAttrs
       tools = [
         buildPkgs.ghc-bootstrap
         buildPkgs.cabal-bootstrap
+      ];
+      # GHC's threaded RTS ends threads with pthread_exit, for which glibc dlopens libgcc_s.so.1:
+      # in the RUNPATH of what is installed, on LD_LIBRARY_PATH (its env export) while building.
+      libs = [
+        pkgs.libgcc-shim
+        pkgs.gmp # ghc-bignum: every linked program wants -lgmp
+        pkgs.libffi # and the RTS -lffi
       ];
       # the shared version set (locks/hackage.toml) every cabal package solves against
       defaults.set = fetch.hackageSet { };
