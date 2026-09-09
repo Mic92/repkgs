@@ -29,17 +29,20 @@ def script-interp [f: path, head: binary, owners: list<string>, inject: bool]: n
   if $line.0 == "/bin/sh" and not $inject { return null }
   let interp = (if ($line.0 | path basename) == "env" { $line | skip 1 } else { $line })
   let store = $"($env.NIX_STORE)/"
-  # an absolute store interpreter must belong to us or a (runtime)dependency: configure likes to
-  # bake in build tools (xz: POSIX_SHELL = the build machine's sh, wrong arch when cross)
+  # an absolute store interpreter that is not ours or a (runtime)dependency's is a build tool that
+  # got baked in (pip writes the build python into console scripts, xz's configure the build sh
+  # into POSIX_SHELL). Left as is, no launcher: for a python library's console script that is the
+  # interpreter it was built for, and Nix keeps the reference. Wrong when cross, so said out loud
   if ($interp.0 | str starts-with $store) and not ($owners | any {|d| $interp.0 | str starts-with $"($d)/" }) {
-    error make {msg: $"bin/($name): #!($interp.0) is a build tool, not a dependency"}
+    note script $"bin/($name): #!($interp.0) is a build tool, not a dependency"
+    return null
   }
   # bare or /usr/bin/env name: looked up in dependencies + runtimeDependencies (things built for the
   # platform), not on the build PATH: a cross package's script must not point at the builder's python
   let prog = (if ($interp.0 | str starts-with $store) or $interp.0 == "/bin/sh" { $interp.0 } else {
-    $owners | each {|d| $"($d)/bin/($interp.0 | path basename)" } | where { path exists } | get 0? | default null
+    $owners | each {|d| $"($d)/bin/($interp.0 | path basename)" } | where { path exists } | get 0?
   })
-  if $prog == null { error make {msg: $"bin/($name): interpreter ($interp.0) is not a dependency"} }
+  if $prog == null { return null }
   {program: $prog, args: ($interp | skip 1)}
 }
 
