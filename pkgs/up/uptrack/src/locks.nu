@@ -1,6 +1,8 @@
-# The repo-wide locks/<eco>.toml: `[<eco>]` then one `"<key>" = { ... }` line per entry, sorted.
+# The repo-wide locks/<eco>.toml (file format, and filling it from packages' [locks]): `[<eco>]` then one `"<key>" = { ... }` line per entry, sorted.
 # Line-oriented so concurrent additions merge textually (.gitattributes: merge=union); `write`
 # is the normal form, `normalize` repairs what a union merge leaves (order, duplicate lines).
+
+use lock-go.nu
 
 # entries of <dir>/<eco>.toml, {} when absent
 export def read [dir: path, eco: string]: nothing -> record {
@@ -33,4 +35,37 @@ export def normalize [file: path]: nothing -> nothing {
 }
 
 # treefmt entry point
+# add this package's dependencies ([locks] go = "<dir in source>") to the tree's
+# locks/<eco>.toml ($UPTRACK_LOCKS, default <root>/locks), from the source at the current pin
+# (fetched through `<name>.src`). Entries already in the table are not fetched again
+export def add [pkg: record, --attr: string]: nothing -> record {
+  if ($pkg.locks | is-empty) { return {} }
+  let root = $env.UPTRACK_ROOT? | default $env.PWD
+  let d = (dir)
+  let src = ^nix-build $root -A $"($attr | default $pkg.name).src" --no-out-link | str trim
+  $pkg.locks | items {|eco, sub|
+    let old = read $d $eco
+    let mine = match $eco { "go" => (lock-go lock ($src | path join $sub) $old) }
+    let new = $old | merge $mine
+    print -e $"  ($eco): ($mine | columns | length) entries, (($new | columns | length) - ($old | columns | length)) new"
+    write $d $eco $new
+    {$eco: ($mine | columns)}
+  } | reduce -f {} {|it, acc| $acc | merge $it }
+}
+
+# $UPTRACK_LOCKS, default <root>/locks
+export def dir []: nothing -> path { $env.UPTRACK_LOCKS? | default ($env.UPTRACK_ROOT? | default $env.PWD | path join locks) }
+
+# rewrite each table to exactly the keys `used` names (eco -> list of keys), dropping the rest
+export def prune [used: record]: nothing -> nothing {
+  let d = (dir)
+  for u in ($used | transpose eco keys) {
+    let old = read $d $u.eco
+    let kept = $old | select ...($u.keys | uniq)
+    print -e $"($u.eco): kept ($kept | columns | length), dropped (($old | columns | length) - ($kept | columns | length))"
+    write $d $u.eco $kept
+  }
+}
+
+
 def main [...files: path]: nothing -> nothing { for f in $files { normalize $f } }

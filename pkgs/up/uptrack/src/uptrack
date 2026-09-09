@@ -2,6 +2,7 @@
 # uptrack: upstream tracking for package trees. docs/uptrack.md
 
 use pipeline.nu
+use locks.nu
 use purl.nu *
 
 def selected [names: list<string>]: nothing -> table {
@@ -51,7 +52,7 @@ def "main apply" [
   $plan | where to != null | each {|e|
     print -e $"($e.name): ($e.from) → ($e.to)"
     let e = pipeline apply $e
-    pipeline lock $e
+    locks add $e
     if not $verify { return ($e | select name from to) }
     let v = pipeline verify $e
     print -e (if $v.verified { $"  built in ($v.took), closure ($v.closure)" } else { $"  FAILED\n($v.log)" })
@@ -85,10 +86,10 @@ def "main lock" [
   --prune # afterwards drop entries no package uses any more (looks at every package, ignores names)
 ]: nothing -> nothing {
   let pkgs = selected (if $prune { [] } else { $names }) | where { $in.locks | is-not-empty }
-  let used = $pkgs | each {|p| print -e $p.name; pipeline lock $p } | reduce -f {} {|it, acc|
+  let used = $pkgs | each {|p| print -e $p.name; locks add $p } | reduce -f {} {|it, acc|
     $it | items {|eco, keys| {$eco: (($acc | get -o $eco | default []) ++ $keys)} } | reduce -f $acc {|x, a| $a | merge $x }
   }
-  if $prune { pipeline prune $used }
+  if $prune { locks prune $used }
 }
 
 # write a new sources.toml and pin it to the newest version upstream lists

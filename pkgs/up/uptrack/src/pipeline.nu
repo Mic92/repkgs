@@ -3,8 +3,6 @@
 use purl.nu *
 use version.nu *
 use datasource.nu
-use lock-go.nu
-use locks.nu
 
 const HOOKS = [resolve sources files verify]
 const LIB = path self .
@@ -167,37 +165,6 @@ export def apply [entry: record]: nothing -> record {
     }
   }
   $entry | insert applied true
-}
-
-# add this package's dependencies ([locks] go = "<dir in source>") to the tree's
-# locks/<eco>.toml ($UPTRACK_LOCKS, default <root>/locks), from the source at the current pin
-# (fetched through `<name>.src`). Entries already in the table are not fetched again
-export def lock [pkg: record, --attr: string]: nothing -> record {
-  if ($pkg.locks | is-empty) { return {} }
-  let root = $env.UPTRACK_ROOT? | default $env.PWD
-  let dir = locks-dir
-  let src = ^nix-build $root -A $"($attr | default $pkg.name).src" --no-out-link | str trim
-  $pkg.locks | items {|eco, sub|
-    let old = locks read $dir $eco
-    let mine = match $eco { "go" => (lock-go lock ($src | path join $sub) $old) }
-    let new = $old | merge $mine
-    print -e $"  ($eco): ($mine | columns | length) entries, (($new | columns | length) - ($old | columns | length)) new"
-    locks write $dir $eco $new
-    {$eco: ($mine | columns)}
-  } | reduce -f {} {|it, acc| $acc | merge $it }
-}
-
-export def locks-dir []: nothing -> path { $env.UPTRACK_LOCKS? | default ($env.UPTRACK_ROOT? | default $env.PWD | path join locks) }
-
-# rewrite each table to exactly the keys `used` names (eco -> list of keys), dropping the rest
-export def prune [used: record]: nothing -> nothing {
-  let dir = locks-dir
-  for u in ($used | transpose eco keys) {
-    let old = locks read $dir $u.eco
-    let kept = $old | select ...($u.keys | uniq)
-    print -e $"($u.eco): kept ($kept | columns | length), dropped (($old | columns | length) - ($kept | columns | length))"
-    locks write $dir $u.eco $kept
-  }
 }
 
 # build the package through the tree adapter (or the verify hook) and record evidence
