@@ -50,6 +50,9 @@ auto WriteFile(const fs::path& path, std::string_view data) -> bool;
 auto Env(const char* name, std::string_view fallback = {}) -> std::string;
 
 auto SplitWhitespace(std::string_view text) -> std::vector<std::string>;
+// `@file` arguments replaced by the file's words (GNU quoting). A @word that names no readable
+// file stays as it is, like gcc and clang do
+auto ExpandResponseFiles(std::span<const std::string> args) -> std::vector<std::string>;
 auto Split(std::string_view text, char sep, bool keep_empty = false) -> std::vector<std::string>;
 auto Join(std::span<const std::string> parts, std::string_view sep) -> std::string;
 auto Trim(std::string_view text) -> std::string_view;

@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include <array>
+#include <cctype>
 #include <charconv>
 #include <chrono>
 #include <cstdint>
@@ -121,6 +122,58 @@ auto SplitWhitespace(std::string_view text) -> std::vector<std::string> {
     if (pos > start) {
       out.emplace_back(text.substr(start, pos - start));
     }
+  }
+  return out;
+}
+
+namespace {
+
+// response-file words the way clang reads them (GNU style): backslash makes the next character
+// literal, quotes group, unquoted whitespace separates
+auto TokenizeGnu(std::string_view text) -> std::vector<std::string> {
+  std::vector<std::string> out;
+  std::string word;
+  bool in_word = false;
+  char quote = 0;
+  for (size_t i = 0; i < text.size(); ++i) {
+    char chr = text.at(i);
+    if (chr == '\\' && i + 1 < text.size()) {
+      chr = text.at(++i);
+    } else if (quote != 0 && chr == quote) {
+      quote = 0;
+      continue;
+    } else if (quote == 0 && (chr == '\'' || chr == '"')) {
+      quote = chr;
+      in_word = true;
+      continue;
+    } else if (quote == 0 && std::isspace(static_cast<unsigned char>(chr)) != 0) {
+      if (in_word) {
+        out.push_back(std::exchange(word, {}));
+      }
+      in_word = false;
+      continue;
+    }
+    word += chr;
+    in_word = true;
+  }
+  if (in_word) {
+    out.push_back(word);
+  }
+  return out;
+}
+
+}  // namespace
+
+auto ExpandResponseFiles(std::span<const std::string> args) -> std::vector<std::string> {
+  std::vector<std::string> out;
+  for (const std::string& arg : args) {
+    const std::optional<std::string> body = arg.starts_with('@') ? ReadFile(arg.substr(1)) : std::nullopt;
+    if (!body) {
+      out.push_back(arg);
+      continue;
+    }
+    std::vector<std::string> words = TokenizeGnu(*body);
+    out.insert(out.end(), std::make_move_iterator(words.begin()), std::make_move_iterator(words.end()));
   }
   return out;
 }

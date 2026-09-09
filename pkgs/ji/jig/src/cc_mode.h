@@ -37,7 +37,7 @@ struct Invocation {
 
 auto ParseInvocation(std::span<const std::string> args) -> Invocation;
 
-auto RunCcMode(std::string_view argv0, std::span<const std::string> user_args, const std::string& socket_path) -> int;
+auto RunCcMode(std::string_view argv0, std::span<const std::string> raw_args, const std::string& socket_path) -> int;
 
 }  // namespace jig
 

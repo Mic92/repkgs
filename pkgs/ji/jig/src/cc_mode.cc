@@ -416,7 +416,8 @@ auto ParseInvocation(std::span<const std::string> args) -> Invocation {
       inv.key_args.push_back(arg);
     } else {
       objects = objects || arg == "-shared" || arg == "-r";
-      // @rsp hides inputs. -Map and friends write or print a second output. A PCH records the
+      // -Wl,@rsp hides inputs from us (a bare @rsp was expanded on entry). -Map and friends write
+      // or print a second output. A PCH records the
       // absolute path and size of every header it read and clang re-validates them on load, so
       // one produced under another build's sysroot path is rejected: never replay those.
       inv.cacheable = inv.cacheable && !arg.starts_with('@') && !arg.contains(",@") && !HasLinkerSideOutput(arg) &&
@@ -429,8 +430,11 @@ auto ParseInvocation(std::span<const std::string> args) -> Invocation {
   return inv;
 }
 
-auto RunCcMode(std::string_view argv0, std::span<const std::string> user_args, const std::string& socket_path) -> int {
+auto RunCcMode(std::string_view argv0, std::span<const std::string> raw_args, const std::string& socket_path) -> int {
   const Stopwatch clock;
+  // ghc puts the whole link behind one @rsp, -shared and -o included: classify, key and link
+  // policy (no crt_interp.o into a shared object) all need the words themselves
+  const std::vector<std::string> user_args = ExpandResponseFiles(raw_args);
   const std::optional<DriverConf> conf = LoadDriverConf();
   if (!conf) {
     std::println(stderr, "jig: no etc/jig.conf next to the binary and JIG_CC unset");

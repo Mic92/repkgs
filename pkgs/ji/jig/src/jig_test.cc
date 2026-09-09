@@ -27,8 +27,11 @@
 
 namespace {
 
+namespace fs = jig::fs;
+using jig::ExpandResponseFiles;
 using jig::Invocation;
 using jig::ParseInvocation;
+using jig::WriteFile;
 
 auto V(std::initializer_list<const char*> items) -> std::vector<std::string> { return {items.begin(), items.end()}; }
 
@@ -83,12 +86,24 @@ void TestParseJoinedOutput() {
   assert(inv.cacheable && inv.output == "/tmp/b/x.o" && inv.key_args == V({"-c"}));
 }
 
+// ghc hands cc everything in one @rsp: -shared in there must still count (no crt_interp.o).
+// Words follow the GNU quoting clang reads
+void TestResponseFiles() {
+  const fs::path dir = fs::temp_directory_path() / "jig-rsp-test";
+  fs::create_directories(dir);
+  assert(WriteFile(dir / "a.rsp", "-shared '-o' 'lib sp.so'\nx.o y\\ z.o \"q\\\"\"\n"));
+  const std::vector<std::string> got =
+      ExpandResponseFiles(std::vector<std::string>{"-O", "@" + (dir / "a.rsp").string(), "@missing"});
+  assert(got == V({"-O", "-shared", "-o", "lib sp.so", "x.o", "y z.o", "q\"", "@missing"}));
+  fs::remove_all(dir);
+}
+
 void TestParseLink() {
   Invocation inv = ParseInvocation(V({"-o", "prog", "main.o", "libutil.a", "-lz", "-shared"}));
   assert(inv.cacheable && inv.link && !inv.link_one && inv.output == "prog" && inv.source == "prog");
   assert(inv.inputs == V({"main.o", "libutil.a"}));
 
-  inv = ParseInvocation(V({"-o", "prog", "@objs.rsp"}));
+  inv = ParseInvocation(V({"-o", "prog", "-Wl,@objs.rsp"}));
   assert(!inv.cacheable);
 
   inv = ParseInvocation(V({"-shared", "-o", "x.so"}));
@@ -351,6 +366,7 @@ auto main() -> int {
   TestParsePreprocess();
   TestParseLink();
   TestParseJoinedOutput();
+  TestResponseFiles();
   TestDepfile();
   TestManifest();
   TestDriver();
