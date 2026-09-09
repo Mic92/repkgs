@@ -1,10 +1,7 @@
 #!/usr/bin/env nu
 # Second stage of fetch.denoDeps (after fetch-deno.nu; `stage_attrs` names its {npm, jsr, https}).
 # The jsr _meta.json files exist now: each module they list becomes a builtin:fetchurl fixed by
-# the manifest's sha256, and the collecting derivation lays out what deno reads under $DENO_DIR:
-#   remote/https/<host>[_PORT<n>]/<sha256 of path?query>   module body + "\n// denoCacheMetadata={headers, url}"
-#   npm/registry.npmjs.org/<name>/<version>/…              unpacked tarball
-#   npm/registry.npmjs.org/<name>/registry.json             packument, cut to the locked versions
+# the manifest's sha256, and the collecting derivation lays out what deno reads under $DENO_DIR.
 use dynamic.nu
 
 const JSR = "https://jsr.io"
@@ -14,42 +11,43 @@ def main []: nothing -> nothing {
   let modules = ($fetched.jsr | each {|p| jsr-modules $p } | flatten)
   print -e $"denoDeps: ($modules | length) jsr modules"
 
-  # everything that goes under remote/: {url, content_type, src | text}
+  # remote/<scheme>/<host>[_PORT<n>]/<sha256 of path?query>, each with deno's metadata trailer
   let remote = [
-    ...($modules | select url content_type out | rename -c {out: src})
-    ...($fetched.https | insert content_type {|m| content-type $m.url })
-    ...($fetched.jsr | each {|p| {url: $p.url, content_type: "application/json", src: $p.meta} })
-    ...($fetched.jsr | group-by name | items {|name, versions| version-list $name $versions })
+    ...($modules | select url content_type out)
+    ...($fetched.https | insert content_type {|m| content-type $m.url } | rename -c {src: out})
+    ...($fetched.jsr | each {|p| {url: $p.url, content_type: "application/json", out: $p.meta} })
+  ] | each {|f| {copy: $f.out, append: (trailer $f), to: (cache-path $f.url)} }
+  let version_lists = ($fetched.jsr | group-by name | items {|name, versions|
+    let f = {url: $"($JSR)/($name)/meta.json", content_type: "application/json"}
+    {write: $"({versions: ($versions | each {|v| {$v.version: {}} } | into record)} | to json -r)(trailer $f)", to: (cache-path $f.url)}
+  })
+  # npm/registry.npmjs.org/<name>/<version>/ + a registry.json cut to the locked versions ("full" and
+  # dist.tarball present: deno asks the registry nothing more)
+  let npm = [
+    ...($fetched.npm | each {|v| {unpack: $v.tarball, to: $"npm/registry.npmjs.org/($v.name)/($v.version)"} })
+    ...($fetched.npm | group-by name | items {|name, versions|
+      let listed = ($versions | each {|v| {$v.version: {version: $v.version, dependencies: {}, dist: {tarball: $v.url, integrity: $v.integrity}}} } | into record)
+      dynamic json-file $"npm/registry.npmjs.org/($name)/registry.json" {name: $name, dist-tags: {}, "_deno.packumentFormat": full, versions: $listed}
+    })
   ]
-  let assemble = '
-    let attrs = (open $env.NIX_ATTRS_JSON_FILE)
-    let out = $attrs.outputs.out
-    for f in $attrs.remote {
-      let u = ($f.url | url parse)
-      let dir = $"($out)/remote/($u.scheme)/($u.host)(if $u.port != "" { $"_PORT($u.port)" })"
-      let key = ($"($u.path)(if $u.query != "" { $"?($u.query)" })" | hash sha256)
-      let body = (if "src" in $f { open --raw $f.src } else { $f.text } | into binary)
-      let trailer = ($"\n// denoCacheMetadata=({headers: {content-type: $f.content_type}, url: $f.url} | to json -r)" | into binary)
-      mkdir $dir
-      [$body $trailer] | bytes collect | save $"($dir)/($key)"
-    }
-    for p in ($attrs.npm | group-by name | transpose name versions) {
-      let dir = $"($out)/npm/registry.npmjs.org/($p.name)"
-      for v in $p.versions {
-        mkdir $"($dir)/($v.version)"
-        ^$"($attrs.seed)/bin/bsdtar" -xf $v.tarball -C $"($dir)/($v.version)" --strip-components 1 --no-same-owner --no-same-permissions
-      }
-      # "full" and dist.tarball present: deno asks the registry nothing more
-      let versions = ($p.versions | each {|v| {$v.version: {version: $v.version, dependencies: {}, dist: {tarball: $v.url, integrity: $v.integrity}}} } | into record)
-      {name: $p.name, dist-tags: {}, "_deno.packumentFormat": full, versions: $versions} | to json -r | save $"($dir)/registry.json"
-    }
-    ^$"($attrs.seed)/bin/chmod" -R u+w,a-st $out'
-  dynamic submit deno-deps $assemble {remote: $remote, npm: $fetched.npm} ($modules | get drv)
+  dynamic collect deno-deps [...$remote ...$version_lists ...$npm] ($modules | get drv)
+}
+
+# where deno's global cache keeps a URL
+def cache-path [url: string]: nothing -> string {
+  let u = ($url | url parse)
+  let key = ($"($u.path)(if $u.query != "" { $"?($u.query)" })" | hash sha256)
+  $"remote/($u.scheme)/($u.host)(if $u.port != "" { $"_PORT($u.port)" })/($key)"
+}
+
+# what deno appends to a cached body: the response headers it cares about and the URL
+def trailer [f: record<url: string, content_type: string>]: nothing -> string {
+  $"\n// denoCacheMetadata=({headers: {content-type: $f.content_type}, url: $f.url} | to json -r)"
 }
 
 # the loadable modules of one jsr package version: {url, content_type, drv, out}. jsr's publish-time
 # module graph names them; test data, docs and CI files in the manifest are not fetched
-def jsr-modules [p: record]: nothing -> table {
+def jsr-modules [p: record<name: string, version: string, meta: string>]: nothing -> table<url: string, content_type: string, drv: string, out: string> {
   let meta = (open --raw $p.meta | from json)
   let graph = ($meta.moduleGraph2? | default $meta.moduleGraph1? | default {})
   $meta.manifest | transpose path file | where {|m| $graph has $m.path } | each {|m|
@@ -58,12 +56,6 @@ def jsr-modules [p: record]: nothing -> table {
     {url: $url, content_type: (content-type $url)}
       | merge (dynamic fetchurl-sha256 $store_name $url ($m.file.checksum | str replace "sha256-" ""))
   }
-}
-
-# @scope/name/meta.json: deno only checks that the locked versions are listed
-def version-list [name: string, versions: list<record>]: nothing -> record {
-  let listed = ($versions | each {|v| {$v.version: {}} } | into record)
-  {url: $"($JSR)/($name)/meta.json", content_type: "application/json", text: ({versions: $listed} | to json -r)}
 }
 
 # the lock records no content-type; deno picks the loader by it, so derive it from the extension

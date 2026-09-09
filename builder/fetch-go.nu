@@ -21,27 +21,20 @@ def main []: nothing -> nothing {
   }
   let libs = (sys-libs pick go ($modules | get path | uniq) $env.sysLibs)
 
-  # one row per file: .mod and .zip for each module version
+  # .mod and .zip for each module version, plus the <version>.info the proxy protocol also wants
   let files = ($modules | each {|m|
     let dir = $"(proxy-case $m.path)/@v"
     $table | get $m.key | items {|ext, sri|
       let file = $"($m.version).($ext)"
-      {dst: $"($dir)/($file)", version: $m.version}
-        | merge (dynamic fetchurl-sri $"($m.path | str replace -ar '[^A-Za-z0-9._-]' '_')-($file)" $"($PROXY)/($dir)/($file)" $sri)
+      {to: $"($dir)/($file)"} | merge (dynamic fetchurl-sri $"($m.path | str replace -ar '[^A-Za-z0-9._-]' '_')-($file)" $"($PROXY)/($dir)/($file)" $sri)
     }
   } | flatten)
-  let assemble = '
-    let attrs = (open $env.NIX_ATTRS_JSON_FILE)
-    let out = $attrs.outputs.out
-    for f in $attrs.files {
-      mkdir ($"($out)/($f.dst)" | path dirname)
-      ^$"($attrs.seed)/bin/ln" -s $f.src $"($out)/($f.dst)"
-      # the proxy protocol also wants <version>.info; only Version is read
-      if ($f.dst | str ends-with ".mod") { {Version: $f.version} | to json -r | save -f $"($out)/($f.dst | str replace -r ".mod$" ".info")" }
-    }
-    $attrs.exports | to json | save $"($out)/exports.json"'
-  let input_drvs = (($files | get drv) ++ ($libs | get -o drv | default []))
-  dynamic submit go-modules $assemble {files: ($files | select dst version out | rename -c {out: src}), exports: (sys-libs exports go-modules $libs)} $input_drvs
+  let layout = [
+    ...($files | each {|f| {link: $f.out, to: $f.to} })
+    ...($modules | each {|m| dynamic json-file $"(proxy-case $m.path)/@v/($m.version).info" {Version: $m.version} })
+    (dynamic json-file exports.json (sys-libs exports go-modules $libs))
+  ]
+  dynamic collect go-modules $layout (($files | get drv) ++ ($libs | get -o drv | default []))
 }
 
 # [{key: "path@version", path, version}], one per module version (go.sum lists most twice: tree and /go.mod)

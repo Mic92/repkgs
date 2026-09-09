@@ -66,7 +66,7 @@ export def install []: nothing -> nothing {
 }
 
 # BUNDLE_BUILD__<GEM> is how `bundle config build.<gem> <flags>` reaches `gem install` without a config file
-def gem-build-env [deps: list<record>]: nothing -> record {
+def gem-build-env [deps: list<record<name: string, root: string>>]: nothing -> record {
   let flags = (sys-libs gem-build-flags $deps)
   if ($flags | is-not-empty) { note sys-libs ($flags | columns | str join " ") }
   $flags | items {|gem, value| [$"BUNDLE_BUILD__($gem | str upcase | str replace -a "-" "___")" $value] } | into record

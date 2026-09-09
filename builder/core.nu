@@ -12,7 +12,7 @@ export def note [step: string, msg: string = ""]: nothing -> nothing {
 }
 
 # what build-system verbs and custom steps get to see: {spec out deps njobs src build platform testsRun}
-export def ctx []: nothing -> record<spec: record, out: string, deps: list<record>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool> { $env.PKGS_CTX | from json }
+export def ctx []: nothing -> record<spec: record, out: string, deps: list<record<name: string, root: string>>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool> { $env.PKGS_CTX | from json }
 
 # a build system's knobs: its defaults overridden by the package's `<bs>.*` attrset
 export def knobs-for [bs: string, defaults: record]: nothing -> record { $defaults | merge ((ctx).spec | get -o $bs | default {}) }
@@ -31,7 +31,7 @@ export def dep-root [name: string, why: string]: nothing -> string {
 }
 
 # absolute directories of one exports field (libDirs, includeDirs, …) across dependencies
-export def dep-dirs [deps: list<record>, field: string]: nothing -> list<string> {
+export def dep-dirs [deps: list<record<name: string, root: string>>, field: string]: nothing -> list<string> {
   $deps | each {|d| $d | get $field | each {|rel| $"($d.root)/($rel)" } } | flatten
 }
 
@@ -142,7 +142,7 @@ export def probe-cache-get [key: string, file: path]: nothing -> bool {
 
 # store them for the next build with the same key
 export def probe-cache-put [key: string, file: path]: nothing -> nothing {
-  if (ctx).cache and ($file | path exists) { ^jig cache put $key $file | complete | ignore }
+  if (ctx).cache and ($file | path exists) { ^jig cache put $key $file | complete }
 }
 
 # no /usr/bin/env in the sandbox: point such scripts at the seed's env (build tree only; installed
@@ -158,5 +158,5 @@ export def fix-env-shebangs [dir: path, njobs: int = 4]: nothing -> nothing {
     if ($bytes | bytes starts-with $magic) {
       ($"#!($env_bin)" | into binary) ++ ($bytes | bytes at ($magic | bytes length)..) | save -f --raw $f
     }
-  } | ignore
+  }
 }

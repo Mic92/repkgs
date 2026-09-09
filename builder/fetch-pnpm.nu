@@ -21,11 +21,9 @@ def main []: nothing -> nothing {
     let file = $"($nv.name | str replace "/" "+")-($nv.version).tgz"
     {id: $p.id, file: $file} | merge (dynamic fetchurl-sri $file $url $p.val.resolution.integrity)
   })
-  let collect = '
-    let attrs = (open $env.NIX_ATTRS_JSON_FILE)
-    let out = $attrs.outputs.out
-    mkdir $"($out)/tarballs"
-    for t in $attrs.tarballs { ^$"($attrs.seed)/bin/ln" -s $t.src $"($out)/tarballs/($t.file)" }
-    $attrs.tarballs | select id file | to json | save $"($out)/index.json"'
-  dynamic submit pnpm-deps $collect {tarballs: ($fetched | each {|f| {id: $f.id, file: $f.file, src: $f.out} })} ($fetched | get drv)
+  let layout = [
+    ...($fetched | each {|f| {link: $f.out, to: $"tarballs/($f.file)"} })
+    (dynamic json-file index.json ($fetched | select id file))
+  ]
+  dynamic collect pnpm-deps $layout ($fetched | get drv)
 }

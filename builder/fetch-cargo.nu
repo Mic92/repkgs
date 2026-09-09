@@ -20,19 +20,14 @@ def main []: nothing -> nothing {
   }
   let crates = ($packages | where {|p| $p.source? == $CRATES_IO } | each {|c|
     let file = $"($c.name)-($c.version).tar.gz"
-    let f = (dynamic fetchurl-drv $file $"https://static.crates.io/crates/($c.name)/($c.name)-($c.version).crate" sha256 $c.checksum $c.checksum)
-    {drv: $f.drv, crate: {tarball: $f.out, dir: $"($c.name)-($c.version)", checksum: $c.checksum}}
+    {dir: $"($c.name)-($c.version)", checksum: $c.checksum}
+      | merge (dynamic fetchurl-sha256 $file $"https://static.crates.io/crates/($c.name)/($c.name)-($c.version).crate" $c.checksum)
   })
   let picked = (sys-libs pick cargo ($packages | get name) $env.sysLibs)
-  let unpack = '
-    let attrs = (open $env.NIX_ATTRS_JSON_FILE)
-    let out = $attrs.outputs.out
-    for c in $attrs.crates {
-      mkdir $"($out)/($c.dir)"
-      ^$"($attrs.seed)/bin/bsdtar" -xf $c.tarball -C $"($out)/($c.dir)" --strip-components 1
-      {files: {}, package: $c.checksum} | to json -r | save $"($out)/($c.dir)/.cargo-checksum.json"
-    }
+  let layout = [
+    ...($crates | each {|c| [{unpack: $c.out, to: $c.dir} (dynamic json-file $"($c.dir)/.cargo-checksum.json" {files: {}, package: $c.checksum})] } | flatten)
     # a dependency record for prepare.nu: nothing to link here, the libraries ride along as propagated
-    $attrs.exports | to json | save $"($out)/exports.json"'
-  dynamic submit cargo-vendor $unpack {crates: ($crates | get crate), exports: (sys-libs exports cargo-vendor $picked)} (($crates | get drv) ++ ($picked | get -o drv | default []))
+    (dynamic json-file exports.json (sys-libs exports cargo-vendor $picked))
+  ]
+  dynamic collect cargo-vendor $layout (($crates | get drv) ++ ($picked | get -o drv | default []))
 }

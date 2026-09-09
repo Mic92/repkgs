@@ -14,7 +14,8 @@ const RUBYGEMS = "https://rubygems.org/gems"
 
 def main []: nothing -> nothing {
   let lock_file = (if $env.lockFile != "" { $env.lockFile } else { [$env.source $env.root Gemfile.lock] | path join })
-  let gems = (checksums (open --raw $lock_file))
+  let lock = (open --raw $lock_file)
+  let gems = (checksums $lock)
   # bundler installs the platform gem when both it and the ruby one are cached, so ship both
   let ours = ($gems | where platform in ["" $env.gemPlatform $"($env.gemPlatform)-gnu"])
   let libs = (sys-libs pick gems ($gems | get name | uniq) $env.sysLibs)
@@ -23,15 +24,12 @@ def main []: nothing -> nothing {
     let file = $"($gem.name)-($gem.version)(if $gem.platform != "" { $"-($gem.platform)" }).gem"
     {file: $file} | merge (dynamic fetchurl-drv $file $"($RUBYGEMS)/($file)" sha256 $gem.sha256 $gem.sha256)
   })
-  let collect = '
-    let attrs = (open $env.NIX_ATTRS_JSON_FILE)
-    let out = $attrs.outputs.out
-    mkdir $"($out)/vendor/cache"
-    for g in $attrs.gems { ^$"($attrs.seed)/bin/ln" -s $g.src $"($out)/vendor/cache/($g.file)" }
-    ^$"($attrs.seed)/bin/cp" $attrs.lock $"($out)/Gemfile.lock"
-    $attrs.exports | to json | save $"($out)/exports.json"'
-  let input_drvs = (($fetched | get drv) ++ ($libs | get -o drv | default []))
-  dynamic submit gems $collect {gems: ($fetched | select file out | rename -c {out: src}), lock: $lock_file, exports: (sys-libs exports gems $libs)} $input_drvs
+  let layout = [
+    ...($fetched | each {|g| {link: $g.out, to: $"vendor/cache/($g.file)"} })
+    {write: $lock, to: "Gemfile.lock"}
+    (dynamic json-file exports.json (sys-libs exports gems $libs))
+  ]
+  dynamic collect gems $layout (($fetched | get drv) ++ ($libs | get -o drv | default []))
 }
 
 # [{name, version, platform, sha256}] from the CHECKSUMS section; the application's own PATH gem

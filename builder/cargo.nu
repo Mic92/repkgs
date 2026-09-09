@@ -4,7 +4,7 @@ use sys-libs.nu
 # cargo build/test/install, offline against a vendored registry snapshot. rustc goes through jig's cache.
 def knobs []: nothing -> record<features: list<string>, noDefaultFeatures: bool, vendor: any> { knobs-for cargo {features: [], noDefaultFeatures: false, vendor: null} }
 
-def feature-args [k: record]: nothing -> list<string> {
+def feature-args [k: record<features: list<string>, noDefaultFeatures: bool>]: nothing -> list<string> {
   [
     (if $k.noDefaultFeatures { "--no-default-features" })
     (if ($k.features | is-not-empty) { $"--features=($k.features | str join ',')" })
@@ -15,10 +15,8 @@ def feature-args [k: record]: nothing -> list<string> {
 # wrapper is set by prepare.nu for every build with rust on PATH
 export def --env setup []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
-  $env.CARGO_HOME = $"($c.build)/cargo-home"
-  $env.CARGO_TARGET_DIR = $"($c.build)/target"
+  load-env {CARGO_HOME: $"($c.build)/cargo-home", CARGO_TARGET_DIR: $"($c.build)/target", RUSTC: (tool rustc)}
   mkdir $env.CARGO_HOME
-  $env.RUSTC = (tool rustc)
   let host = (^rustc -vV | lines | parse "host: {t}" | get t.0)
   # cc targets the platform, cc-build the build machine (rust spells some cpus differently)
   let target = ($c.platform.triple | str replace $c.platform.cpu $c.platform.names.rust)

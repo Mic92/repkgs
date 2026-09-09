@@ -74,20 +74,44 @@ export def stage [name: string, script: string, attrs: record, inputs: list<stri
   ^jig nix-store submit $drv out
 }
 
-# the collecting derivation: a nu script run by the seed with structured attrs, floating CA so its
-# path is content-defined. Submitted as this producer's output
-export def submit [name: string, script: string, attrs: record, inputs: list<string>]: nothing -> nothing {
+# The collecting derivation, submitted as this producer's output: a floating-CA derivation run by
+# the seed's nu that lays out `layout`, a list of
+#   {link: <store file>, to: <rel path>}                         symlink
+#   {unpack: <tarball>, to: <rel dir>}                            bsdtar --strip-components 1
+#   {write: <text>, to: <rel path>}                               literal file (index.json, exports.json, …)
+#   {copy: <store file>, append: <text>, to: <rel path>}           the file's bytes with a text trailer (deno's cache format)
+# `inputs` are the .drv paths whose outputs `layout` refers to (plus propagated libraries).
+export def collect [name: string, layout: list<record<to: string>>, inputs: list<string>]: nothing -> nothing {
+  const ASSEMBLE = '
+    let attrs = (open $env.NIX_ATTRS_JSON_FILE)
+    let out = $attrs.outputs.out
+    let bin = $"($attrs.seed)/bin"
+    for e in $attrs.layout {
+      let dst = $"($out)/($e.to)"
+      let kind = ($e | columns | first)
+      mkdir (if $kind == "unpack" { $dst } else { $dst | path dirname })
+      match $kind {
+        "link" => { ^$"($bin)/ln" -s $e.link $dst }
+        "unpack" => { ^$"($bin)/bsdtar" -xf $e.unpack -C $dst --strip-components 1 --no-same-owner --no-same-permissions }
+        "write" => { $e.write | save $dst }
+        "copy" => { [(open --raw $e.copy | into binary) ($e.append | into binary)] | bytes collect | save $dst }
+      }
+    }
+    ^$"($bin)/chmod" -R u+w,a-st $out'
   let seed = $env.seed
   let drv = ({
     name: $name
     system: $env.system
     builder: $"($seed)/bin/nu"
-    args: ["-c" $script]
+    args: ["-c" $ASSEMBLE]
     outputs: {out: {hashAlgo: "r:sha256"}}
     inputDrvs: ($inputs | reduce --fold {} {|d, acc| $acc | insert $d [out] })
     inputSrcs: [$seed]
-    env: {__json: ({name: $name, system: $env.system, outputs: [out], seed: $seed} | merge $attrs | to json --raw)}
+    env: {__json: ({name: $name, system: $env.system, outputs: [out], seed: $seed, layout: $layout} | to json --raw)}
   } | add-drv $name $seed ...$inputs)
-  print -e $"($name): ($inputs | length) inputs -> ($drv)"
+  print -e $"($name): ($layout | length) entries, ($inputs | length) inputs -> ($drv)"
   ^jig nix-store submit $drv out
 }
+
+# JSON text for a `write` entry
+export def json-file [to: string, value: oneof<record, list<any>>]: nothing -> record<write: string, to: string> { {write: ($value | to json), to: $to} }

@@ -29,9 +29,5 @@ def main []: nothing -> nothing {
     } | reduce {|it| merge $it }
   })
   # structured attrs: the lock is far beyond execve's env limit
-  let collect = '
-    let attrs = (open $env.NIX_ATTRS_JSON_FILE)
-    mkdir $attrs.outputs.out
-    $attrs.lock | to json | save $"($attrs.outputs.out)/package-lock.json"'
-  dynamic submit npm-deps $collect {lock: $new_lock} ($fetched | get drv)
+  dynamic collect npm-deps [(dynamic json-file package-lock.json $new_lock)] ($fetched | get drv)
 }

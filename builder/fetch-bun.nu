@@ -26,16 +26,11 @@ def main []: nothing -> nothing {
     {id: $entry.id, dir: $"p/(flat-name $p.name)@($p.version)"}
       | merge (dynamic fetchurl-sri $"(flat-name $p.name)-($p.version).tgz" (tarball-url $p.name $p.version $entry.registry) $entry.integrity)
   })
-  let unpack = '
-    let attrs = (open $env.NIX_ATTRS_JSON_FILE)
-    let out = $attrs.outputs.out
-    for p in $attrs.packages {
-      mkdir $"($out)/($p.dir)"
-      ^$"($attrs.seed)/bin/bsdtar" -xf $p.src -C $"($out)/($p.dir)" --strip-components 1 --no-same-owner --no-same-permissions
-    }
-    ^$"($attrs.seed)/bin/chmod" -R u+w,a-st $out
-    $attrs.packages | select id dir | to json | save $"($out)/index.json"'
-  dynamic submit bun-deps $unpack {packages: ($fetched | select id dir out | rename -c {out: src})} ($fetched | get drv)
+  let layout = [
+    ...($fetched | each {|p| {unpack: $p.out, to: $p.dir} })
+    (dynamic json-file index.json ($fetched | select id dir))
+  ]
+  dynamic collect bun-deps $layout ($fetched | get drv)
 }
 
 # bun writes trailing commas but no comments

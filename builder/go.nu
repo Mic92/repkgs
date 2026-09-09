@@ -21,7 +21,7 @@ export def --env setup []: nothing -> nothing {
 
 # always link through cc so RUNPATH/interp policy and fixup apply to Go binaries too.
 # cgo modules whose library the modules tree propagated get their "use the system one" tags (sys-libs.nu)
-def common-args [k: record]: nothing -> list<string> {
+def common-args [k: record<tags: list<string>, ldflags: list<string>>]: nothing -> list<string> {
   let tags = ($k.tags ++ (sys-libs go-tags (ctx).deps) | uniq)
   [
     (if ($tags | is-not-empty) { $"-tags=($tags | str join ',')" })

@@ -104,7 +104,7 @@ export def pick [ecosystem: string, locked: list<string>, sys_libs_file: path]: 
 }
 
 # the exports.json of a producer output: nothing to link itself, the picked libraries propagate
-export def exports [name: string, picked: list<record>]: nothing -> record {
+export def exports [name: string, picked: list<record<name: string, drv: string, out: string>>]: nothing -> record {
   {name: $name, includeDirs: [], libDirs: [], libs: [], pkgconfigDirs: [], aclocalDirs: [], propagate: ($picked | get -o out | default [])}
 }
 
@@ -115,24 +115,24 @@ export def sdist-packages []: nothing -> list<string> { $TABLES.python | columns
 
 # table entries of `ecosystem` whose library is among `deps` ({name, root, …} records from ctx),
 # each with that dependency's root attached
-def active [ecosystem: string, deps: list<record>]: nothing -> table {
+def active [ecosystem: string, deps: list<record<name: string, root: string>>]: nothing -> table {
   let roots = ($deps | select name root | rename pkg root)
   $TABLES | get $ecosystem | transpose locked entry | flatten entry | join $roots pkg
 }
 
 # env vars from the matching entries, {root} replaced by the library's store path
-export def env-for [ecosystem: string, deps: list<record>]: nothing -> record {
+export def env-for [ecosystem: string, deps: list<record<name: string, root: string>>]: nothing -> record {
   active $ecosystem $deps
     | reduce --fold {} {|e, acc| $acc | merge ($e.env | items {|k, v| [$k ($v | str replace -a "{root}" $e.root)] } | into record) }
 }
 
 # go: build tags that switch a module to the system library
-export def go-tags [deps: list<record>]: nothing -> list<string> {
+export def go-tags [deps: list<record<name: string, root: string>>]: nothing -> list<string> {
   active go $deps | each { $in.tags? | default [] } | flatten | uniq
 }
 
 # bundler: gem -> `bundle config build.<gem>` argument string
-export def gem-build-flags [deps: list<record>]: nothing -> record {
+export def gem-build-flags [deps: list<record<name: string, root: string>>]: nothing -> record {
   active gems $deps | where { $in.flags | is-not-empty }
     | reduce --fold {} {|e, acc| $acc | upsert $e.locked ($e.flags | str replace -a "{root}" $e.root | str join " ") }
 }

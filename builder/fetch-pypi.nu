@@ -34,16 +34,12 @@ def main []: nothing -> nothing {
   })
   print -e $"pythonDeps: ($plan | length) packages, ($plan | where kind == sdist | get name | str join ' ') from sdist"
 
-  let collect = '
-    let attrs = (open $env.NIX_ATTRS_JSON_FILE)
-    let out = $attrs.outputs.out
-    mkdir $"($out)/dist"
-    for f in $attrs.files { ^$"($attrs.seed)/bin/ln" -s $f.src $"($out)/dist/($f.file)" }
-    $attrs.files | reject src | to json | save $"($out)/plan.json"
-    $attrs.exports | to json | save $"($out)/exports.json"'
-  let files = ($plan | select name version file kind out | rename -c {out: src})
-  let input_drvs = (($plan | get drv) ++ ($libs | get -o drv | default []))
-  dynamic submit python-deps $collect {files: $files, exports: (sys-libs exports python-deps $libs)} $input_drvs
+  let layout = [
+    ...($plan | each {|p| {link: $p.out, to: $"dist/($p.file)"} })
+    (dynamic json-file plan.json ($plan | select name version file kind))
+    (dynamic json-file exports.json (sys-libs exports python-deps $libs))
+  ]
+  dynamic collect python-deps $layout (($plan | get drv) ++ ($libs | get -o drv | default []))
 }
 
 # names of every package the project needs at run time: breadth-first from the project's own
