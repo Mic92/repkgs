@@ -3,5 +3,15 @@
 { package }:
 package {
   name = "fontconfig-headers";
-  install."include/fontconfig/" = "fontconfig/*.h";
+  steps = [
+    {
+      # 2.17 generates fontconfig.h from .h.in for one value, meson.build's cacheversion
+      name = "fontconfig.h";
+      run = ''
+        let v = (open meson.build | parse -r "cacheversion = '(?<v>[0-9]+)'" | first | get v)
+        open fontconfig/fontconfig.h.in | str replace "@CACHE_VERSION@" $v | save fontconfig/fontconfig.h
+      '';
+    }
+  ];
+  install."include/fontconfig/" = "fontconfig/{fontconfig,fcfreetype,fcprivate}.h";
 }
