@@ -17,6 +17,7 @@ package {
   ];
   buildDependencies = [
     buildPkgs.jdk-bootstrap
+    buildPkgs.autoconf # the repo ships no generated configure
     buildPkgs.bash
     buildPkgs.zip
     buildPkgs.unzip

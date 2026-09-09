@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:gnu/autoconf"
+
+[[source]]
+key = "default"
+url = "https://ftp.gnu.org/gnu/autoconf/autoconf-{version}.tar.xz"
+hash = "sha256-DgunLhP8sHUPe+v6s1X7OYc29hgVrZ1dWBF8mmYKKzU="
+
+[pin]
+version = "2.73"
+date = "2026-03-20"
