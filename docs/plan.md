@@ -14,11 +14,17 @@ LLVM (an `llvm` library package), `vendor = true`. cargo.nu and maturin take `bu
 build dependency only) → `<x>` (ours) shape as go and rust for the rest: `zig` (zig-bootstrap
 tarball builds zig from source against our `llvm` library package; needed by bun and useful as a
 package in its own right), then `bun` (zig + our clang/lld + cmake, its vendored WebKit/JSC built
-with our toolchain, `bun.lock` of its own JS parts through `fetch.bunDeps`; large, ~1 h), and
-`node`'s bundled deps swapped for ours where configure allows (`--shared-zlib/openssl/…`, partly
-done). Until then each prebuilt one is a build tool only, never linked into outputs, and its
-sources.toml pins per-cpu tarballs (x86_64, aarch64; no riscv64/loongarch64/ppc64le upstream, so
-packages using them are build-platform-only there).
+with our toolchain, `bun.lock` of its own JS parts through `fetch.bunDeps`; large, ~1 h), `deno`
+(cargo once rust is ours; the weight is `rusty_v8`, which wants a prebuilt static v8 or a
+gn/ninja v8 build with our clang — take the latter, it is the same recipe chromium-less v8 needs;
+`denort` falls out of the same build and makes `deno compile` available), and `node`'s bundled
+deps swapped for ours where configure allows (`--shared-zlib/openssl/…`, partly done). Later
+ecosystems follow the same rule as they arrive: `temurin` → openjdk, ghc bindist → ghc, .NET SDK
+→ dotnet/runtime source-build, each prebuilt stage kept only as `<x>-bootstrap`. Until then each
+prebuilt one is a build tool only (deno additionally a runtime dependency of deno applications,
+since they run on it), never linked into outputs, and its sources.toml pins per-cpu archives
+(x86_64, aarch64; no riscv64/loongarch64/ppc64le upstream, so packages using them are
+build-platform-only there). From-source builds lift that restriction.
 
 **Python beyond the build stack**, with the first application: no generated library set. Named
 packages are the interpreter, the build stack, native extensions that must link our libraries,
@@ -94,7 +100,6 @@ sys-libs table where locked packages link C libraries):
 | ecosystem | toolchain | lock → producer | notes |
 |---|---|---|---|
 | Python applications | cpython (have) | `uv.lock` / `pylock.toml` (PEP 751) carry sha256 → `fetch.pythonDeps`; sdists building C extensions via sys-libs (psycopg2 → libpq, lxml, pillow) | next; highest demand |
-| Deno | prebuilt `deno` (x86_64/aarch64), same shape as bun | `deno.lock` has sha256 for jsr/npm → cache dir layout | small |
 | Yarn v1 | node (have) | `yarn.lock` `resolved`+`integrity` → offline mirror dir | small; berry stays deferred (checksum over repacked zip) |
 | Lua / LuaJIT | from C (plan above) | luarocks has no hashes → `locks/luarocks.toml` | small |
 | Erlang / Elixir | erlang from C, elixir on it | `mix.lock` carries hex sha256 → `fetch.mixDeps` (`MIX_ENV=prod mix deps.get` layout), rebar3 alike | medium, clean |
