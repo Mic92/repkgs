@@ -4,7 +4,7 @@ use ../node-common.nu
 # yarn (classic) install --offline from fetch.yarnDeps (`yarn.deps`: an offline mirror directory,
 # yarn checks each tarball against yarn.lock's integrity), `yarn run <script>`, `yarn test`, and
 # the pruned package as lib/node_modules/<name> with its bin links.
-def options []: nothing -> record<script: string, deps: any, flags: list<string>> {
+def options []: nothing -> record {
   options-for yarn {script: "build", deps: null, flags: []}
 }
 
@@ -21,8 +21,11 @@ export def --env setup []: nothing -> nothing {
   node-common after-install $env.PWD
 }
 
-# yarn run <yarn.script>
-export def build []: nothing -> nothing { x yarn run --offline (options).script }
+# yarn run <yarn.script> (null: nothing to build)
+export def build []: nothing -> nothing {
+  let script = (options).script
+  if $script != null { x yarn run --offline $script }
+}
 
 # yarn test
 export def test []: nothing -> nothing { x yarn test --offline }

@@ -9,7 +9,7 @@ use ../sys-libs.nu
 # isolation, so their PEP 517 backends come from buildDependencies (uv does not lock them).
 # ELFs inside binary wheels were linked elsewhere: the build system defaults `prebuilt = true`
 # (nix/build-systems.nix) so finish implants our dynamic linker and a RUNPATH into them.
-def options []: nothing -> record<deps: any, check: list<string>> { options-for pyapp {deps: null, check: []} }
+def options []: nothing -> record { options-for pyapp {deps: null, check: []} }
 
 def site-packages []: nothing -> string { let c = (ctx); $"($c.out)/lib/($c.spec.name)/site-packages" }
 

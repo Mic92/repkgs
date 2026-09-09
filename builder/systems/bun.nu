@@ -4,8 +4,8 @@ use ../node-common.nu
 # A bun project: `bun install --offline` from fetch.bunDeps, optional `bun run <script>`, `bun test`,
 # then either standalone executables (`bun.compile = { <bin> = "<entry.ts>"; }`) or the package
 # tree under lib/node_modules/<name> with its package.json `bin` entries linked into bin/.
-def options []: nothing -> record<deps: any, script: any, flags: list<string>, compile: record> {
-  options-for bun {deps: null, script: null, flags: [], compile: {}}
+def options []: nothing -> record {
+  options-for bun {deps: null, script: "build", flags: [], compile: {}}
 }
 
 const LINK_CACHE = path self bun-cache.ts
@@ -23,7 +23,7 @@ export def --env setup []: nothing -> nothing {
   node-common after-install $env.PWD
 }
 
-# `bun run <bun.script>` if set
+# bun run <bun.script> (null: nothing to build)
 export def build []: nothing -> nothing {
   let script = (options).script
   if $script != null { x bun run $script }

@@ -2,7 +2,7 @@ use ../core.nu *
 use ../sys-libs.nu
 
 # cargo build/test/install, offline against a vendored registry snapshot. rustc goes through jig's cache.
-def options []: nothing -> record<features: list<string>, noDefaultFeatures: bool, deps: any, flags: list<string>> { options-for cargo {features: [], noDefaultFeatures: false, deps: null, flags: []} }
+def options []: nothing -> record { options-for cargo {features: [], noDefaultFeatures: false, deps: null, flags: []} }
 
 # features and `cargo.flags`, for build and test alike
 def args [o: record<features: list<string>, noDefaultFeatures: bool, flags: list<string>>]: nothing -> list<string> {

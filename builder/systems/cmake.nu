@@ -2,7 +2,7 @@ use ../core.nu *
 use ../probe-cache.nu
 
 # cmake configure / build / ctest / install with Ninja.
-def options []: nothing -> record<defs: record, generator: string, flags: list<string>> { options-for cmake {defs: {}, generator: "Ninja", flags: []} }
+def options []: nothing -> record { options-for cmake {defs: {}, generator: "Ninja", flags: []} }
 
 # -D values: bools as ON/OFF, everything else as written
 def render [v: oneof<bool, int, string>]: nothing -> string {

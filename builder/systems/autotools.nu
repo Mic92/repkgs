@@ -2,7 +2,7 @@ use ../core.nu *
 use ../probe-cache.nu
 
 # ./configure && make [check] && make install. Also plain-Makefile projects via steps/options.
-def options []: nothing -> record<flags: list<string>, makeFlags: list<string>, configureScript: string, outOfTree: bool> { options-for autotools {flags: [], makeFlags: [], configureScript: "configure", outOfTree: true} }
+def options []: nothing -> record { options-for autotools {flags: [], makeFlags: [], configureScript: "configure", outOfTree: true} }
 # CONFIG_SHELL = bash when on PATH (configure scripts in the wild need it), else stage0's dash
 # (the base userland itself). Works in the build dir, or the source when not `outOfTree`
 export def --env setup []: nothing -> nothing {

@@ -1,7 +1,7 @@
 use ../core.nu *
 
 # meson setup / compile / test / install.
-def options []: nothing -> record<defs: record, flags: list<string>> { options-for meson {defs: {}, flags: []} }
+def options []: nothing -> record { options-for meson {defs: {}, flags: []} }
 
 # out-of-tree: work in the build directory
 export def --env setup []: nothing -> nothing { cd (ctx).build }

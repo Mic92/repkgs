@@ -334,7 +334,7 @@ builtins.mapAttrs
       options = {
         inherit script;
         deps = deps "fetch.npmDeps";
-        flags = flags "npm ci and npm run";
+        flags = flags "npm ci";
       };
     };
   }

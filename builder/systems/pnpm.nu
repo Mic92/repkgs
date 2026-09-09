@@ -4,7 +4,7 @@ use ../node-common.nu
 # pnpm install --offline from fetch.pnpmDeps (`pnpm.deps`: registry tarballs that seed a fresh
 # content-addressed store; pnpm verifies each against pnpm-lock.yaml), `pnpm run <script>`,
 # `pnpm test`, and the pruned package as lib/node_modules/<name> with its bin links.
-def options []: nothing -> record<script: string, deps: any, flags: list<string>> {
+def options []: nothing -> record {
   options-for pnpm {script: "build", deps: null, flags: []}
 }
 
@@ -26,8 +26,11 @@ export def --env setup []: nothing -> nothing {
   node-common after-install $env.PWD
 }
 
-# pnpm run <pnpm.script>
-export def build []: nothing -> nothing { x pnpm run (options).script ...(options).flags }
+# pnpm run <pnpm.script> (null: nothing to build)
+export def build []: nothing -> nothing {
+  let script = (options).script
+  if $script != null { x pnpm run $script }
+}
 
 # pnpm test
 export def test []: nothing -> nothing { x pnpm test }

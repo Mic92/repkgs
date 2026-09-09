@@ -3,7 +3,7 @@ use ../sys-libs.nu
 
 # go build/test/install, modules from a GOPROXY=file:// tree (fetch.goModules, `go.deps`) or,
 # with `go.deps = null`, the source's own vendor/.
-def options []: nothing -> record<tags: list<string>, ldflags: list<string>, packages: list<string>, deps: any, cgo: bool, flags: list<string>> { options-for go {tags: [], ldflags: [], packages: ["./..."], deps: null, cgo: true, flags: []} }
+def options []: nothing -> record { options-for go {tags: [], ldflags: [], packages: ["./..."], deps: null, cgo: true, flags: []} }
 
 # offline module resolution, cgo per `go.cgo`
 export def --env setup []: nothing -> nothing {

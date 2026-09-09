@@ -7,7 +7,7 @@ use ../sys-libs.nu
 # Native extensions compile with the cc on PATH (mkmf takes CC from rbconfig, which says "cc").
 # Gems that can link one of our libraries get it via the lock: fetch.gems propagates the library,
 # sys-libs.nu supplies `bundle config build.<gem>` flags and env.
-def options []: nothing -> record<deps: any, without: list<string>, test: any, flags: list<string>> {
+def options []: nothing -> record {
   options-for bundler {deps: null, without: [development test], test: null, flags: []}
 }
 

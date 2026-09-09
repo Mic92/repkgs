@@ -4,7 +4,7 @@ use ../core.nu *
 # dependencies from the set's rock server (fetch.luaRocksSet, locks/luarocks.toml). luarocks'
 # bin wrappers start our lua with $out on package.path. C modules compile with the cc on PATH
 # (luarocks takes CC from the environment) against the target lua.
-def options []: nothing -> record<rockspec: any, deps: any, flags: list<string>> {
+def options []: nothing -> record {
   options-for luarocks {rockspec: null, deps: null, flags: []}
 }
 

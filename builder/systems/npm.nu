@@ -4,7 +4,7 @@ use ../node-common.nu
 # npm ci from fetch.npmDeps (`npm.deps`: a package-lock.json whose `resolved` point at store
 # tarballs; npm checks each against the lock's integrity), `npm run <script>`, `npm test`, and the
 # pruned package as lib/node_modules/<name> with its bin links.
-def options []: nothing -> record<script: string, deps: any, flags: list<string>> {
+def options []: nothing -> record {
   options-for npm {script: "build", deps: null, flags: []}
 }
 
@@ -23,8 +23,11 @@ export def --env setup []: nothing -> nothing {
   node-common after-install $env.PWD
 }
 
-# npm run <npm.script>
-export def build []: nothing -> nothing { x npm run (options).script ...(options).flags }
+# npm run <npm.script> (null: nothing to build)
+export def build []: nothing -> nothing {
+  let script = (options).script
+  if $script != null { x npm run $script }
+}
 
 # npm test
 export def test []: nothing -> nothing { x npm test }

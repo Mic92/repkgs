@@ -5,7 +5,7 @@ use ../core.nu *
 # compiler and the dependency closure, so a unit built once on this host (by any package) is
 # fetched from pkgs-cache instead of compiled. The store directory is the same fixed path in
 # every sandbox so the paths inside cached units agree.
-def options []: nothing -> record<deps: string, flags: list<string>, exes: list<string>, project: string> { options-for cabal {deps: "", flags: [], exes: [], project: ""} }
+def options []: nothing -> record { options-for cabal {deps: "", flags: [], exes: [], project: ""} }
 
 const STORE = "/build/cabal-store"
 

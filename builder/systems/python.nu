@@ -1,7 +1,7 @@
 use ../core.nu *
 
 # PEP 517 wheel build + install (setuptools/flit/hatch via `build`, maturin directly), import check, optional pytest.
-def options []: nothing -> record<backend: string, module: any, pytest: bool> { options-for python {backend: "setuptools", module: null, pytest: false} }
+def options []: nothing -> record { options-for python {backend: "setuptools", module: null, pytest: false} }
 
 def site-packages [roots: list<string>]: nothing -> list<string> { $roots | each {|r| glob $"($r)/lib/python3*/site-packages" } | flatten }
 

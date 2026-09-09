@@ -5,7 +5,7 @@ use ../core.nu *
 # `deno.entry` (bin name -> module path) running `deno run --cached-only` on it. pkgs.deno must be
 # a dependency. No `deno compile` yet: it splices into upstream's denort ELF, which would need
 # relinking first.
-def options []: nothing -> record<deps: any, entry: record, permissions: list<string>, check: bool, flags: list<string>> {
+def options []: nothing -> record {
   options-for deno {deps: null, entry: {}, permissions: ["-A"], check: true, flags: []}
 }
 
