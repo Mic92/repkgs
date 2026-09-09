@@ -12,11 +12,11 @@ package {
     pkgs.freetype
     pkgs.alsa-lib
     pkgs.libffi
+    pkgs.cups-headers # headers only, for the target
+    pkgs.fontconfig-headers
   ];
   buildDependencies = [
     buildPkgs.jdk-bootstrap
-    buildPkgs.cups-headers
-    buildPkgs.fontconfig-headers
     buildPkgs.bash
     buildPkgs.zip
     buildPkgs.unzip
