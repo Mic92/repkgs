@@ -65,7 +65,11 @@ zip, so the producer looks each module version up in the repo-wide `locks/go.tom
 (proxy.golang.org .mod/.zip sha256, written by `uptrack lock`) and lays the results out as a
 `GOPROXY=file://` tree. The shared table only reaches the producer; its output drv holds the
 package's subset, so additions for other packages cut off early. The file is one sorted line per
-entry with `merge=union`, so parallel additions merge without conflicts.
+entry with `merge=union`, so parallel additions merge without conflicts. `fetch.pnpmDeps`,
+`bunDeps`, `gems`, `pythonDeps` (uv.lock) follow the cargo shape; `fetch.denoDeps` needs two
+producer stages because a jsr lock hash pins the package's `_meta.json`, which in turn pins the
+module files (`dynamic stage`, unwrapped by a second `outputOf`). All producers describe their
+output as a `{link|unpack|write} to` layout that one collector script in `dynamic.nu` realises.
 
 ## 2. Relocatable outputs
 

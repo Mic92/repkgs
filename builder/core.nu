@@ -66,7 +66,7 @@ export def exports-of [p: path]: nothing -> record<name: string, includeDirs: li
   let f = $"($p)/exports.json"
   let e = if ($f | path exists) { open $f } else { {} }
   {
-    # package name as build systems key on it (cargo.nu SYS_CRATES); the store name is <hash>-<name>[-<platform>]
+    # package name as build systems key on it (sys-libs.nu, dep-root); the store name is <hash>-<name>[-<platform>]
     name: ($e.name? | default ($p | path basename | str substring 33.. | str replace -r '-(x86_64|aarch64|riscv64|loongarch64|powerpc64le)-\w+$' ''))
     includeDirs: ($e.includeDirs? | default (existing $p ["include"]))
     libDirs: ($e.libDirs? | default (existing $p ["lib"]))

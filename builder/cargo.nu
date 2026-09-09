@@ -11,8 +11,7 @@ def feature-args [k: record<features: list<string>, noDefaultFeatures: bool>]: n
   ] | compact
 }
 
-# CARGO_HOME + config.toml (vendored registry, offline, linker=cc), path remaps. The rustc cache
-# wrapper is set by prepare.nu for every build with rust on PATH
+# CARGO_HOME + config.toml (vendored registry, offline, linker=cc), path remaps
 export def --env setup []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
   load-env {CARGO_HOME: $"($c.build)/cargo-home", CARGO_TARGET_DIR: $"($c.build)/target", RUSTC: (tool rustc)}

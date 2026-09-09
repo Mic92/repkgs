@@ -65,7 +65,7 @@ let
     in
     builtins.outputOf producer.outPath "out";
 
-  # for producers that end in `dynamic stage` (a second producer) instead of `dynamic submit`
+  # for producers that end in `dynamic stage` (a second producer) rather than `dynamic collect`
   twoStage =
     name: script: env:
     builtins.outputOf (dynamic name script env) "out";

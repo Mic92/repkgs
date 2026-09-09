@@ -5,7 +5,7 @@ use sys-libs.nu
 # own vendor/.
 def knobs []: nothing -> record<tags: list<string>, ldflags: list<string>, packages: list<string>, modules: any, cgo: bool> { knobs-for go {tags: [], ldflags: [], packages: ["./..."], modules: null, cgo: true} }
 
-# offline module resolution, cgo per `go.cgo` (GOCACHEPROG comes from prepare.nu)
+# offline module resolution, cgo per `go.cgo`
 export def --env setup []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
   load-env {

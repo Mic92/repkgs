@@ -1,7 +1,7 @@
 #!/usr/bin/env nu
 # Second stage of fetch.denoDeps (after fetch-deno.nu; `stage_attrs` names its {npm, jsr, https}).
-# The jsr _meta.json files exist now: each module they list becomes a builtin:fetchurl fixed by
-# the manifest's sha256, and the collecting derivation lays out what deno reads under $DENO_DIR.
+# Reads the fetched jsr _meta.json files: each module they list becomes a builtin:fetchurl fixed
+# by the manifest's sha256, and the collecting derivation lays out what deno reads under $DENO_DIR.
 use dynamic.nu
 
 const JSR = "https://jsr.io"
