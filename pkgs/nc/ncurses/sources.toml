@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:gnu/ncurses"
+
+[[source]]
+key = "default"
+url = "https://ftpmirror.gnu.org/ncurses/ncurses-{version}.tar.gz"
+hash = "sha256-YpXsAx/jqbxBpTLljJBfLEyeG4vSY94K4HYHSqyXYyg="
+
+[pin]
+version = "6.6"
+date = "2025-12-30"

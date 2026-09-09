@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:gnu/gmp"
+
+[[source]]
+key = "default"
+url = "https://ftpmirror.gnu.org/gmp/gmp-{version}.tar.xz"
+hash = "sha256-nF3xoBP+lLYF8J3Ph791wff0SjhpeRSCB82qLolvg80="
+
+[pin]
+version = "6.3.0"
+date = "2023-07-30"
