@@ -26,7 +26,7 @@ package {
       name = "configure";
       run = ''
         let triple = ($c.platform.triple | str replace $c.platform.cpu $c.platform.names.rust)
-        let rb = (dep-root rust-bootstrap "stage0 rustc and cargo")
+        let rb = (tool rustc | path dirname | path dirname) # rust-bootstrap, a build tool
         {
           change-id: "ignore"
           profile: "dist"
