@@ -1,7 +1,6 @@
 # Plan
 
-What design.md does not describe yet because it is not built. `standins.nix` is gone: every build
-tool is a package; nixpkgs remains only in shell.nix/treefmt.nix and pkgs/se/seed/build.nix.
+What design.md does not describe yet because it is not built.
 
 ## Next
 
@@ -9,37 +8,35 @@ tool is a package; nixpkgs remains only in shell.nix/treefmt.nix and pkgs/se/see
 only a build dependency of `rust`: rustc + cargo from the rustc-src tarball with `x.py` against our
 LLVM (an `llvm` library package), `vendor = true`. cargo.nu and maturin take `buildPkgs.rust`,
 `libgcc-shim` stays for `rust-bootstrap` only. The pin follows `rust` one release behind.
+x.py's cargo-driven stages honour RUSTC_WRAPPER, but rustcwrap keys on the rustc binary: for
+stage1-built crates to hit it must identify a build-tree rustc by content (binary +
+librustc_driver), and stage1 must be reproducible (`rust.remap-debuginfo`, no incremental).
 
 **Compilers that arrive as upstream binaries, from source.** The same `<x>-bootstrap` (prebuilt,
-build dependency only) → `<x>` (ours) shape as go and rust for the rest: `zig` (zig-bootstrap
-tarball builds zig from source against our `llvm` library package; needed by bun and useful as a
-package in its own right), then `bun` (zig + our clang/lld + cmake, its vendored WebKit/JSC built
-with our toolchain, `bun.lock` of its own JS parts through `fetch.bunDeps`; large, ~1 h), `deno`
-(cargo once rust is ours; the weight is `rusty_v8`, which wants a prebuilt static v8 or a
-gn/ninja v8 build with our clang — take the latter, it is the same recipe chromium-less v8 needs;
-`denort` falls out of the same build and makes `deno compile` available), and `node`'s bundled
-deps swapped for ours where configure allows (`--shared-zlib/openssl/…`, partly done). Later
+build dependency only) → `<x>` (ours) shape as go and rust for the rest. `zig`: the zig-bootstrap
+tarball builds zig from source against our `llvm` library package. It is needed by bun and useful
+as a package in its own right. Then `bun`: zig + our clang/lld + cmake, its vendored WebKit/JSC
+built with our toolchain, `bun.lock` of its own JS parts through `fetch.bunDeps`. Large, ~1 h.
+`deno`: cargo once rust is ours. The weight is `rusty_v8`, which wants a prebuilt static v8 or a
+gn/ninja v8 build with our clang. Take the latter, it is the same recipe chromium-less v8 needs,
+and `denort` falls out of the same build and makes `deno compile` available. `node`'s bundled
+deps are swapped for ours where configure allows (`--shared-zlib/openssl/…`, partly done). Later
 ecosystems follow the same rule as they arrive: `temurin` → openjdk, ghc bindist → ghc, .NET SDK
 → dotnet/runtime source-build, each prebuilt stage kept only as `<x>-bootstrap`. Until then each
 prebuilt one is a build tool only (deno additionally a runtime dependency of deno applications,
 since they run on it), never linked into outputs, and its sources.toml pins per-cpu archives
-(x86_64, aarch64; no riscv64/loongarch64/ppc64le upstream, so packages using them are
-build-platform-only there). From-source builds lift that restriction.
-
-**Python beyond the build stack**, with the first application: no generated library set. Named
-packages are the interpreter, the build stack, native extensions that must link our libraries,
-and the few pure libraries C projects import at build time. Applications bring `uv.lock` and
-`fetch.pythonDeps { source }` is a dynamic derivation like cargoVendor.
+for x86_64 and aarch64. There are no riscv64/loongarch64/ppc64le archives upstream, so packages
+using them are build-platform-only there. From-source builds lift that restriction.
 
 **Seed 3** (building): LLVM 23.1.1 from our own pin with LoongArch and PowerPC backends.
-Then: loongarch64 and powerpc64le cross platforms verified (platform entries,
-builtins lists, qemu targets, rust-std, GOARCH are in); aarch64 seed uploaded. Later the seed is
-built from this set's own musl-static packages instead of nixpkgs `pkgsStatic`, fixed point in CI.
+Then loongarch64 and powerpc64le cross platforms verified (platform entries, builtins lists,
+qemu targets, rust-std, GOARCH are in) and the aarch64 seed uploaded. Later the seed is built
+from this set's own musl-static packages instead of nixpkgs `pkgsStatic`, fixed point in CI.
 
 **Windows cross (x86_64/aarch64-w64-mingw32).** All-LLVM like Linux: mingw-w64 headers + CRT
 as the libc recipes, compiler-rt/runtimes/cc as in stage1, `lld` for PE. A `mingw` libc flavour
-in platforms.nix without interp/RUNPATH (finish/launchers treat non-ELF as done; DLLs beside the
-exe are already relocatable), `.exe` naming in install steps, `wine` as platform.emulator,
+in platforms.nix without interp/RUNPATH: finish/launchers treat non-ELF as done, and DLLs beside
+the exe are already relocatable. `.exe` naming in install steps, `wine` as platform.emulator,
 `x86_64-pc-windows-gnu`/`GOOS=windows` in cargo.nu/go.nu. No MSVC ABI (needs the unfree SDK).
 
 **FreeBSD / NetBSD cross.** ELF and clang-native upstream, so the Linux machinery carries over:
@@ -53,83 +50,52 @@ rust-std exist upstream. No user-mode emulator: untested builds, or a qemu-syste
 assembles libSystem headers from Apple's open-source releases (xnu, Libc, libpthread,
 libdispatch, Libinfo, libmalloc, libplatform, dyld, CommonCrypto, objc4, ... pinned per macOS
 release, trackable by uptrack) plus committed `.tbd` link stubs, CoreFoundation from
-swift-corelibs; closed frameworks stay out of scope. Toolchain is ours: clang, `ld64.lld`
+swift-corelibs. Closed frameworks stay out of scope. Toolchain is ours: clang, `ld64.lld`
 (`--adhoc_codesign`), compiler-rt, libc++/libunwind for `arm64-apple-macos11`. Relocatability
 maps to `@executable_path/../lib` install names instead of RUNPATH, fixup via
-`llvm-install-name-tool`; no launcher. No emulator, so cross builds are untested.
+`llvm-install-name-tool`, no launcher. No emulator, so cross builds are untested.
 
 **More language ecosystems**, each an interpreter package plus a build system in the shape of
 the existing ones (named native packages, applications lock their own dependency graph, one
-dynamic-derivation producer reading the upstream lock file, hashes upstream lacks in `locks/`):
+dynamic-derivation producer reading the upstream lock file, hashes upstream lacks in `locks/`).
+Lua is specified already: `lua` (5.4, plain make, `LUA_ROOT` relative to the binary via launcher
+env) and `luajit` (`HOST_CC=cc-build` + `CROSS=` for cross. DynASM bitness matches, all
+platforms are 64-bit). Build system `luarocks` builds a rockspec against our lua with
+`LUA_INCDIR/LIBDIR`. `fetch.luaRocks { source }` reads a committed `luarocks.lock` and takes
+sha256 from `locks/luarocks.toml` since the manifest has none. cpath/path per application as
+launcher env. Yarn berry stays deferred: its `checksum` is over the zip yarn repacks, not the
+registry tarball, so it cannot fix a fetch.
 
-- *Lua / LuaJIT.* `lua` (5.4, plain make, `LUA_ROOT` relative to the binary via launcher env) and
-  `luajit` (its own Makefile, `HOST_CC=cc-build` + `CROSS=` for cross, `TARGET_SYS`; DynASM runs
-  on the build machine so bitness must match: fine, all platforms are 64-bit). Build system
-  `luarocks`: `uses = ["luarocks"]` builds a rockspec against our lua with `LUA_INCDIR/LIBDIR`
-  from the dependency, C modules through jig; `fetch.luaRocks { source }` reads a committed
-  `luarocks.lock` (rock name → version) and takes sha256 from `locks/luarocks.toml` since the
-  manifest has none. cpath/path assembled per application as a launcher env, no global tree.
-- *Ruby.* `ruby` (autotools; cross needs `--with-baseruby=` = `buildPkgs.ruby` and a few
-  `ac_cv_func_*` already in config.site), `libyaml`/`libffi`/`openssl`/`zlib`/`readline` as
-  dependencies. Build system `bundler`: `fetch.gems { source }` reads `Gemfile.lock` with its `CHECKSUMS`
-  section (sha256, Bundler >= 2.6). Gems and library-style tools (asciidoctor) commit no lockfile,
-  so `uptrack lock` generates one next to package.nix with `bundle lock --add-checksums`;
-  applications that commit one mostly carry the section already (rails, gitlab, discourse), and
-  for the rest (mastodon) `uptrack lock` adds the checksums to a copy. No `locks/` table needed. `bundle config set --local deployment/path`, `bundle install --local`
-  from the vendored cache, native extensions compile through jig (`gem` honours CC/CFLAGS via
-  rbconfig, which we rewrite for cross like sysconfigdata). `GEM_HOME`/`BUNDLE_GEMFILE` in the
-  launcher env.
-- *JS lockfiles beyond npm.* fetch-npm.nu splits into a shared registry-tarball layer (fetchurl
-  by the lock's SRI, dedupe by URL, already there) and one reader per format: `pnpm-lock.yaml` v9
-  (`from yaml`, `resolution.integrity`; output a content-addressed store dir for `pnpm install
-  --offline --frozen-lockfile`), `yarn.lock` v1 (small text parser, `resolved` + `integrity`;
-  output a yarn-offline-mirror dir), `bun.lock` (below). Yarn berry is deferred: its `checksum`
-  is over the zip yarn repacks, not the registry tarball, so it cannot fix a fetch.
-- *Bun.* `bun` itself is `prebuilt` (upstream glibc binaries for x86_64/aarch64 linux under our
-  dynamic linker like `rust`; from source see above). Build system `bun`: `fetch.bunDeps { source }` reads `bun.lock` (text JSONC since 1.2, carries
-  sha512 integrity like package-lock, so no `locks/` table), lays out the same cache tree
-  `bun install --frozen-lockfile --offline` expects (`$BUN_INSTALL_CACHE_DIR`: `<name>@<version>@@@1`,
-  pre-release parts spelled as bun's Wyhash11, computed under bun by builder/bun-cache.ts as
-  bun2nix's cache-entry-creator does in zig), then `bun build --compile` or bin links run by bun.
-  github:/git:/file: dependencies are rejected (no hash in the lock).
-
-**Further ecosystems**, in this order (value per effort; each again interpreter + build system +
-one producer, a `locks/<registry>.toml` only where the upstream lock has no usable hash, and a
-sys-libs table where locked packages link C libraries):
+**Further ecosystems**, in this order (value per effort). Each is again interpreter + build
+system + one producer, a `locks/<registry>.toml` only where the upstream lock has no usable hash,
+and a sys-libs table where locked packages link C libraries.
 
 | ecosystem | toolchain | lock → producer | notes |
 |---|---|---|---|
-| Python applications | cpython (have) | `uv.lock` / `pylock.toml` (PEP 751) carry sha256 → `fetch.pythonDeps`; sdists building C extensions via sys-libs (psycopg2 → libpq, lxml, pillow) | next; highest demand |
-| Yarn v1 | node (have) | `yarn.lock` `resolved`+`integrity` → offline mirror dir | small; berry stays deferred (checksum over repacked zip) |
-| Lua / LuaJIT | from C (plan above) | luarocks has no hashes → `locks/luarocks.toml` | small |
+| Yarn v1 | node (have) | `yarn.lock` `resolved`+`integrity` → offline mirror dir | next, small |
+| Lua / LuaJIT | from C (above) | luarocks has no hashes → `locks/luarocks.toml` | small |
 | Erlang / Elixir | erlang from C, elixir on it | `mix.lock` carries hex sha256 → `fetch.mixDeps` (`MIX_ENV=prod mix deps.get` layout), rebar3 alike | medium, clean |
-| Perl CPAN | perl (have) | `cpanfile.snapshot` (carton) has no hashes → `locks/cpan.toml`; `uses = ["perl"]` for Makefile.PL/Build.PL dists | small |
-| JVM (Java, Kotlin, Scala, Clojure) | `temurin` prebuilt → openjdk from source later (needs a JDK to build) | gradle `verification-metadata.xml` sha256 / maven: producer lays out an offline `~/.m2`; gradle `--offline` | large; gradle is the pain |
-| Zig | zig-bootstrap → zig with our llvm (above) | `build.zig.zon` hashes → package cache dir | medium; gates bun from source |
+| Perl CPAN | perl (have) | `cpanfile.snapshot` (carton) has no hashes → `locks/cpan.toml`. `uses = ["perl"]` for Makefile.PL/Build.PL dists | small |
+| JVM (Java, Kotlin, Scala, Clojure) | `temurin` prebuilt → openjdk from source later (needs a JDK to build) | gradle `verification-metadata.xml` sha256 / maven: producer lays out an offline `~/.m2`, gradle `--offline` | large, gradle is the pain |
+| Zig | zig-bootstrap → zig with our llvm (above) | `build.zig.zon` hashes → package cache dir | medium, gates bun from source |
 | .NET | prebuilt SDK | `packages.lock.json` sha512 → NuGet offline feed | on demand |
 | PHP | php from C (autotools, many sys-libs) | `composer.lock` dist shasum often empty → `locks/packagist.toml` | on demand |
-| Haskell | ghc bindist prebuilt (self-hosting) | `cabal.project.freeze` no hashes → `locks/hackage.toml`; or stack | large |
-| OCaml | from C | `opam` lock no hashes → locks table; dune builds | medium |
+| Haskell | ghc bindist prebuilt (self-hosting) | `cabal.project.freeze` no hashes → `locks/hackage.toml`, or stack | large |
+| OCaml | from C | `opam` lock no hashes → locks table, dune builds | medium |
 | R | from C + Fortran (flang from our LLVM) | `renv.lock` has hashes | science demand only |
 | WebAssembly | not a language: `wasm32-wasi` as one more cross platform (clang `--target=wasm32-wasip1`, wasi-libc recipe instead of glibc, no launcher) | small, fits the cross model |
 
 Swift (own LLVM fork), Dart/Flutter, Julia, Nim, Crystal, D: not planned.
 
-**Lock-driven native dependencies beyond cargo.** cargoVendor already forwards `.drv` paths of
-an offered library set into the producer, which picks the ones Cargo.lock's -sys crates want and
-propagates them (builder/sys-libs.nu). The same shape for the other producers, each with its own
-explicit table: go (cgo packages: `mattn/go-sqlite3` -> sqlite, `libgit2/git2go`, taglib for
-navidrome, ...), npm/pnpm/bun (node-gyp addons: `sharp` -> libvips, `better-sqlite3`, `canvas` ->
-cairo/pango, `node-sass`), python `pythonDeps` (sdists with C extensions: `psycopg2` -> libpq,
-`lxml` -> libxml2/libxslt, `pillow` -> libjpeg/zlib/freetype, `cryptography` -> openssl), ruby
-gems (`nokogiri`, `pg`, `ffi`), luarocks. One `sysLibs` offer in default.nix shared by all; each
-table maps ecosystem package name -> our package + the env/flags that make it link ours instead of
-a bundled copy. `uptrack check` warns when a lock names a table entry whose package the set lacks.
+**Lock-driven native dependencies for JS.** sys-libs.nu has tables for cargo, go, python and
+gems. npm/pnpm/bun lack one for node-gyp addons (`sharp` -> libvips, `better-sqlite3`, `canvas`
+-> cairo/pango). `uptrack check` should warn when a lock names a table entry whose package the
+set lacks.
 
 **Reproducibility check.** A `repro-check` job that rebuilds the set without the cache socket
-(`--rebuild`) and reports CA path mismatches; diffoscope only on those.
+(`--rebuild`) and reports CA path mismatches. diffoscope only on those.
 
-**uptrack.** `pythonDeps` locks (uv.lock → locks/pypi.toml where wheels lack hashes), reports, `sync-github`.
+**uptrack.** reports, `sync-github`.
 
 **CI.** buildbot-nix/nixbot on the two build platforms plus riscv64 cross, harmonia cache with
 realisations.
@@ -137,11 +103,9 @@ realisations.
 ## Follow-ups
 
 - jig: teach the shapes that still show as `plain-link`/`plain-compile` (finish.nu prints
-  samples: libtool relinks, `@rsp`, multi-source lines); rustc mode can cache bin/proc-macro
-  crates now that links are cached; rustc keys should not change when only the vendor store path
-  does; recurring `miss-fail` on identical rebuilds means an unstable conftest key.
-- jig hashes link inputs serially; thread it if llvm-sized links show up in profiles.
+  samples: libtool relinks, `@rsp`, multi-source lines). rustc mode can cache bin/proc-macro
+  crates now that links are cached. rustc keys should not change when only the vendor store path
+  does. Recurring `miss-fail` on identical rebuilds means an unstable conftest key.
+- jig hashes link inputs serially. Thread it if llvm-sized links show up in profiles.
 - m4's gnulib `test-posix_spawn-chdir` spins in the sandbox: check crt_interp's AT_EXECFN
   fallback when cwd changes.
-- nodejs, glib, qemu: first builds in flight; cross builds (riscv64, aarch64) to re-verify after
-  the unpack-once change.
