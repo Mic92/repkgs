@@ -28,8 +28,12 @@ jobs: ($c.njobs)
 with-compiler: (tool ghc)
 " | save -f $"($env.CABAL_DIR)/config"
   cd (project-dir cabal)
-  # cc for C bits and linking, one parallel ghc per unit
-  $"program-locations\n  gcc-location: (tool cc)\npackage *\n  ghc-options: -j\n  split-sections: True\n($k.project)"
+  # cc for C bits and linking, one parallel ghc per unit. Bare -j is getNumProcessors, and 9.12's
+  # RTS holds 256 capabilities at most: on a 384-core machine setNumCapabilities segfaults
+  let j = ([$c.njobs 256] | math min)
+  # ghc links through cc without LDFLAGS: dependencies' lib dirs (gmp, libffi, zlib) spelled out
+  let libdirs = (dep-dirs $c.deps libDirs | str join ", ")
+  $"program-locations\n  gcc-location: (tool cc)\npackage *\n  ghc-options: -j($j)\n  split-sections: True\n  extra-lib-dirs: ($libdirs)\n($k.project)"
   | save -f cabal.project.local
 }
 
