@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/git/git"
+
+[[source]]
+key = "default"
+url = "https://www.kernel.org/pub/software/scm/git/git-{version}.tar.xz"
+hash = "sha256-aTL1jVJ8xz4CMocAzzHaEepLgUO/7OXTb/Ao0GR5AVQ="
+
+[pin]
+version = "2.55.0"
+tag = "v2.55.0"
