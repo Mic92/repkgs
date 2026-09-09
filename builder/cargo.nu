@@ -11,15 +11,14 @@ def feature-args [k: record]: nothing -> list<string> {
   ] | compact
 }
 
-# CARGO_HOME + config.toml (vendored registry, offline, linker=cc), rustc cache wrapper, path remaps
+# CARGO_HOME + config.toml (vendored registry, offline, linker=cc), path remaps. The rustc cache
+# wrapper is set by prepare.nu for every build with rust on PATH
 export def --env setup []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
   $env.CARGO_HOME = $"($c.build)/cargo-home"
   $env.CARGO_TARGET_DIR = $"($c.build)/target"
   mkdir $env.CARGO_HOME
-  # RUSTC absolute so the wrapper (and its cache key) sees which rustc, not a bare name
   $env.RUSTC = (tool rustc)
-  if $c.cache { $env.RUSTC_WRAPPER = (tool rustcwrap); $env.CARGO_INCREMENTAL = "0" }
   let host = (^rustc -vV | lines | parse "host: {t}" | get t.0)
   # cc targets the platform, cc-build the build machine (rust spells some cpus differently)
   let target = ($c.platform.triple | str replace $c.platform.cpu $c.platform.names.rust)

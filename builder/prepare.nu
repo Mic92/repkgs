@@ -45,6 +45,17 @@ def --env build-env [a: record, deps: list<record>, out: string]: nothing -> not
   load-env ($a.spec.env? | default {})
 }
 
+# cc always goes through jig. rustc and go only do when asked by environment, and they are run by
+# more than their own build system (maturin and setuptools-rust from pyapp/python, cargo from
+# napi-rs npm packages or gem extensions, `go build` from Makefiles), so ask here, not in cargo.nu/go.nu
+def --env compiler-caches []: nothing -> nothing {
+  if (which rustc | is-not-empty) {
+    # RUSTC absolute so the wrapper's key names the toolchain; incremental artefacts are uncacheable
+    load-env {RUSTC: (which rustc | first | get path), RUSTC_WRAPPER: (which rustcwrap | first | get path), CARGO_INCREMENTAL: "0"}
+  }
+  if (which go | is-not-empty) { $env.GOCACHEPROG = (which gocacheprog | first | get path) }
+}
+
 # cross: does the builder's binfmt_misc run target binaries transparently (probe = target ld.so)?
 # If not, build systems that support one get the explicit emulator
 def --env resolve-platform [p: record]: nothing -> record {
@@ -86,6 +97,7 @@ export def --env main [
   let build = $"($env.NIX_BUILD_TOP)/build"
   mkdir $src $env.HOME
   let cache = ("/run/pkgs-cache.sock" | path exists)
+  if $cache { compiler-caches }
   let ctx = {|testsRun| {spec: $spec, out: $out, deps: $deps, njobs: $njobs, src: $env.PWD, build: $build, platform: $plat, testsRun: $testsRun, cache: $cache} | to json -r }
   if $from_tree != "" {
     # same absolute paths as during the build (/build/source, /build/build), so generated files stay valid
