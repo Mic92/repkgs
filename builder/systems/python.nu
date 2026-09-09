@@ -5,6 +5,12 @@ def knobs []: nothing -> record<backend: string, module: any, pytest: bool> { kn
 
 def site-packages [roots: list<string>]: nothing -> list<string> { $roots | each {|r| glob $"($r)/lib/python3*/site-packages" } | flatten }
 
+# those of the python build tools on PATH (PEP 517 backends and friends) and of what they
+# propagate: a backend imports its own dependencies. pyapp.nu uses this too
+export def tool-site-packages []: nothing -> list<string> {
+  site-packages (dep-closure ($env.PATH | each { path dirname } | where { (site-packages [$in]) | is-not-empty }) | get root)
+}
+
 # PYTHONPATH = dependencies' site-packages, cwd = `python.root`
 export def --env setup []: nothing -> nothing {
   let c = (ctx)
@@ -13,7 +19,7 @@ export def --env setup []: nothing -> nothing {
   # last so a backend can build itself (flit_core, setuptools) before any of the stack exists
   let root = (project-dir python)
   let own = ([$root $"($root)/src"] | where { $in | path exists })
-  $env.PYTHONPATH = ((site-packages (($c.deps | get root) ++ ($env.PATH | each { path dirname }))) ++ $own | str join ":")
+  $env.PYTHONPATH = ((site-packages ($c.deps | get root)) ++ (tool-site-packages) ++ $own | str join ":")
   cd $root
 }
 
@@ -59,6 +65,9 @@ export def install []: nothing -> nothing {
     if ($lines | first) !~ "python" { continue }
     [($lines | first) $boot] ++ ($lines | skip 1) | str join "\n" | save -f $f
   }
+  # an import needs the imports below it: whoever depends on (or runs) this module gets our
+  # dependencies' site-packages too. finish merges this into the final exports.json
+  {propagate: (attrs).dependencies} | to json | save -f $"($c.out)/exports.json"
 }
 
 # runs after install: imports from $out, not from the source tree

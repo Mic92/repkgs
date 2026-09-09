@@ -1,4 +1,5 @@
 use ../core.nu *
+use python.nu [tool-site-packages]
 use ../sys-libs.nu
 
 # A Python application installed from its uv.lock (fetch.pythonDeps):
@@ -16,10 +17,8 @@ def site-packages []: nothing -> string { let c = (ctx); $"($c.out)/lib/($c.spec
 export def --env setup []: nothing -> nothing {
   let c = (ctx)
   mkdir (site-packages)
-  # the site-packages of every build tool on PATH: that is where the PEP 517 backends live
-  let backend_dirs = ($env.PATH | split row ":" | each { path dirname | path join lib } | each {|lib| glob $"($lib)/python3*/site-packages" } | flatten)
   load-env {
-    PYTHONPATH: ([(site-packages)] ++ $backend_dirs | str join ":")
+    PYTHONPATH: ([(site-packages)] ++ (tool-site-packages) | str join ":")
     PYTHONDONTWRITEBYTECODE: "1", PYTHONNOUSERSITE: "1", PIP_NO_INDEX: "1"
   }
   load-env (sys-libs env-for python $c.deps)
