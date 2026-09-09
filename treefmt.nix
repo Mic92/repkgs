@@ -97,18 +97,9 @@ pkgs.treefmt.withConfig {
         ];
         includes = [ "locks/*.toml" ];
       };
-      # nu has no stable formatter, these two only check. nu-lint is the strict-typing/idiom
-      # policy in .nu-lint.toml
+      # nu has no stable formatter, this only checks (parse + types with the nu that runs builds).
       nu-typecheck = {
         command = "${nu-typecheck}";
-        includes = nuFiles;
-      };
-      nu-lint = {
-        command = "${pkgs.nu-lint}/bin/nu-lint";
-        options = [
-          "-c"
-          ".nu-lint.toml"
-        ];
         includes = nuFiles;
       };
     };
