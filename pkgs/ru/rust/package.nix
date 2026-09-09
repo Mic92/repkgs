@@ -1,52 +1,88 @@
-# Upstream's rustc + cargo + rust-std binaries, run under our dynamic linker. `prebuilt = "ldso"`
-# (launcher, builder/launchers.nu) rather than the implant every other prebuilt package gets:
-# formatelf, which does the implanting, is built with this cargo. A build tool: taken from
-# buildPkgs by the cargo build system, never linked into outputs.
+# rustc + cargo + std from the rustc-src tarball, x.py driven by `rust-bootstrap` (upstream
+# binaries, build-only), codegen through our libLLVM. std for the build machine's triple only:
+# cross stds need each target's cc as x.py linker, later.
 {
   package,
   pkgs,
-  platform,
-  sources,
+  buildPkgs,
 }:
 package {
   name = "rust";
-  source = sources.fetch "rustc-${platform.cpu}";
-  # std for every platform the set targets, so cargo.nu can cross-compile with --target
-  env.components = toString [
-    (sources.fetch "cargo-${platform.cpu}")
-    (sources.fetch "rust-std-x86_64")
-    (sources.fetch "rust-std-aarch64")
-    (sources.fetch "rust-std-riscv64")
-    (sources.fetch "rust-std-loongarch64")
-    (sources.fetch "rust-std-powerpc64le")
-  ];
-  prebuilt = "ldso";
   dependencies = [
+    pkgs.llvm
     pkgs.zlib
-    pkgs.libgcc-shim
+    pkgs.openssl # cargo
+  ];
+  env.OPENSSL_NO_VENDOR = "1"; # cargo's openssl-sys: ours via pkg-config, not a vendored build
+  buildDependencies = [
+    buildPkgs.rust-bootstrap
+    buildPkgs.cpython
+    buildPkgs.cmake
+    buildPkgs.ninja
+    buildPkgs.pkgconf
   ];
   steps = [
+    {
+      name = "configure";
+      run = ''
+        let c = (ctx)
+        let triple = ($c.platform.triple | str replace $c.platform.cpu $c.platform.names.rust)
+        let rb = (dep-root rust-bootstrap "stage0 rustc and cargo")
+        {
+          change-id: "ignore"
+          profile: "dist"
+          llvm: {link-shared: true, download-ci-llvm: false}
+          build: {
+            build: $triple
+            host: [$triple]
+            target: [$triple]
+            rustc: $"($rb)/bin/rustc"
+            cargo: $"($rb)/bin/cargo"
+            docs: false
+            extended: true
+            tools: [cargo clippy rustfmt rustdoc rust-analyzer-proc-macro-srv]
+            vendor: true
+            locked-deps: true
+            build-dir: $c.build
+            jobs: $c.njobs
+            optimized-compiler-builtins: false
+          }
+          install: {prefix: $c.out, sysconfdir: "etc"}
+          rust: {
+            channel: "stable"
+            remap-debuginfo: true
+            lld: false
+            llvm-tools: false
+            llvm-bitcode-linker: false
+            codegen-backends: [llvm]
+            description: "pkgs"
+          }
+          target: {$triple: {llvm-config: $"(dep-root llvm 'libLLVM')/bin/llvm-config", cc: (tool cc), cxx: (tool c++), linker: (tool cc), ar: (tool ar), ranlib: (tool ranlib), crt-static: false}}
+          dist: {compression-formats: [gz], src-tarball: false}
+        } | to toml | save -f bootstrap.toml
+      '';
+    }
+    {
+      name = "build";
+      run = "x python3 x.py build --stage 2";
+    }
     {
       name = "install";
       run = ''
         let c = (ctx)
-        for d in (["."] ++ ($env.components | split row " ")) {
-          x sh $"($d)/install.sh" $"--prefix=($c.out)" --disable-ldconfig
-        }
-        rm -rf $"($c.out)/lib/rustlib/($c.platform.triple)/bin" $"($c.out)/share/doc" $"($c.out)/share/man" $"($c.out)/etc"
-        # rustc >= 1.90 links x86_64-linux-gnu through its "self-contained" gcc-ld/ld.lld, build
-        # scripts included (no cargo rustflags reach those under --target): make that cc's lld
-        let gcc_ld = $"($c.out)/lib/rustlib/($c.platform.triple)/bin/gcc-ld"
-        mkdir $gcc_ld
-        ^ln -s $"../../../../../../(tool ld | path expand | path relative-to $env.NIX_STORE)" $"($gcc_ld)/ld.lld"
+        x python3 x.py install
+        rm -rf $"($c.out)/share/doc" $"($c.out)/lib/rustlib/install.log" $"($c.out)/lib/rustlib/uninstall.sh"
+        rm -f ...(glob $"($c.out)/lib/rustlib/manifest-*") $"($c.out)/lib/rustlib/components" $"($c.out)/lib/rustlib/rust-installer-version"
       '';
     }
   ];
+  tests.run = false; # x.py test: hours
   bin = [
     "rustc"
     "cargo"
   ];
   tests.version = "-V";
+  tests.relocated = true;
   exports = {
     libDirs = [ ];
     libs = [ ];
