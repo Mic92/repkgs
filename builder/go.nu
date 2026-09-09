@@ -12,7 +12,8 @@ export def --env setup []: nothing -> nothing {
     GOCACHE: $"($c.build)/go-cache", GOPATH: $"($c.build)/go", GOSUMDB: "off", GOTOOLCHAIN: "local"
     GOFLAGS: $"-mod=(if $k.modules != null { 'mod' } else { 'vendor' }) -trimpath -buildvcs=false"
     GOPROXY: (if $k.modules != null { $"file://($k.modules)" } else { "off" })
-    CGO_ENABLED: (if $k.cgo { "1" } else { "0" })
+    # cgo reads CGO_CPPFLAGS, not CPPFLAGS: dependencies' include dirs (sys-libs' sqlite3.h)
+    CGO_ENABLED: (if $k.cgo { "1" } else { "0" }), CGO_CPPFLAGS: ($env.CPPFLAGS? | default "")
     # cross: cc already targets the platform, go needs GOARCH; build-machine helpers use CC_FOR_BUILD
     GOOS: "linux", GOARCH: $c.platform.names.go
   }
