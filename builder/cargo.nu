@@ -25,12 +25,9 @@ export def --env setup []: nothing -> nothing {
   let sys = (sys-libs env-for cargo $c.deps)
   load-env ({PKG_CONFIG_ALLOW_CROSS: "1"} | merge $sys)
   if ($sys | is-not-empty) { note sys-libs ($sys | columns | str join " ") }
-  # rustflags live in config, per target: RUSTFLAGS from the environment would replace them, and
-  # host artefacts (build scripts, proc-macros) only see their own target's list once --target is set.
-  #   -lld: cc/cc-build link with their own lld; rustc >= 1.90 otherwise inserts its bundled rust-lld
-  #   remap: panic strings embed source paths; map build tree, cargo home and vendor dir away
+  # rustflags per target in config (RUSTFLAGS from the environment would replace them): panic
+  # strings embed source paths, map build tree, cargo home and vendor dir away
   let rustflags = ([
-    -Clinker-features=-lld
     $"--remap-path-prefix=($c.src)=/src"
     $"--remap-path-prefix=($env.CARGO_HOME)=/cargo"
     (if $k.vendor != null { $"--remap-path-prefix=($k.vendor)=/vendor" })

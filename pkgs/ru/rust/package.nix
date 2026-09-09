@@ -32,8 +32,12 @@ package {
         for d in (["."] ++ ($env.components | split row " ")) {
           x sh $"($d)/install.sh" $"--prefix=($c.out)" --disable-ldconfig
         }
-        # rust-lld and friends: cargo.nu links with cc. etc: bash completions
         rm -rf $"($c.out)/lib/rustlib/($c.platform.triple)/bin" $"($c.out)/share/doc" $"($c.out)/share/man" $"($c.out)/etc"
+        # rustc >= 1.90 links x86_64-linux-gnu through its "self-contained" gcc-ld/ld.lld, build
+        # scripts included (no cargo rustflags reach those under --target): make that cc's lld
+        let gcc_ld = $"($c.out)/lib/rustlib/($c.platform.triple)/bin/gcc-ld"
+        mkdir $gcc_ld
+        ^ln -s $"../../../../../../(tool ld | path expand | path relative-to $env.NIX_STORE)" $"($gcc_ld)/ld.lld"
       '';
     }
   ];
