@@ -4,7 +4,8 @@ purl = "pkg:gnu/gawk"
 [[source]]
 key = "default"
 url = "https://ftp.gnu.org/gnu/gawk/gawk-{version}.tar.xz"
-hash = "sha256-iLlOV03f3GDqkNb5neNxkBphdRHn4vQw/mTQqR6mPRA="
+hash = "sha256-j5SjDboKkRhpSgDrnZBn4Az0LseugKFFOeUu1GlRGvc="
 
 [pin]
-version = "5.3.2"
+version = "5.4.1"
+date = "2026-07-09"

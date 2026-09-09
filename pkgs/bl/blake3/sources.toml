@@ -4,8 +4,9 @@ purl = "pkg:github/BLAKE3-team/BLAKE3"
 [[source]]
 key = "default"
 url = "https://github.com/BLAKE3-team/BLAKE3/archive/refs/tags/{tag}.tar.gz"
-hash = "sha256-IABVErXWYQFXZcwsFKfQhm3ox7UZUcW5uzVrGwsSp94="
+hash = "sha256-QWNdJh9wSKoc171t+rNei6OF3ANb2K4Oi+3VHEy1BiQ="
 
 [pin]
-version = "1.8.2"
-tag = "1.8.2"
+version = "1.8.7"
+tag = "1.8.7"
+date = "2026-08-20"

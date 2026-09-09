@@ -5,14 +5,14 @@ allow = "==3.16.*"
 [[source]]
 key = "x86_64"
 url = "https://downloads.haskell.org/~cabal/cabal-install-{version}/cabal-install-{version}-x86_64-linux-deb12.tar.xz"
-hash = "sha256-KPeatecEB7UNPn6Cv/baJFkxert1iV7j4AfL7DsJCDM="
-unpack = false
+hash = "sha256-VoRTzrThKrttv/3U/4ck2U6CT89qHzpWGuARKZrmob8="
 
 [[source]]
 key = "aarch64"
 url = "https://downloads.haskell.org/~cabal/cabal-install-{version}/cabal-install-{version}-aarch64-linux-deb12.tar.xz"
-hash = "sha256-dueT9FoU84xjWpfg88S6XxJHl6opHK/GfvG4MTF/BuQ="
-unpack = false
+hash = "sha256-2xLni3MQ/Hrm6/tKF8H8VqhAKkJKFvQT7kejuJUn2e0="
 
 [pin]
-version = "3.16.0.0"
+version = "3.16.1.0"
+tag = "cabal-install-v3.16.1.0"
+date = "2025-12-21"

@@ -4,8 +4,9 @@ purl = "pkg:github/libexpat/libexpat"
 [[source]]
 key = "default"
 url = "https://github.com/libexpat/libexpat/releases/download/{tag}/expat-{version}.tar.xz"
-hash = "sha256-C1t544HV4h0R405busJyz2dSgaAU8vO9Waotv9O8nAE="
+hash = "sha256-eTxmXRr0EzW3B39yKr0w8C0YIwQ+CiyxtE+Z55zL4DM="
 
 [pin]
-version = "2.8.3"
-tag = "R_2_8_3"
+version = "2.8.4"
+tag = "R_2_8_4"
+date = "2026-08-31"

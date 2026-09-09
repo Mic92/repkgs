@@ -5,12 +5,12 @@ allow = "==9.12.*"
 [[source]]
 key = "x86_64"
 url = "https://downloads.haskell.org/~ghc/{version}/ghc-{version}-x86_64-deb12-linux.tar.xz"
-hash = "sha256-GwEpgQ3ZPgA6Fy08W9zjFrCH99vD/UYk0Pc62HeWK8o="
+hash = "sha256-CiRLfu+lNf9RIJ7NSz9ho1cz0m8pPA7DGpE08peh0DU="
 
 [[source]]
 key = "aarch64"
 url = "https://downloads.haskell.org/~ghc/{version}/ghc-{version}-aarch64-deb12-linux.tar.xz"
-hash = "sha256-23NJbd+y+Ev1VvOqLiR8k3UYyVf7jbN+CQkrMEkVhyA="
+hash = "sha256-HQs61CKq9/z0rhvOpxK+N2iwudhDsUUmfawESxgJC0Q="
 
 [pin]
-version = "9.12.2"
+version = "9.12.4"

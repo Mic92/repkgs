@@ -28,7 +28,7 @@ package {
     {
       name = "install";
       run = ''
-        x python3 tools/install.py install --dest-dir "" --prefix $c.out --build-dir out --config Release
+        x python3 tools/install.py install --dest-dir "" --prefix $c.out --build-dir out/Release
       '';
     }
   ];

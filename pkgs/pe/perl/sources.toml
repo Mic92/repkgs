@@ -5,7 +5,8 @@ allow = "==5.40.*"
 [[source]]
 key = "default"
 url = "https://www.cpan.org/src/5.0/perl-{version}.tar.xz"
-hash = "sha256-z0Us/0FtHRdZhbtYmHNJI24+bldmeFaYh3I5DMUYf04="
+hash = "sha256-SjrMeroh+58iYrXgeJ9nIsFnrVBpIiXsUg/Pm9mfqr8="
 
 [pin]
-version = "5.40.2"
+version = "5.40.5"
+tag = "v5.40.5"

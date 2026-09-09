@@ -5,7 +5,9 @@ allow = ">=24,<25"
 [[source]]
 key = "default"
 url = "https://nodejs.org/dist/v{version}/node-v{version}.tar.xz"
-hash = "sha256-INHHknz9Envnx8FfQZBP2qd3MShed+vBPkubR+gROcM="
+hash = "sha256-vWwDbgnehE+oqrMZ7UUiTNHWD2EErajgWA0VY1gz9zI="
 
 [pin]
-version = "24.20.0"
+version = "24.21.0"
+tag = "v24.21.0"
+date = "2026-09-08"

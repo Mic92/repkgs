@@ -4,7 +4,8 @@ purl = 'pkg:generic/linux?url=https://kernel.org/releases.json&regex=linux-(\d+\
 [[source]]
 key = "default"
 url = "https://cdn.kernel.org/pub/linux/kernel/v{major}.x/linux-{version}.tar.xz"
-hash = "sha256-bKQiHEhaxinMh2ykjR/thBzkH1ts08IHLSg19BbvdaU="
+hash = "sha256-8JeHxPMBWcX3rjYN9lYkAarpWnyqvDckH+AsUABoxzM="
 
 [pin]
-version = "7.1"
+version = "7.2.4"
+date = "2026-09-06"

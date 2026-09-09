@@ -4,7 +4,8 @@ purl = "pkg:gnu/sed"
 [[source]]
 key = "default"
 url = "https://ftp.gnu.org/gnu/sed/sed-{version}.tar.xz"
-hash = "sha256-yQTI0WzgSOolziBUNU9ayhASUT2/xFi3jt1C2z1MFZw="
+hash = "sha256-BABNGaRCbWWTOvAAUkX0mvNWE5/JO0LRghULCwjI3gM="
 
 [pin]
-version = "4.9"
+version = "4.10"
+date = "2026-04-21"
