@@ -26,9 +26,13 @@ package {
     {
       name = "configure";
       run = ''
-        # not autotools proper: its own wrapper, and it wants bash
+        # not autotools proper: its own wrapper, and it wants bash. It ignores CFLAGS & co from the
+        # environment on purpose and takes them as options
         (x bash configure
           $"--prefix=($c.out)"
+          $"--with-extra-cflags=($env.CPPFLAGS) ($env.CFLAGS)"
+          $"--with-extra-cxxflags=($env.CPPFLAGS) ($env.CXXFLAGS)"
+          $"--with-extra-ldflags=($env.LDFLAGS)"
           $"--with-boot-jdk=(tool java | path dirname | path dirname)"
           --with-toolchain-type=clang
           --enable-headless-only
@@ -43,8 +47,9 @@ package {
           $"--with-jobs=($c.njobs)"
           --with-version-build=1 --with-version-pre= --with-version-opt=pkgs
           --with-vendor-name=pkgs
-          # reproducible: no timestamps, fixed "build user"
-          --with-source-date=1 --with-hotspot-build-time=1970-01-01T00:00:01
+          # reproducible: fixed timestamps and "build user". jar --date rejects anything before
+          # 1980-01-01T00:00:02Z (DOS time, 2 s granularity), two seconds past SOURCE_DATE_EPOCH
+          --with-source-date=315532802 --with-hotspot-build-time=1980-01-01T00:00:02
           --with-build-user=pkgs)
       '';
     }
