@@ -36,8 +36,8 @@ def main []: nothing -> nothing {
 
   print -e $"denoDeps: ($npm | length) npm, ($jsr | length) jsr, ($https | length) https"
   dynamic stage deno-deps fetch-deno-files.nu {
-    npm: ($npm | select name version url integrity out | rename -c {out: tarball})
-    jsr: ($jsr | select name version url out | rename -c {out: meta})
-    https: ($https | select url out | rename -c {out: src})
+    npm: ($npm | select name version url integrity out drv | rename -c {out: tarball})
+    jsr: ($jsr | select name version url out drv | rename -c {out: meta})
+    https: ($https | select url out drv | rename -c {out: src})
   } ([$npm $jsr $https] | flatten | get drv)
 }

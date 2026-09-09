@@ -30,7 +30,8 @@ def main []: nothing -> nothing {
       dynamic json-file $"npm/registry.npmjs.org/($name)/registry.json" {name: $name, dist-tags: {}, "_deno.packumentFormat": full, versions: $listed}
     })
   ]
-  dynamic collect deno-deps [...$remote ...$version_lists ...$npm] ($modules | get drv)
+  # the first stage's files are laid out too, so they are inputs of the collecting derivation as well
+  dynamic collect deno-deps [...$remote ...$version_lists ...$npm] (($modules | get drv) ++ ([$fetched.npm $fetched.jsr $fetched.https] | flatten | get drv))
 }
 
 # where deno's global cache keeps a URL

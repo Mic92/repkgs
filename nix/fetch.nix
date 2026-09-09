@@ -42,12 +42,12 @@ let
   defaultSysLibs = sysLibsFile sysLibs;
   sysLibsFor = libs: if libs == null then defaultSysLibs else sysLibsFile libs;
 
-  dynamic =
-    name: script: env:
+  dynamic' =
+    drvName: script: env:
     let
       producer = derivation (
         {
-          name = "${name}.drv";
+          name = drvName;
           inherit system;
           seed = nu;
           inherit jig;
@@ -64,11 +64,13 @@ let
       );
     in
     builtins.outputOf producer.outPath "out";
+  # nix names a text-CA output after its derivation minus ".drv": one suffix per stage
+  dynamic = name: dynamic' "${name}.drv";
 
   # for producers that end in `dynamic stage` (a second producer) rather than `dynamic collect`
   twoStage =
     name: script: env:
-    builtins.outputOf (dynamic name script env) "out";
+    builtins.outputOf (dynamic' "${name}.drv.drv" script env) "out";
 
 in
 {
@@ -105,6 +107,14 @@ in
       root ? ".",
     }:
     dynamic "pnpm-deps" "fetch-pnpm.nu" { inherit source root; };
+
+  # yarn.lock (classic v1) -> a yarn offline mirror directory. builder/yarn.nu installs --offline from it.
+  yarnDeps =
+    {
+      source,
+      root ? ".",
+    }:
+    dynamic "yarn-deps" "fetch-yarn.nu" { inherit source root; };
 
   # bun.lock -> { p/<name>@<version>/ (unpacked), index.json }; builder/bun.nu links them into
   # $BUN_INSTALL_CACHE_DIR under the names bun expects.
