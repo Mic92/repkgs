@@ -6,6 +6,12 @@ use ../core.nu *
 # fetched from pkgs-cache instead of compiled. The store directory is the same fixed path in
 # every sandbox so the paths inside cached units agree.
 def options []: nothing -> record { options-for cabal {deps: "", flags: [], exes: [], project: ""} }
+# under jsem when the daemon is there to hand out slots
+def --wrapped cabal [...args: string]: nothing -> any {
+  let cmd = (if ($env.JSEM | is-empty) { [cabal ...$args] } else { [jsem cabal ...$args] })
+  print -e $"+ ($cmd | str join ' ')"
+  run-external ...$cmd
+}
 
 const STORE = "/build/cabal-store"
 
@@ -19,7 +25,11 @@ export def --env setup []: nothing -> nothing {
   let repo = $"($c.build)/repo"
   mkdir $repo
   for f in (glob $"($o.deps)/*.{tar.gz,cabal}") { ^ln -s $f $repo }
-  load-env {CABAL_DIR: $"($c.build)/cabal", CABAL_UNITS: $"($STORE)/ghc-(^ghc --numeric-version | str trim)-inplace"}
+  # with pkgs-cache up, ghc's parallelism comes from its slots: `jsem` serves them as the -jsem
+  # semaphore. Its name is hashed into unit ids with the other ghc-options, so it is derived from
+  # $out: stable across rebuilds, unique on the host
+  load-env {CABAL_DIR: $"($c.build)/cabal", CABAL_UNITS: $"($STORE)/ghc-(^ghc --numeric-version | str trim)-inplace"
+    JSEM: (if $c.cache { $"/jsem_($c.out | path basename | str substring 0..<32)" } else { "" })}
   mkdir $env.CABAL_DIR $"(unit-dir)/package.db"
   $"repository local
   url: file+noindex://($repo)
@@ -28,12 +38,9 @@ jobs: ($c.njobs)
 with-compiler: (tool ghc)
 " | save -f $"($env.CABAL_DIR)/config"
   cd (project-dir cabal)
-  # cc for C bits and linking, one parallel ghc per unit. Bare -j is getNumProcessors, and 9.12's
-  # RTS holds 256 capabilities at most: on a 384-core machine setNumCapabilities segfaults
-  let j = ([$c.njobs 256] | math min)
   # ghc links through cc without LDFLAGS: dependencies' lib dirs (gmp, libffi, zlib) spelled out
   let libdirs = (dep-dirs $c.deps libDirs | str join ", ")
-  $"program-locations\n  gcc-location: (tool cc)\npackage *\n  ghc-options: -j($j)\n  split-sections: True\n  extra-lib-dirs: ($libdirs)\n($o.project)"
+  $"program-locations\n  gcc-location: (tool cc)\npackage *\n  ghc-options: (if $c.cache { $"-jsem ($env.JSEM)" } else { "-j" })\n  split-sections: True\n  extra-lib-dirs: ($libdirs)\n($o.project)"
   | save -f cabal.project.local
 }
 
@@ -75,10 +82,10 @@ def save-units [c: record, before: list<string>]: nothing -> nothing {
 # plan, restore cached units, cabal build, store new units
 export def build []: nothing -> nothing {
   let c = (ctx); let o = (options)
-  x cabal build --dry-run ...(targets $o)
+  cabal build --dry-run ...(targets $o)
   if $c.cache { restore $c }
   let before = (ls -s (unit-dir) | get name)
-  x jig slot cabal build ...(targets $o)
+  cabal build ...(targets $o)
   if $c.cache { save-units $c $before }
 }
 
@@ -88,7 +95,7 @@ export def test []: nothing -> nothing {
   let cabals = (glob **/*.cabal --exclude [dist-newstyle/**])
   if ($cabals | is-not-empty) and ($cabals | all {|f| (open --raw $f) !~ '(?im)^\s*test-suite\s' }) { note cabal "no test suites"; return }
   # the package's own test suites (`all:tests` in the project's package, flags still apply)
-  x cabal test --enable-tests ...$o.flags all:tests
+  cabal test --enable-tests ...$o.flags all:tests
 }
 
 # the built executables -> $out/bin
@@ -97,6 +104,6 @@ export def install []: nothing -> nothing {
   mkdir $"($c.out)/bin"
   for e in $o.exes {
     # list-bin takes exactly one target
-    cp (^cabal list-bin ...$o.flags $"exe:($e)" | str trim) $"($c.out)/bin/($e)"
+    cp (cabal list-bin ...$o.flags $"exe:($e)" | str trim) $"($c.out)/bin/($e)"
   }
 }

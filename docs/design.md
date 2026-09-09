@@ -218,7 +218,9 @@ The daemon (`pkgs/pk/pkgs-cache`, Go) is a bitcask-style store: append-only 256 
 an in-memory index, hint files for fast startup, whole-pack eviction past a size limit, values
 served with `sendfile`. Clients compress with zstd-1 (3× on objects). It also memoises store-file
 identities so a cache hit does not re-hash a hundred headers, and hands out build slots so that
-384 sandboxes each running `make -j384` do not oversubscribe the machine.
+384 sandboxes each running `make -j384` do not oversubscribe the machine. cc and rustc take a
+slot per run, go via `-toolexec jig slot`, and GHC through `jsem`, a small broker that serves ghc's
+`-jsem` semaphore from those slots.
 
 Numbers: sqlite3.c 82 s → 0.08 s, fd's 200 rlibs 218 s → 1.4 s, outputs
 bit-identical. A full stage1 toolchain rebuild after touching its recipe: 5 min → 2.5 min, all of

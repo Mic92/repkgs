@@ -159,6 +159,7 @@ builtins.mapAttrs
       tools = [
         buildPkgs.ghc-bootstrap
         buildPkgs.cabal-bootstrap
+        buildPkgs.jsem
       ];
       # GHC's threaded RTS ends threads with pthread_exit, for which glibc dlopens libgcc_s.so.1:
       # in the RUNPATH of what is installed, on LD_LIBRARY_PATH (its env export) while building.
