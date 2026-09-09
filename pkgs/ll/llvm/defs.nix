@@ -1,0 +1,20 @@
+# cmake definitions shared by llvm and llvm21
+{
+  LLVM_TARGETS_TO_BUILD = "X86;AArch64;RISCV;LoongArch;PowerPC;ARM;WebAssembly";
+  LLVM_LINK_LLVM_DYLIB = true;
+  LLVM_BUILD_LLVM_DYLIB = true;
+  BUILD_SHARED_LIBS = false;
+  LLVM_ENABLE_ZLIB = "FORCE_ON";
+  LLVM_ENABLE_ZSTD = "FORCE_ON";
+  LLVM_ENABLE_LIBXML2 = false;
+  LLVM_ENABLE_TERMINFO = false;
+  LLVM_ENABLE_LIBEDIT = false;
+  LLVM_ENABLE_LIBPFM = false;
+  LLVM_ENABLE_BINDINGS = false;
+  LLVM_INCLUDE_TESTS = false;
+  LLVM_INCLUDE_BENCHMARKS = false;
+  LLVM_INCLUDE_EXAMPLES = false;
+  LLVM_INCLUDE_DOCS = false;
+  LLVM_INSTALL_UTILS = false;
+  LLVM_PARALLEL_LINK_JOBS = 4;
+}
