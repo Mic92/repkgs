@@ -176,8 +176,9 @@ The resulting rules:
   archives, uncompressed man pages.
 - **Tests run**, in the build by default. `tests.separate` moves them to a second derivation
   that restores the build tree, so a flaky test cannot change the package's hash.
-  `tests.version` checks that `bin/x --version` prints the pinned version, which catches
-  many broken installs (missing data files, wrong rpath, stale version string).
+  `tests.version` checks that `bin/x --version` (or the command line given, `"go version"`)
+  prints the pinned version, which catches many broken installs (missing data files, wrong
+  rpath, stale version string).
 
 ## The compile cache (jig and pkgs-cache)
 

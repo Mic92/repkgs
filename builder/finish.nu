@@ -23,37 +23,40 @@ def bins [c: record]: nothing -> list<string> {
   $c.spec.bin? | default (if ($"($c.out)/bin/($c.spec.name)" | path exists) { [$c.spec.name] } else { [] })
 }
 
-# `tests.version` (a flag, true = `"--version"`, the default when there is a bin, false to skip): bin/<first bin> <flag>
-# must print spec.version (upstream part, "-rN" revision stripped). `tests.relocated = true` reruns
-# it after copying `out` under a scratch prefix with sibling store paths symlinked beside it, from /
-# with env -i: the §3 property, per package, for the cost of one cp.
+# `tests.version`: a command line whose output must contain spec.version (upstream part, "-rN"
+# revision stripped): "-V", "version", "ghc-pkg --numeric-version". The first word picks the
+# binary when bin/ has it, else the words go to the first `bin`. true (the default with a bin)
+# is "--version". `tests.relocated` reruns it from a copy of `out` under a scratch prefix with
+# the sibling store paths symlinked beside it, cwd / and env -i: the §3 property, per package
 def version-check [c: record<spec: record, out: string, deps: list<record>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool>]: nothing -> nothing {
   let bins = (bins $c)
-  let flag = (match ($c.spec.tests?.version? | default ($bins | is-not-empty)) { true => "--version", false => null, $f => $f })
-  if $flag == null or ($c.platform.cross and not $c.testsRun) { return }
+  let line = ($c.spec.tests?.version? | default ($bins | is-not-empty))
+  if $line == false or ($c.platform.cross and not $c.testsRun) { return }
+  let words = (if $line == true { [--version] } else { $line | split row " " })
+  let cmd = (if $words.0 in $bins { $words } else { $bins | first 1 | append $words })
   let want = ($c.spec.version | str replace -r '-r[0-9]+$' "")
-  let run = {|bin: string|
+  let run = {|root: string|
     cd /
-    let r = (^env -i ...($c.platform.emulator) $bin $flag | complete)
-    if $r.exit_code != 0 or ($"($r.stdout)($r.stderr)" | find --no-highlight $want | is-empty) {
-      error make {msg: $"version check: `($bin) ($flag)` did not print ($want) \(exit ($r.exit_code))\n($r.stdout)($r.stderr)"}
+    # bzip2 --version goes on to compress stdin: stdout can be binary
+    let r = (^env -i ...($c.platform.emulator) $"($root)/bin/($cmd.0)" ...($cmd | skip 1) | complete)
+    if $r.exit_code != 0 or not ($"($r.stdout)($r.stderr)" | str contains $want) {
+      error make {msg: $"version check: `($cmd | str join ' ')` did not print ($want) \(exit ($r.exit_code))\n($r.stdout)($r.stderr)"}
     }
   }
-  do $run $"($c.out)/bin/($bins | first)"
-  let relocated = ($c.spec.tests?.relocated? | default false)
+  do $run $c.out
+  let relocated = ($c.spec.tests?.relocated? == true)
   if $relocated {
     let root = $"($env.NIX_BUILD_TOP)/relocated"
-    rm -rf $root
-    mkdir $root
     let a = (attrs)
-    # launch: bin/ launchers are symlinks to it
-    let closure = (dep-closure ($a.dependencies ++ $a.runtimeDependencies) | get root) ++ ($env.JIG_STORE_ROOTS | split row " ") ++ [($c.platform.launch | path dirname | path dirname)]
-    for d in ($closure | uniq | where { $in != $c.out }) { ^ln -s $d $"($root)/($d | path basename)" }
-    ^cp -r $c.out $"($root)/($c.out | path basename)"
-    do $run $"($root)/($c.out | path basename)/bin/($bins | first)"
+    # beside the copy: dependencies, the toolchain roots (libc), and launch (bin/ launchers link to it)
+    let siblings = (dep-closure ($a.dependencies ++ $a.runtimeDependencies) | get root) ++ ($env.JIG_STORE_ROOTS | split row " ") ++ [($c.platform.launch | path dirname -n 2)]
+    mkdir $root
+    for d in ($siblings | uniq) { ^ln -s $d $root }
+    ^cp -r $c.out $root
+    do $run $"($root)/($c.out | path basename)"
     rm -rf $root
   }
-  note version $"($bins | first) ($flag) -> ($want)(if $relocated { ', relocated' } else { '' })"
+  note version $"($cmd | str join ' ') -> ($want)(if $relocated { ', relocated' })"
 }
 
 # compile-cache summary: "hit=812 miss-stored=3 plain=40 rs-hit=…"; gocacheprog reports its own line
