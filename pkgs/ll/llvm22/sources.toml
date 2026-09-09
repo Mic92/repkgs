@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/llvm/llvm-project"
+allow = "==22.*"
+
+[[source]]
+key = "default"
+url = "https://github.com/llvm/llvm-project/releases/download/{tag}/llvm-project-{version}.src.tar.xz"
+hash = "sha256-SF7wFuh4kXZTytpdgX7vUZItKtRobnVICm+ixze4iG0="
+
+[pin]
+version = "22.1.8"
+tag = "llvmorg-22.1.8"

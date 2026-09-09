@@ -9,7 +9,7 @@
 package {
   name = "rust";
   dependencies = [
-    pkgs.llvm
+    pkgs.llvm22 # the major rustc bundles and is tested with; ours is one ahead
     pkgs.zlib
     pkgs.openssl # cargo
   ];

@@ -41,7 +41,7 @@ export def configure []: nothing -> nothing {
       codegen-backends: [llvm]
       codegen-tests: false # want FileCheck, which our llvm does not install
     }
-    target: {$triple: {llvm-config: $"(dep-root llvm 'libLLVM')/bin/llvm-config", cc: (tool cc), cxx: (tool c++), linker: (tool cc), ar: (tool ar), ranlib: (tool ranlib), crt-static: false}}
+    target: {$triple: {llvm-config: $"(dep-root llvm22 'libLLVM')/bin/llvm-config", cc: (tool cc), cxx: (tool c++), linker: (tool cc), ar: (tool ar), ranlib: (tool ranlib), crt-static: false}}
     dist: {compression-formats: [gz], src-tarball: false}
   } | to toml | save -f bootstrap.toml
 }
