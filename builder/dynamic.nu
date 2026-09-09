@@ -40,7 +40,7 @@ export def stage [name: string, script: string, attrs: record, inputs: list<stri
     system: $env.system
     builder: $"($env.seed)/bin/nu"
     args: [$"($here)/($script)"]
-    outputs: {out: {hashAlgo: "t:sha256"}}
+    outputs: {out: {hashAlgo: "text:sha256"}}
     inputDrvs: ($inputs | each {|d| [$d [out]] } | into record)
     inputSrcs: [$env.seed $env.jig $here $attrs_file]
     env: {
