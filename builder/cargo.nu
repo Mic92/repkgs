@@ -51,10 +51,14 @@ export def test []: nothing -> nothing {
   cd (project-dir cargo)
   x cargo test --release --offline ...(feature-args (knobs))
 }
-# every executable in target/release -> $out/bin
+# the spec's `bin` entries cargo built -> $out/bin. Others (symlinks a later step adds) are left
+# to that step; finish checks that every `bin` exists in the end
 export def install []: nothing -> nothing {
   let c = (ctx)
   mkdir $"($c.out)/bin"
   # with CARGO_BUILD_TARGET set cargo always builds into target/<triple>/
-  for b in ($c.spec.bin? | default [$c.spec.name]) { cp $"($env.CARGO_TARGET_DIR)/($env.CARGO_BUILD_TARGET)/release/($b)" $"($c.out)/bin/($b)" }
+  let release = $"($env.CARGO_TARGET_DIR)/($env.CARGO_BUILD_TARGET)/release"
+  let built = ($c.spec.bin? | default [$c.spec.name] | where {|b| $"($release)/($b)" | path exists })
+  if ($built | is-empty) { error make {msg: $"cargo.install: none of ($c.spec.bin? | default [$c.spec.name]) in ($release)"} }
+  for b in $built { cp $"($release)/($b)" $"($c.out)/bin/($b)" }
 }
