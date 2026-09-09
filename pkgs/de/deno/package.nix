@@ -2,6 +2,7 @@
 # system, as bun and rust are. From source (cargo + rusty_v8) later.
 {
   package,
+  pkgs,
   platform,
   sources,
 }:
@@ -9,6 +10,7 @@ package {
   name = "deno";
   source = sources.fetch platform.cpu;
   prebuilt = true;
+  dependencies = [ pkgs.libgcc-shim ]; # upstream links libgcc_s.so.1 for unwinding
   steps = [
     {
       name = "install";
