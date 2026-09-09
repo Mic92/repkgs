@@ -2,7 +2,7 @@ use ../core.nu *
 use ../probe-cache.nu
 
 # cmake configure / build / ctest / install with Ninja.
-def knobs []: nothing -> record<defs: record, generator: string> { knobs-for cmake {defs: {}, generator: "Ninja"} }
+def knobs []: nothing -> record<defs: record, generator: string, flags: list<string>> { knobs-for cmake {defs: {}, generator: "Ninja", flags: []} }
 
 # -D values: bools as ON/OFF, everything else as written
 def render [v: oneof<bool, int, string>]: nothing -> string {
@@ -32,7 +32,7 @@ export def configure []: nothing -> nothing {
   let init = $"($c.build)/probe-init.cmake"
   let had = (probe-cache restore $key $init)
   note cmake-probes (if $had { "restored" } else { "cold" })
-  x cmake -S $srcdir -B . -G $k.generator ...(if $had { [-C $init] } else { [] }) ...($defs | items {|k, v| $"-D($k)=(render $v)" })
+  x cmake -S $srcdir -B . -G $k.generator ...(if $had { [-C $init] } else { [] }) ...($defs | items {|k, v| $"-D($k)=(render $v)" }) ...$k.flags
   if not $had {
     open --raw CMakeCache.txt | lines | parse -r '^(?<k>[A-Za-z0-9_]+):INTERNAL=(?<v>.*)$'
       | where { not ($in.k | str starts-with "CMAKE_") and not ($in.k | str ends-with "-ADVANCED") and ($in.v !~ '/') }
@@ -42,7 +42,7 @@ export def configure []: nothing -> nothing {
 }
 
 # cmake --build
-export def build []: nothing -> nothing { x cmake --build . -j ((ctx).njobs | into string) }
+export def build []: nothing -> nothing { x cmake --build . $"-j((ctx).njobs)" }
 # ctest, honouring tests.parallel and tests.skip (regex-joined -E)
 export def test []: nothing -> nothing {
   let exclude = (if (test-skips | is-empty) { [] } else { [-E (test-skips | str join "|")] })

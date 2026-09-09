@@ -3,7 +3,7 @@ use ../sys-libs.nu
 
 # go build/test/install, modules from a GOPROXY=file:// tree (fetch.goModules, `go.deps`) or,
 # with `go.deps = null`, the source's own vendor/.
-def knobs []: nothing -> record<tags: list<string>, ldflags: list<string>, packages: list<string>, deps: any, cgo: bool> { knobs-for go {tags: [], ldflags: [], packages: ["./..."], deps: null, cgo: true} }
+def knobs []: nothing -> record<tags: list<string>, ldflags: list<string>, packages: list<string>, deps: any, cgo: bool, flags: list<string>> { knobs-for go {tags: [], ldflags: [], packages: ["./..."], deps: null, cgo: true, flags: []} }
 
 # offline module resolution, cgo per `go.cgo`
 export def --env setup []: nothing -> nothing {
@@ -23,19 +23,19 @@ export def --env setup []: nothing -> nothing {
 
 # cgo builds link through cc so RUNPATH/interp policy and fixup apply (cgo=false: static, internal linker).
 # cgo modules whose library the modules tree propagated get their "use the system one" tags (sys-libs.nu)
-def common-args [k: record<tags: list<string>, ldflags: list<string>, cgo: bool>]: nothing -> list<string> {
+def common-args [k: record<tags: list<string>, ldflags: list<string>, cgo: bool, flags: list<string>>]: nothing -> list<string> {
   let tags = ($k.tags ++ (sys-libs go-tags (ctx).deps) | uniq)
   [
     (if ($tags | is-not-empty) { $"-tags=($tags | str join ',')" })
     $"-ldflags=((if $k.cgo { ['-linkmode=external'] } else { [] }) ++ $k.ldflags | str join ' ')"
-  ] | compact
+  ] | compact | append $k.flags
 }
 
 # go build `go.packages` into the build dir (external linker = cc)
 export def build []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
   mkdir $"($c.build)/bin"
-  x go build -p ($c.njobs | into string) -o $"($c.build)/bin/" ...(common-args $k) ...$k.packages
+  x go build $"-p=($c.njobs)" -o $"($c.build)/bin/" ...(common-args $k) ...$k.packages
 }
 
 # go test (`go.testPackages`, default `go.packages`), tests.parallel as -p/-parallel, tests.skip as -skip

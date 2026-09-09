@@ -1,9 +1,9 @@
 # What `uses = [ "<name>" ]` means: builder/systems/<name>.nu implements the verbs, `verbs` is the default
 # step order (build test install unless said otherwise), `tools` go on PATH, `libs` into
 # `dependencies`, `prebuilt` is the package's default for that field, and `knobs` are what a
-# package may set under `<name>.*` (anything else is an eval error). Two knobs mean the same
-# everywhere: `root` (the project's directory below the source) and `deps` (the fetched tree of
-# locked dependencies). `lock.deps = fetcher` defaults it to the package's own lock file. `sh` is for tools
+# package may set under `<name>.*` (anything else is an eval error). Three knobs mean the same
+# everywhere: `root` (the project's directory below the source), `deps` (the fetched tree of
+# locked dependencies) and `flags` (extra words on the tool's command line). `lock.deps = fetcher` defaults it to the package's own lock file. `sh` is for tools
 # that spawn a shell by name (ninja, npm run, libtool).
 {
   buildPkgs,
@@ -66,6 +66,7 @@ builtins.mapAttrs
         "defs"
         "root"
         "generator"
+        "flags"
       ];
     };
     meson = {
@@ -82,6 +83,7 @@ builtins.mapAttrs
       ];
       knobs = [
         "options"
+        "flags"
         "root"
       ];
     };
@@ -115,6 +117,7 @@ builtins.mapAttrs
       knobs = [
         "features"
         "noDefaultFeatures"
+        "flags"
         "root"
         "deps"
         "toolchain"
@@ -168,6 +171,7 @@ builtins.mapAttrs
         "root"
         "deps"
         "cgo"
+        "flags"
       ];
     };
     pnpm = {

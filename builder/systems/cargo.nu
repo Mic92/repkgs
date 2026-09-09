@@ -2,13 +2,14 @@ use ../core.nu *
 use ../sys-libs.nu
 
 # cargo build/test/install, offline against a vendored registry snapshot. rustc goes through jig's cache.
-def knobs []: nothing -> record<features: list<string>, noDefaultFeatures: bool, deps: any> { knobs-for cargo {features: [], noDefaultFeatures: false, deps: null} }
+def knobs []: nothing -> record<features: list<string>, noDefaultFeatures: bool, deps: any, flags: list<string>> { knobs-for cargo {features: [], noDefaultFeatures: false, deps: null, flags: []} }
 
-def feature-args [k: record<features: list<string>, noDefaultFeatures: bool>]: nothing -> list<string> {
+# features and `cargo.flags`, for build and test alike
+def args [k: record<features: list<string>, noDefaultFeatures: bool, flags: list<string>>]: nothing -> list<string> {
   [
     (if $k.noDefaultFeatures { "--no-default-features" })
     (if ($k.features | is-not-empty) { $"--features=($k.features | str join ',')" })
-  ] | compact
+  ] | compact | append $k.flags
 }
 
 # CARGO_HOME + config.toml (vendored registry, offline, linker=cc), path remaps
@@ -40,10 +41,10 @@ export def --env setup []: nothing -> nothing {
 }
 
 # cargo build --release
-export def build []: nothing -> nothing { x cargo build --release --offline ...(feature-args (knobs)) }
+export def build []: nothing -> nothing { x cargo build --release --offline ...(args (knobs)) }
 # cargo test --release, tests.parallel as --test-threads, tests.skip as --skip filters
 export def test []: nothing -> nothing {
-  x cargo test --release --offline ...(feature-args (knobs)) -- --test-threads (test-jobs) ...(test-skips | each { [--skip $in] } | flatten)
+  x cargo test --release --offline ...(args (knobs)) -- --test-threads (test-jobs) ...(test-skips | each { [--skip $in] } | flatten)
 }
 # the executables cargo built -> $out/bin (those in `bin` when the spec names some), as go does
 export def install []: nothing -> nothing {

@@ -37,10 +37,8 @@ with-compiler: (tool ghc)
   | save -f cabal.project.local
 }
 
-# `cabal.flags` as options; every cabal subcommand wants them again
-def flags [k: record]: nothing -> list<string> { $k.flags | each {|f| $"--flags=($f)" } }
-
-def targets [k: record]: nothing -> list<string> { (flags $k) ++ ($k.exes | each {|e| $"exe:($e)" }) }
+# `cabal.flags` ("--flags=…", "--allow-newer", …) go to every cabal subcommand: build, test and list-bin must agree
+def targets [k: record]: nothing -> list<string> { $k.flags ++ ($k.exes | each {|e| $"exe:($e)" }) }
 
 # dependency units of the build plan
 def plan-units []: nothing -> list<string> {
@@ -87,7 +85,7 @@ export def build []: nothing -> nothing {
 export def test []: nothing -> nothing {
   let k = (knobs)
   # the package's own test suites (`all:tests` in the project's package, flags still apply)
-  x cabal test --enable-tests ...(flags $k) all:tests
+  x cabal test --enable-tests ...$k.flags all:tests
 }
 
 # the built executables -> $out/bin
@@ -96,6 +94,6 @@ export def install []: nothing -> nothing {
   mkdir $"($c.out)/bin"
   for e in $k.exes {
     # list-bin takes exactly one target
-    cp (^cabal list-bin ...(flags $k) $"exe:($e)" | str trim) $"($c.out)/bin/($e)"
+    cp (^cabal list-bin ...$k.flags $"exe:($e)" | str trim) $"($c.out)/bin/($e)"
   }
 }

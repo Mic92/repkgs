@@ -1,7 +1,7 @@
 use ../core.nu *
 
 # meson setup / compile / test / install.
-def knobs []: nothing -> record<options: record> { knobs-for meson {options: {}} }
+def knobs []: nothing -> record<options: record, flags: list<string>> { knobs-for meson {options: {}, flags: []} }
 
 # out-of-tree: work in the build directory
 export def --env setup []: nothing -> nothing { cd (ctx).build }
@@ -63,11 +63,11 @@ export def configure []: nothing -> nothing {
   # when cross the flags live in the machine files; meson would apply env CFLAGS to both machines
   let cross = (if $c.platform.cross { cross-files $c } else { [] })
   let clean = (if $c.platform.cross { {CFLAGS: "", CXXFLAGS: "", CPPFLAGS: "", LDFLAGS: ""} } else { {} })
-  with-env $clean { x meson setup . (project-dir meson) ...$cross ...($opts | items {|k, v| $"-D($k)=($v | into string)" }) }
+  with-env $clean { x meson setup . (project-dir meson) ...$cross ...($opts | items {|k, v| $"-D($k)=($v | into string)" }) ...$k.flags }
 }
 
 # ninja
-export def build []: nothing -> nothing { x ninja -j ((ctx).njobs | into string) }
+export def build []: nothing -> nothing { x ninja $"-j((ctx).njobs)" }
 # meson test, honouring tests.skip
 export def test []: nothing -> nothing {
   # meson has no exclude flag: name every test that no tests.skip pattern matches
