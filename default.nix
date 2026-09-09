@@ -34,7 +34,7 @@ let
 
   # build systems that spawn `sh` by name get the seed's dash
   buildSystems = import ./nix/build-systems.nix {
-    inherit buildPkgs;
+    inherit buildPkgs fetch;
     sh = bootstrap.seed;
   };
   # On PATH after the toolchain and the build systems' tools. GNU userland precedes the seed because

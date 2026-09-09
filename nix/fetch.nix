@@ -173,6 +173,13 @@ in
   # h1: hashes are not file hashes, so .mod/.zip sha256s come from `locks` (this repo's
   # locks/go.toml, filled by `uptrack lock`); only this package's subset lands in the output, so
   # unrelated table edits rebuild nothing.
+  # locks/hackage.toml, the Haskell version set -> one file+noindex repository for all cabal packages
+  hackageSet =
+    {
+      locks ? ../locks/hackage.toml,
+    }:
+    dynamic "hackage-set" "fetch-hackage.nu" { inherit locks; };
+
   goModules =
     {
       source,

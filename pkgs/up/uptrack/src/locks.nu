@@ -3,6 +3,7 @@
 # is the normal form, `normalize` repairs what a union merge leaves (order, duplicate lines).
 
 use lock-go.nu
+use lock-hackage.nu
 use pipeline.nu
 
 # entries of <dir>/<eco>.toml, {} when absent
@@ -45,7 +46,10 @@ export def add [pkg: record]: nothing -> table<eco: string, keys: list<string>> 
   let src = (if $src.exit_code == 0 { $src.stdout } else { ^nix eval --raw -f (pipeline root) $"($pkg.name).src" } | str trim)
   $pkg.locks | items {|eco, sub|
     let old = (read (dir) $eco)
-    let mine = (match $eco { "go" => (lock-go lock ($src | path join $sub) $old) })
+    let mine = (match $eco {
+      "go" => (lock-go lock ($src | path join $sub) $old)
+      "hackage" => (lock-hackage lock ($src | path join $sub) $old)
+    })
     let new = ($old | merge $mine)
     print -e $"  ($eco): ($mine | columns | length) entries, (($new | columns | length) - ($old | columns | length)) new"
     write (dir) $eco $new

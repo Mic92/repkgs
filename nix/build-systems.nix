@@ -3,6 +3,7 @@
 # eval error). `sh` is for tools that spawn a shell by name (ninja, npm run, libtool).
 {
   buildPkgs,
+  fetch,
   sh,
 }:
 {
@@ -99,6 +100,27 @@
       "noDefaultFeatures"
       "root"
       "vendor"
+    ];
+  };
+  cabal = {
+    module = "cabal.nu";
+    steps = [
+      "cabal.build"
+      "cabal.test"
+      "cabal.install"
+    ];
+    tools = [
+      buildPkgs.ghc-bootstrap
+      buildPkgs.cabal-bootstrap
+    ];
+    # the shared version set (locks/hackage.toml) every cabal package solves against
+    defaults.set = fetch.hackageSet { };
+    knobs = [
+      "set"
+      "flags"
+      "exes"
+      "project"
+      "root"
     ];
   };
   go = {

@@ -11,6 +11,7 @@ export def versions [p: record<type: string, namespace: string, name: string, qu
     pypi => (pypi $p)
     cargo => (crates $p)
     npm => (npm $p)
+    hackage => (fetch $"https://hackage.haskell.org/package/($p.name)/preferred" $p.name | get normal-version | each {|v| {version: $v} })
     gnu => (listing $"https://ftp.gnu.org/gnu/($p.name)/" $p.name)
     generic => (generic $p)
     _ => (error make {msg: $"no datasource for purl type ($p.type)"})

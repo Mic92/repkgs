@@ -18,6 +18,7 @@ export def "http cached" [url: string, --max-age: duration = 10min]: nothing -> 
     (if $old.etag? != null { [If-None-Match $old.etag] })
     (if $old.last_modified? != null { [If-Modified-Since $old.last_modified] })
     [User-Agent uptrack]
+    [Accept application/json]  # hackage serves html otherwise
   ] | compact | flatten
   let r = http get --full --allow-errors --headers $hdrs $url
   if $r.status == 304 {

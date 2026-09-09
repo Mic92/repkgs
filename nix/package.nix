@@ -24,6 +24,7 @@ let
     isAttrs
     isString
     length
+    listToAttrs
     match
     replaceStrings
     ;
@@ -200,6 +201,12 @@ let
       "runtimeDependencies"
       "bootstrapTools"
     ]
+    // listToAttrs (
+      map (u: {
+        name = u;
+        value = (buildSystems.${u}.defaults or { }) // (args.${u} or { });
+      }) (filter (u: buildSystems.${u} ? defaults) uses)
+    )
     // {
       inherit steps;
     };
