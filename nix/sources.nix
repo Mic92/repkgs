@@ -13,16 +13,17 @@ let
   version = pin.version or "";
   tag = pin.tag or version;
   mm = builtins.match "([^.]*)\\.?([^.]*).*" version;
-  expand =
-    builtins.replaceStrings
-      [ "{version}" "{version_}" "{major}" "{minor}" "{tag}" ]
-      [
-        version
-        (builtins.replaceStrings [ "." ] [ "_" ] version)
-        (builtins.elemAt mm 0)
-        (builtins.elemAt mm 1)
-        tag
-      ];
+  # every [pin] key is a {key} placeholder, plus three spellings derived from the version
+  vars = {
+    tag = version;
+    version_ = builtins.replaceStrings [ "." ] [ "_" ] version;
+    major = builtins.elemAt mm 0;
+    minor = builtins.elemAt mm 1;
+  }
+  // pin;
+  expand = builtins.replaceStrings (map (k: "{${k}}") (builtins.attrNames vars)) (
+    map toString (builtins.attrValues vars)
+  );
   byKey = builtins.listToAttrs (
     map (s: {
       name = s.key;
@@ -96,6 +97,5 @@ in
 {
   inherit version tag fetch;
   has = key: byKey ? ${key};
-  extra = pin.extra or { };
   default = fetch "default";
 }

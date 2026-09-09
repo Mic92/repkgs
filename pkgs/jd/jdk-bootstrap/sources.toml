@@ -1,17 +1,18 @@
-# the file name's "25.0.4.1_1" is neither version nor tag: URLs are literal, bumped by hand
 [upstream]
 purl = "pkg:github/adoptium/temurin25-binaries"
 
 [[source]]
 key = "x86_64"
-url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4.1%2B1/OpenJDK25U-jdk_x64_linux_hotspot_25.0.4.1_1.tar.gz"
+url = "https://github.com/adoptium/temurin25-binaries/releases/download/{path}/OpenJDK25U-jdk_x64_linux_hotspot_{file}.tar.gz"
 hash = "sha256-SUUM2/zU6yzZU5HP26VcaOZOeTVOnpOWH8BdNrK2m00="
 
 [[source]]
 key = "aarch64"
-url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4.1%2B1/OpenJDK25U-jdk_aarch64_linux_hotspot_25.0.4.1_1.tar.gz"
+url = "https://github.com/adoptium/temurin25-binaries/releases/download/{path}/OpenJDK25U-jdk_aarch64_linux_hotspot_{file}.tar.gz"
 hash = "sha256-dyESeembVdBD65bEp3TswedOR55jpgSmtFbg9OiC/TE="
 
 [pin]
 version = "25.0.4.1+1"
 tag = "jdk-25.0.4.1+1"
+path = "jdk-25.0.4.1%2B1"
+file = "25.0.4.1_1"

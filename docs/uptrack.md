@@ -36,6 +36,7 @@ purl = "pkg:github/sharkdp/fd"     # identity; picks datasource and default vers
 # prerelease = false   every = "30d" (minimum release age)   group = "llvm"
 # cpe = "cpe:2.3:a:haxx:curl"      only for NVD lookups where OSV has no coverage (C projects)
 # frozen = "last release 2009"     instead of purl: dead upstream, never polled
+# relocks = ["hackage"]            applying this package re-solves every [locks] of that ecosystem
 
 [[source]]
 key = "default"                    # free-form: default, x86_64-linux, docs…
@@ -46,7 +47,7 @@ hash = "sha256-…"                  # tool; NAR hash of the unpacked tree (--st
 [pin]                              # tool
 version = "10.5.0"
 date = "2025-05-18"                # release date: libyear, `every`
-# [pin.extra] v8 = "13.2"          # extra pins returned by a hook
+# file = "25.0.4.1_1"              # anything else a resolve hook returned. Every key here is a {key} in urls
 
 [watch]                            # optional; default is the purl's datasource
 # url = "…/LATEST"  regex = "([0-9.]+)"   |  feed = "…/releases.atom"  |  purl = "pkg:npm/x"
@@ -113,8 +114,7 @@ lock files are detected and generated, verify builds it. That is the path for mo
 `pkgs/xx/<name>/update.nu` exists only to replace a stage. It is a nu module exporting any of:
 
 ```nu
-export def resolve [pkg: record]: nothing -> table                 # → [{version tag? date? prerelease url? sha256?}]
-export def sources [pkg: record, entry: record]: nothing -> record # → {sources?, extra?} merged into the plan entry
+export def resolve [pkg: record]: nothing -> table                 # → [{version tag? date? prerelease url? sha256? …}], extra keys land in [pin]
 export def files   [entry: record]: nothing -> record              # → {relative path: content}, written after the pin
 export def verify  [entry: record]: nothing -> record              # → {verified log? ...} instead of nix-build
 ```
@@ -123,8 +123,9 @@ uptrack runs the hook in a fresh `nu` with `uptrack/src` on the module path (`us
 `use http.nu`, `use version.nu` work), passes records as arguments and reads JSON from stdout;
 stderr is shown. Hooks never write files themselves and only run after the watch fired, so the
 skim stays cheap. Anything else exported is an error. `uptrack list` shows which stages a
-package overrides. Example: `pkgs/ll/llvm/update.nu` exports `files` to regenerate the per-cpu
-compiler-rt source lists from the new tarball.
+package overrides. Examples: `pkgs/ll/llvm/update.nu` exports `files` to regenerate the per-cpu
+compiler-rt source lists from the new tarball, `pkgs/ru/rust-bootstrap/update.nu` exports
+`resolve` so the bootstrap compiler is the one rust's `src/stage0` names, not the newest.
 
 ## Reports
 
@@ -142,23 +143,15 @@ compiler-rt source lists from the new tarball.
 ## CLI
 
 ```
-uptrack list | check | plan [-o f] | apply [f|names] [--commit-each --verify] | verify
-uptrack dashboard | sync-github | report --libyear|--stale|--advisories|--repology
-uptrack init <purl> [--url tmpl]        new sources.toml, prefetched and pinned
-uptrack migrate nixpkgs|llm-agents <path>
+uptrack list [names]                     parse and validate every sources.toml
+uptrack check [names] [--json]           poll upstreams, print pending updates and problems (exit 10 if pending)
+uptrack apply [names] [--plan f]         write hash + [pin] (+ hook files, locks) for pending updates
+uptrack verify [names]                   nix-build at the current pin
+uptrack rehash [names]                   re-prefetch at the current pin, after editing a url
+uptrack lock [names] [--prune]           fill locks/<eco>.toml for packages with [locks]
+uptrack init <dir> <purl> <url-template> new sources.toml, pinned to upstream's newest
 ```
 
-All subcommands take `--json`. Exit codes: 0 nothing to do, 10 updates pending, 20 failures,
-2 invalid metadata. Errors name file, key and fix.
-
-## Shape
-
-nu in `pkgs/up/uptrack/src/`, about 1.7k lines: purl, four versioning
-schemes, a dozen datasources of 50 lines each, pipeline, locks, reports, CLI. Tree adapters only
-supply the verify command (this tree, llm-agents, plain). Tests: llm-agents' purl and version
-vectors, nixpkgs-update's `Version.hs` cases for `loose`, recorded HTTP fixtures replayed from
-the cache directory, golden plans for a fixture tree.
-
-State here: every `pkgs/*/sources.toml` (bootstrap inputs and seed included) exists and is what Nix reads (`nix/sources.nix`, and `package` defaults `version`/`source` from it).
-Implemented: purl, versioning, github/pypi/cargo/npm/gnu/generic datasources, cached http,
-`list check apply [--verify] verify rehash lock init` and hooks. Not yet: reports.
+About 700 lines of nu in `pkgs/up/uptrack/src/`: purl, version comparison, datasources
+(github, gitlab, pypi, crates, npm, hackage, gnu, generic listing), cached http, the pipeline,
+locks (go, hackage), CLI. Not built: advisory/libyear reports, grouped updates.

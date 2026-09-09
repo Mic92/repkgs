@@ -5,9 +5,9 @@ use pipeline.nu
 use locks.nu
 use purl.nu *
 
-# `--locks-only` also yields packages without an upstream (in-tree source, [locks] only)
-def selected [names: list<string>, --locks-only]: nothing -> table {
-  let all = pipeline discover (pipeline root) | where { $locks_only or $in.tracked }
+# `--all` also yields packages with nothing to poll (in-tree source, frozen upstream)
+def selected [names: list<string>, --all]: nothing -> table {
+  let all = pipeline discover (pipeline root) | where { $all or $in.tracked }
   let missing = $names | where $it not-in $all.name
   if ($missing | is-not-empty) { error make {msg: $"no sources.toml for ($missing | str join ', ')"} }
   if ($names | is-empty) { $all } else { $all | where name in $names }
@@ -42,22 +42,22 @@ def "main check" [
   if ($ups | is-not-empty) { exit 10 }
 }
 
-# prefetch and write hash + [pin] (+ hook files) for pending updates, optionally build each
+# prefetch and write hash + [pin] (+ hook files, locks) for pending updates. `verify` builds them
 def "main apply" [
   ...names: string # packages, default all
   --plan: path # apply a saved `check --json` instead of resolving
   --prerelease # accept pre-releases
-  --verify # nix-build each applied package and report
 ]: nothing -> table {
   let plan = if $plan != null { open $plan } else { planned $names $prerelease }
   $plan | where to != null | each {|e|
     print -e $"($e.name): ($e.from) → ($e.to)"
-    let e = pipeline apply $e
-    locks add $e
-    if not $verify { return ($e | select name from to) }
-    let v = pipeline verify $e
-    print -e (if $v.verified { $"  built in ($v.took), closure ($v.closure)" } else { $"  FAILED\n($v.log)" })
-    $e | select name from to | insert verified $v.verified
+    pipeline apply $e
+    locks add $e | ignore
+    # a solver input changed (the compiler a version set was solved for): redo every lock of that ecosystem
+    for eco in ($e.upstream.relocks? | default []) {
+      for p in (selected --all [] | where { $in.locks | get -o $eco | is-not-empty }) { print -e $"  relock ($p.name)"; locks add $p | ignore }
+    }
+    $e | select name from to
   }
 }
 
@@ -71,11 +71,11 @@ def "main verify" [
   }
 }
 
-# re-prefetch sources at the current pin (hash and treeHash), e.g. after editing a url
+# re-prefetch sources at the current pin, e.g. after editing a url
 def "main rehash" [
   ...names: string # packages, default all
 ]: nothing -> nothing {
-  for p in (selected $names) {
+  for p in (selected --all $names) {
     print -e $p.name
     try { pipeline rehash $p } catch {|e| print -e $"  failed: ($e.msg)" }
   }
@@ -86,7 +86,7 @@ def "main lock" [
   ...names: string # packages, default all with [locks]
   --prune # afterwards drop entries no package uses any more (looks at every package, ignores names)
 ]: nothing -> nothing {
-  let pkgs = (selected --locks-only (if $prune { [] } else { $names }) | where { $in.locks | is-not-empty })
+  let pkgs = (selected --all (if $prune { [] } else { $names }) | where { $in.locks | is-not-empty })
   # [{eco, keys}] per package -> every key any package uses, per ecosystem
   let used = ($pkgs | each {|p| print -e $p.name; locks add $p } | flatten | group-by eco --to-table
     | each {|g| {eco: $g.eco, keys: ($g.items.keys | flatten | uniq)} })

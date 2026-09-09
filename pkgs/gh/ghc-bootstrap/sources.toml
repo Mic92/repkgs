@@ -1,5 +1,8 @@
 [upstream]
 purl = 'pkg:generic/ghc?url=https://downloads.haskell.org/~ghc/&regex=href="(\d+\.\d+\.\d{1,2})/"'
+relocks = [
+  "hackage",
+] # the version set is a cabal plan for this compiler's boot libraries
 allow = "==9.12.*"
 
 [[source]]

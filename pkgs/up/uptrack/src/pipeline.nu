@@ -11,13 +11,13 @@ const UNPACK = path self unpack.nu
 # the keys a sources.toml may carry, per table
 const KNOWN = {
   top: [upstream source pin watch locks]
-  upstream: [purl allow prerelease every group cpe frozen]
+  upstream: [purl allow prerelease every group cpe frozen relocks]
   watch: [url regex purl]
   source: [key url hash unpack name]
   locks: [go hackage]
 }
 # stages an update.nu beside sources.toml may replace
-const HOOKS = [resolve sources files verify]
+const HOOKS = [resolve files verify]
 
 # the package tree: $UPTRACK_ROOT, default the working directory
 export def root []: nothing -> path { $env.UPTRACK_ROOT? | default $env.PWD }
@@ -35,12 +35,16 @@ export def discover [dir: path]: nothing -> table {
     let t = ({upstream: {}, source: [], pin: {}, watch: {}, locks: {}} | merge (open $f))
     check-keys $f top $t
     for table in [upstream watch locks] { check-keys $f $table ($t | get $table) }
-    for s in $t.source { check-keys $f source $s }
     # in-tree sources (source = ./src) have nothing to track but may still lock dependencies.
     # `frozen = "<reason>"` pins a dead upstream: nothing to poll, hash stays as written
     let tracked = ($t.upstream.purl? != null)
     let frozen = ($t.upstream.frozen? != null)
     if not $tracked and not $frozen and (($t.source | is-not-empty) or ($t.locks | is-empty)) { error make {msg: $"($f): upstream.purl \(or frozen\) is required"} }
+    for s in $t.source {
+      check-keys $f source $s
+      # a bump would keep fetching the old file under the new version
+      if $tracked and $s.url !~ '\{' { error make {msg: $"($f): source ($s.key) url has no {placeholder}"} }
+    }
     let dir = ($f | path dirname)
     let hook = ($dir | path join update.nu)
     let hook = (if ($hook | path exists) { $hook })
@@ -70,7 +74,7 @@ def watch-purl [pkg: record<name: string, upstream: record, watch: record>]: not
 }
 
 # Adds `from`, `to` (null: nothing to do), `note` (why, or why not) and, when there is an update,
-# `candidate` and the expanded `sources` [{key url unpack}]. Pure.
+# `pin` (the [pin] table to write) and the expanded `sources` [{key url unpack}]. Pure.
 export def decide [pkgs: table, --prerelease]: nothing -> table {
   $pkgs | each {|pkg|
     let u = $pkg.upstream
@@ -90,30 +94,30 @@ export def decide [pkgs: table, --prerelease]: nothing -> table {
       (if ($pkg.candidates | is-empty) { "datasource returned no versions" })
       (if $best == null { $"all ($pkg.candidates | length) candidates filtered by allow/prerelease/every" })
     ] | compact | get -o 0)
-    if $problem != null {
-      $entry | update note $problem
-    } else if $current != null and (version cmp $best $current) <= 0 {
-      $entry
-    } else {
-      let c = ($eligible | where version == $best | first)
-      let newer_pre = ($pkg.candidates | where prerelease | get version | where {|v| (version cmp $v $best) > 0 } | version max)
-      let note = ([
-        (if $c.date != null { $"released ($c.date | into datetime | format date '%F')" })
-        (if ($too_young | is-not-empty) { $"($too_young | length) newer held by every=($u.every)" })
-        (if $newer_pre != null { $"pre-release ($newer_pre) ignored" })
-      ] | compact | str join ", ")
-      let sources = ($pkg.source | each {|s| {key: $s.key, url: (expand $s.url $best ($c.tag? | default $best)), unpack: ($s.unpack? | default true)} })
-      let entry = ($entry | merge {to: $best, note: $note, candidate: $c, sources: $sources})
-      if (has-hook $pkg sources) { $entry | merge (hook $pkg sources $pkg $entry) } else { $entry }
-    }
+    if $problem != null { return ($entry | update note $problem) }
+    if $current != null and (version cmp $best $current) <= 0 { return $entry }
+    let c = ($eligible | where version == $best | first)
+    let newer_pre = ($pkg.candidates | where prerelease | get version | where {|v| (version cmp $v $best) > 0 } | version max)
+    let note = ([
+      (if $c.date != null { $"released ($c.date | into datetime | format date '%F')" })
+      (if ($too_young | is-not-empty) { $"($too_young | length) newer held by every=($u.every)" })
+      (if $newer_pre != null { $"pre-release ($newer_pre) ignored" })
+    ] | compact | str join ", ")
+    # [pin] = the candidate minus datasource bookkeeping. Whatever else a resolve hook put there
+    # (jdk-bootstrap's file name spelling) is kept and usable as {key} in urls
+    let pin = ($c | reject -o prerelease url sha256 | upsert date {|c| if $c.date? != null { $c.date | into datetime | format date '%F' } } | compact)
+    let sources = ($pkg.source | each {|s| {key: $s.key, url: (expand $s.url $pin), unpack: ($s.unpack? | default true)} })
+    $entry | merge {to: $best, note: $note, candidate: $c, pin: $pin, sources: $sources}
   }
 }
 
-# url templates: {version} {version_} (dots as underscores) {major} {minor} {tag}
-export def expand [template: string, version: string, tag: string]: nothing -> string {
-  let parts = ($version | split row ".")
-  {version: $version, version_: ($parts | str join "_"), major: $parts.0, minor: ($parts | get -o 1 | default "0"), tag: $tag}
-    | items {|k, v| [$"{($k)}" $v] }
+# url templates: every [pin] key as {key}, plus {version_} (dots as underscores) {major} {minor},
+# and {tag} falling back to the version
+export def expand [template: string, pin: record]: nothing -> string {
+  let parts = ($pin.version | split row ".")
+  {tag: $pin.version, version_: ($parts | str join "_"), major: $parts.0, minor: ($parts | get -o 1 | default "0")}
+    | merge $pin
+    | items {|k, v| [$"{($k)}" ($v | into string)] }
     | reduce --fold $template {|kv, acc| $acc | str replace -a $kv.0 $kv.1 }
 }
 
@@ -129,11 +133,11 @@ export def prefetch [url: string, unpack: bool]: nothing -> string {
   $tree
 }
 
-# sources.toml with `hash` filled in for every [[source]], urls expanded for version/tag.
+# sources.toml with `hash` filled in for every [[source]], urls expanded for `pin`.
 # `known`: key -> hash already at hand (an upstream-published sha256), not prefetched again
-def with-hashes [t: record<source: list<any>>, version: string, tag: string, known: record = {}]: nothing -> record {
+def with-hashes [t: record<source: list<any>>, pin: record, known: record = {}]: nothing -> record {
   $t | update source ($t.source | each {|s|
-    let url = (expand $s.url $version $tag)
+    let url = (expand $s.url $pin)
     print -e $"  ($url)"
     $s | upsert hash ($known | get -o $s.key | default { prefetch $url ($s.unpack? | default true) })
   })
@@ -142,33 +146,23 @@ def with-hashes [t: record<source: list<any>>, version: string, tag: string, kno
 # re-prefetch every source at the current pin (after editing a url), no version change
 export def rehash [pkg: record<file: string>]: nothing -> nothing {
   let t = (open $pkg.file)
-  let version = $t.pin?.version?
-  if $version == null { error make {msg: $"($pkg.file): no [pin] version to rehash at"} }
-  with-hashes $t $version ($t.pin.tag? | default $version) | save -f $pkg.file
+  if $t.pin?.version? == null { error make {msg: $"($pkg.file): no [pin] version to rehash at"} }
+  with-hashes $t $t.pin | save -f $pkg.file
 }
 
 # write hashes + [pin] for the decided update into sources.toml, then the `files` hook's outputs
-export def apply [entry: record]: nothing -> record {
+export def apply [entry: record]: nothing -> nothing {
   let c = $entry.candidate
-  let tag = ($c.tag? | default $entry.to)
   # a registry-published sha256 is the flat file's: usable only where we keep the file as is
   let known = ($entry.sources | where { not $in.unpack and $in.url == $c.url? and $c.sha256? != null }
     | each {|s| {$s.key: (^nix hash convert --hash-algo sha256 --to sri $c.sha256 | str trim)} } | into record)
-  let pin = ({
-    version: $entry.to
-    tag: $c.tag?
-    date: (if $c.date != null { $c.date | into datetime | format date '%F' })
-    extra: $entry.extra?
-  } | compact)
-  let t = (open $entry.file)
-  with-hashes $t $entry.to $tag $known | upsert pin ($t.pin? | default {} | merge $pin) | save -f $entry.file
+  with-hashes (open $entry.file) $entry.pin $known | upsert pin $entry.pin | save -f $entry.file
   if (has-hook $entry files) {
     for f in (hook $entry files $entry | transpose path content) {
       $f.content | save -f ($entry.dir | path join $f.path)
       print -e $"  wrote ($f.path)"
     }
   }
-  $entry
 }
 
 # nix-build the package (or run its verify hook): adds verified, took, and out/closure or log
