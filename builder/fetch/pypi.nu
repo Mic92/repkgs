@@ -78,7 +78,7 @@ def runtime-closure [lock: record, pyproject: record, extras: list<string>]: not
 
 # the lock entry for the project being built (source editable/virtual ".", or by normalised name)
 def project-entry [lock: record, pyproject: record]: nothing -> record {
-  let name = ($pyproject.project.name | str downcase | str replace -ar '[-_.]+' "-")
+  let name = ($pyproject.project.name | str lowercase | str replace -ar '[-_.]+' "-")
   $lock.package | where { $in.name == $name or $in.source?.editable? == "." or $in.source?.virtual? == "." } | first
 }
 

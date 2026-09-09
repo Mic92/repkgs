@@ -46,4 +46,4 @@ def go-sum [file: path]: nothing -> table {
 }
 
 # the proxy's case encoding for module paths: "github.com/BurntSushi" -> "github.com/!burnt!sushi"
-def proxy-case [path: string]: nothing -> string { $path | str replace -ar "([A-Z])" "!$1" | str downcase }
+def proxy-case [path: string]: nothing -> string { $path | str replace -ar "([A-Z])" "!$1" | str lowercase }
