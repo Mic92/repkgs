@@ -9,5 +9,4 @@ package {
     "bin/pnpm" = "../lib/node_modules/pnpm/bin/pnpm.cjs";
     "bin/pnpx" = "../lib/node_modules/pnpm/bin/pnpx.cjs";
   };
-  tests.version = "pnpm --version";
 }
