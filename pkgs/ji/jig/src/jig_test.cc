@@ -259,6 +259,15 @@ void TestDriver() {
          !jig::IsSharedLibName("x.o"));
 }
 
+// cargo runs rustc from the workspace root and dep-info names module files relative to it
+void TestDepInfo() {
+  const jig::DepInfo info = jig::ParseDepInfo(
+      "out/t.d: src/lib.rs src/m.rs\n\nout/libt.rlib: src/lib.rs src/m.rs\n\nsrc/lib.rs:\nsrc/m.rs:\n# env-dep:X\n");
+  assert(info.outputs == V({"out/t.d", "out/libt.rlib"}));
+  const std::string cwd = std::filesystem::current_path().string();
+  assert(info.inputs == V({(cwd + "/src/lib.rs").c_str(), (cwd + "/src/m.rs").c_str()}));
+}
+
 void TestRustInvocation() {
   jig::RustInvocation inv = jig::ParseRustInvocation(V({
       "--crate-name",
@@ -370,6 +379,7 @@ auto main() -> int {
   TestDepfile();
   TestManifest();
   TestDriver();
+  TestDepInfo();
   TestRustInvocation();
   TestGoCache();
   TestElfImage();

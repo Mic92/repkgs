@@ -9,6 +9,7 @@
 
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace jig {
@@ -29,6 +30,14 @@ struct RustInvocation {
 };
 
 auto ParseRustInvocation(std::span<const std::string> args) -> RustInvocation;
+
+// dep-info: one "output: inputs…" rule per artifact, then "input:" phony rules and "# …"
+// comments. Inputs come back absolute
+struct DepInfo {
+  std::vector<std::string> outputs;
+  std::vector<std::string> inputs;
+};
+auto ParseDepInfo(std::string_view text) -> DepInfo;
 
 auto RunRustcMode(std::span<const std::string> args, const std::string& socket_path) -> int;
 

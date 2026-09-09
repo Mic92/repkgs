@@ -53,11 +53,7 @@ constexpr std::array kTwoTokenOptions{
     "-l"sv,
 };
 
-// dep-info: one "output: inputs…" rule per artifact, then "input:" phony rules and "# …" comments
-struct DepInfo {
-  std::vector<std::string> outputs;
-  std::vector<std::string> inputs;
-};
+}  // namespace
 
 auto ParseDepInfo(std::string_view text) -> DepInfo {
   DepInfo info;
@@ -71,11 +67,17 @@ auto ParseDepInfo(std::string_view text) -> DepInfo {
     }
     info.outputs.push_back(line.substr(0, colon));
     if (info.inputs.empty()) {
-      info.inputs = ParseDepfile(line);
+      // relative to rustc's cwd (cargo runs it from the workspace root): absolute, so the
+      // manifest can find, hash and later re-check them
+      for (const std::string& input : ParseDepfile(line)) {
+        info.inputs.push_back(fs::absolute(input).lexically_normal().string());
+      }
     }
   }
   return info;
 }
+
+namespace {
 
 // "<name> <octal mode> <size>\n<bytes>" per file. The metadata stem is replaced by "@"
 auto PackFiles(std::span<const std::string> paths, std::string_view stem) -> std::string {
@@ -251,6 +253,8 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
     store.LearnRoots(arg);
   }
   Hasher hasher;
+  // bumped when what a key covers changes, so entries made under the old rules are not asked for
+  hasher.Field("rs-schema=2");
   hasher.Field("rustc=" + Store::ToolId(rustc));
   hasher.Field("cwd=" + store.Key(fs::current_path().string()));
   for (const std::string& arg : inv.key_args) {
@@ -296,7 +300,8 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
   }
   const DepInfo info = ParseDepInfo(*dep_text);
   // "# env-dep:" lines (env!() inputs) are not tracked yet. CARGO_PKG_* are in k1
-  const Manifest manifest = BuildManifest(cache, request_key, info.inputs, inv.source);
+  const Manifest manifest =
+      BuildManifest(cache, request_key, info.inputs, fs::absolute(inv.source).lexically_normal().string());
   cache.Put(slot::Manifest(request_key), manifest.text);
   cache.Put(slot::Object(manifest.result_key), PackFiles(info.outputs, inv.extra_filename));
   cache.Put(slot::Stderr(manifest.result_key), run.stderr_text);
