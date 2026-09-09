@@ -3,10 +3,12 @@
 use core.nu *
 use prebuilt.nu
 
-# split DWARF to lib/debug, keep .symtab (§4 profiling-friendly)
+# split DWARF to lib/debug, keep .symtab (§4 profiling-friendly). Only files with debug info:
+# upstream .so files out of binary wheels have none, and llvm-objcopy crashes on those that
+# auto-formatelf relaid (program headers moved to the end)
 def split-debug [c: record]: nothing -> nothing {
   let elfs = (glob $"($c.out)/{bin,lib,libexec}/**/*" --exclude [**/lib/debug/**]
-    | where { ($in | path type) == "file" and (is-elf $in) })
+    | where { ($in | path type) == "file" and (is-elf $in) and (^llvm-readelf -S $in | str contains ".debug_info") })
   if ($elfs | is-empty) { return }
   mkdir $"($c.out)/lib/debug"
   $elfs | par-each --threads $c.njobs {|f|
