@@ -53,7 +53,7 @@ export def fetchurl-drv [wanted_name: string, url: string, algo: string, hex: st
 # `stage_attrs`, the path of a JSON file with `attrs`) once `inputs` (.drv paths) are built. What
 # it submits is this producer's result, so nix/fetch.nix unwraps such fetchers with one more outputOf.
 export def stage [name: string, script: string, attrs: record, inputs: list<string>]: nothing -> nothing {
-  let here = (path self .)
+  const here = path self .
   let drv_name = $"($name).drv"
   let attrs_file = ($attrs | to json --raw | ^jig nix-store add-text $"($name)-attrs.json" | str trim)
   let drv = ({
@@ -62,10 +62,10 @@ export def stage [name: string, script: string, attrs: record, inputs: list<stri
     builder: $"($env.seed)/bin/nu"
     args: [$"($here)/($script)"]
     outputs: {out: {hashAlgo: "t:sha256"}}
-    inputDrvs: ($inputs | reduce --fold {} {|d, acc| $acc | insert $d [out] })
+    inputDrvs: ($inputs | each {|d| [$d [out]] } | into record)
     inputSrcs: [$env.seed $env.jig $here $attrs_file]
     env: {
-      name: $drv_name, system: $env.system, seed: $env.seed, jig: $env.jig, PATH: $env.PATH
+      name: $drv_name, system: $env.system, seed: $env.seed, jig: $env.jig, PATH: ($env.PATH | str join ":")
       stage_attrs: $attrs_file, requiredSystemFeatures: "builder-rpc-v0", preferLocalBuild: "1"
       outputHashMode: "text", outputHashAlgo: "sha256"
     }
@@ -88,7 +88,7 @@ export def collect [name: string, layout: list<record<to: string>>, inputs: list
     let bin = $"($attrs.seed)/bin"
     for e in $attrs.layout {
       let dst = $"($out)/($e.to)"
-      let kind = ($e | columns | first)
+      let kind = ([link unpack write copy] | where {|k| $k in ($e | columns) } | first)
       mkdir (if $kind == "unpack" { $dst } else { $dst | path dirname })
       match $kind {
         "link" => { ^$"($bin)/ln" -s $e.link $dst }
