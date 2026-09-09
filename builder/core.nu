@@ -125,14 +125,16 @@ export def write-launcher [name: string, program: string, args: list<string>, va
 export def fix-env-shebangs [dir: path, njobs: int = 4]: nothing -> nothing {
   let env_bin = (tool env)
   let magic = ("#!/usr/bin/env" | into binary)
-  glob $"($dir)/**/*" --no-dir --no-symlink | par-each --threads $njobs {|f|
-    let m = (ls -l $f | first)
-    if $m.size >= 1mb or ($m.mode | str substring 2..<3) != "x" { return }
-    let bytes = (open --raw $f | into binary)
+  # find does the walk and the executable/size filter in one process: nu stat-ing 180k llvm files
+  # on all cores took 20s, this 1.5s. More than 16 threads only contend on the page cache
+  ^find $dir -type f -perm -u+x -size -1024k -printf '%T@ %p\n' | lines
+  | par-each --threads ([$njobs 16] | math min) {|l|
+    let p = ($l | parse '{mtime} {f}' | first)
+    let bytes = (open --raw $p.f | into binary)
     if ($bytes | bytes starts-with $magic) {
-      ^chmod u+w $f
-      ($"#!($env_bin)" | into binary) ++ ($bytes | bytes at ($magic | bytes length)..) | save -f --raw $f
-      ^touch -d $"@($m.modified | format date '%s')" $f
+      ^chmod u+w $p.f
+      ($"#!($env_bin)" | into binary) ++ ($bytes | bytes at ($magic | bytes length)..) | save -f --raw $p.f
+      ^touch -d $"@($p.mtime)" $p.f
     }
   } | ignore
 }
