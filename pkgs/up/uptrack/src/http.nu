@@ -7,6 +7,14 @@ def cache-file [url: string]: nothing -> path {
   $d | path join ($url | hash sha256)
 }
 
+# $GITHUB_TOKEN, else whatever `gh` is logged in with: 60 requests/h unauthenticated is ~30 packages
+def github-token []: nothing -> oneof<string, nothing> {
+  if $env.GITHUB_TOKEN? != null { return $env.GITHUB_TOKEN }
+  if (which gh | is-empty) { return }
+  let r = (^gh auth token | complete)
+  if $r.exit_code == 0 { $r.stdout | str trim }
+}
+
 # {status, body}. --max-age serves from cache without revalidating
 export def "http cached" [url: string, --max-age: duration = 10min]: nothing -> record<status: int, body: any> {
   let f = cache-file $url
@@ -14,11 +22,12 @@ export def "http cached" [url: string, --max-age: duration = 10min]: nothing -> 
   if $old != null and ((date now) - ($old.fetched | into datetime)) < $max_age { return {status: 200, body: $old.body} }
   let host = $url | url parse | get host
   let hdrs = [
-    (if $host == api.github.com and $env.GITHUB_TOKEN? != null { [Authorization $"Bearer ($env.GITHUB_TOKEN)"] })
+    (if $host == api.github.com { let t = (github-token); if $t != null { [Authorization $"Bearer ($t)"] } })
     (if $old.etag? != null { [If-None-Match $old.etag] })
     (if $old.last_modified? != null { [If-Modified-Since $old.last_modified] })
     [User-Agent uptrack]
-    [Accept application/json]  # hackage serves html otherwise
+    # hackage serves html unless asked for json. github.com (not the API) answers 406 to json-only
+    [Accept "application/json, */*;q=0.5"]
   ] | compact | flatten
   let r = http get --full --allow-errors --headers $hdrs $url
   if $r.status == 304 {

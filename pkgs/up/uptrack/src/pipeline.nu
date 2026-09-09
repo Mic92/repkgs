@@ -11,7 +11,7 @@ const UNPACK = path self unpack.nu
 # the keys a sources.toml may carry, per table
 const KNOWN = {
   top: [upstream source pin watch locks]
-  upstream: [purl allow prerelease every group cpe]
+  upstream: [purl allow prerelease every group cpe frozen]
   watch: [url regex purl]
   source: [key url hash unpack name]
   locks: [go hackage]
@@ -36,9 +36,11 @@ export def discover [dir: path]: nothing -> table {
     check-keys $f top $t
     for table in [upstream watch locks] { check-keys $f $table ($t | get $table) }
     for s in $t.source { check-keys $f source $s }
-    # in-tree sources (source = ./src) have nothing to track but may still lock dependencies
+    # in-tree sources (source = ./src) have nothing to track but may still lock dependencies.
+    # `frozen = "<reason>"` pins a dead upstream: nothing to poll, hash stays as written
     let tracked = ($t.upstream.purl? != null)
-    if not $tracked and (($t.source | is-not-empty) or ($t.locks | is-empty)) { error make {msg: $"($f): upstream.purl is required"} }
+    let frozen = ($t.upstream.frozen? != null)
+    if not $tracked and not $frozen and (($t.source | is-not-empty) or ($t.locks | is-empty)) { error make {msg: $"($f): upstream.purl \(or frozen\) is required"} }
     let dir = ($f | path dirname)
     let hook = ($dir | path join update.nu)
     let hook = (if ($hook | path exists) { $hook })

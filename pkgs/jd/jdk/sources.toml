@@ -1,5 +1,9 @@
 [upstream]
-purl = 'pkg:generic/jdk?url=https://github.com/openjdk/jdk25u/tags&regex=jdk-(25[0-9.]*)-ga'
+purl = "pkg:github/openjdk/jdk25u"
+
+[watch] # -ga tags only. The API lists 600 build tags newest-build-first
+url = "https://github.com/openjdk/jdk25u/tags"
+regex = "jdk-(25[0-9.]*)-ga"
 
 [[source]]
 key = "default"

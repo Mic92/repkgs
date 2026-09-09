@@ -8,6 +8,7 @@ use http.nu *
 export def versions [p: record<type: string, namespace: string, name: string, qualifiers: record>]: nothing -> table<version: string, date: any, prerelease: bool> {
   match $p.type {
     github => (github $p)
+    gitlab => (gitlab $p)
     pypi => (pypi $p)
     cargo => (crates $p)
     npm => (npm $p)
@@ -34,6 +35,13 @@ def github [p: record<type: string, namespace: string, name: string, qualifiers:
   }
   if ($rels | is-not-empty) { return $rels }
   fetch $"($repo)/tags?per_page=100" $repo | each {|t| {version: (version from-tag $t.name), tag: $t.name} }
+}
+
+# pkg:gitlab/<ns>/<name>[?repository_url=https://gitlab.example.org]
+def gitlab [p: record<type: string, namespace: string, name: string, qualifiers: record>]: nothing -> table<version: string> {
+  let host = ($p.qualifiers.repository_url? | default "https://gitlab.com")
+  let id = ($"($p.namespace)/($p.name)" | url encode --all)
+  fetch $"($host)/api/v4/projects/($id)/repository/tags?per_page=100" $p.name | each {|t| {version: (version from-tag $t.name), date: $t.commit?.created_at?, tag: $t.name} }
 }
 
 def pypi [p: record<type: string, namespace: string, name: string, qualifiers: record>]: nothing -> table<version: string> {

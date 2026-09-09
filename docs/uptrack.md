@@ -35,6 +35,7 @@ purl = "pkg:github/sharkdp/fd"     # identity; picks datasource and default vers
 # versioning = "semver"|"pep440"|"calver"|"loose"   allow = ">=10,<11"
 # prerelease = false   every = "30d" (minimum release age)   group = "llvm"
 # cpe = "cpe:2.3:a:haxx:curl"      only for NVD lookups where OSV has no coverage (C projects)
+# frozen = "last release 2009"     instead of purl: dead upstream, never polled
 
 [[source]]
 key = "default"                    # free-form: default, x86_64-linux, docs…

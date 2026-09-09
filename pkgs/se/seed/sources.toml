@@ -1,6 +1,5 @@
 [upstream]
 purl = "pkg:github/Mic92/dotfiles"
-allow = "*"
 
 [[source]]
 key = "x86_64-linux"

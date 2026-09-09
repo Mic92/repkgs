@@ -2,6 +2,10 @@
 [upstream]
 purl = "pkg:gitlab/fontconfig/fontconfig?repository_url=https://gitlab.freedesktop.org"
 
+[watch] # tags before 2.3 are dates and font versions
+url = "https://www.freedesktop.org/software/fontconfig/release/"
+regex = "fontconfig-([0-9.]+)\\.tar\\.xz"
+
 [[source]]
 key = "default"
 url = "https://gitlab.freedesktop.org/api/v4/projects/890/packages/generic/fontconfig/{version}/fontconfig-{version}.tar.xz"

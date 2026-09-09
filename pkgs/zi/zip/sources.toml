@@ -1,4 +1,6 @@
-# Info-ZIP, unmaintained since 2008: no upstream to track
+[upstream]
+frozen = "Info-ZIP, last release 2009"
+
 [[source]]
 key = "default"
 url = "https://downloads.sourceforge.net/infozip/zip30.tar.gz"

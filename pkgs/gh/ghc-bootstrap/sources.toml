@@ -1,5 +1,5 @@
 [upstream]
-purl = "pkg:generic/ghc?url=https://downloads.haskell.org/~ghc/"
+purl = 'pkg:generic/ghc?url=https://downloads.haskell.org/~ghc/&regex=href="(\d+\.\d+\.\d{1,2})/"'
 allow = "==9.12.*"
 
 [[source]]
