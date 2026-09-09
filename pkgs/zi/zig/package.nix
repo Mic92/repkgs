@@ -19,6 +19,9 @@ package {
     pkgs.zlib
     pkgs.zstd
   ];
+  # stage3 is linked by zig itself, not through cc: no padded RUNPATH, no crt_interp. Treated like
+  # an upstream binary, formatelf implants both
+  prebuilt = true;
   # zig's own cache, else it writes to $HOME/.cache
   env.ZIG_GLOBAL_CACHE_DIR = "/build/zig-cache";
   tests.run = false; # `zig build test` is the multi-hour compiler suite
