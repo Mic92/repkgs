@@ -57,13 +57,14 @@ typedef struct {
 #define PT_PHDR 6
 #define PT_INTERP 3
 #ifdef RELOC_STUB
-// First bytes of reloc_stub.bin. reloc-fixup checks `magic` and writes `entry`.
+// First bytes of reloc_stub.bin. reloc-fixup checks `magic`, formatelf writes `entry` into the
+// implanted copy. volatile: the compiler must load it, not fold the 0 it sees here.
 struct StubHeader {
   char magic[8];
   u64 entry;
 };
 __attribute__((section(".text.header"), used, visibility("hidden")))
-const struct StubHeader reloc_stub_header = {{'R', 'E', 'L', 'O', 'C', 'S', 'T', 'B'}, 0};
+const volatile struct StubHeader reloc_stub_header = {{'R', 'E', 'L', 'O', 'C', 'S', 'T', 'B'}, 0};
 #else
 // The real program entry (crt1.o). Hidden so its address is formed pc-relative: nothing is relocated
 // yet when we run, a GOT load (aarch64/riscv64 default for extern symbols) would read 0.
