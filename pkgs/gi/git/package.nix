@@ -18,14 +18,16 @@ package {
     "--without-tcltk"
   ];
   autotools.makeFlags = [
+    "CURL_LDFLAGS=-lcurl" # asked of curl-config, which curl built with cmake does not install
     "NO_PERL=1"
+    "PERL_PATH=" # NO_PERL still leaves /usr/bin/perl for t/Makefile's lints
     "NO_PYTHON=1"
     "NO_GETTEXT=1"
     "NO_INSTALL_HARDLINKS=1"
     "INSTALL_SYMLINKS=1"
   ];
   buildDependencies = [ buildPkgs.rust-bootstrap ];
-  autotools.testTarget = "-C t T=t0001-init.sh"; # the full suite is an hour. One script proves the harness and binary work
+  autotools.testTarget = "-C t T=t0000-basic.sh"; # the full suite is an hour, one script proves harness and binary. t0001 checks --shared modes the sandbox umask distorts
   dependencies = [
     pkgs.zlib
     pkgs.curl
