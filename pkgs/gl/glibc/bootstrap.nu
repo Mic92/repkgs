@@ -44,22 +44,30 @@ def main []: nothing -> nothing {
       error make {msg: $e.msg}
     }
   }
-  let make = [-j (cores | into string) $"SHELL=($sh)" $"sysincludes=($sysincludes)"]
+  # gnulib-extralibdir: Makeconfig's lazy `$(shell $(CC) -print-file-name=libgcc_s.so.1)`,
+  # expanded ~600 times per build. There is no libgcc_s here (compiler-rt), the answer is empty
+  let make = [-j (cores | into string) $"SHELL=($sh)" $"sysincludes=($sysincludes)" "gnulib-extralibdir="]
+  # glibc's make output is ~10k lines of compile commands and "overriding recipe" warnings: to a
+  # file, the tail minus noise on failure
+  let mlog = $"($env.NIX_BUILD_TOP)/make.log"
+  def --wrapped make-logged [...args: string]: nothing -> nothing {
+    print -e $"+ make ($args | str join ' ') > make.log"
+    let ok = (try { ^make ...$args o+e>> $mlog; true } catch { false })
+    if not $ok {
+      # parallel make buries the failing command. Compile lines are noise, the rest is context
+      print -e (open --raw $mlog | lines | where { $in !~ 'reassign symbol|static-libgcc|overriding recipe|ignoring old recipe| -c ' } | last 200 | str join "\n")
+      error make {msg: $"glibc: make ($args | last) failed"}
+    }
+  }
   if "headersOnly" in $env {
-    x make ...$make install-headers
+    make-logged ...$make install-headers
     touch $"($out)/include/gnu/stubs.h"
     return
   }
-  let mlog = $"($env.NIX_BUILD_TOP)/make.log"
-  let ok = (try { ^make ...$make o+e> $mlog; true } catch { false })
-  if not $ok {
-    # parallel make buries the failing command. Compile lines are noise, the rest is context
-    print -e (open --raw $mlog | lines | where { $in !~ 'reassign symbol|static-libgcc| -c ' } | last 200 | str join "\n")
-    error make {msg: "glibc make failed"}
-  }
+  make-logged ...$make
   # serial: parallel install races on the .dt -> .d depfile conversion (several sub-makes include
   # the same sysd-rules and each `mv`s the same files) Nothing is compiled here anyway
-  x make ...$make install -j1
+  make-logged ...$make install -j1
   # C.UTF-8 so LC_ALL=C.UTF-8 works everywhere without a locales package (charmap data only, ~360 K)
   if $env.locale == "true" {
     mkdir $"($out)/lib/locale"
