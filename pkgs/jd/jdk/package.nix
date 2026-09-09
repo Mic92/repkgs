@@ -65,6 +65,7 @@ package {
       name = "install";
       run = ''
         let img = (glob build/*/images/jdk | first)
+        mkdir $c.out
         for d in [bin conf include jmods lib release] { cp -r $"($img)/($d)" $c.out }
       '';
     }
