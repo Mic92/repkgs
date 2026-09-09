@@ -181,7 +181,30 @@ auto FixRunpath(FixupContext& ctx, const fs::path& path, ElfImage& elf, const st
   return true;
 }
 
-auto FindRelocStart(const ElfImage& elf, const std::vector<Section>& sections) -> std::optional<std::uint64_t> {
+constexpr std::string_view kRelocStubMagic = "RELOCSTB";  // struct StubHeader in crt_interp.c
+constexpr std::uint64_t kRelocStubHeader = 16;
+
+// vaddr -> file offset through the PT_LOADs
+auto FileOffset(const ElfImage& elf, const Elf64_Ehdr& ehdr, std::uint64_t vaddr) -> std::optional<std::uint64_t> {
+  for (unsigned i = 0; i < ehdr.e_phnum; ++i) {
+    const auto phdr = elf.Read<Elf64_Phdr>(ehdr.e_phoff + (std::uint64_t{i} * ehdr.e_phentsize));
+    if (phdr && phdr->p_type == PT_LOAD && vaddr >= phdr->p_vaddr && vaddr - phdr->p_vaddr < phdr->p_filesz) {
+      return phdr->p_offset + (vaddr - phdr->p_vaddr);
+    }
+  }
+  return std::nullopt;
+}
+
+// The stub's entry: __reloc_start exported by our link (crt_interp.o), or e_entry itself when it
+// points just past a RELOCSTB header (reloc_stub.bin installed by `formatelf --set-entry-stub`).
+auto FindRelocStart(const ElfImage& elf, const Elf64_Ehdr& ehdr, const std::vector<Section>& sections)
+    -> std::optional<std::uint64_t> {
+  if (ehdr.e_entry >= kRelocStubHeader) {
+    const std::optional<std::uint64_t> off = FileOffset(elf, ehdr, ehdr.e_entry - kRelocStubHeader);
+    if (off && std::string_view(elf.bytes()).substr(*off, kRelocStubMagic.size()) == kRelocStubMagic) {
+      return ehdr.e_entry;
+    }
+  }
   const auto dynsym =
       std::ranges::find_if(sections, [](const Section& section) -> bool { return section.type == SHT_DYNSYM; });
   if (dynsym == sections.end() || dynsym->entsize < sizeof(Elf64_Sym) || dynsym->link >= sections.size()) {
@@ -203,7 +226,7 @@ auto FindRelocStart(const ElfImage& elf, const std::vector<Section>& sections) -
 auto FixInterp(FixupContext& ctx, const fs::path& path, ElfImage& elf, const Elf64_Ehdr& ehdr,
                const std::vector<Section>& sections, std::vector<std::string>& log, bool& dirty) -> bool {
   const Store& store = Store::Get();
-  const std::optional<std::uint64_t> stub = FindRelocStart(elf, sections);
+  const std::optional<std::uint64_t> stub = FindRelocStart(elf, ehdr, sections);
   for (unsigned i = 0; i < ehdr.e_phnum; ++i) {
     const std::uint64_t ph_off = ehdr.e_phoff + (std::uint64_t{i} * ehdr.e_phentsize);
     std::optional<Elf64_Phdr> phdr = elf.Read<Elf64_Phdr>(ph_off);
