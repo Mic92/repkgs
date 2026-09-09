@@ -87,6 +87,29 @@ dynamic-derivation producer reading the upstream lock file, hashes upstream lack
   bun2nix's cache-entry-creator does in zig), then `bun build --compile` or bin links run by bun.
   github:/git:/file: dependencies are rejected (no hash in the lock).
 
+**Further ecosystems**, in this order (value per effort; each again interpreter + build system +
+one producer, a `locks/<registry>.toml` only where the upstream lock has no usable hash, and a
+sys-libs table where locked packages link C libraries):
+
+| ecosystem | toolchain | lock → producer | notes |
+|---|---|---|---|
+| Python applications | cpython (have) | `uv.lock` / `pylock.toml` (PEP 751) carry sha256 → `fetch.pythonDeps`; sdists building C extensions via sys-libs (psycopg2 → libpq, lxml, pillow) | next; highest demand |
+| Deno | prebuilt `deno` (x86_64/aarch64), same shape as bun | `deno.lock` has sha256 for jsr/npm → cache dir layout | small |
+| Yarn v1 | node (have) | `yarn.lock` `resolved`+`integrity` → offline mirror dir | small; berry stays deferred (checksum over repacked zip) |
+| Lua / LuaJIT | from C (plan above) | luarocks has no hashes → `locks/luarocks.toml` | small |
+| Erlang / Elixir | erlang from C, elixir on it | `mix.lock` carries hex sha256 → `fetch.mixDeps` (`MIX_ENV=prod mix deps.get` layout), rebar3 alike | medium, clean |
+| Perl CPAN | perl (have) | `cpanfile.snapshot` (carton) has no hashes → `locks/cpan.toml`; `uses = ["perl"]` for Makefile.PL/Build.PL dists | small |
+| JVM (Java, Kotlin, Scala, Clojure) | `temurin` prebuilt → openjdk from source later (needs a JDK to build) | gradle `verification-metadata.xml` sha256 / maven: producer lays out an offline `~/.m2`; gradle `--offline` | large; gradle is the pain |
+| Zig | zig-bootstrap → zig with our llvm (above) | `build.zig.zon` hashes → package cache dir | medium; gates bun from source |
+| .NET | prebuilt SDK | `packages.lock.json` sha512 → NuGet offline feed | on demand |
+| PHP | php from C (autotools, many sys-libs) | `composer.lock` dist shasum often empty → `locks/packagist.toml` | on demand |
+| Haskell | ghc bindist prebuilt (self-hosting) | `cabal.project.freeze` no hashes → `locks/hackage.toml`; or stack | large |
+| OCaml | from C | `opam` lock no hashes → locks table; dune builds | medium |
+| R | from C + Fortran (flang from our LLVM) | `renv.lock` has hashes | science demand only |
+| WebAssembly | not a language: `wasm32-wasi` as one more cross platform (clang `--target=wasm32-wasip1`, wasi-libc recipe instead of glibc, no launcher) | small, fits the cross model |
+
+Swift (own LLVM fork), Dart/Flutter, Julia, Nim, Crystal, D: not planned.
+
 **Lock-driven native dependencies beyond cargo.** cargoVendor already forwards `.drv` paths of
 an offered library set into the producer, which picks the ones Cargo.lock's -sys crates want and
 propagates them (builder/sys-libs.nu). The same shape for the other producers, each with its own
