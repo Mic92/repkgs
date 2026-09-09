@@ -74,7 +74,8 @@ let
     inherit (bootstrap.stage0) jig;
     nu = bootstrap.seed;
     inherit system;
-    # what cargoVendor may hand to -sys crates; names as in builder/sys-crates.nu, absent ones are skipped
+    inherit (plat) cpu;
+    # what cargoVendor/goModules may hand to -sys crates and cgo modules; names as in builder/sys-libs.nu
     sysLibs = builtins.listToAttrs (
       map
         (n: {
@@ -94,6 +95,8 @@ let
             "oniguruma"
             "libffi"
             "expat"
+            "taglib"
+            "libyaml"
           ]
         )
     );

@@ -76,8 +76,9 @@ export def --env main [
   let out = (if $from_tree == "" { $a.outputs.out } else { $a.package })
   $env.PKGS_RESULT = $a.outputs.out
   let njobs = ($env.NIX_BUILD_CORES? | default "4" | into int)
-  # a cargo vendor dir is a dependency too: it propagates the libraries its -sys crates link (fetch-cargo.nu)
-  let deps = (dep-closure ($a.dependencies ++ ([$a.spec.cargo?.vendor?] | compact)))
+  # lock-derived trees (cargo vendor, go modules, gems) are dependencies too: they propagate the
+  # libraries their locked packages link (sys-libs.nu)
+  let deps = (dep-closure ($a.dependencies ++ ([$a.spec.cargo?.vendor? $a.spec.go?.modules? $a.spec.bundler?.gems? $a.spec.pyapp?.deps?] | compact)))
   build-env $a $deps $out
   let plat = (resolve-platform $a.platform)
 

@@ -1,9 +1,9 @@
-# mixed: go server embedding a vite-built UI from ui/, cgo against taglib
+# mixed: go server embedding a vite-built UI from ui/; cgo against taglib, which the modules tree
+# propagates (builder/sys-libs.nu)
 {
   package,
   sources,
   fetch,
-  pkgs,
 }:
 package {
   name = "navidrome";
@@ -31,9 +31,5 @@ package {
     "go.build"
     "go.install"
   ]; # go tests want a music library fixture set
-  dependencies = [
-    pkgs.taglib
-    pkgs.zlib
-  ];
   bin = [ "navidrome" ];
 }

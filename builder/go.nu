@@ -1,4 +1,5 @@
 use core.nu *
+use sys-libs.nu
 
 # go build/test/install, modules from a GOPROXY=file:// tree (fetch.goModules) or the source's
 # own vendor/. Build cache via jig's GOCACHEPROG mode.
@@ -19,10 +20,12 @@ export def --env setup []: nothing -> nothing {
   cd $"($c.src)/($k.root)"
 }
 
-# always link through cc so RUNPATH/interp policy and fixup apply to Go binaries too
+# always link through cc so RUNPATH/interp policy and fixup apply to Go binaries too.
+# cgo modules whose library the modules tree propagated get their "use the system one" tags (sys-libs.nu)
 def common-args [k: record]: nothing -> list<string> {
+  let tags = ($k.tags ++ (sys-libs go-tags (ctx).deps) | uniq)
   [
-    (if ($k.tags | is-not-empty) { $"-tags=($k.tags | str join ',')" })
+    (if ($tags | is-not-empty) { $"-tags=($tags | str join ',')" })
     $"-ldflags=-linkmode=external ($k.ldflags | str join ' ')"
   ] | compact
 }

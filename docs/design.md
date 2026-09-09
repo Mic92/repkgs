@@ -99,7 +99,7 @@ check, exports.json, cache summary). `builder/`:
 core.nu prepare.nu finish.nu launchers.nu     shared
 autotools.nu cmake.nu meson.nu cargo.nu go.nu python.nu npm.nu   one module per build system
 autotools.nu cmake.nu meson.nu cargo.nu go.nu python.nu npm.nu pnpm.nu
-dynamic.nu fetch-cargo.nu fetch-npm.nu fetch-pnpm.nu fetch-go.nu sys-crates.nu   dynamic-derivation producers
+dynamic.nu fetch-cargo.nu fetch-npm.nu fetch-pnpm.nu fetch-go.nu sys-libs.nu   dynamic-derivation producers
 ```
 
 - **No generic builder, no phases, no hooks** (blind LLM test over five API variants, exp.
@@ -122,7 +122,7 @@ dynamic.nu fetch-cargo.nu fetch-npm.nu fetch-pnpm.nu fetch-go.nu sys-crates.nu  
   links against (`openssl-sys`, `libz-sys`, …) cannot be discovered at eval without IFD, so the set
   forwards the `.drv` paths of a fixed list (`sysLibs` in default.nix, context reduced with
   `unsafeDiscardOutputDependency`) to the producer; the producer reads the lock, picks by an explicit
-  per-ecosystem table (`builder/sys-crates.nu`), makes the picked ones inputs of the derivation it
+  per-ecosystem table (`builder/sys-libs.nu`), makes the picked ones inputs of the derivation it
   writes and lists them in that output's `exports.json` `propagate` + `env`, which `prepare` already
   honours. A package therefore does not name pcre2 because a crate three levels down wants it; an
   unknown -sys crate is a normal `dependencies` entry plus env.

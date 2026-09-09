@@ -1,5 +1,5 @@
 use core.nu *
-use sys-crates.nu
+use sys-libs.nu
 
 # cargo build/test/install, offline against a vendored registry snapshot. rustc goes through jig's cache.
 def knobs []: nothing -> record<features: list<string>, noDefaultFeatures: bool, root: string, vendor: any> { knobs-for cargo {features: [], noDefaultFeatures: false, root: ".", vendor: null} }
@@ -24,25 +24,29 @@ export def --env setup []: nothing -> nothing {
   # cc targets the platform, cc-build the build machine (rust spells some cpus differently)
   let target = ($c.platform.triple | str replace $c.platform.cpu $c.platform.names.rust)
   $env.CARGO_BUILD_TARGET = $target
-  # -sys crates: link our libraries (builder/sys-crates.nu); the vendor dir propagates the ones
+  # -sys crates: link our libraries (builder/sys-libs.nu); the vendor dir propagates the ones
   # Cargo.lock asks for. pkg-config, their usual probe, refuses to answer under --target without ALLOW_CROSS
-  let sys = (sys-crates env-for $c.deps)
+  let sys = (sys-libs env-for cargo $c.deps)
   load-env ({PKG_CONFIG_ALLOW_CROSS: "1"} | merge $sys)
-  if ($sys | is-not-empty) { note sys-crates ($sys | columns | str join " ") }
-  {
-    source: (if $k.vendor != null { {crates-io: {replace-with: vendored}, vendored: {directory: $k.vendor}} } else { {} })
-    net: {offline: true}
-    build: {jobs: $c.njobs}
-    target: ({$target: {linker: cc}} | merge (if $c.platform.cross { {$host: {linker: cc-build}} } else { {} }))
-  } | to toml | save -f $"($env.CARGO_HOME)/config.toml"
-  # panic strings embed source paths: map build tree, cargo home and vendor dir away.
-  # -lld: our cc links with its own lld, rustc >= 1.90 would otherwise insert its bundled rust-lld
-  $env.RUSTFLAGS = ([
+  if ($sys | is-not-empty) { note sys-libs ($sys | columns | str join " ") }
+  # rustflags live in config, per target: RUSTFLAGS from the environment would replace them, and
+  # host artefacts (build scripts, proc-macros) only see their own target's list once --target is set.
+  #   -lld: cc/cc-build link with their own lld; rustc >= 1.90 otherwise inserts its bundled rust-lld
+  #   remap: panic strings embed source paths; map build tree, cargo home and vendor dir away
+  let rustflags = ([
     -Clinker-features=-lld
     $"--remap-path-prefix=($c.src)=/src"
     $"--remap-path-prefix=($env.CARGO_HOME)=/cargo"
     (if $k.vendor != null { $"--remap-path-prefix=($k.vendor)=/vendor" })
-  ] | compact | str join " ")
+  ] | compact)
+  {
+    source: (if $k.vendor != null { {crates-io: {replace-with: vendored}, vendored: {directory: $k.vendor}} } else { {} })
+    net: {offline: true}
+    build: {jobs: $c.njobs}
+    target: ({$target: {linker: cc, rustflags: $rustflags}}
+      | merge (if $c.platform.cross { {$host: {linker: cc-build, rustflags: $rustflags}} } else { {} }))
+  } | to toml | save -f $"($env.CARGO_HOME)/config.toml"
+  hide-env -i RUSTFLAGS
   cd $"($c.src)/($k.root)"
 }
 
