@@ -31,7 +31,7 @@ export def --env setup []: nothing -> nothing {
   load-env {
     BUNDLE_PATH: $"($app)/vendor/bundle", BUNDLE_CACHE_PATH: $"($app)/vendor/cache", BUNDLE_FROZEN: "true"
     BUNDLE_WITHOUT: ($k.without | str join ":"), BUNDLE_JOBS: ($c.njobs | into string), BUNDLE_RETRY: "0"
-    BUNDLE_USER_HOME: $"($c.build)/bundle-home", GEM_HOME: $"($c.build)/gem-home", HOME: $c.build
+    BUNDLE_USER_HOME: $"($c.build)/bundle-home", GEM_HOME: $"($c.build)/gem-home"
     MAKEFLAGS: $"-j($c.njobs)"
   }
   load-env (sys-libs env-for gems $c.deps)

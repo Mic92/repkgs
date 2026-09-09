@@ -8,8 +8,8 @@ def knobs []: nothing -> record<rockspec: any, set: any, flags: list<string>> {
   knobs-for luarocks {rockspec: null, set: null, flags: []}
 }
 
-# luarocks writes a per-user cache under HOME
-export def --env setup []: nothing -> nothing { $env.HOME = (ctx).build; cd (project-dir luarocks) }
+# in the project dir
+export def --env setup []: nothing -> nothing { cd (project-dir luarocks) }
 
 # `luarocks.rockspec` when the project has several, else luarocks finds the one
 export def build []: nothing -> nothing {

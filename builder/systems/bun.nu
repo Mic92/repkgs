@@ -16,10 +16,7 @@ export def --env setup []: nothing -> nothing {
   let c = (ctx)
   let k = (knobs)
   let cache = $"($c.build)/bun-cache"
-  load-env {
-    BUN_INSTALL_CACHE_DIR: $cache, BUN_INSTALL: $"($c.build)/bun-home", XDG_CACHE_HOME: $"($c.build)/xdg"
-    DO_NOT_TRACK: "1", CI: "true"
-  }
+  load-env {BUN_INSTALL_CACHE_DIR: $cache, BUN_INSTALL: $"($c.build)/bun-home", DO_NOT_TRACK: "1"}
   cd (project-dir bun)
   if $k.deps != null { x bun $LINK_CACHE $k.deps $cache }
   x bun install --frozen-lockfile --offline --ignore-scripts ...$k.flags

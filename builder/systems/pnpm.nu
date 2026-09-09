@@ -16,7 +16,7 @@ export def --env setup []: nothing -> nothing {
     npm_config_store_dir: $"($c.build)/pnpm-store", npm_config_offline: "true", npm_config_update_notifier: "false", npm_config_loglevel: "warn"
     npm_config_manage_package_manager_versions: "false"  # do not fetch the pnpm version package.json names
     npm_config_side_effects_cache: "false", npm_config_verify_store_integrity: "false"
-    CI: "true", NODE_OPTIONS: "--no-deprecation", XDG_DATA_HOME: $"($c.build)/xdg", XDG_CACHE_HOME: $"($c.build)/xdg"
+    NODE_OPTIONS: "--no-deprecation"
   }
   cd (project-dir pnpm)
   # `store add` unpacks tarballs into the CAS the way a download would

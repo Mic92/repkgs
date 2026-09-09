@@ -7,9 +7,10 @@ use core.nu *
 # PATH, the toolchain's view of dependencies (CPPFLAGS/LDFLAGS/PKG_CONFIG_PATH/…), compile-cache
 # identity, prefix map, §4 default CFLAGS, deps' and the spec's `env`
 def --env build-env [a: record, deps: list<record>, out: string]: nothing -> nothing {
-  $env.PATH = ($a.buildDependencies | each { $"($in)/bin" })
-  $env.HOME = $"($env.NIX_BUILD_TOP)/home"
-  $env.TMPDIR = $env.NIX_BUILD_TOP
+  let home = $"($env.NIX_BUILD_TOP)/home"
+  # a writable HOME + XDG dirs for every tool's per-user cache/config (npm, pnpm, bun, luarocks, gem, …). CI: no prompts, no progress bars
+  load-env {PATH: ($a.buildDependencies | each { $"($in)/bin" }), HOME: $home, XDG_CACHE_HOME: $"($home)/.cache", XDG_DATA_HOME: $"($home)/.local/share"
+    XDG_CONFIG_HOME: $"($home)/.config", TMPDIR: $env.NIX_BUILD_TOP, CI: "true"}
   # reproducibility pins: no wall clock, locale, timezone or hash randomisation in outputs
   $env.SOURCE_DATE_EPOCH = "315532800"  # 1980-01-01: earliest mtime ZIP (wheels, jars) can store
   load-env {TZ: "UTC", LC_ALL: "C.UTF-8", ZERO_AR_DATE: "1", PERL_HASH_SEED: "0", PYTHONHASHSEED: "0"

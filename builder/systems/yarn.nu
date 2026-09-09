@@ -14,7 +14,7 @@ export def --env setup []: nothing -> nothing {
   let k = (knobs)
   load-env {
     YARN_CACHE_FOLDER: $"($c.build)/yarn-cache", YARN_YARN_OFFLINE_MIRROR: $k.deps, YARN_ENABLE_PROGRESS_BARS: "false"
-    YARN_DISABLE_SELF_UPDATE_CHECK: "true", CI: "true", NODE_OPTIONS: "--no-deprecation", HOME: $"($c.build)/home"
+    YARN_DISABLE_SELF_UPDATE_CHECK: "true", NODE_OPTIONS: "--no-deprecation"
   }
   cd (project-dir yarn)
   x yarn install --offline --frozen-lockfile --ignore-scripts --non-interactive --no-progress ...$k.flags
