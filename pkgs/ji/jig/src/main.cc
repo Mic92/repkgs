@@ -1,6 +1,6 @@
 // jig: the `cc` behind every package. One static binary; the mode is argv[0]'s basename when it
 // is a symlink (cc c++ rustcwrap gocacheprog reloc-fixup) or argv[1] when run as `jig <mode>`
-// (nix-store, cache). Anything else is the compiler driver + compile cache.
+// (nix-store, cache, slot). Anything else is the compiler driver + compile cache.
 // Built and configured by bootstrap/{jig,cc}.nu. See the mode headers for details.
 //
 //   JIG_SOCK  cache socket (default /run/pkgs-cache.sock) Absent -> everything runs uncached
@@ -9,6 +9,7 @@
 //   JIG_STORE_IDENTITY, JIG_STORE_ROOTS  see store.h
 
 #include <cstddef>
+#include <cstdio>
 #include <filesystem>
 #include <optional>
 #include <span>
@@ -21,7 +22,9 @@
 #include "cc_mode.h"
 #include "fixup_mode.h"
 #include "gocache_mode.h"
+#include "keys.h"
 #include "nix_store_mode.h"
+#include "process.h"
 #include "rustc_mode.h"
 
 namespace {
@@ -48,6 +51,18 @@ auto RunCacheMode(std::span<const std::string> args, const std::string& socket_p
   return blob && jig::WriteFile(file, *blob) ? 0 : 1;
 }
 
+// `jig slot <program> <args…>`: run it holding a daemon slot. For tools that reach a compiler
+// without passing through cc/rustcwrap, e.g. `go build -toolexec`.
+auto RunSlotMode(std::span<const std::string> args, const std::string& socket_path) -> int {
+  if (args.empty()) {
+    std::fputs("usage: jig slot <program> [args...]\n", stderr);
+    return 2;
+  }
+  jig::CacheClient cache;
+  const jig::Slot slot(cache, socket_path);
+  return jig::Run(args.front(), args.subspan(1), jig::StderrMode::kInherit).status;
+}
+
 }  // namespace
 
 auto main(int argc, char** argv) -> int {
@@ -65,6 +80,9 @@ auto main(int argc, char** argv) -> int {
   }
   if (mode == "cache") {
     return RunCacheMode(args, socket_path);
+  }
+  if (mode == "slot") {
+    return RunSlotMode(args, socket_path);
   }
   if (mode == "gocacheprog") {
     return jig::RunGoCacheProg(socket_path);

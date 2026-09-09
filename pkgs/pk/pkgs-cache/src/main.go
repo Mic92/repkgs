@@ -4,9 +4,11 @@
 //	GET key\n             -> OK <len>\n<bytes> | MISS\n
 //	PUT key <len>\n<bytes> -> OK\n
 //	IDS <n>\n<n paths\n>    -> <n identities\n> ("" for unreadable), see identity.go
-//	STATS\n               -> gets=… hits=… puts=… ids=… keys=… packs=… bytes=… live=…\n
+//	SLOT <build>\n         -> OK\n once a compiler slot is free. DONE\n or hang-up returns it (slots.go)
+//	STATS\n               -> gets=… hits=… puts=… ids=… slots=… waiting=… keys=… packs=… bytes=… live=…\n
 //
 // PKGS_CACHE_SIZE (GiB, default 50) bounds the store; the oldest packs are dropped beyond it.
+// PKGS_CACHE_SLOTS (default: CPUs) is how many real compiler runs the host admits at once.
 package main
 
 import (
@@ -18,6 +20,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -27,6 +30,7 @@ import (
 var (
 	store            *Store
 	idents           = NewIdentities()
+	slots            *Slots
 	gets, hits, puts atomic.Int64
 )
 
@@ -79,6 +83,15 @@ func serve(conn *net.UnixConn) {
 	defer conn.Close()
 	in := bufio.NewReaderSize(conn, 1<<16)
 	out := bufio.NewWriter(conn)
+	// tokens this connection holds: a killed compiler wrapper must not leak them
+	held := map[string]int{}
+	defer func() {
+		for build, n := range held {
+			for ; n > 0; n-- {
+				slots.Release(build)
+			}
+		}
+	}()
 	for {
 		line, err := in.ReadString('\n')
 		if err != nil {
@@ -100,8 +113,19 @@ func serve(conn *net.UnixConn) {
 				return
 			}
 			err = ids(in, out, count)
+		case len(fields) == 2 && fields[0] == "SLOT":
+			slots.Acquire(fields[1])
+			held[fields[1]]++
+			_, err = out.WriteString("OK\n")
+		case len(fields) == 2 && fields[0] == "DONE":
+			if held[fields[1]] > 0 {
+				held[fields[1]]--
+				slots.Release(fields[1])
+			}
+			_, err = out.WriteString("OK\n")
 		case len(fields) == 1 && fields[0] == "STATS":
-			_, err = fmt.Fprintf(out, "gets=%d hits=%d puts=%d ids=%d %s\n", gets.Load(), hits.Load(), puts.Load(), idents.Len(), store.Stats())
+			slotsOut, waiting := slots.Stats()
+			_, err = fmt.Fprintf(out, "gets=%d hits=%d puts=%d ids=%d slots=%d waiting=%d %s\n", gets.Load(), hits.Load(), puts.Load(), idents.Len(), slotsOut, waiting, store.Stats())
 		default:
 			return
 		}
@@ -133,6 +157,13 @@ func main() {
 			budget = n
 		}
 	}
+	limit := runtime.NumCPU()
+	if v := os.Getenv("PKGS_CACHE_SLOTS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			limit = n
+		}
+	}
+	slots = NewSlots(limit)
 	var err error
 	store, err = OpenStore(filepath.Join(cache, "pkgs-cache", "packs"), budget<<30)
 	if err != nil {
@@ -152,7 +183,7 @@ func main() {
 		<-sig
 		listener.Close()
 	}()
-	log.Printf("listening on %s, %s", sock, store.Stats())
+	log.Printf("listening on %s, %d slots, %s", sock, limit, store.Stats())
 	for {
 		conn, err := listener.AcceptUnix()
 		if err != nil {

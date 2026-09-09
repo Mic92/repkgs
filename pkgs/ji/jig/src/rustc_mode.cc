@@ -227,7 +227,14 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
     source_bytes = ReadFile(inv.source);
   }
   if (!inv.cacheable || !source_bytes || !cache.Connect(socket_path)) {
-    const int status = Run(rustc, inv.args, StderrMode::kInherit).status;
+    int status = 0;
+    {
+      std::optional<Slot> slot;
+      if (!inv.source.empty()) {  // not `rustc -vV` and such
+        slot.emplace(cache, socket_path);
+      }
+      status = Run(rustc, inv.args, StderrMode::kInherit).status;
+    }
     Outcome outcome = Outcome::kPlainNoSocket;
     if (!inv.cacheable) {
       outcome = Outcome::kPlainCompile;
@@ -270,7 +277,11 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
     }
   }
 
-  const RunResult run = Run(rustc, inv.args, StderrMode::kCapture);
+  RunResult run;
+  {
+    const Slot slot(cache, "");
+    run = Run(rustc, inv.args, StderrMode::kCapture);
+  }
   std::print(stderr, "{}", run.stderr_text);
   if (run.status != 0) {
     LogOutcome(Outcome::kMissFail, label, clock, "rs-");

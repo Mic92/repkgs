@@ -199,6 +199,20 @@ auto CacheClient::Identities(std::span<const std::string> paths) -> std::vector<
   return ids;
 }
 
+auto CacheClient::AcquireSlot(std::string_view build) -> bool {
+  if (!fd_.valid() || !SendAll(std::format("SLOT {}\n", build))) {
+    return false;
+  }
+  const std::optional<std::string> line = RecvLine();
+  return line && *line == "OK";
+}
+
+void CacheClient::ReleaseSlot(std::string_view build) {
+  if (fd_.valid() && SendAll(std::format("DONE {}\n", build))) {
+    RecvLine();
+  }
+}
+
 void CacheClient::Put(std::string_view key, std::string_view value) {
   if (!fd_.valid()) {
     return;

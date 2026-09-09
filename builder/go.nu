@@ -10,7 +10,8 @@ export def --env setup []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
   load-env {
     GOCACHE: $"($c.build)/go-cache", GOPATH: $"($c.build)/go", GOSUMDB: "off", GOTOOLCHAIN: "local"
-    GOFLAGS: $"-mod=(if $k.modules != null { 'mod' } else { 'vendor' }) -trimpath -buildvcs=false"
+    # compile/asm/link take a host-wide pkgs-cache slot like cc and rustc do (jig slot)
+    GOFLAGS: $"-mod=(if $k.modules != null { 'mod' } else { 'vendor' }) -trimpath -buildvcs=false '-toolexec=(tool jig) slot'"
     GOPROXY: (if $k.modules != null { $"file://($k.modules)" } else { "off" })
     # cgo reads CGO_CPPFLAGS, not CPPFLAGS: dependencies' include dirs (sys-libs' sqlite3.h)
     CGO_ENABLED: (if $k.cgo { "1" } else { "0" }), CGO_CPPFLAGS: ($env.CPPFLAGS? | default "")

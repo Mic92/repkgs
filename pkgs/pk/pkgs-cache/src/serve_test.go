@@ -19,6 +19,7 @@ func TestServeIdsAndPipelinedGets(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer store.Close()
+	slots = NewSlots(1)
 	header := filepath.Join(dir, "h.h")
 	if err := os.WriteFile(header, []byte("abc"), 0o644); err != nil {
 		t.Fatal(err)
@@ -30,9 +31,12 @@ func TestServeIdsAndPipelinedGets(t *testing.T) {
 	}
 	defer listener.Close()
 	go func() {
-		conn, err := listener.AcceptUnix()
-		if err == nil {
-			serve(conn)
+		for {
+			conn, err := listener.AcceptUnix()
+			if err != nil {
+				return
+			}
+			go serve(conn)
 		}
 	}()
 	conn, err := net.Dial("unix", sock)
@@ -59,5 +63,26 @@ func TestServeIdsAndPipelinedGets(t *testing.T) {
 	want := []string{"OK", "C:6437b3ac38465133ffb63b75273a8db5", "", "MISS", "OK 3"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("got %q want %q", got, want)
+	}
+
+	// the one slot: taken, returned with DONE, taken again, then freed by hanging up
+	fmt.Fprintf(conn, "SLOT b1\nDONE b1\nSLOT b1\n")
+	for i := 0; i < 3; i++ {
+		if line, _ := in.ReadString('\n'); line != "OK\n" {
+			t.Fatalf("slot reply %q", line)
+		}
+	}
+	if out, _ := slots.Stats(); out != 1 {
+		t.Fatalf("slots out %d", out)
+	}
+	conn.Close()
+	other, err := net.Dial("unix", sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer other.Close()
+	fmt.Fprintf(other, "SLOT b2\n")
+	if line, _ := bufio.NewReader(other).ReadString('\n'); line != "OK\n" {
+		t.Fatalf("slot after hang-up: %q", line)
 	}
 }

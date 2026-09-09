@@ -1,5 +1,6 @@
 #include "process.h"
 
+#include <stdlib.h>  // NOLINT(modernize-deprecated-headers): setenv/unsetenv are POSIX, not <cstdlib>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -13,6 +14,7 @@
 #include <vector>
 
 #include "base.h"
+#include "cache_client.h"
 #include "keys.h"
 
 namespace jig {
@@ -21,7 +23,30 @@ namespace {
 constexpr int kExecFailedStatus = 127;  // what sh reports for command-not-found
 constexpr int kSignalStatusBase = 128;
 constexpr size_t kPipeChunk = 4096;
+constexpr const char* kSlotEnv = "JIG_SLOT";
 }  // namespace
+
+Slot::Slot(CacheClient& cache, const std::string& socket_path) {
+  if (!Env(kSlotEnv).empty()) {
+    return;
+  }
+  if (!cache.connected() && !cache.Connect(socket_path)) {
+    return;
+  }
+  // one nix build = one $NIX_BUILD_TOP. The daemon serves the build holding fewest slots first
+  build_ = Env("NIX_BUILD_TOP", "-");
+  if (cache.AcquireSlot(build_)) {
+    cache_ = &cache;
+    ::setenv(kSlotEnv, "1", 1);  // NOLINT(concurrency-mt-unsafe): single-threaded, for the child we exec next
+  }
+}
+
+Slot::~Slot() {
+  if (cache_ != nullptr) {
+    cache_->ReleaseSlot(build_);
+    ::unsetenv(kSlotEnv);  // NOLINT(concurrency-mt-unsafe)
+  }
+}
 
 auto Run(const std::string& program, std::span<const std::string> args, StderrMode stderr_mode) -> RunResult {
   bool capture_stderr = stderr_mode == StderrMode::kCapture;

@@ -135,7 +135,7 @@ auto Lookup(CacheClient& cache, const RequestKey& request_key, const Invocation&
   if (!result_key) {
     return std::nullopt;
   }
-  // everything a replay might need in one pipelined exchange; unused answers are cheap MISSes
+  // everything a replay might need in one pipelined exchange. Unused answers are cheap MISSes
   const std::vector<std::string> keys{
       slot::ExitStatus(*result_key),
       slot::Object(*result_key),
@@ -204,7 +204,7 @@ struct Observed {
   std::vector<std::string> inputs;
 };
 
-auto RunObserved(const std::string& compiler, const Invocation& inv) -> Observed {
+auto RunObserved(CacheClient& cache, const std::string& compiler, const Invocation& inv) -> Observed {
   std::vector<std::string> args = inv.args;
   const fs::path out_dir = inv.output.has_parent_path() ? inv.output.parent_path() : fs::path(".");
   const std::string tmp_base = (out_dir / std::format(".jig{}", ::getpid())).string();
@@ -222,7 +222,11 @@ auto RunObserved(const std::string& compiler, const Invocation& inv) -> Observed
     args.push_back("-Wl,--dependency-file=" + link_depfile.string());
   }
 
-  Observed obs{.run = Run(compiler, args, StderrMode::kCapture), .dep_text = {}, .link_dep_text = {}, .inputs = {}};
+  Observed obs;
+  {
+    const Slot slot(cache, "");
+    obs.run = Run(compiler, args, StderrMode::kCapture);
+  }
   std::print(stderr, "{}", obs.run.stderr_text);
   obs.dep_text = inv.link ? std::optional<std::string>("") : ReadFile(depfile);
   obs.link_dep_text = links ? ReadFile(link_depfile) : std::nullopt;
@@ -250,7 +254,7 @@ auto CompileAndStore(CacheClient& cache, const std::string& compiler, const Requ
                      const Invocation& inv, const Stopwatch& clock) -> int {
   const Store& store = Store::Get();
   const bool links = inv.link_one || inv.link;
-  const auto [run, dep_text, link_dep_text, inputs] = RunObserved(compiler, inv);
+  const auto [run, dep_text, link_dep_text, inputs] = RunObserved(cache, compiler, inv);
 
   if (run.status != 0) {
     ForwardStdout(inv, std::nullopt);
@@ -419,7 +423,15 @@ auto RunCcMode(std::string_view argv0, std::span<const std::string> user_args, c
     primary = PrimaryIdentity(inv);
   }
   if (!inv.cacheable || !primary || !cache.Connect(socket_path)) {
-    const int status = Run(conf->cc, inv.args, StderrMode::kInherit).status;
+    int status = 0;
+    {
+      // -print-*, --version and friends are no work worth a slot (and glibc runs 600 of them)
+      std::optional<Slot> slot;
+      if (!inv.source.empty() || !inv.inputs.empty()) {
+        slot.emplace(cache, socket_path);
+      }
+      status = Run(conf->cc, inv.args, StderrMode::kInherit).status;
+    }
     Outcome outcome = Outcome::kPlainNoSocket;
     if (!inv.cacheable) {
       outcome = inv.compile_only ? Outcome::kPlainCompile : Outcome::kPlainLink;

@@ -2,6 +2,7 @@
 //   "GET key\n"             -> "OK <len>\n<bytes>" | "MISS\n"
 //   "PUT key <len>\n<bytes>" -> "OK\n"
 //   "IDS <n>\n" + n paths   -> n identity lines ("" = unreadable): the daemon memoises store files
+//   "SLOT <build>\n" -> "OK\n" when a compiler may start, "DONE <build>\n" -> "OK\n" (see process.h Slot)
 // Requests may be pipelined: GetMany/Identities write all questions, then read all answers.
 // Values are zstd-compressed by the client. Any I/O problem is reported as a miss / ignored
 // put: the cache is an optimisation only.
@@ -34,6 +35,9 @@ class CacheClient {
   void Put(std::string_view key, std::string_view value);
   // one identity per path in order, empty where the daemon could not read it. Empty vector on error
   auto Identities(std::span<const std::string> paths) -> std::vector<std::string>;
+  // blocks until the daemon admits one more compiler for `build`. false: no daemon, run anyway
+  auto AcquireSlot(std::string_view build) -> bool;
+  void ReleaseSlot(std::string_view build);
 
  private:
   auto SendAll(std::string_view data) -> bool;
