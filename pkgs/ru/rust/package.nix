@@ -25,6 +25,10 @@ package {
     {
       name = "configure";
       run = ''
+        # fix-env-shebangs edited vendored scripts: keep the crate checksums, drop the per-file ones
+        for f in (glob vendor/*/.cargo-checksum.json) {
+          open $f | update files {{}} | to json -r | save -f $f
+        }
         let triple = ($c.platform.triple | str replace $c.platform.cpu $c.platform.names.rust)
         let rb = (tool rustc | path dirname | path dirname) # rust-bootstrap, a build tool
         {
@@ -45,6 +49,7 @@ package {
             build-dir: $c.build
             jobs: $c.njobs
             optimized-compiler-builtins: false
+            description: "repkgs" # `rustc --version` names its builder
           }
           install: {prefix: $c.out, sysconfdir: "etc"}
           rust: {
@@ -54,7 +59,7 @@ package {
             llvm-tools: false
             llvm-bitcode-linker: false
             codegen-backends: [llvm]
-            description: "pkgs"
+            codegen-tests: false # want FileCheck, which our llvm does not install
           }
           target: {$triple: {llvm-config: $"(dep-root llvm 'libLLVM')/bin/llvm-config", cc: (tool cc), cxx: (tool c++), linker: (tool cc), ar: (tool ar), ranlib: (tool ranlib), crt-static: false}}
           dist: {compression-formats: [gz], src-tarball: false}
