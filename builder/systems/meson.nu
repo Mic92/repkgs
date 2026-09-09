@@ -24,7 +24,7 @@ def machine-file [path: path, sections: record]: nothing -> string {
 # cc/c++ with the dependency flags core exported; the build machine is cc-build with a pkg-config
 # that finds nothing, so build-time tools never link target libraries. sizeof/alignment go in as
 # properties so cc.sizeof() & co. need no exe wrapper; the emulator still serves cc.run()/tests.
-def cross-files [c: record<spec: record, out: string, deps: list<record>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool>]: nothing -> list<string> {
+def cross-files [c: record]: nothing -> list<string> {
   let p = $c.platform
   let split = {|s| $s | default "" | split row " " | where $it != "" }
   let cargs = ((do $split $env.CPPFLAGS?) ++ (do $split $env.CFLAGS?))

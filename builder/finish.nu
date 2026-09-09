@@ -4,7 +4,7 @@ use core.nu *
 use prebuilt.nu
 
 # split DWARF to lib/debug, keep .symtab (§4 profiling-friendly)
-def split-debug [c: record<spec: record, out: string, deps: list<record>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool>]: nothing -> nothing {
+def split-debug [c: record]: nothing -> nothing {
   let elfs = (glob $"($c.out)/{bin,lib,libexec}/**/*" --exclude [**/lib/debug/**]
     | where { ($in | path type) == "file" and (is-elf $in) })
   if ($elfs | is-empty) { return }
@@ -28,7 +28,7 @@ def bins [c: record]: nothing -> list<string> {
 # binary when bin/ has it, else the words go to the first `bin`. true (the default with a bin)
 # is "--version". `tests.relocated` reruns it from a copy of `out` under a scratch prefix with
 # the sibling store paths symlinked beside it, cwd / and env -i: the §3 property, per package
-def version-check [c: record<spec: record, out: string, deps: list<record>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool>]: nothing -> nothing {
+def version-check [c: record]: nothing -> nothing {
   let bins = (bins $c)
   let line = ($c.spec.tests?.version? | default ($bins | is-not-empty))
   if $line == false or ($c.platform.cross and not $c.testsRun) { return }

@@ -52,7 +52,7 @@ def is-foreign [f: path]: nothing -> bool {
 }
 
 # what bin/<name> should launch (the launch record minus env), or null to leave the file as is
-def target [c: record<spec: record, out: string, deps: list<record>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool>, f: path, owners: list<string>, rdeps: list<string>]: nothing -> oneof<record, nothing> {
+def target [c: record, f: path, owners: list<string>, rdeps: list<string>]: nothing -> oneof<record, nothing> {
   let head = (open --raw $f | into binary | bytes at 0..<256)
   let real = $"{root}/bin/.($f | path basename)"
   if ($head | bytes starts-with 0x[23 21]) {
@@ -70,7 +70,7 @@ def target [c: record<spec: record, out: string, deps: list<record>, njobs: int,
   }
 }
 
-export def launchers [c: record<spec: record, out: string, deps: list<record>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool>]: nothing -> nothing {
+export def launchers [c: record]: nothing -> nothing {
   let bindir = $"($c.out)/bin"
   if not ($bindir | path exists) { return }
   let a = (attrs)
@@ -100,7 +100,7 @@ export def launchers [c: record<spec: record, out: string, deps: list<record>, n
 # `dir`: a tree other than $out, for bindists whose own install step already runs the binaries
 # (ghc's `make install` recaches with the installed ghc-pkg). Those get interp + RUNPATH only:
 # the stub expects the PT_NULL interp reloc-fixup leaves, and that runs over $out at the end.
-export def implant [c: record<spec: record, out: string, deps: list<record>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool>, dir?: path]: nothing -> nothing {
+export def implant [c: record, dir?: path]: nothing -> nothing {
   let dir = ($dir | default $c.out)
   let elves = (glob $"($dir)/{bin,lib,libexec}/**/*" | where {|f| ($f | path type) == "file" and (is-elf $f) })
   let interp = $"($c.platform.interp | path dirname)/(1..12 | each { './' } | str join)($c.platform.interp | path basename)"
