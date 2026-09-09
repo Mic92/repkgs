@@ -1,6 +1,6 @@
 use ../core.nu *
 
-# cabal v2-build, offline against the set's shared hackage repository (locks/hackage.toml), with
+# cabal v2-build against the set's shared hackage repository (locks/hackage.toml), with
 # ghc-bootstrap. Dependencies are cached per unit: cabal's unit-id already hashes source, flags,
 # compiler and the dependency closure, so a unit built once on this host (by any package) is
 # fetched from pkgs-cache instead of compiled. The store directory is the same fixed path in
@@ -73,10 +73,10 @@ def save-units [c: record, before: list<string>]: nothing -> nothing {
 export def build []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
   cd (project-dir cabal)
-  x cabal build --offline --dry-run ...(targets $k)
+  x cabal build --dry-run ...(targets $k)
   if $c.cache { restore $c }
   let before = (ls -s (unit-dir) | get name)
-  x jig slot cabal build --offline ...(targets $k)
+  x jig slot cabal build ...(targets $k)
   if $c.cache { save-units $c $before }
 }
 
@@ -84,7 +84,7 @@ export def test []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
   if not $c.testsRun { return }
   cd (project-dir cabal)
-  x cabal test --offline --enable-tests ...(targets $k)
+  x cabal test --enable-tests ...(targets $k)
 }
 
 # the built executables -> $out/bin
@@ -93,6 +93,6 @@ export def install []: nothing -> nothing {
   cd (project-dir cabal)
   mkdir $"($c.out)/bin"
   for e in $k.exes {
-    cp (^cabal list-bin --offline ...(targets $k) $"exe:($e)" | str trim) $"($c.out)/bin/($e)"
+    cp (^cabal list-bin ...(targets $k) $"exe:($e)" | str trim) $"($c.out)/bin/($e)"
   }
 }
