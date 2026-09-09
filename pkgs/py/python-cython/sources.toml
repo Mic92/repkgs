@@ -9,4 +9,3 @@ hash = "sha256-FqxiQqEW/pHhqz3uhKYYlNHyC2FJvQJ3OR/iCYF6088="
 [pin]
 version = "3.3.0"
 date = "2026-08-22"
-checked = "2026-09-09"

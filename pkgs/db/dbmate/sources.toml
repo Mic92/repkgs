@@ -10,7 +10,6 @@ hash = "sha256-DOgDIBV0EJLpijvbHT4GF7vZRkyGmWCHtEPDcVozeSc="
 version = "2.35.1"
 tag = "v2.35.1"
 date = "2026-08-26"
-checked = "2026-09-09"
 
 [locks]
 go = "."

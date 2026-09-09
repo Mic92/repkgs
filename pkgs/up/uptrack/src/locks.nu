@@ -40,7 +40,9 @@ export def normalize [file: path]: nothing -> nothing {
 # again. Returns [{eco, keys}]: what this package uses, for prune
 export def add [pkg: record]: nothing -> table<eco: string, keys: list<string>> {
   if ($pkg.locks | is-empty) { return [] }
-  let src = (^nix-build (pipeline root) -A $"($pkg.name).src" --no-out-link | str trim)
+  # fetched sources are derivations (nix-build), in-tree ones (source = ./src) plain paths
+  let src = (^nix-build (pipeline root) -A $"($pkg.name).src" --no-out-link | complete)
+  let src = (if $src.exit_code == 0 { $src.stdout } else { ^nix eval --raw -f (pipeline root) $"($pkg.name).src" } | str trim)
   $pkg.locks | items {|eco, sub|
     let old = (read (dir) $eco)
     let mine = (match $eco { "go" => (lock-go lock ($src | path join $sub) $old) })

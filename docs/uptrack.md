@@ -45,7 +45,6 @@ hash = "sha256-…"                  # tool; NAR hash of the unpacked tree (--st
 [pin]                              # tool
 version = "10.5.0"
 date = "2025-05-18"                # release date: libyear, `every`
-checked = "2025-09-08T11:04:00Z"
 # [pin.extra] v8 = "13.2"          # extra pins returned by a hook
 
 [watch]                            # optional; default is the purl's datasource
@@ -131,7 +130,7 @@ compiler-rt source lists from the new tarball.
 - `dashboard`: pending, held by `allow`, too young for `every`, failing verify, advisories.
   `sync-github` upserts it as one pinned issue plus a PR per entry or group, idempotent by branch
   name.
-- `report --libyear | --stale 90d` from `[pin].date`/`.checked`.
+- `report --libyear | --stale 90d` from `[pin].date`.
 - `report --advisories`: OSV batch query by purl@version for current and candidate. purl and CPE
   do not map onto each other, so C projects without registry coverage add an optional `cpe`
   (vendor:product) for NVD's match API. The report flags packages where neither source knows the

@@ -5,8 +5,9 @@ use pipeline.nu
 use locks.nu
 use purl.nu *
 
-def selected [names: list<string>]: nothing -> table {
-  let all = pipeline discover (pipeline root)
+# `--locks-only` also yields packages without an upstream (in-tree source, [locks] only)
+def selected [names: list<string>, --locks-only]: nothing -> table {
+  let all = pipeline discover (pipeline root) | where { $locks_only or $in.tracked }
   let missing = $names | where $it not-in $all.name
   if ($missing | is-not-empty) { error make {msg: $"no sources.toml for ($missing | str join ', ')"} }
   if ($names | is-empty) { $all } else { $all | where name in $names }
@@ -85,7 +86,7 @@ def "main lock" [
   ...names: string # packages, default all with [locks]
   --prune # afterwards drop entries no package uses any more (looks at every package, ignores names)
 ]: nothing -> nothing {
-  let pkgs = (selected (if $prune { [] } else { $names }) | where { $in.locks | is-not-empty })
+  let pkgs = (selected --locks-only (if $prune { [] } else { $names }) | where { $in.locks | is-not-empty })
   # [{eco, keys}] per package -> every key any package uses, per ecosystem
   let used = ($pkgs | each {|p| print -e $p.name; locks add $p } | flatten | group-by eco --to-table
     | each {|g| {eco: $g.eco, keys: ($g.items.keys | flatten | uniq)} })

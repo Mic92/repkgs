@@ -36,11 +36,13 @@ export def discover [dir: path]: nothing -> table {
     check-keys $f top $t
     for table in [upstream watch locks] { check-keys $f $table ($t | get $table) }
     for s in $t.source { check-keys $f source $s }
-    if $t.upstream.purl? == null { error make {msg: $"($f): upstream.purl is required"} }
+    # in-tree sources (source = ./src) have nothing to track but may still lock dependencies
+    let tracked = ($t.upstream.purl? != null)
+    if not $tracked and (($t.source | is-not-empty) or ($t.locks | is-empty)) { error make {msg: $"($f): upstream.purl is required"} }
     let dir = ($f | path dirname)
     let hook = ($dir | path join update.nu)
     let hook = (if ($hook | path exists) { $hook })
-    $t | merge {name: ($dir | path basename), dir: $dir, file: $f, hook: $hook, hooks: (if $hook != null { hook-exports $hook } else { [] })}
+    $t | merge {name: ($dir | path basename), dir: $dir, file: $f, tracked: $tracked, hook: $hook, hooks: (if $hook != null { hook-exports $hook } else { [] })}
   }
 }
 
@@ -154,7 +156,6 @@ export def apply [entry: record]: nothing -> record {
     version: $entry.to
     tag: $c.tag?
     date: (if $c.date != null { $c.date | into datetime | format date '%F' })
-    checked: (date now | format date '%F')
     extra: $entry.extra?
   } | compact)
   let t = (open $entry.file)
