@@ -4,8 +4,8 @@ use ../node-common.nu
 # npm ci from fetch.npmDeps (`npm.deps`: a package-lock.json whose `resolved` point at store
 # tarballs; npm checks each against the lock's integrity), `npm run <script>`, `npm test`, and the
 # pruned package as lib/node_modules/<name> with its bin links.
-def knobs []: nothing -> record<script: string, deps: any, test: bool, flags: list<string>> {
-  knobs-for npm {script: "build", deps: null, test: true, flags: []}
+def knobs []: nothing -> record<script: string, deps: any, flags: list<string>> {
+  knobs-for npm {script: "build", deps: null, flags: []}
 }
 
 # offline `npm ci` against the rewritten lock
@@ -24,14 +24,13 @@ export def --env setup []: nothing -> nothing {
 }
 
 # npm run <npm.script>
-export def build []: nothing -> nothing { cd (project-dir npm); x npm run (knobs).script ...(knobs).flags }
+export def build []: nothing -> nothing { x npm run (knobs).script ...(knobs).flags }
 
-# npm test unless npm.test = false
-export def test []: nothing -> nothing { cd (project-dir npm); if (knobs).test { x npm test } }
+# npm test
+export def test []: nothing -> nothing { x npm test }
 
 # pruned to production dependencies, as lib/node_modules/<name>
 export def install []: nothing -> nothing {
-  cd (project-dir npm)
   x npm prune --omit=dev --ignore-scripts
   node-common install-tree
 }

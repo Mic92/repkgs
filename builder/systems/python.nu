@@ -26,7 +26,6 @@ export def --env setup []: nothing -> nothing {
 # build one wheel into the build dir: `python -m build` for PEP 517 backends, `maturin build` for maturin
 export def build []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
-  cd (project-dir python)
   let dist = $"($c.build)/dist"
   if $k.backend == "maturin" {
     # maturin's PEP 517 backend only shells out to `maturin`. Call it directly. cargo setup came from `uses`.

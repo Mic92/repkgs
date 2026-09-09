@@ -9,13 +9,12 @@ def knobs []: nothing -> record<rockspec: any, set: any, flags: list<string>> {
 }
 
 # luarocks writes a per-user cache under HOME
-export def --env setup []: nothing -> nothing { $env.HOME = (ctx).build }
+export def --env setup []: nothing -> nothing { $env.HOME = (ctx).build; cd (project-dir luarocks) }
 
 # `luarocks.rockspec` when the project has several, else luarocks finds the one
 export def build []: nothing -> nothing {
   let c = (ctx)
   let k = (knobs)
   let lua = (dep-root lua "rocks run on the target lua")
-  cd (project-dir luarocks)
   x luarocks make --tree $c.out $"--only-server=($k.set)" --deps-mode one --no-doc $"LUA_DIR=($lua)" "CFLAGS=-O2 -fPIC" ...$k.flags ...([$k.rockspec] | compact)
 }

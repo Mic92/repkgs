@@ -44,13 +44,9 @@ export def --env setup []: nothing -> nothing {
 }
 
 # cargo build --release
-export def build []: nothing -> nothing { cd (project-dir cargo); x cargo build --release --offline ...(feature-args (knobs)) }
+export def build []: nothing -> nothing { x cargo build --release --offline ...(feature-args (knobs)) }
 # cargo test --release
-export def test []: nothing -> nothing {
-  if not (ctx).testsRun { return }
-  cd (project-dir cargo)
-  x cargo test --release --offline ...(feature-args (knobs))
-}
+export def test []: nothing -> nothing { x cargo test --release --offline ...(feature-args (knobs)) }
 # the spec's `bin` entries cargo built -> $out/bin. Others (symlinks a later step adds) are left
 # to that step; finish checks that every `bin` exists in the end
 export def install []: nothing -> nothing {

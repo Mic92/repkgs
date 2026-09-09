@@ -52,7 +52,6 @@ def cross-files [c: record]: nothing -> list<string> {
 # meson setup with prefix/libdir/buildtype defaults, a generated cross file when cross, then `meson.options`
 export def configure []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
-  cd $c.build
   let opts = ({
     prefix: $c.out
     libdir: "lib"
@@ -68,15 +67,13 @@ export def configure []: nothing -> nothing {
 }
 
 # ninja
-export def build []: nothing -> nothing { cd (ctx).build; x ninja -j ((ctx).njobs | into string) }
+export def build []: nothing -> nothing { x ninja -j ((ctx).njobs | into string) }
 # meson test, honouring tests.skip
 export def test []: nothing -> nothing {
-  let c = (ctx); cd $c.build
-  if not $c.testsRun { return }
   # meson has no exclude flag: name every test that no tests.skip pattern matches
   let skip = (test-skips)
   let names = (if ($skip | is-empty) { [] } else { ^meson test --list | lines | where {|t| not ($skip | any {|s| $t =~ $s }) } })
   x meson test --no-rebuild --print-errorlogs --num-processes (test-jobs) ...$names
 }
 # meson install
-export def install []: nothing -> nothing { cd (ctx).build; x meson install --no-rebuild }
+export def install []: nothing -> nothing { x meson install --no-rebuild }

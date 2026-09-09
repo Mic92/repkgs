@@ -40,7 +40,6 @@ export def --env setup []: nothing -> nothing {
 
 # unpack the cached .gem files into vendor/bundle, compiling native extensions
 export def build []: nothing -> nothing {
-  cd (app-dir)
   x bundle install --local --no-cache ...((knobs).flags)
   # the .gem archives, bundler's download cache and extension build logs (which embed the build dir)
   rm -rf vendor/cache ...(glob vendor/bundle/ruby/*/cache) ...(glob vendor/bundle/ruby/*/extensions/**/{gem_make.out,mkmf.log})
@@ -50,7 +49,7 @@ export def build []: nothing -> nothing {
 # `bundler.test`: a command run with `bundle exec` (off by default: test gems are in `without`)
 export def test []: nothing -> nothing {
   let command = (knobs).test
-  if $command != null { cd (app-dir); x bundle exec ...($command | split row " ") }
+  if $command != null { x bundle exec ...($command | split row " ") }
 }
 
 # bin/<name> for each `bin` of the spec

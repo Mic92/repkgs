@@ -180,7 +180,6 @@ builtins.mapAttrs
         "root"
         "script"
         "deps"
-        "test"
         "flags"
       ];
     };
@@ -226,7 +225,6 @@ builtins.mapAttrs
         "deps"
         "entry"
         "permissions"
-        "test"
         "check"
         "flags"
       ];
@@ -240,7 +238,6 @@ builtins.mapAttrs
         "root"
         "script"
         "deps"
-        "test"
         "flags"
         "compile"
       ];
@@ -256,7 +253,6 @@ builtins.mapAttrs
         "root"
         "script"
         "deps"
-        "test"
         "flags"
       ];
     };
@@ -270,7 +266,6 @@ builtins.mapAttrs
         "root"
         "script"
         "deps"
-        "test"
         "flags"
       ];
     };

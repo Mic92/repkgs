@@ -37,7 +37,6 @@ export def build []: nothing -> nothing {
   let wheels = ($plan | where kind == wheel | each { $"($deps)/dist/($in.file)" }) ++ (glob $"($built)/*.whl")
   for wheel in $wheels { install-wheel $wheel }
 
-  cd (project-dir pyapp)
   x python3 -m build --wheel --no-isolation --skip-dependency-check --outdir $"($c.build)/project" .
   install-wheel (glob $"($c.build)/project/*.whl" | first) --scripts
 }

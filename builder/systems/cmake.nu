@@ -15,7 +15,6 @@ export def --env setup []: nothing -> nothing { cd (ctx).build }
 # cmake -G Ninja with prefix/libdir/prefix-path/shared/testing defaults, cross system + emulator, then `cmake.defs`
 export def configure []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
-  cd $c.build
   let defs = ({
     CMAKE_INSTALL_PREFIX: $c.out
     CMAKE_BUILD_TYPE: (if ($c.spec.profile? | default "release") == "debug" { "Debug" } else { "Release" })
@@ -43,13 +42,11 @@ export def configure []: nothing -> nothing {
 }
 
 # cmake --build
-export def build []: nothing -> nothing { cd (ctx).build; x cmake --build . -j ((ctx).njobs | into string) }
+export def build []: nothing -> nothing { x cmake --build . -j ((ctx).njobs | into string) }
 # ctest, honouring tests.parallel and tests.skip (regex-joined -E)
 export def test []: nothing -> nothing {
-  let c = (ctx); cd $c.build
-  if not $c.testsRun { return }
   let exclude = (if (test-skips | is-empty) { [] } else { [-E (test-skips | str join "|")] })
   x ctest --output-on-failure -j (test-jobs) ...$exclude
 }
 # cmake --install
-export def install []: nothing -> nothing { cd (ctx).build; x cmake --install . }
+export def install []: nothing -> nothing { x cmake --install . }

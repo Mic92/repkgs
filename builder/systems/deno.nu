@@ -5,8 +5,8 @@ use ../core.nu *
 # `deno.entry` (bin name -> module path) running `deno run --cached-only` on it. pkgs.deno must be
 # a dependency. No `deno compile` yet: it splices into upstream's denort ELF, which would need
 # relinking first.
-def knobs []: nothing -> record<deps: any, entry: record, permissions: list<string>, test: bool, check: bool, flags: list<string>> {
-  knobs-for deno {deps: null, entry: {}, permissions: ["-A"], test: true, check: true, flags: []}
+def knobs []: nothing -> record<deps: any, entry: record, permissions: list<string>, check: bool, flags: list<string>> {
+  knobs-for deno {deps: null, entry: {}, permissions: ["-A"], check: true, flags: []}
 }
 
 # DENO_DIR: a writable copy of deno.deps (deno adds gen/ and *_cache_v2 next to npm/ and remote/)
@@ -24,13 +24,13 @@ export def --env setup []: nothing -> nothing {
 # type-check the entry points unless deno.check = false
 export def build []: nothing -> nothing {
   let k = (knobs)
-  if $k.check and ($k.entry | is-not-empty) { cd (project-dir deno); x deno check --cached-only --frozen ...($k.entry | values) }
+  if $k.check and ($k.entry | is-not-empty) { x deno check --cached-only --frozen ...($k.entry | values) }
 }
 
-# `deno test` unless deno.test = false
+# deno test
 export def test []: nothing -> nothing {
   let k = (knobs)
-  if $k.test { cd (project-dir deno); x deno test --cached-only --frozen ...$k.permissions ...$k.flags }
+  x deno test --cached-only --frozen ...$k.permissions ...$k.flags
 }
 
 # lib/<name>/ = project + its DENO_DIR; bin/<bin> = launch record running deno on the entry module

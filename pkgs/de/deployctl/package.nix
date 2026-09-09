@@ -7,7 +7,7 @@ package {
   name = "deployctl";
   uses = [ "deno" ];
   deno.entry.deployctl = "deployctl.ts";
-  deno.test = false; # talks to dash.deno.com
+  tests.run = false; # talks to dash.deno.com
   dependencies = [ pkgs.deno ];
   tests.version = true;
 }

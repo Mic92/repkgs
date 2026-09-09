@@ -4,8 +4,8 @@ use ../node-common.nu
 # pnpm install --offline from fetch.pnpmDeps (`pnpm.deps`: registry tarballs that seed a fresh
 # content-addressed store; pnpm verifies each against pnpm-lock.yaml), `pnpm run <script>`,
 # `pnpm test`, and the pruned package as lib/node_modules/<name> with its bin links.
-def knobs []: nothing -> record<script: string, deps: any, test: bool, flags: list<string>> {
-  knobs-for pnpm {script: "build", deps: null, test: true, flags: []}
+def knobs []: nothing -> record<script: string, deps: any, flags: list<string>> {
+  knobs-for pnpm {script: "build", deps: null, flags: []}
 }
 
 # seed the store from the tarballs, then `pnpm install --offline`
@@ -27,14 +27,13 @@ export def --env setup []: nothing -> nothing {
 }
 
 # pnpm run <pnpm.script>
-export def build []: nothing -> nothing { cd (project-dir pnpm); x pnpm run (knobs).script ...(knobs).flags }
+export def build []: nothing -> nothing { x pnpm run (knobs).script ...(knobs).flags }
 
-# pnpm test unless pnpm.test = false
-export def test []: nothing -> nothing { cd (project-dir pnpm); if (knobs).test { x pnpm test } }
+# pnpm test
+export def test []: nothing -> nothing { x pnpm test }
 
 # pruned to production dependencies, as lib/node_modules/<name>
 export def install []: nothing -> nothing {
-  cd (project-dir pnpm)
   x pnpm prune --prod --ignore-scripts
   node-common install-tree
 }

@@ -182,6 +182,9 @@ let
         fail "step '${s}' is not <one of ${toString (uses ++ selfModule)}>.<verb>"
       else if elemAt p 1 == "test" && (!testsRun || separate) then
         ""
+      # cross without binfmt decides at build time (prepare) that tests cannot run
+      else if elemAt p 1 == "test" then
+        "if (ctx).testsRun {\nnote step ${s}\n${elemAt p 0} test\n}"
       else
         "note step ${s}\n${elemAt p 0} ${elemAt p 1}";
   # `module = ./build.nu`: the package's own verbs, a nu module next to package.nix imported as

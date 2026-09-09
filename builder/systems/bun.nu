@@ -4,8 +4,8 @@ use ../node-common.nu
 # A bun project: `bun install --offline` from fetch.bunDeps, optional `bun run <script>`, `bun test`,
 # then either standalone executables (`bun.compile = { <bin> = "<entry.ts>"; }`) or the package
 # tree under lib/node_modules/<name> with its package.json `bin` entries linked into bin/.
-def knobs []: nothing -> record<deps: any, script: any, test: bool, flags: list<string>, compile: record> {
-  knobs-for bun {deps: null, script: null, test: true, flags: [], compile: {}}
+def knobs []: nothing -> record<deps: any, script: any, flags: list<string>, compile: record> {
+  knobs-for bun {deps: null, script: null, flags: [], compile: {}}
 }
 
 const LINK_CACHE = path self bun-cache.ts
@@ -29,19 +29,16 @@ export def --env setup []: nothing -> nothing {
 # `bun run <bun.script>` if set
 export def build []: nothing -> nothing {
   let script = (knobs).script
-  if $script != null { cd (project-dir bun); x bun run $script }
+  if $script != null { x bun run $script }
 }
 
-# `bun test` unless bun.test = false
-export def test []: nothing -> nothing {
-  if (knobs).test { cd (project-dir bun); x bun test }
-}
+# bun test
+export def test []: nothing -> nothing { x bun test }
 
 # compiled executables, or the package tree with its bin links
 export def install []: nothing -> nothing {
   let c = (ctx)
   let k = (knobs)
-  cd (project-dir bun)
   if ($k.compile | is-empty) { node-common install-tree; return }
   mkdir $"($c.out)/bin"
   for exe in ($k.compile | transpose name entry) {

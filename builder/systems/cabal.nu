@@ -77,7 +77,6 @@ def save-units [c: record, before: list<string>]: nothing -> nothing {
 # plan, restore cached units, cabal build, store new units
 export def build []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
-  cd (project-dir cabal)
   x cabal build --dry-run ...(targets $k)
   if $c.cache { restore $c }
   let before = (ls -s (unit-dir) | get name)
@@ -86,9 +85,7 @@ export def build []: nothing -> nothing {
 }
 
 export def test []: nothing -> nothing {
-  let c = (ctx); let k = (knobs)
-  if not $c.testsRun { return }
-  cd (project-dir cabal)
+  let k = (knobs)
   # the package's own test suites (`all:tests` in the project's package, flags still apply)
   x cabal test --enable-tests ...(flags $k) all:tests
 }
@@ -96,7 +93,6 @@ export def test []: nothing -> nothing {
 # the built executables -> $out/bin
 export def install []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
-  cd (project-dir cabal)
   mkdir $"($c.out)/bin"
   for e in $k.exes {
     # list-bin takes exactly one target

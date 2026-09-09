@@ -146,7 +146,9 @@ build systems with a plain step list won every round.
 Here one nu process per build runs three things: `prepare` (environment, unpack,
 patch), the package's steps, and `finish` (output checks, debug split, launchers, relocation
 fixup, version test, `exports.json`, cache summary). Build systems are nu modules in `builder/`
-exporting `setup configure build test install`. A package names them:
+exporting `setup configure build test install`. `setup` exports the environment and leaves the
+process in the build system's working directory, so the verbs after it just run. A package
+names them:
 
 ```nix
 uses = [ "cmake" ];                         # steps default to cmake's configure/build/test/install

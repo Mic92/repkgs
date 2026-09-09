@@ -34,7 +34,6 @@ def common-args [k: record<tags: list<string>, ldflags: list<string>, cgo: bool>
 # go build `go.packages` into the build dir (external linker = cc)
 export def build []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
-  cd (project-dir go)
   mkdir $"($c.build)/bin"
   x go build -p ($c.njobs | into string) -o $"($c.build)/bin/" ...(common-args $k) ...$k.packages
 }
@@ -42,8 +41,6 @@ export def build []: nothing -> nothing {
 # go test (`go.testPackages`, default `go.packages`)
 export def test []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
-  if not $c.testsRun { return }
-  cd (project-dir go)
   x go test -p ($c.njobs | into string) -vet=off ...(common-args $k) ...($k.testPackages? | default $k.packages)
 }
 
