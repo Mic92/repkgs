@@ -6,7 +6,9 @@ const PRE = [dev pre preview alpha a beta b rc c DEV PRE ALPHA BETA RC]
 
 # tag or file name → bare version: v1.2, release-1.2, jq-1.8.2, curl-8_1_0, R_2_7_2, llvmorg-21.1.8
 export def "version from-tag" [tag: string]: nothing -> string {
-  let t = $tag | str replace -r '^(?:[A-Za-z][A-Za-z0-9]*[-_]|[A-Za-z]+[.]?)?(?=\d)' ''
+  # `name-` first (names may contain digits: pcre2-10.44, bun-v1.4.2), then a letters-only prefix
+  # (v4.0.6, go1.25, R_2_7_2, v3_4_10: `v3_` must not count as a name)
+  let t = $tag | str replace -r '^[A-Za-z][A-Za-z0-9]*-(?=[vV]?\d)' '' | str replace -r '^[A-Za-z]+[._]?(?=\d)' ''
   if $t =~ '^\d+_\d+' { $t | str replace -a '_' '.' } else if $t =~ '^\d+(-\d+)+$' { $t | str replace -a '-' '.' } else { $t }
 }
 
