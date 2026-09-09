@@ -55,7 +55,7 @@ export def resolve [pkgs: table, --threads: int = 8]: nothing -> table {
 }
 
 # what to ask upstream for: [watch] if set, else the purl
-def watch-purl [pkg: record]: nothing -> record {
+def watch-purl [pkg: record<name: string, upstream: record, watch: record>]: nothing -> record<type: string, namespace: string, name: string, qualifiers: record> {
   if $pkg.watch.purl? != null {
     purl parse $pkg.watch.purl
   } else if $pkg.watch.url? != null {
@@ -81,7 +81,11 @@ export def decide [pkgs: table, --prerelease]: nothing -> table {
     let eligible = ($allowed | where {|c| $c not-in $too_young })
     let best = ($eligible | get version | version max)
     let entry = ($pkg | merge {from: $current, to: null, note: null})
-    let problem = (if $pkg.error != null { $pkg.error } else if ($pkg.candidates | is-empty) { "datasource returned no versions" } else if $best == null { $"all ($pkg.candidates | length) candidates filtered by allow/prerelease/every" })
+    let problem = ([
+      $pkg.error
+      (if ($pkg.candidates | is-empty) { "datasource returned no versions" })
+      (if $best == null { $"all ($pkg.candidates | length) candidates filtered by allow/prerelease/every" })
+    ] | compact | get -o 0)
     if $problem != null {
       $entry | update note $problem
     } else if $current != null and (version cmp $best $current) <= 0 {
@@ -123,7 +127,7 @@ export def prefetch [url: string, unpack: bool]: nothing -> string {
 
 # sources.toml with `hash` filled in for every [[source]], urls expanded for version/tag.
 # `known`: key -> hash already at hand (an upstream-published sha256), not prefetched again
-def with-hashes [t: record, version: string, tag: string, known: record = {}]: nothing -> record {
+def with-hashes [t: record<source: list<any>>, version: string, tag: string, known: record = {}]: nothing -> record {
   $t | update source ($t.source | each {|s|
     let url = (expand $s.url $version $tag)
     print -e $"  ($url)"
@@ -132,7 +136,7 @@ def with-hashes [t: record, version: string, tag: string, known: record = {}]: n
 }
 
 # re-prefetch every source at the current pin (after editing a url), no version change
-export def rehash [pkg: record]: nothing -> nothing {
+export def rehash [pkg: record<file: string>]: nothing -> nothing {
   let t = (open $pkg.file)
   let version = $t.pin?.version?
   if $version == null { error make {msg: $"($pkg.file): no [pin] version to rehash at"} }

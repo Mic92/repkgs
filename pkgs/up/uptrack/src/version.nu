@@ -8,31 +8,33 @@ const PRE = [dev pre preview alpha a beta b rc c DEV PRE ALPHA BETA RC]
 export def "version from-tag" [tag: string]: nothing -> string {
   # `name-` first (names may contain digits: pcre2-10.44, bun-v1.4.2), then a letters-only prefix
   # (v4.0.6, go1.25, R_2_7_2, v3_4_10: `v3_` must not count as a name)
-  let t = $tag | str replace -r '^[A-Za-z][A-Za-z0-9]*-(?=[vV]?\d)' '' | str replace -r '^[A-Za-z]+[._]?(?=\d)' ''
+  let t = ($tag | str replace -r '^(?:[A-Za-z][A-Za-z0-9]*-(?=[vV]?\d))?(?:[A-Za-z]+[._]?(?=\d))?' '')
   if $t =~ '^\d+_\d+' { $t | str replace -a '_' '.' } else if $t =~ '^\d+(-\d+)+$' { $t | str replace -a '-' '.' } else { $t }
 }
 
-# [class value] per component: 0 pre-release word, (1 absent), 2 other word, 3 number. Build metadata dropped
-def ranks [v: string]: nothing -> list<list<any>> {
+# components with a class: 0 pre-release word, (1 absent), 2 other word, 3 number; build metadata dropped
+const ABSENT = {class: 1, value: 0}
+const ZERO = {class: 3, value: 0}
+def ranks [v: string]: nothing -> table<class: int, value: any> {
   $v | str replace -r '^[vV](?=\d)|\+.*$' '' | parse -r '(\d+|[A-Za-z]+)' | get capture0 | each {|p|
-    if $p =~ '^\d' { [3 ($p | into int)] } else if $p in $PRE { [0 ($PRE | enumerate | where item == $p).0.index] } else { [2 $p] }
+    if $p =~ '^\d' { {class: 3, value: ($p | into int)} } else if $p in $PRE { {class: 0, value: ($PRE | enumerate | where item == $p).0.index} } else { {class: 2, value: $p} }
   }
 }
 
 # contains alpha/beta/rc/dev/pre
-export def "version is-prerelease" [v: string]: nothing -> bool { ranks $v | any {|r| $r.0 == 0 } }
+export def "version is-prerelease" [v: string]: nothing -> bool { ranks $v | any {|r| $r.class == 0 } }
 
 # -1, 0, 1. A missing component equals 0 after a number (1.0 == 1.0.0) and sits between
 # pre-release and number otherwise (1.0rc1 < 1.0 < 1.0post1)
 export def "version cmp" [a: string, b: string]: nothing -> int {
-  let ra = ranks $a
-  let rb = ranks $b
+  let ra = (ranks $a)
+  let rb = (ranks $b)
   for i in 0..<([($ra | length) ($rb | length)] | math max) {
-    let x = $ra | get -o $i | default [1 0]
-    let y = $rb | get -o $i | default [1 0]
-    let x = if $x.0 == 1 and $y.0 == 3 { [3 0] } else { $x }
-    let y = if $y.0 == 1 and $x.0 == 3 { [3 0] } else { $y }
-    if $x != $y { return (if $x.0 < $y.0 or ($x.0 == $y.0 and $x.1 < $y.1) { -1 } else { 1 }) }
+    let x = ($ra | get -o $i | default $ABSENT)
+    let y = ($rb | get -o $i | default $ABSENT)
+    let x = (if $x.class == 1 and $y.class == 3 { $ZERO } else { $x })
+    let y = (if $y.class == 1 and $x.class == 3 { $ZERO } else { $y })
+    if $x != $y { return (if $x.class < $y.class or ($x.class == $y.class and $x.value < $y.value) { -1 } else { 1 }) }
   }
   0
 }
@@ -44,7 +46,8 @@ export def "version max" []: list<string> -> oneof<string, nothing> {
 
 # ">=1.2,<2", "==3.12.*", "!=4.0". Empty allows everything
 export def "version satisfies" [v: string, range: oneof<string, nothing>]: nothing -> bool {
-  $range | default '' | split row ',' | each { str trim } | where $it != '' | all {|c|
+  if $range == null { return true }
+  $range | split row ',' | each { str trim } | where $it != '' | all {|c|
     let m = $c | parse -r '^(>=|<=|==|!=|>|<)?\s*(.+?)(\.\*)?$' | first
     let op = $m.capture0 | default '=='
     let r = if $m.capture2 == '.*' {
