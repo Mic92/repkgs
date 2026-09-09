@@ -1,6 +1,6 @@
 # The `package` function: spec attrset -> derivation (+ `.tests` when tests.separate).
 # Validates field and knob names at eval time, then generates the nu script
-#   use core.nu *; use prepare.nu; use finish.nu; use <bs>.nu …; prepare; <bs> setup …; <step> …; finish
+#   use core.nu *; use prepare.nu; use finish.nu; use prebuilt.nu; use <bs>.nu …; prepare; <bs> setup …; <step> …; finish
 # that nu executes in a single nu process. Vocabulary: README.md "Writing a package".
 {
   platform,
@@ -83,6 +83,7 @@ let
     "use ${tree}/core.nu *"
     "use ${tree}/prepare.nu"
     "use ${tree}/finish.nu"
+    "use ${tree}/prebuilt.nu"
   ];
 
   stepRe = "([a-z]+)\\.([a-zA-Z]+)";

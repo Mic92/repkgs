@@ -89,22 +89,31 @@ export def launchers [c: record<spec: record, out: string, deps: list<record>, n
   }
 }
 
-# `prebuilt = true`: every upstream executable (ELF with PT_INTERP) gets what our linker would
+# `prebuilt = true`: every upstream ELF with a dynamic section gets what our linker would
 # have given it, via formatelf: the reloc stub as entry, our ld.so as absolute interp and a RUNPATH
 # over libc + dependencies' lib dirs, both with the slack reloc-fixup rewrites in place afterwards
 # (pkgs/ji/jig/src/driver.cc kInterpSlack/kRunpathSlack). The file then goes through reloc-fixup
 # like one of ours, and keeps a true /proc/self/exe (bun and node re-exec themselves through it).
-export def implant [c: record<spec: record, out: string, deps: list<record>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool>]: nothing -> nothing {
-  let exes = (glob $"($c.out)/{bin,lib,libexec}/**/*"
-    | where {|f| ($f | path type) == "file" and (is-elf $f) and (^llvm-readelf --program-headers $f | str contains "INTERP ") })
+# `dir`: a tree other than $out, for bindists whose own install step already runs the binaries
+# (ghc's `make install` recaches with the installed ghc-pkg). Those get interp + RUNPATH only:
+# the stub expects the PT_NULL interp reloc-fixup leaves, and that runs over $out at the end.
+export def implant [c: record<spec: record, out: string, deps: list<record>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool>, dir?: path]: nothing -> nothing {
+  let dir = ($dir | default $c.out)
+  let elves = (glob $"($dir)/{bin,lib,libexec}/**/*" | where {|f| ($f | path type) == "file" and (is-elf $f) })
   let interp = $"($c.platform.interp | path dirname)/(1..12 | each { './' } | str join)($c.platform.interp | path basename)"
   let libdirs = [($c.platform.interp | path dirname)] ++ (dep-dirs $c.deps libDirs)
-  for f in $exes {
-    let own = (^formatelf --print-rpath $f | str trim)
-    let dirs = ($libdirs ++ ($own | split row ":" | where { $in != "" }))
+  for f in $elves {
+    let headers = (^llvm-readelf --program-headers $f)
+    # static executables and objects have nothing to resolve
+    if not ($headers | str contains "DYNAMIC ") { continue }
+    let dirs = ($libdirs ++ (^formatelf --print-rpath $f | str trim | split row ":" | compact -e))
     let runpath = $"($dirs | str join ':'):/('' | fill -c '_' -w (($dirs | length) * 48 - 1))"
     ^chmod u+w $f
-    x formatelf --set-entry-stub $c.platform.relocStub --set-interpreter $interp --set-rpath $runpath $f
-    note implant ($f | path relative-to $c.out)
+    # executables also get our interpreter and the relocation stub. Shared objects only need the
+    # RUNPATH: upstream's is $ORIGIN at best, and libc is not there
+    let stub = (if $dir == $c.out { [--set-entry-stub $c.platform.relocStub] } else { [] })
+    let exe = (if ($headers | str contains "INTERP ") { $stub ++ [--set-interpreter $interp] } else { [] })
+    x formatelf ...$exe --set-rpath $runpath $f
+    note implant ($f | path relative-to $dir)
   }
 }
