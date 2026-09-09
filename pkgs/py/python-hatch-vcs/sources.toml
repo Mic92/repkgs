@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:pypi/hatch-vcs"
+
+[[source]]
+key = "default"
+url = "https://files.pythonhosted.org/packages/source/h/hatch-vcs/hatch_vcs-{version}.tar.gz"
+hash = "sha256-m2x8iowLDLsvxjxcNd3Cj/kJtN945TneH7KWBjZBq38="
+
+[pin]
+version = "0.5.0"
+date = "2025-05-27"
+checked = "2026-09-09"

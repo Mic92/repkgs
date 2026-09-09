@@ -1,0 +1,13 @@
+[upstream]
+purl = "pkg:github/copier-org/copier"
+
+[[source]]
+key = "default"
+url = "https://github.com/copier-org/copier/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-rgXR/zxcRk+oXPMi5t5hvmwHAH9n0w4a6gyfIlMdHfk="
+
+[pin]
+version = "9.18.2"
+tag = "v9.18.2"
+date = "2026-09-07"
+checked = "2026-09-09"

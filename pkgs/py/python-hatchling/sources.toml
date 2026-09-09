@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:pypi/hatchling"
+
+[[source]]
+key = "default"
+url = "https://files.pythonhosted.org/packages/source/h/hatchling/hatchling-{version}.tar.gz"
+hash = "sha256-gia//BnuO8ILJR2rYCFlHRWnE4bapr9dlLPrhBjQUuc="
+
+[pin]
+version = "1.32.0"
+date = "2026-08-11"
+checked = "2026-09-09"

@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:pypi/trove-classifiers"
+
+[[source]]
+key = "default"
+url = "https://files.pythonhosted.org/packages/source/t/trove-classifiers/trove_classifiers-{version}.tar.gz"
+hash = "sha256-0/6Vh13oaNNNmDyRPzLOp0Hu1qwwZSCq1jBabFUTEH8="
+
+[pin]
+version = "2026.6.1.19"
+date = "2026-06-01"
+checked = "2026-09-09"

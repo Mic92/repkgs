@@ -139,6 +139,69 @@
       "flags"
     ];
   };
+  pyapp = {
+    module = "pyapp.nu";
+    steps = [
+      "pyapp.build"
+      "pyapp.test"
+      "pyapp.install"
+    ];
+    tools = with buildPkgs; [
+      cpython
+      python-build
+      python-installer
+      python-pyproject-hooks
+      python-packaging
+      python-flit-core
+      python-setuptools
+      python-hatchling
+      formatelf
+    ];
+    knobs = [
+      "root"
+      "deps"
+      "check"
+    ];
+  };
+  bundler = {
+    module = "bundler.nu";
+    steps = [
+      "bundler.build"
+      "bundler.test"
+      "bundler.install"
+    ];
+    tools = [
+      buildPkgs.ruby
+      sh
+    ];
+    knobs = [
+      "root"
+      "gems"
+      "without"
+      "test"
+      "flags"
+    ];
+  };
+  bun = {
+    module = "bun.nu";
+    steps = [
+      "bun.build"
+      "bun.test"
+      "bun.install"
+    ];
+    tools = [
+      buildPkgs.bun
+      sh
+    ];
+    knobs = [
+      "root"
+      "script"
+      "deps"
+      "test"
+      "flags"
+      "compile"
+    ];
+  };
   npm = {
     module = "npm.nu";
     steps = [
