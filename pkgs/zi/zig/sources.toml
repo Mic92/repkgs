@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:github/ziglang/zig"
+
+[[source]]
+key = "default"
+url = "https://ziglang.org/download/{version}/zig-{version}.tar.xz"
+hash = "sha256-qtfORcQVu7RmaQyRI5QgRyayJumO0DmwWLM0EejtRx8="
+
+[pin]
+version = "0.16.0"
