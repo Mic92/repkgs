@@ -22,6 +22,7 @@ struct Invocation {
   std::vector<std::string> key_args;  // what influences the output: all but -o, depfile options, the source
   std::string source;                 // the one translation unit, or the output name of a link (log label)
   std::vector<std::string> inputs;    // object/archive/shared-object arguments of a link
+  std::vector<std::string> pch;       // -include-pch files: build-tree binaries no manifest header covers
   std::filesystem::path output;       // object for -c, text for -E/-S, else the executable / shared object
   bool compile_only = false;          // -c, -S or -E: one translation unit in, one file out, no link
   bool to_stdout = false;             // -E without -o

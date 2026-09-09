@@ -98,6 +98,9 @@ export def main [
     if not ($"($c.out)/bin/($b)" | path exists) { error make {msg: $"bin/($b) missing in output"} }
   }
   for f in (glob $"($c.out)/**/*.la") { rm $f }
+  # precompiled headers pin absolute header paths: fine in a build tree, broken once installed
+  let pch = (glob $"($c.out)/**/*.{pch,gch}")
+  if ($pch | is-not-empty) { error make {msg: $"precompiled headers in output do not relocate: ($pch | first 3 | str join ' ')"} }
   # gzip headers carry an mtime and file name: ship man and info pages uncompressed (the store compresses)
   let gz = (glob $"($c.out)/share/{man,info}/**/*.gz")
   if ($gz | is-not-empty) { x gzip -d ...$gz }

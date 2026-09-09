@@ -104,10 +104,20 @@ auto ComputeRequestKey(const std::string& compiler, const Invocation& inv, std::
 
 // what the request key hashes besides the arguments. nullopt = an input is unreadable
 auto PrimaryIdentity(const Invocation& inv) -> std::optional<std::string> {
-  if (!inv.link) {
-    return ReadFile(inv.source);
-  }
   std::string ids;
+  if (!inv.link) {
+    std::optional<std::string> text = ReadFile(inv.source);
+    // a PCH is consumed like a header but is a binary of this build tree, tied to the absolute
+    // paths it was made under: its bytes are part of what the TU is
+    for (const std::string& pch : inv.pch) {
+      const std::optional<std::string> pch_id = Store::Get().InputId(pch);
+      if (!text || !pch_id) {
+        return std::nullopt;
+      }
+      *text += "\npch=" + *pch_id;
+    }
+    return text;
+  }
   for (const std::string& input : inv.inputs) {
     const std::optional<std::string> input_id = Store::Get().InputId(input);
     if (!input_id) {
@@ -323,6 +333,23 @@ auto TakeDepfileOption(std::span<const std::string> args, size_t& idx, Invocatio
   return true;
 }
 
+// -include-pch <file>, also spelt -Xclang -include-pch -Xclang <file> (cmake): the file is the next
+// non-Xclang word. Stays in the key and is remembered so its bytes enter the primary identity.
+auto TakePchOption(std::span<const std::string> args, size_t& idx, Invocation& inv) -> bool {
+  if (args.at(idx) != "-include-pch") {
+    return false;
+  }
+  inv.key_args.push_back(args.at(idx));
+  while (idx + 1 < args.size() && args.at(idx + 1) == "-Xclang") {
+    inv.key_args.push_back(args.at(++idx));
+  }
+  if (idx + 1 < args.size()) {
+    inv.key_args.push_back(args.at(++idx));
+    inv.pch.push_back(args.at(idx));
+  }
+  return true;
+}
+
 }  // namespace
 
 namespace {
@@ -381,17 +408,23 @@ auto ParseInvocation(std::span<const std::string> args) -> Invocation {
     } else if (IsSourceFile(arg)) {
       inv.source = arg;
       ++sources;
+    } else if (TakePchOption(args, i, inv)) {
+      continue;
     } else if (IsObjectInput(arg)) {
       objects = true;
       inv.inputs.push_back(arg);
       inv.key_args.push_back(arg);
     } else {
       objects = objects || arg == "-shared" || arg == "-r";
-      // @rsp hides inputs; -Map and friends write or print a second output
-      inv.cacheable = inv.cacheable && !arg.starts_with('@') && !arg.contains(",@") && !HasLinkerSideOutput(arg);
+      // @rsp hides inputs. -Map and friends write or print a second output. A PCH records the
+      // absolute path and size of every header it read and clang re-validates them on load, so
+      // one produced under another build's sysroot path is rejected: never replay those.
+      inv.cacheable = inv.cacheable && !arg.starts_with('@') && !arg.contains(",@") && !HasLinkerSideOutput(arg) &&
+                      !arg.ends_with("-header");
       inv.key_args.push_back(arg);
     }
   }
+  inv.cacheable = inv.cacheable && inv.output.extension() != ".pch" && inv.output.extension() != ".gch";
   Classify(inv, sources, objects, stop);
   return inv;
 }

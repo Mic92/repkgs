@@ -135,6 +135,18 @@ void TestParseInvocation() {
 }
 
 // configure's preprocessor probes: cached like a compile, -E/-S part of the key, text to stdout without -o
+void TestParsePch() {
+  Invocation inv = ParseInvocation(V({"-x", "c++-header", "pch.hxx", "-o", "pch.hxx.pch", "-c"}));
+  assert(!inv.cacheable);
+  inv = ParseInvocation(V({"-Xclang", "-emit-pch", "-c", "cmake_pch.hxx.cxx", "-o", "cmake_pch.hxx.pch"}));
+  assert(!inv.cacheable);
+  inv = ParseInvocation(V({"-include-pch", "x.pch", "-c", "a.cc", "-o", "a.o"}));
+  assert(inv.cacheable && inv.pch == V({"x.pch"}));
+  inv = ParseInvocation(V(
+      {"-Xclang", "-include-pch", "-Xclang", "/b/x.pch", "-Xclang", "-include", "-Xclang", "/b/x.hxx", "-c", "a.cc"}));
+  assert(inv.cacheable && inv.pch == V({"/b/x.pch"}) && inv.source == "a.cc");
+}
+
 void TestParsePreprocess() {
   Invocation inv = ParseInvocation(V({"-std=gnu23", "-E", "conftest.c"}));
   assert(inv.cacheable && inv.compile_only && inv.to_stdout && inv.key_args == V({"-std=gnu23", "-E"}));
@@ -335,6 +347,7 @@ auto main() -> int {
   TestBase();
   TestStore();
   TestParseInvocation();
+  TestParsePch();
   TestParsePreprocess();
   TestParseLink();
   TestParseJoinedOutput();
