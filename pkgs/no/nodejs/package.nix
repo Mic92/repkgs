@@ -10,6 +10,7 @@ package {
     pkgs.cpython
     pkgs.ninja
   ];
+  patches = [ ./libcxx-includes.patch ];
   steps = [
     {
       name = "configure";

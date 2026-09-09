@@ -1,0 +1,25 @@
+Headers that relied on libc++ dragging <vector>/<atomic> in transitively, which 23 no longer does.
+
+diff --git a/deps/ncrypto/ncrypto.h b/deps/ncrypto/ncrypto.h
+index 6fb6b38..4c14658 100644
+--- a/deps/ncrypto/ncrypto.h
++++ b/deps/ncrypto/ncrypto.h
+@@ -19,6 +19,7 @@
+ #include <optional>
+ #include <string>
+ #include <string_view>
++#include <vector>
+ #if defined(NCRYPTO_ENGINE_COMPAT) && NCRYPTO_ENGINE_COMPAT &&                 \
+     !defined(OPENSSL_NO_ENGINE)
+ #include <openssl/engine.h>
+diff --git a/deps/v8/src/wasm/pgo.h b/deps/v8/src/wasm/pgo.h
+--- a/deps/v8/src/wasm/pgo.h
++++ b/deps/v8/src/wasm/pgo.h
+@@ -9,6 +9,7 @@
+ #error This header should only be included if WebAssembly is enabled.
+ #endif  // !V8_ENABLE_WEBASSEMBLY
+ 
++#include <atomic>
+ #include <vector>
+ 
+ #include "src/base/vector.h"
