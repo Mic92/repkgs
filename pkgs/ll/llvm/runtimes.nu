@@ -110,10 +110,9 @@ def main []: nothing -> nothing {
     $built | insert $l.name $objs
   } | ignore
   if not $elf { return }
-  # link-time names. libc++.so is a linker script (as upstream installs it) so -lc++ alone is enough
-  x ln -s libunwind.so.1 $"($out)/lib/libunwind.so"
-  x ln -s libc++abi.so.1 $"($out)/lib/libc++abi.so"
-  "INPUT(libc++.so.1 -lc++abi -lunwind)\n" | save $"($out)/lib/libc++.so"
+  # link-time names. libc++.so.1 carries c++abi and unwind (above), so no INPUT() script as
+  # upstream installs: zig's linker resolves script members in its own -L list only
+  for l in [unwind "c++abi" "c++"] { x ln -s $"lib($l).so.1" $"($out)/lib/lib($l).so" }
   # rustc's and go's prebuilt std hard-code -lgcc_s for the unwinder. libunwind has the same _Unwind_* ABI
   "INPUT(-lunwind)\n" | save $"($out)/lib/libgcc_s.so"
   x ln -s libunwind.a $"($out)/lib/libgcc_s.a" | ignore
