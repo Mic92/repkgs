@@ -40,7 +40,7 @@ purl = "pkg:github/sharkdp/fd"     # identity; picks datasource and default vers
 
 [[source]]
 key = "default"                    # free-form: default, x86_64-linux, docs…
-url = "https://github.com/sharkdp/fd/archive/refs/tags/v{version}.tar.gz"
+url = "https://github.com/sharkdp/fd/archive/refs/tags/v{version}.tar.gz"  # the canonical one, nix/mirrors.nix adds fallbacks by prefix
 hash = "sha256-…"                  # tool; NAR hash of the unpacked tree (--strip-components 1), fetch+unpack is one FOD
 # unpack = false                   # keep the file as is (single files); hash is then the flat sha256
 

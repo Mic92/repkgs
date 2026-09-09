@@ -8,6 +8,22 @@
 file:
 let
   fetchurl = import <nix/fetchurl.nix>;
+  mirrors = import ./mirrors.nix;
+  inherit (builtins)
+    attrNames
+    filter
+    concatMap
+    substring
+    stringLength
+    ;
+  hasPrefix = p: s: substring 0 (stringLength p) s == p;
+  # the url itself, then the same path on every mirror of its prefix (nix/mirrors.nix)
+  withMirrors =
+    url:
+    [ url ]
+    ++ concatMap (p: map (m: m + substring (stringLength p) (-1) url) mirrors.${p}) (
+      filter (p: hasPrefix p url) (attrNames mirrors)
+    );
   t = builtins.fromTOML (builtins.readFile file);
   pin = t.pin or { };
   version = pin.version or "";
@@ -74,7 +90,8 @@ let
       }
     else
       derivation {
-        inherit name system url;
+        inherit name system;
+        urls = withMirrors url;
         builder = "${unpacker}/bin/nu";
         args = [
           "--no-config-file"
