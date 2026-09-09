@@ -77,31 +77,21 @@ let
     nu = bootstrap.seed;
     inherit system;
     inherit (plat) cpu;
-    # what cargoVendor/goModules may hand to -sys crates and cgo modules; names as in builder/sys-libs.nu
-    sysLibs = builtins.listToAttrs (
-      map
-        (n: {
+    # what the lock-file producers may hand to -sys crates, cgo modules, gems…: every `pkg:` that
+    # builder/sys-libs.nu names and the set has
+    sysLibs =
+      let
+        words = builtins.filter builtins.isList (
+          builtins.split "pkg: ([a-z0-9-]+)" (builtins.readFile ./builder/sys-libs.nu)
+        );
+        names = map builtins.head words;
+      in
+      builtins.listToAttrs (
+        map (n: {
           name = n;
           value = self.${n};
-        })
-        (
-          builtins.filter (n: self ? ${n}) [
-            "openssl"
-            "zlib"
-            "zstd"
-            "bzip2"
-            "xz"
-            "sqlite"
-            "curl"
-            "pcre2"
-            "oniguruma"
-            "libffi"
-            "expat"
-            "taglib"
-            "libyaml"
-          ]
-        )
-    );
+        }) (builtins.filter (n: self ? ${n}) names)
+      );
   };
 
   scope = {

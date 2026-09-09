@@ -1,29 +1,19 @@
 { package }:
 package {
   name = "ninja";
-  uses = [ "autotools" ];
-  # configure.py needs python, python needs zlib (a cmake package) → cycle. The source list is
-  # configure.py's (posix, no browse tool); re2c outputs ship in the tarball
+  # configure.py needs python, python needs zlib (a cmake package) → cycle. So: every src/*.cc
+  # that is not a test, a benchmark, Windows-only, an re2c input or the python browse tool
   steps = [
     {
       name = "build";
       run = ''
         cd $c.build
-        let names = [depfile_parser lexer build build_log clean clparser debug_flags deps_log disk_interface
-          dyndep dyndep_parser edit_distance elide_middle eval_env graph graphviz jobserver json line_printer
-          manifest_parser metrics missing_deps parser real_command_runner state status_printer
-          string_piece_util util version jobserver-posix subprocess-posix ninja]
+        let srcs = (glob $"($c.src)/src/*.cc" | where { ($in | path basename) !~ '(_test|_perftest|_bench|\.in|-win32)\.cc$|^(test|browse)\.cc$' })
         let flags = [-O2 -DNDEBUG -fvisibility=hidden -Wno-deprecated -DNINJA_PYTHON="python3"]
-        $names | par-each {|n| x c++ ...$flags -c $"($c.src)/src/($n).cc" -o $"($n).o" } | ignore
-        x c++ ...($names | each { $"($in).o" }) -o ninja
-      '';
-    }
-    {
-      name = "install";
-      run = ''
-        mkdir $"($c.out)/bin"
-        cp $"($c.build)/ninja" $"($c.out)/bin/ninja"
+        $srcs | par-each {|s| x c++ ...$flags -c $s -o $"($s | path parse | get stem).o" } | ignore
+        x c++ ...(glob *.o | sort) -o $"($c.src)/ninja"
       '';
     }
   ];
+  install."bin/ninja" = "ninja";
 }

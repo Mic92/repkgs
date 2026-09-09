@@ -2,7 +2,7 @@
 # it (`pkg`) and how the build is told to use it instead of a bundled copy (`env`, plus `tags` for
 # go and `flags` for bundler; `{root}` stands for the library's store path).
 #
-# nix/fetch.nix offers the producers a fixed set of libraries (`sysLibs`); a producer `pick`s the
+# default.nix offers the producers every `pkg:` below that exists as a package; a producer `pick`s the
 # ones its lock file names and propagates them through its output's exports.json, so the package
 # build has them as dependencies without package.nix listing them. The build-system module then
 # applies `env-for`/`go-tags`/`gem-build-flags` for whatever libraries are present.

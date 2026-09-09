@@ -1,298 +1,245 @@
-# What `uses = [ "<name>" ]` means: the nu module implementing the verbs, the default step order,
-# the tools it puts on PATH, and the knobs a package may set under `<name>.*` (anything else is an
-# eval error). `sh` is for tools that spawn a shell by name (ninja, npm run, libtool).
+# What `uses = [ "<name>" ]` means: builder/<name>.nu implements the verbs, `verbs` is the default
+# step order (build test install unless said otherwise), `tools` go on PATH, and `knobs` are what a
+# package may set under `<name>.*` (anything else is an eval error). `lock = knob: fetcher` gives
+# that knob the package's own lock file, fetched from its source, as default. `sh` is for tools
+# that spawn a shell by name (ninja, npm run, libtool).
 {
   buildPkgs,
   fetch,
   sh,
 }:
-{
-  autotools = {
-    module = "autotools.nu";
-    steps = [
-      "autotools.configure"
-      "autotools.build"
-      "autotools.test"
-      "autotools.install"
-    ];
-    # make and bash come with baseTools (or the seed's for bootstrapTools packages)
-    tools = [ sh ];
-    knobs = [
-      "flags"
-      "makeFlags"
-      "installFlags"
-      "configureScript"
-      "outOfTree"
-      "testTarget"
-      "buildTarget"
-    ];
-  };
-  cmake = {
-    module = "cmake.nu";
-    steps = [
-      "cmake.configure"
-      "cmake.build"
-      "cmake.test"
-      "cmake.install"
-    ];
-    tools = [
-      buildPkgs.cmake
-      buildPkgs.ninja
-      sh
-    ];
-    knobs = [
-      "defs"
-      "sourceDir"
-      "generator"
-    ];
-  };
-  meson = {
-    module = "meson.nu";
-    steps = [
-      "meson.configure"
-      "meson.build"
-      "meson.test"
-      "meson.install"
-    ];
-    tools = [
-      buildPkgs.meson
-      buildPkgs.ninja
-      sh
-    ];
-    knobs = [
-      "options"
-      "sourceDir"
-    ];
-  };
-  python = {
-    module = "python.nu";
-    steps = [
-      "python.build"
-      "python.install"
-      "python.test"
-    ];
-    # the PEP 517 front end and its deps. Members of the stack itself get only what exists before them
-    tools = [ buildPkgs.cpython ];
-    stack = with buildPkgs; [
-      python-flit-core
-      python-packaging
-      python-pyproject-hooks
-      python-build
-      python-installer
-    ];
-    knobs = [
-      "backend"
-      "module"
-      "root"
-      "pytest"
-    ];
-  };
-  cargo = {
-    module = "cargo.nu";
-    steps = [
-      "cargo.build"
-      "cargo.test"
-      "cargo.install"
-    ];
-    tools = [ buildPkgs.rust ];
-    # the package's own lock file, when root and hashes need nothing extra
-    defaults = args: { vendor = fetch.cargoVendor { inherit (args) source; }; };
-    knobs = [
-      "features"
-      "noDefaultFeatures"
-      "root"
-      "vendor"
-    ];
-  };
-  cabal = {
-    module = "cabal.nu";
-    steps = [
-      "cabal.build"
-      "cabal.test"
-      "cabal.install"
-    ];
-    tools = [
-      buildPkgs.ghc-bootstrap
-      buildPkgs.cabal-bootstrap
-    ];
-    # the shared version set (locks/hackage.toml) every cabal package solves against
-    defaults = _: { set = fetch.hackageSet { }; };
-    knobs = [
-      "set"
-      "flags"
-      "exes"
-      "project"
-      "root"
-    ];
-  };
-  go = {
-    module = "go.nu";
-    steps = [
-      "go.build"
-      "go.test"
-      "go.install"
-    ];
-    tools = [ buildPkgs.go ];
-    # the package's own lock file, when root and hashes need nothing extra
-    defaults = args: { modules = fetch.goModules { inherit (args) source; }; };
-    knobs = [
-      "tags"
-      "ldflags"
-      "packages"
-      "testPackages"
-      "root"
-      "modules"
-      "cgo"
-    ];
-  };
-  pnpm = {
-    module = "pnpm.nu";
-    steps = [
-      "pnpm.build"
-      "pnpm.test"
-      "pnpm.install"
-    ];
-    tools = [
-      buildPkgs.pnpm
-      buildPkgs.nodejs
-      sh
-    ];
-    # the package's own lock file, when root and hashes need nothing extra
-    defaults = args: { deps = fetch.pnpmDeps { inherit (args) source; }; };
-    knobs = [
-      "root"
-      "script"
-      "deps"
-      "test"
-      "flags"
-    ];
-  };
-  pyapp = {
-    module = "pyapp.nu";
-    steps = [
-      "pyapp.build"
-      "pyapp.test"
-      "pyapp.install"
-    ];
-    tools = with buildPkgs; [
-      cpython
-      python-build
-      python-installer
-      python-pyproject-hooks
-      python-packaging
-      python-flit-core
-      python-setuptools
-      python-hatchling
-      formatelf
-    ];
-    knobs = [
-      "root"
-      "deps"
-      "check"
-    ];
-  };
-  bundler = {
-    module = "bundler.nu";
-    steps = [
-      "bundler.build"
-      "bundler.test"
-      "bundler.install"
-    ];
-    tools = [
-      buildPkgs.ruby
-      sh
-    ];
-    # the package's own lock file, when root and hashes need nothing extra
-    defaults = args: { gems = fetch.gems { inherit (args) source; }; };
-    knobs = [
-      "root"
-      "gems"
-      "without"
-      "test"
-      "flags"
-    ];
-  };
-  deno = {
-    module = "deno.nu";
-    steps = [
-      "deno.build"
-      "deno.test"
-      "deno.install"
-    ];
-    tools = [ buildPkgs.deno ];
-    # the package's own lock file, when root and hashes need nothing extra
-    defaults = args: { deps = fetch.denoDeps { inherit (args) source; }; };
-    knobs = [
-      "root"
-      "deps"
-      "entry"
-      "permissions"
-      "test"
-      "check"
-      "flags"
-    ];
-  };
-  bun = {
-    module = "bun.nu";
-    steps = [
-      "bun.build"
-      "bun.test"
-      "bun.install"
-    ];
-    tools = [
-      buildPkgs.bun
-      sh
-    ];
-    knobs = [
-      "root"
-      "script"
-      "deps"
-      "test"
-      "flags"
-      "compile"
-    ];
-  };
-  yarn = {
-    module = "yarn.nu";
-    steps = [
-      "yarn.build"
-      "yarn.test"
-      "yarn.install"
-    ];
-    tools = [
-      buildPkgs.yarn
-      buildPkgs.nodejs
-      sh
-    ];
-    # the package's own lock file, when root and hashes need nothing extra
-    defaults = args: { deps = fetch.yarnDeps { inherit (args) source; }; };
-    knobs = [
-      "root"
-      "script"
-      "deps"
-      "test"
-      "flags"
-    ];
-  };
-  npm = {
-    module = "npm.nu";
-    steps = [
-      "npm.build"
-      "npm.test"
-      "npm.install"
-    ];
-    tools = [
-      buildPkgs.nodejs
-      sh
-    ];
-    # the package's own lock file, when root and hashes need nothing extra
-    defaults = args: { deps = fetch.npmDeps { inherit (args) source; }; };
-    knobs = [
-      "root"
-      "script"
-      "deps"
-      "test"
-      "flags"
-    ];
-  };
-}
+builtins.mapAttrs
+  (name: bs: {
+    module = "${name}.nu";
+    steps = map (v: "${name}.${v}") (
+      bs.verbs or [
+        "build"
+        "test"
+        "install"
+      ]
+    );
+    defaults =
+      args:
+      builtins.mapAttrs (_: f: f { inherit (args) source; }) (bs.lock or { }) // (bs.defaults or { });
+    inherit (bs) tools knobs;
+    stack = bs.stack or [ ];
+  })
+  {
+    autotools = {
+      verbs = [
+        "configure"
+        "build"
+        "test"
+        "install"
+      ];
+      # make and bash come with baseTools (or the seed's for bootstrapTools packages)
+      tools = [ sh ];
+      knobs = [
+        "flags"
+        "makeFlags"
+        "installFlags"
+        "configureScript"
+        "outOfTree"
+        "testTarget"
+        "buildTarget"
+      ];
+    };
+    cmake = {
+      verbs = [
+        "configure"
+        "build"
+        "test"
+        "install"
+      ];
+      tools = [
+        buildPkgs.cmake
+        buildPkgs.ninja
+        sh
+      ];
+      knobs = [
+        "defs"
+        "sourceDir"
+        "generator"
+      ];
+    };
+    meson = {
+      verbs = [
+        "configure"
+        "build"
+        "test"
+        "install"
+      ];
+      tools = [
+        buildPkgs.meson
+        buildPkgs.ninja
+        sh
+      ];
+      knobs = [
+        "options"
+        "sourceDir"
+      ];
+    };
+    python = {
+      verbs = [
+        "build"
+        "install"
+        "test"
+      ]; # tests import the installed module
+      # the PEP 517 front end and its deps. Members of the stack itself get only what exists before them
+      tools = [ buildPkgs.cpython ];
+      stack = with buildPkgs; [
+        python-flit-core
+        python-packaging
+        python-pyproject-hooks
+        python-build
+        python-installer
+      ];
+      knobs = [
+        "backend"
+        "module"
+        "root"
+        "pytest"
+      ];
+    };
+    cargo = {
+      tools = [ buildPkgs.rust ];
+      lock.vendor = fetch.cargoVendor;
+      knobs = [
+        "features"
+        "noDefaultFeatures"
+        "root"
+        "vendor"
+      ];
+    };
+    cabal = {
+      tools = [
+        buildPkgs.ghc-bootstrap
+        buildPkgs.cabal-bootstrap
+      ];
+      # the shared version set (locks/hackage.toml) every cabal package solves against
+      defaults.set = fetch.hackageSet { };
+      knobs = [
+        "set"
+        "flags"
+        "exes"
+        "project"
+        "root"
+      ];
+    };
+    go = {
+      tools = [ buildPkgs.go ];
+      lock.modules = fetch.goModules;
+      knobs = [
+        "tags"
+        "ldflags"
+        "packages"
+        "testPackages"
+        "root"
+        "modules"
+        "cgo"
+      ];
+    };
+    pnpm = {
+      tools = [
+        buildPkgs.pnpm
+        buildPkgs.nodejs
+        sh
+      ];
+      lock.deps = fetch.pnpmDeps;
+      knobs = [
+        "root"
+        "script"
+        "deps"
+        "test"
+        "flags"
+      ];
+    };
+    pyapp = {
+      tools = with buildPkgs; [
+        cpython
+        python-build
+        python-installer
+        python-pyproject-hooks
+        python-packaging
+        python-flit-core
+        python-setuptools
+        python-hatchling
+        formatelf
+      ];
+      knobs = [
+        "root"
+        "deps"
+        "check"
+      ];
+    };
+    bundler = {
+      tools = [
+        buildPkgs.ruby
+        sh
+      ];
+      lock.gems = fetch.gems;
+      knobs = [
+        "root"
+        "gems"
+        "without"
+        "test"
+        "flags"
+      ];
+    };
+    deno = {
+      tools = [ buildPkgs.deno ];
+      lock.deps = fetch.denoDeps;
+      knobs = [
+        "root"
+        "deps"
+        "entry"
+        "permissions"
+        "test"
+        "check"
+        "flags"
+      ];
+    };
+    bun = {
+      tools = [
+        buildPkgs.bun
+        sh
+      ];
+      knobs = [
+        "root"
+        "script"
+        "deps"
+        "test"
+        "flags"
+        "compile"
+      ];
+    };
+    yarn = {
+      tools = [
+        buildPkgs.yarn
+        buildPkgs.nodejs
+        sh
+      ];
+      lock.deps = fetch.yarnDeps;
+      knobs = [
+        "root"
+        "script"
+        "deps"
+        "test"
+        "flags"
+      ];
+    };
+    npm = {
+      tools = [
+        buildPkgs.nodejs
+        sh
+      ];
+      lock.deps = fetch.npmDeps;
+      knobs = [
+        "root"
+        "script"
+        "deps"
+        "test"
+        "flags"
+      ];
+    };
+  }

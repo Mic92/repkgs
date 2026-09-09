@@ -211,7 +211,7 @@ let
       map (u: {
         name = u;
         value = buildSystems.${u}.defaults args // (args.${u} or { });
-      }) (filter (u: buildSystems.${u} ? defaults) uses)
+      }) (filter (u: args ? ${u} || buildSystems.${u}.defaults args != { }) uses)
     )
     // {
       inherit steps;
@@ -226,7 +226,7 @@ let
     ]
     ++ (args.buildDependencies or [ ])
     ++ (if (args.prebuilt or false) == true then relocTools else [ ])
-    ++ concatMap (u: buildSystems.${u}.tools ++ stackBefore (buildSystems.${u}.stack or [ ])) uses
+    ++ concatMap (u: buildSystems.${u}.tools ++ stackBefore buildSystems.${u}.stack) uses
     ++ (if args.bootstrapTools or false then baseTools.bootstrap else baseTools.full);
     dependencies = args.dependencies or [ ];
     runtimeDependencies = args.runtimeDependencies or [ ];
