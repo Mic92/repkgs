@@ -42,5 +42,5 @@ def checksums [lock: string]: nothing -> table {
   }
   $section | lines
     | parse -r '^  (?<name>\S+) \((?<version>[^)-]+)(?:-(?<platform>[^)]+))?\)(?: sha256=(?<sha256>[0-9a-f]{64}))?$'
-    | where sha256 != ""
+    | update platform { default "" } | where sha256 != null
 }
