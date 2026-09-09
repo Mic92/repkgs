@@ -10,15 +10,7 @@ package {
     pkgs.gmp
     pkgs.zlib
   ];
-  steps = [
-    {
-      name = "install";
-      run = ''
-        mkdir $"((ctx).out)/bin"
-        cp cabal $"((ctx).out)/bin/cabal"
-      '';
-    }
-  ];
+  install."bin/cabal" = "cabal";
   bin = [ "cabal" ];
   tests.version = "--numeric-version";
 }

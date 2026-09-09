@@ -51,6 +51,8 @@ let
     "cc"
     "bootstrapTools"
     "prebuilt"
+    "install"
+    "links"
   ];
 
   # the part of every derivation that is the same across the set: built once
@@ -130,10 +132,13 @@ let
     else
       true;
 
+  # `install`/`links` alone (prebuilt binaries, data): the one step is copying them into $out
   steps =
     args.steps or (
       if length uses == 1 then
         buildSystems.${head uses}.steps
+      else if uses == [ ] && (args ? install || args ? links) then
+        [ ]
       else
         fail "'steps' is required with more than one build system"
     );

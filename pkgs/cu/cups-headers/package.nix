@@ -3,14 +3,5 @@
 { package }:
 package {
   name = "cups-headers";
-  steps = [
-    {
-      name = "install";
-      run = ''
-        let inc = $"((ctx).out)/include/cups"
-        mkdir $inc
-        for h in (glob cups/*.h) { cp $h $inc }
-      '';
-    }
-  ];
+  install."include/cups/" = "cups/*.h";
 }

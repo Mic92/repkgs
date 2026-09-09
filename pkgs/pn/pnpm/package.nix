@@ -4,18 +4,11 @@
 package {
   name = "pnpm";
   runtimeDependencies = [ pkgs.nodejs ];
-  steps = [
-    {
-      name = "install";
-      run = ''
-        let c = (ctx)
-        let dst = $"($c.out)/lib/node_modules/pnpm"
-        mkdir ($dst | path dirname) $"($c.out)/bin"
-        ^cp -r . $dst
-        for b in [pnpm pnpx] { ^ln -s $"($dst)/bin/($b).cjs" $"($c.out)/bin/($b)" }
-      '';
-    }
-  ];
+  install."lib/node_modules/pnpm" = ".";
+  links = {
+    "bin/pnpm" = "../lib/node_modules/pnpm/bin/pnpm.cjs";
+    "bin/pnpx" = "../lib/node_modules/pnpm/bin/pnpx.cjs";
+  };
   tests.version = "pnpm --version";
   bin = [ "pnpm" ];
 }

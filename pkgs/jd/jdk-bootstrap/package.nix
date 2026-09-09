@@ -15,14 +15,18 @@ package {
   ];
   steps = [
     {
-      name = "install";
-      run = ''
-        let c = (ctx)
-        for d in [bin conf include jmods lib release] { cp -r $d $c.out }
-        # X11 AWT and its dependents would fail the implant for want of libX11 & co
-        rm ...(glob $"($c.out)/lib/{libawt_xawt,libsplashscreen,libjawt}.so")
-      '';
+      # X11 AWT and its dependents would fail the implant for want of libX11 & co
+      name = "prune";
+      run = "rm lib/libawt_xawt.so lib/libsplashscreen.so lib/libjawt.so";
     }
+  ];
+  install."." = [
+    "bin"
+    "conf"
+    "include"
+    "jmods"
+    "lib"
+    "release"
   ];
   bin = [
     "java"

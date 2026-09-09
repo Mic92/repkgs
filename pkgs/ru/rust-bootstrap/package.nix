@@ -27,7 +27,7 @@ package {
         for d in (["."] ++ ($env.components | split row " ")) {
           x sh $"($d)/install.sh" $"--prefix=($c.out)" --disable-ldconfig
         }
-        rm -rf $"($c.out)/lib/rustlib/($c.platform.triple)/bin" $"($c.out)/share/doc" $"($c.out)/share/man" $"($c.out)/etc"
+        rm -rf $"($c.out)/lib/rustlib/($c.platform.triple)/bin" $"($c.out)/etc"
         # rustc >= 1.90 links x86_64-linux-gnu through its "self-contained" gcc-ld/ld.lld, build
         # scripts included: make that cc's lld
         let gcc_ld = $"($c.out)/lib/rustlib/($c.platform.triple)/bin/gcc-ld"

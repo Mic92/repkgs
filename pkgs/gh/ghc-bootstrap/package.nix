@@ -22,7 +22,6 @@ package {
         # the bindist's configure records cc/ld/ar for ghc's settings file and relinks nothing
         x sh ./configure $"--prefix=($c.out)" CC=cc CXX=c++ LD=ld AR=ar RANLIB=ranlib STRIP=llvm-strip
         x make install
-        rm -rf $"($c.out)/share/doc"
         # the bin/ wrappers hardcode exedir=$out/…: find lib/ from the script's own location instead
         for f in (ls $"($c.out)/bin" | where type == file | get name) {
           open --raw $f | str replace -r 'exedir="[^"]*/lib/' 'exedir="$(cd "$(dirname "$0")" && pwd)/../lib/' | save -f $f

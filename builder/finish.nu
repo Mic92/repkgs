@@ -82,10 +82,33 @@ def cache-summary []: nothing -> nothing {
   }
 }
 
+# spec.install {"<dest under $out>": "<glob in the source tree>" | [globs]}: copied after the steps
+# ran, a dest ending in / is a directory the matches go into. spec.links {"<path>": "<target>"}
+# `install` sources are globs relative to the source tree (where finish runs)
+def install-map [c: record]: nothing -> nothing {
+  for e in ($c.spec.install? | default {} | transpose dest from) {
+    let to = $"($c.out)/($e.dest)"
+    let from = ($e.from | each {|g| glob $g } | flatten)
+    if ($from | is-empty) { error make {msg: $"install ($e.dest): nothing matches ($e.from)"} }
+    if ($e.dest | str ends-with "/") or ($from | length) > 1 {
+      mkdir $to
+      for f in $from { ^cp -rp $f $to }
+    } else {
+      mkdir ($to | path dirname)
+      ^cp -rp $from.0 $to
+    }
+  }
+  for e in ($c.spec.links? | default {} | transpose path target) {
+    mkdir ($"($c.out)/($e.path)" | path dirname)
+    ^ln -sfn $e.target $"($c.out)/($e.path)"
+  }
+}
+
 export def main [
   --keep-tree  # tests.separate: save source+build tree for the tests derivation
 ]: nothing -> nothing {
   let c = (ctx)
+  install-map $c
   if $keep_tree {
     let tree = (attrs).outputs.tree
     mkdir $tree
@@ -98,6 +121,8 @@ export def main [
     if not ($"($c.out)/bin/($b)" | path exists) { error make {msg: $"bin/($b) missing in output"} }
   }
   for f in (glob $"($c.out)/**/*.la") { rm $f }
+  # no separate doc outputs (yet): HTML/info docs are never read from a store path, man pages stay
+  for d in [share/doc share/info share/gtk-doc] { rm -rf $"($c.out)/($d)" }
   # precompiled headers pin absolute header paths: fine in a build tree, broken once installed
   let pch = (glob $"($c.out)/**/*.{pch,gch}")
   if ($pch | is-not-empty) { error make {msg: $"precompiled headers in output do not relocate: ($pch | first 3 | str join ' ')"} }

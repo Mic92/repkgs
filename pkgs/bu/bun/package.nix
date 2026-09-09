@@ -6,16 +6,8 @@
 package {
   name = "bun";
   prebuilt = true;
-  steps = [
-    {
-      name = "install";
-      run = ''
-        mkdir $"((ctx).out)/bin"
-        cp bun $"((ctx).out)/bin/bun"
-        ^ln -s bun $"((ctx).out)/bin/bunx"
-      '';
-    }
-  ];
+  install."bin/bun" = "bun";
+  links."bin/bunx" = "bun";
   bin = [ "bun" ];
   tests.version = true;
 }

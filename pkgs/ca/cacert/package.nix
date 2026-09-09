@@ -2,16 +2,7 @@
 { package }:
 package {
   name = "cacert";
-  steps = [
-    {
-      name = "install";
-      run = ''
-        let c = (ctx)
-        mkdir $"($c.out)/etc/ssl/certs"
-        cp certifi/cacert.pem $"($c.out)/etc/ssl/certs/ca-bundle.crt"
-      '';
-    }
-  ];
+  install."etc/ssl/certs/ca-bundle.crt" = "certifi/cacert.pem";
   exports = {
     libDirs = [ ];
     libs = [ ];

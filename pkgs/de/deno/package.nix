@@ -8,15 +8,7 @@ package {
   name = "deno";
   prebuilt = true;
   dependencies = [ pkgs.libgcc-shim ]; # upstream links libgcc_s.so.1 for unwinding
-  steps = [
-    {
-      name = "install";
-      run = ''
-        mkdir $"((ctx).out)/bin"
-        cp deno $"((ctx).out)/bin/deno"
-      '';
-    }
-  ];
+  install."bin/deno" = "deno";
   bin = [ "deno" ];
   tests.version = true;
 }

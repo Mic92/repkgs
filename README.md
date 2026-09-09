@@ -54,10 +54,13 @@ version+hash. `pkgs/up/uptrack/src/uptrack init pkgs/li/libpng pkg:github/pnggro
 `uptrack check` / `apply` keep it current (docs/uptrack.md).
 
 Fields: `name version source patches uses steps dependencies buildDependencies
-runtimeDependencies bin tests.{run,separate,skip,parallel,version,relocated} exports env root cc.cflags bootstrapTools prebuilt` plus one
+runtimeDependencies bin tests.{run,separate,skip,parallel,version,relocated} exports env root cc.cflags bootstrapTools prebuilt install links` plus one
 attrset per build system in `uses` (knobs listed in `nix/build-systems.nix`, unknown fields and
 knobs are eval errors). `steps` defaults to the build system's. Entries are `"<bs>.<verb>"` or
 `{ name, run = "<nu>" }`. Inside `run`, `(ctx)` gives `src build out deps njobs platform`.
+`install."<dest>" = "<glob>"` copies into `$out` after the steps (prebuilt binaries need no
+step at all), `links."<path>" = "<target>"` adds symlinks, `exports = false` marks a toolchain or
+application whose lib/ is nobody's link input.
 
 ## Bootstrap chain
 

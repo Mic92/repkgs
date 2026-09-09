@@ -3,14 +3,5 @@
 { package }:
 package {
   name = "fontconfig-headers";
-  steps = [
-    {
-      name = "install";
-      run = ''
-        let inc = $"((ctx).out)/include/fontconfig"
-        mkdir $inc
-        for h in (glob fontconfig/*.h) { cp $h $inc }
-      '';
-    }
-  ];
+  install."include/fontconfig/" = "fontconfig/*.h";
 }

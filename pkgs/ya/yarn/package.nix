@@ -4,18 +4,11 @@
 package {
   name = "yarn";
   runtimeDependencies = [ pkgs.nodejs ];
-  steps = [
-    {
-      name = "install";
-      run = ''
-        let c = (ctx)
-        let dst = $"($c.out)/lib/node_modules/yarn"
-        mkdir ($dst | path dirname) $"($c.out)/bin"
-        ^cp -r . $dst
-        for b in [yarn yarnpkg] { ^ln -s $"($dst)/bin/yarn.js" $"($c.out)/bin/($b)" }
-      '';
-    }
-  ];
+  install."lib/node_modules/yarn" = ".";
+  links = {
+    "bin/yarn" = "../lib/node_modules/yarn/bin/yarn.js";
+    "bin/yarnpkg" = "../lib/node_modules/yarn/bin/yarn.js";
+  };
   tests.version = "yarn --version";
   bin = [ "yarn" ];
 }

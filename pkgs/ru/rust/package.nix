@@ -71,8 +71,8 @@ package {
       run = ''
         let c = (ctx)
         x python3 x.py install
-        rm -rf $"($c.out)/share/doc" $"($c.out)/lib/rustlib/install.log" $"($c.out)/lib/rustlib/uninstall.sh"
-        rm -f ...(glob $"($c.out)/lib/rustlib/manifest-*") $"($c.out)/lib/rustlib/components" $"($c.out)/lib/rustlib/rust-installer-version"
+        # rust-installer bookkeeping, install.log carries a timestamp
+        rm -f ...(glob $"($c.out)/lib/rustlib/{install.log,uninstall.sh,manifest-*,components,rust-installer-version}")
       '';
     }
   ];

@@ -6,15 +6,13 @@ package {
   name = "go-bootstrap";
   # static binaries, nothing to implant: "ldso" just skips debug split and fixup without pulling in formatelf (and thereby rust)
   prebuilt = "ldso";
-  steps = [
-    {
-      name = "install";
-      run = ''
-        let c = (ctx)
-        mkdir $c.out
-        for d in [bin pkg src lib go.env VERSION] { mv $d $c.out }
-      '';
-    }
+  install."." = [
+    "bin"
+    "pkg"
+    "src"
+    "lib"
+    "go.env"
+    "VERSION"
   ];
   bin = [ "go" ];
   tests.version = "version";
