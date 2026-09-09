@@ -37,7 +37,7 @@ To get the compile cache, run the daemon once and let the sandbox see its socket
 
 ```console
 $ nix-build -A pkgs-cache && ./result/bin/pkgs-cache /tmp/pkgs-cache.sock &
-$ echo 'extra-sandbox-paths = /run/pkgs-cache.sock=/tmp/pkgs-cache.sock' >> ~/.config/nix/nix.conf
+$ tools/build -A jq     # nix-build with the socket mapped into the sandbox, no remote builders
 ```
 
 Every build log then ends in a line like `cache: hit=812 miss-stored=3`.
