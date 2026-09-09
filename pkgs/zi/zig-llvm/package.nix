@@ -30,6 +30,16 @@ package {
     pkgs.zstd
   ];
   buildDependencies = [ buildPkgs.cpython ];
+  steps = [
+    "cmake.configure"
+    "cmake.build"
+    "cmake.install"
+    {
+      # python scripts clang installs regardless of CLANG_BUILD_TOOLS. zig needs the libraries
+      name = "no-scripts";
+      run = "glob $\"($c.out)/bin/{git-clang-format,hmaptool,scan-*,analyze-*,intercept-*}\" | each { rm $in }";
+    }
+  ];
   tests.run = false; # hours, as llvm
   bin = [ "llvm-config" ];
 }
