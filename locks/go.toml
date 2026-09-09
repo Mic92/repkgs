@@ -414,6 +414,7 @@
 "github.com/kballard/go-shellquote@v0.0.0-20180428030007-95032a82bc51" = { mod = "sha256-SaLWxz9mfcD0YyKg1qz8uhQgm/t2735iLWHhCRli/zQ=", zip = "sha256-rky3sJfcTrDCSN/wDtO78PNphMQWKtHWFSZghOWL1sw=" }
 "github.com/kisielk/gotool@v1.0.0" = { mod = "sha256-d6ynv/wOwp/J8IjVliqzEo9AXXsQx865aT/3oIlYlV0=" }
 "github.com/klauspost/compress@v1.18.5" = { mod = "sha256-DWbWBp2eL7h1xbRk0VssgCMs/ImR5viDNs5GHKgQ4M8=", zip = "sha256-4f3eldl5eBRiQ/Hnk84YoJsQfWzWAyNH/LW5EVGBSX0=" }
+"github.com/klauspost/cpuid/v2@v2.0.9" = { mod = "sha256-ZhgLxWPIiQ4otpumT75uHSh5qFdKP/zn5ZfxkV94vGw=", zip = "sha256-UscWQTKW3OKxaYxs28TFOSfOSu4qYJgNr5Zy5rajtMs=" }
 "github.com/klauspost/cpuid/v2@v2.3.0" = { mod = "sha256-/2HUfyVPIzO/RKj/QYei8ulzaTgHwQAlAzuzcUNXcjc=", zip = "sha256-5nZvdez63xL9BF5L3ZOD8qW9P5vUyIpttyhhyEz0FIY=" }
 "github.com/klauspost/cpuid/v2@v2.4.0" = { mod = "sha256-S9cffAmdv2qoaYfGKrSQBDZiAKzoK4z1V2lMyz3b7S0=", zip = "sha256-TgwSgVWFFO/Mwsw6t41DBCZIb+kQHW3MmhsJDgXCbGk=" }
 "github.com/konsorten/go-windows-terminal-sequences@v1.0.1" = { mod = "sha256-a2na/Tz2TXtX6XiEin4nGivgoE2aJWTdJVZJHSfQoDQ=" }
@@ -1094,6 +1095,7 @@
 "honnef.co/go/tools@v0.0.1-2019.2.3" = { mod = "sha256-WS6cVbsnJSWkaQDFVGn+uXra5QfnZJvqtNwTUNc19k8=" }
 "honnef.co/go/tools@v0.0.1-2020.1.3" = { mod = "sha256-tiK1Ky2Qhbyk/LoBGmt19WWcucVAnoMNtVvxx0NkyaI=" }
 "honnef.co/go/tools@v0.0.1-2020.1.4" = { mod = "sha256-tiK1Ky2Qhbyk/LoBGmt19WWcucVAnoMNtVvxx0NkyaI=" }
+"lukechampine.com/blake3@v1.4.1" = { mod = "sha256-e0HVnHYiIr2MXyUMhQcXXOjA6vxwgr+8r1aMjRtgS9M=", zip = "sha256-s6Mzim6DC3n7L/HSY/B/P+Ctz7r9BLZeX+FEFWE+Lk0=" }
 "modernc.org/libc@v1.73.4" = { mod = "sha256-Qc4rQyUjK9LOdX/cpu08g7nC8ughpKjQ+F1CLQLbQio=", zip = "sha256-vJBp9k9KjWgTj6Pm264blanemlP0tGJBlMfe4IFC61E=" }
 "modernc.org/mathutil@v1.7.1" = { mod = "sha256-aGgzhSA/4CBNhTuuYAA8M2cW0lJucUm/WPUYFaJHn9g=", zip = "sha256-W+DaGOtVehGYv+Nw43Ai8tvbnNxdYxMPyOgzCrJAvS4=" }
 "modernc.org/memory@v1.11.0" = { mod = "sha256-6YkNO5eU1Ao3A6qYCe3E4THLtVooMbYCMUB26Rxazpc=", zip = "sha256-STC4HRCBim0RSXIE/gay7cNZE2p4gVhjY8qmlMhgfQw=" }

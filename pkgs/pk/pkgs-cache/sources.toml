@@ -1,0 +1,3 @@
+# in-tree source (./src). Only here so `uptrack lock pkgs-cache` records go.sum's modules
+[locks]
+go = "."

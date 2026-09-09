@@ -3,7 +3,8 @@
 //
 //	GET key\n             -> OK <len>\n<bytes> | MISS\n
 //	PUT key <len>\n<bytes> -> OK\n
-//	STATS\n               -> gets=… hits=… puts=… keys=… packs=… bytes=… live=…\n
+//	IDS <n>\n<n paths\n>    -> <n identities\n> ("" for unreadable), see identity.go
+//	STATS\n               -> gets=… hits=… puts=… ids=… keys=… packs=… bytes=… live=…\n
 //
 // PKGS_CACHE_SIZE (GiB, default 50) bounds the store; the oldest packs are dropped beyond it.
 package main
@@ -25,6 +26,7 @@ import (
 
 var (
 	store            *Store
+	idents           = NewIdentities()
 	gets, hits, puts atomic.Int64
 )
 
@@ -60,6 +62,19 @@ func put(in *bufio.Reader, out *bufio.Writer, key string, size int64) error {
 	return err
 }
 
+func ids(in *bufio.Reader, out *bufio.Writer, count int) error {
+	for ; count > 0; count-- {
+		path, err := in.ReadString('\n')
+		if err != nil {
+			return err
+		}
+		if _, err := out.WriteString(idents.Of(strings.TrimSuffix(path, "\n")) + "\n"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func serve(conn *net.UnixConn) {
 	defer conn.Close()
 	in := bufio.NewReaderSize(conn, 1<<16)
@@ -79,8 +94,14 @@ func serve(conn *net.UnixConn) {
 				return
 			}
 			err = put(in, out, fields[1], size)
+		case len(fields) == 2 && fields[0] == "IDS":
+			count, perr := strconv.Atoi(fields[1])
+			if perr != nil || count < 0 || count > 1<<20 {
+				return
+			}
+			err = ids(in, out, count)
 		case len(fields) == 1 && fields[0] == "STATS":
-			_, err = fmt.Fprintf(out, "gets=%d hits=%d puts=%d %s\n", gets.Load(), hits.Load(), puts.Load(), store.Stats())
+			_, err = fmt.Fprintf(out, "gets=%d hits=%d puts=%d ids=%d %s\n", gets.Load(), hits.Load(), puts.Load(), idents.Len(), store.Stats())
 		default:
 			return
 		}

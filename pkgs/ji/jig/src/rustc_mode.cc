@@ -260,7 +260,7 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
   const RequestKey request_key(Tool::kRustc, hasher.Finish());
 
   if (const std::optional<std::string> manifest = cache.Get(slot::Manifest(request_key))) {
-    if (const std::optional<ResultKey> result_key = ValidateManifest(request_key, *manifest)) {
+    if (const std::optional<ResultKey> result_key = ValidateManifest(cache, request_key, *manifest)) {
       const std::optional<std::string> blob = cache.Get(slot::Object(*result_key));
       if (blob && UnpackFiles(*blob, inv.out_dir, inv.extra_filename)) {
         std::print(stderr, "{}", cache.Get(slot::Stderr(*result_key)).value_or(""));
@@ -285,7 +285,7 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
   }
   const DepInfo info = ParseDepInfo(*dep_text);
   // "# env-dep:" lines (env!() inputs) are not tracked yet. CARGO_PKG_* are in k1
-  const Manifest manifest = BuildManifest(request_key, info.inputs, inv.source);
+  const Manifest manifest = BuildManifest(cache, request_key, info.inputs, inv.source);
   cache.Put(slot::Manifest(request_key), manifest.text);
   cache.Put(slot::Object(manifest.result_key), PackFiles(info.outputs, inv.extra_filename));
   cache.Put(slot::Stderr(manifest.result_key), run.stderr_text);

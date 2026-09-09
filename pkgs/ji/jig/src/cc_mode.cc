@@ -131,31 +131,36 @@ auto Lookup(CacheClient& cache, const RequestKey& request_key, const Invocation&
   if (!manifest) {
     return std::nullopt;
   }
-  const std::optional<ResultKey> result_key = ValidateManifest(request_key, *manifest);
+  const std::optional<ResultKey> result_key = ValidateManifest(cache, request_key, *manifest);
   if (!result_key) {
     return std::nullopt;
   }
+  // everything a replay might need in one pipelined exchange; unused answers are cheap MISSes
+  const std::vector<std::string> keys{
+      slot::ExitStatus(*result_key),
+      slot::Object(*result_key),
+      slot::Depfile(*result_key),
+      slot::Stderr(*result_key),
+  };
+  std::vector<std::optional<std::string>> got = cache.GetMany(keys);
+  std::optional<std::string>& status = got.at(0);
+  std::optional<std::string>& object = got.at(1);
+  std::optional<std::string>& depfile = got.at(2);
+  std::optional<std::string>& stderr_text = got.at(3);
   CachedResult result{};
   // an exit status slot exists only for cached failures. Link failures are never cached (see header)
-  if (!inv.link_one && !inv.link) {
-    if (const std::optional<std::string> status = cache.Get(slot::ExitStatus(*result_key))) {
-      result.status = static_cast<int>(ParseUint(*status).value_or(1));
-    }
+  if (!inv.link_one && !inv.link && status.has_value()) {
+    result.status = static_cast<int>(ParseUint(*status).value_or(1));
   }
   if (result.status == 0) {
-    result.object = cache.Get(slot::Object(*result_key));
-    if (!result.object) {
+    // depfile options are not in the key, so an entry stored by a run without -MD lacks one
+    if (!object || (inv.wants_depfile && !depfile)) {
       return std::nullopt;
     }
-    if (inv.wants_depfile) {
-      // depfile options are not in the key, so an entry stored by a run without -MD lacks one
-      result.depfile = cache.Get(slot::Depfile(*result_key));
-      if (!result.depfile) {
-        return std::nullopt;
-      }
-    }
+    result.object = std::move(object);
+    result.depfile = inv.wants_depfile ? std::move(depfile) : std::nullopt;
   }
-  result.stderr_text = cache.Get(slot::Stderr(*result_key)).value_or("");
+  result.stderr_text = std::move(stderr_text).value_or("");
   return result;
 }
 
@@ -255,7 +260,7 @@ auto CompileAndStore(CacheClient& cache, const std::string& compiler, const Requ
       LogOutcome(Outcome::kMissFail, inv.source, clock);
       return run.status;
     }
-    const Manifest manifest = BuildManifest(request_key, inputs, inv.source);
+    const Manifest manifest = BuildManifest(cache, request_key, inputs, inv.source);
     cache.Put(slot::Manifest(request_key), manifest.text);
     cache.Put(slot::ExitStatus(manifest.result_key), std::to_string(run.status));
     cache.Put(slot::Stderr(manifest.result_key), run.stderr_text);
@@ -269,7 +274,7 @@ auto CompileAndStore(CacheClient& cache, const std::string& compiler, const Requ
     LogOutcome(Outcome::kMissUnstored, inv.source, clock);
     return 0;
   }
-  const Manifest manifest = BuildManifest(request_key, inputs, inv.source);
+  const Manifest manifest = BuildManifest(cache, request_key, inputs, inv.source);
   cache.Put(slot::Manifest(request_key), manifest.text);
   cache.Put(slot::Object(manifest.result_key), *object);
   cache.Put(slot::Stderr(manifest.result_key), run.stderr_text);

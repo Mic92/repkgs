@@ -18,6 +18,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "base.h"
 
@@ -139,20 +140,63 @@ auto Decompress(std::string_view wire) -> std::optional<std::string> {
 
 }  // namespace
 
-auto CacheClient::Get(std::string_view key) -> std::optional<std::string> {
-  if (!fd_.valid() || !SendAll(std::format("GET {}\n", key))) {
-    return std::nullopt;
-  }
+auto CacheClient::RecvValue() -> std::optional<std::string> {
   const std::optional<std::string> line = RecvLine();
   if (!line || !line->starts_with("OK ")) {
     return std::nullopt;
   }
   const std::optional<std::uint64_t> len = ParseUint(std::string_view(*line).substr(3));
   if (!len || *len > kMaxObjectSize) {
-    return std::nullopt;  // a confused server must not drive our allocation
+    fd_ = UniqueFd();  // a confused server must not drive our allocation, and the stream is lost
+    return std::nullopt;
   }
   const std::optional<std::string> wire = RecvExactly(static_cast<size_t>(*len));
   return wire ? Decompress(*wire) : std::nullopt;
+}
+
+auto CacheClient::Get(std::string_view key) -> std::optional<std::string> {
+  if (!fd_.valid() || !SendAll(std::format("GET {}\n", key))) {
+    return std::nullopt;
+  }
+  return RecvValue();
+}
+
+auto CacheClient::GetMany(std::span<const std::string> keys) -> std::vector<std::optional<std::string>> {
+  std::vector<std::optional<std::string>> values(keys.size());
+  std::string request;
+  for (const std::string& key : keys) {
+    request += std::format("GET {}\n", key);
+  }
+  if (!fd_.valid() || keys.empty() || !SendAll(request)) {
+    return values;
+  }
+  for (std::optional<std::string>& value : values) {
+    value = RecvValue();
+  }
+  return values;
+}
+
+auto CacheClient::Identities(std::span<const std::string> paths) -> std::vector<std::string> {
+  if (!fd_.valid() || paths.empty()) {
+    return {};
+  }
+  std::string request = std::format("IDS {}\n", paths.size());
+  for (const std::string& path : paths) {
+    request += path + "\n";
+  }
+  if (!SendAll(request)) {
+    return {};
+  }
+  std::vector<std::string> ids;
+  ids.reserve(paths.size());
+  for (size_t i = 0; i < paths.size(); ++i) {
+    std::optional<std::string> line = RecvLine();
+    if (!line) {
+      return {};
+    }
+    ids.push_back(std::move(*line));
+  }
+  return ids;
 }
 
 void CacheClient::Put(std::string_view key, std::string_view value) {

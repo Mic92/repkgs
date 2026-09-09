@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base.h"
+#include "cache_client.h"
 #include "keys.h"
 #include "store.h"
 
@@ -56,9 +57,49 @@ auto ParseDepfile(std::string_view text) -> std::vector<std::string> {
   return deps;
 }
 
-auto BuildManifest(const RequestKey& request_key, std::span<const std::string> inputs, std::string_view primary_source)
-    -> Manifest {
+namespace {
+
+struct Entry {
+  std::string path;  // resolved to this build's store roots
+  std::string line;  // as stored: "<masked path>\t<identity>"
+  size_t tab = 0;
+};
+
+auto ParseManifest(std::string_view text) -> std::vector<Entry> {
   const Store& store = Store::Get();
+  std::vector<Entry> entries;
+  for (std::string& line : Split(text, '\n')) {
+    if (const size_t tab = line.find('\t'); tab != std::string::npos) {
+      std::string path = store.Resolve(line.substr(0, tab));
+      entries.push_back({.path = std::move(path), .line = std::move(line), .tab = tab});
+    }
+  }
+  return entries;
+}
+
+// one IDS round trip for the store files among `paths`. InputId then finds them without hashing
+void PrefetchIdentities(CacheClient& cache, std::span<const std::string> paths) {
+  Store& store = Store::Get();
+  std::vector<std::string> ask;
+  for (const std::string& path : paths) {
+    if (store.DaemonMayIdentify(path)) {
+      ask.push_back(path);
+    }
+  }
+  const std::vector<std::string> ids = cache.Identities(ask);
+  for (size_t i = 0; i < ids.size(); ++i) {
+    if (!ids.at(i).empty()) {
+      store.RememberIdentity(ask.at(i), ids.at(i));
+    }
+  }
+}
+
+}  // namespace
+
+auto BuildManifest(CacheClient& cache, const RequestKey& request_key, std::span<const std::string> inputs,
+                   std::string_view primary_source) -> Manifest {
+  const Store& store = Store::Get();
+  PrefetchIdentities(cache, inputs);
   std::string text;
   Hasher hasher;
   hasher.Field(request_key.text());
@@ -77,27 +118,24 @@ auto BuildManifest(const RequestKey& request_key, std::span<const std::string> i
   return Manifest{.text = std::move(text), .result_key = ResultKey(hasher.Finish())};
 }
 
-auto ValidateManifest(const RequestKey& request_key, std::string_view manifest_text) -> std::optional<ResultKey> {
+auto ValidateManifest(CacheClient& cache, const RequestKey& request_key, std::string_view manifest_text)
+    -> std::optional<ResultKey> {
   const Store& store = Store::Get();
+  const std::vector<Entry> entries = ParseManifest(manifest_text);
+  std::vector<std::string> paths;
+  paths.reserve(entries.size());
+  for (const Entry& entry : entries) {
+    paths.push_back(entry.path);
+  }
+  PrefetchIdentities(cache, paths);
   Hasher hasher;
   hasher.Field(request_key.text());
-  size_t start = 0;
-  while (start < manifest_text.size()) {
-    size_t end = manifest_text.find('\n', start);
-    if (end == std::string_view::npos) {
-      end = manifest_text.size();
-    }
-    const std::string_view line = manifest_text.substr(start, end - start);
-    start = end + 1;
-    const size_t tab = line.find('\t');
-    if (tab == std::string_view::npos) {
-      continue;
-    }
-    const std::optional<std::string> identity = store.InputId(store.Resolve(std::string(line.substr(0, tab))));
-    if (!identity || *identity != line.substr(tab + 1)) {
+  for (const Entry& entry : entries) {
+    const std::optional<std::string> identity = store.InputId(entry.path);
+    if (!identity || *identity != std::string_view(entry.line).substr(entry.tab + 1)) {
       return std::nullopt;
     }
-    hasher.Field(line);
+    hasher.Field(entry.line);
   }
   return ResultKey(hasher.Finish());
 }

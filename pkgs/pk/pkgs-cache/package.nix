@@ -1,10 +1,11 @@
 # host-side daemon for jig's build cache. Run outside the sandbox: pkgs-cache /tmp/pkgs-cache.sock
-{ package }:
+{ package, fetch }:
 package {
   name = "pkgs-cache";
-  version = "2";
+  version = "3";
   source = ./src;
   uses = [ "go" ];
+  go.modules = fetch.goModules { source = ./src; };
   go.cgo = false;
   steps = [
     "go.build"

@@ -17,6 +17,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -48,8 +49,12 @@ class Store {
   // every store path in a text (a cached depfile) rewritten to this build's roots
   [[nodiscard]] auto ResolveAll(std::string text) const -> std::string;
 
-  // Identity of a file for manifest validation, nullopt if unreadable.
+  // Identity of a file for manifest validation, nullopt if unreadable. Answers remembered via
+  // RememberIdentity (from the daemon, which memoises store files across processes) come first.
   [[nodiscard]] auto InputId(const std::string& path) const -> std::optional<std::string>;
+  // store files outside our own $out: immutable for the daemon's purposes, so it may answer for them
+  [[nodiscard]] auto DaemonMayIdentify(std::string_view path) const -> bool;
+  void RememberIdentity(const std::string& path, std::string identity);
   // Identity of a tool (compiler) for request keys: symlink-resolved, never hash-masked.
   // Masking would make seed-1/clang and seed-2/clang (or two rustc versions) the same key
   [[nodiscard]] static auto ToolId(const std::string& path) -> std::string;
@@ -58,7 +63,9 @@ class Store {
   Store();
   std::string dir_ = JIG_STORE_DIR;
   bool by_content_ = false;
+  std::string out_;  // $NIX_BUILD_TOP's sibling: our own, still mutable, output
   std::vector<std::pair<std::string, std::string>> masked_to_real_;
+  std::unordered_map<std::string, std::string> known_ids_;
 };
 
 }  // namespace jig

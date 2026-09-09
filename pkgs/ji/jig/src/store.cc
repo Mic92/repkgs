@@ -21,7 +21,7 @@ auto Store::Get() -> Store& {
   return instance;
 }
 
-Store::Store() : by_content_(Env("JIG_STORE_IDENTITY", "path") == "content") {}
+Store::Store() : by_content_(Env("JIG_STORE_IDENTITY", "path") == "content"), out_(Env("out")) {}
 
 auto Store::IsStorePath(std::string_view path) const -> bool {
   return path.size() > dir_.size() && path.starts_with(dir_) && path.at(dir_.size()) == '/';
@@ -140,9 +140,22 @@ auto Store::ToolId(const std::string& path) -> std::string {
   return error ? path : real.string();
 }
 
+auto Store::DaemonMayIdentify(std::string_view path) const -> bool {
+  const bool under_out =
+      !out_.empty() && path.starts_with(out_) && (path.size() == out_.size() || path.at(out_.size()) == '/');
+  return by_content_ && IsStorePath(path) && !under_out;
+}
+
+void Store::RememberIdentity(const std::string& path, std::string identity) {
+  known_ids_.insert_or_assign(path, std::move(identity));
+}
+
 auto Store::InputId(const std::string& path) const -> std::optional<std::string> {
   if (IsStorePath(path) && !by_content_) {
     return "S:" + path;
+  }
+  if (const auto known = known_ids_.find(path); known != known_ids_.end()) {
+    return known->second;
   }
   const std::optional<std::string> content = ReadFile(path);
   if (!content) {

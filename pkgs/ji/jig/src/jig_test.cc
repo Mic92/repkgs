@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "base.h"
+#include "cache_client.h"
 #include "cc_mode.h"
 #include "driver.h"
 #include "fixup_mode.h"
@@ -166,16 +167,17 @@ void TestManifest() {
   const jig::RequestKey key(jig::Tool::kCc, jig::HashOf("k1"));
   const jig::RequestKey other(jig::Tool::kCc, jig::HashOf("other"));
   assert(jig::RequestKey(jig::Tool::kRustc, jig::HashOf("k1")).text() == "rs/" + key.text());
-  const jig::Manifest manifest =
-      jig::BuildManifest(key, V({"src.c", (dir + "/a.h").c_str(), (dir + "/b.h").c_str(), "/nonexistent"}), "src.c");
+  jig::CacheClient offline;  // unconnected: identities are hashed locally
+  const jig::Manifest manifest = jig::BuildManifest(
+      offline, key, V({"src.c", (dir + "/a.h").c_str(), (dir + "/b.h").c_str(), "/nonexistent"}), "src.c");
   assert(manifest.text.starts_with(dir + "/a.h\tC:"));
   assert(jig::Split(manifest.text, '\n').size() == 2);
-  assert(jig::ValidateManifest(key, manifest.text) == manifest.result_key);
-  assert(jig::ValidateManifest(other, manifest.text) != manifest.result_key);
+  assert(jig::ValidateManifest(offline, key, manifest.text) == manifest.result_key);
+  assert(jig::ValidateManifest(offline, other, manifest.text) != manifest.result_key);
   assert(jig::slot::Manifest(key) == "m/" + key.text() &&
          jig::slot::Object(manifest.result_key) == "o/" + manifest.result_key.text());
   jig::WriteFile(dir + "/b.h", "B2");
-  assert(!jig::ValidateManifest(key, manifest.text));
+  assert(!jig::ValidateManifest(offline, key, manifest.text));
   std::filesystem::remove_all(dir);
 }
 
