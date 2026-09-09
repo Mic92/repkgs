@@ -54,8 +54,9 @@ def main []: nothing -> nothing {
     print -e $"+ make ($args | str join ' ') > make.log"
     let ok = (try { ^make ...$args o+e>> $mlog; true } catch { false })
     if not $ok {
-      # parallel make buries the failing command. Compile lines are noise, the rest is context
-      print -e (open --raw $mlog | lines | where { $in !~ 'reassign symbol|static-libgcc|overriding recipe|ignoring old recipe| -c ' } | last 200 | str join "\n")
+      # parallel make buries the failing command: every error line, then the tail for context
+      let ls = (open --raw $mlog | lines)
+      print -e ($ls | where { $in =~ '(?i)error|\*\*\*' and $in !~ 'Werror|-Wno-error' } | append ($ls | where { $in !~ 'reassign symbol|static-libgcc|overriding recipe|ignoring old recipe| -c ' } | last 100) | str join "\n")
       error make {msg: $"glibc: make ($args | last) failed"}
     }
   }

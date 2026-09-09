@@ -280,6 +280,7 @@ let
           patches = [
             (pkg "glibc" + "/glibc-gconv-relative.patch")
             (pkg "glibc" + "/glibc-ppc64le-clang.patch")
+            (pkg "glibc" + "/glibc-debug-after-misc.patch")
           ];
           linuxHeaders = linux-headers;
           # the C.UTF-8 locale is compiled by running the fresh localedef, so only where it can run

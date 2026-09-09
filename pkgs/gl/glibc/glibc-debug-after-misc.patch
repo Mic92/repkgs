@@ -1,0 +1,21 @@
+Order debug/ after misc/ in the parallel subdirectory build
+
+debug/____longjmp_chk.S includes <sigaltstack-offsets.h>, generated in misc/
+(gen-as-const-headers in sysdeps/unix/sysv/linux/{x86_64,sh}/Makefile). With the
+subdirectories built in parallel nothing orders the two, and at -j384 debug/ lost:
+  fatal error: 'sigaltstack-offsets.h' file not found
+
+--- a/Makefile
++++ b/Makefile
+@@ -618,6 +618,11 @@
+ $(elf-objpfx)ld.so $(elf-objpfx)sofini.os $(elf-objpfx)interp.os: \
+   | elf/subdir_lib ;
+ endif
++# debug/____longjmp_chk.S includes sigaltstack-offsets.h, which misc/
++# generates (gen-as-const-headers in sysdeps/unix/sysv/linux/*/Makefile)
++ifneq (,$(filter misc,$(subdirs)))
++debug/subdir_lib debug/objects debug/objs debug/others: | misc/subdir_lib
++endif
+ ifneq (,$(filter sunrpc,$(subdirs)))
+ # Makerules explicit adds librpc_compat_pic.a as a dependency of
+ # libc_pic.a.
