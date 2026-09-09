@@ -102,6 +102,12 @@ realisations.
   crates now that links are cached. rustc keys should not change when only the vendor store path
   does. Recurring `miss-fail` on identical rebuilds means an unstable conftest key.
 - jig hashes link inputs serially. Thread it if llvm-sized links show up in profiles.
+- Zig has no cache protocol (no GOCACHEPROG equivalent, `--listen` is the IDE/build server), only
+  `zig-cache` directories: manifests under `h/`, artifacts under `o/<hash>/`, with the zig lib dir,
+  project root and global cache dir prefix-stripped from recorded paths, so a cache dir is portable
+  between sandboxes. Round-trip `ZIG_GLOBAL_CACHE_DIR` through pkgs-cache as one tree (restore
+  before the build, store after, key: zig binary identity + source tree) for zig's own stage3
+  first, then for a `zig` build system. Stages 1 and 2 are C through jig and cached already.
 - m4's tests are off: gnulib `test-float-h.c` does not compile (C23 `*_IS_IEC_60559` missing
   from clang's `<float.h>` in gnu23 mode), and `test-posix_spawn-chdir` was seen spinning in the
   sandbox once. The spawn sequence itself passes against crt_interp outside.
