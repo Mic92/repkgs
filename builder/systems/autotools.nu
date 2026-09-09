@@ -33,10 +33,10 @@ export def build []: nothing -> nothing {
   x make $"-j($c.njobs)" ...($k.buildTarget? | default [] ) ...($k.makeFlags)
 }
 
-# make check (or `autotools.testTarget`) when tests run on this builder
+# make check (or `autotools.testTarget`), tests.parallel as -j
 export def test []: nothing -> nothing {
-  let c = (ctx); let k = (knobs)
-  x make $"-j($c.njobs)" ...($k.testTarget? | default "check" | split row " ") ...($k.makeFlags)
+  let k = (knobs)
+  x make $"-j(test-jobs)" ...($k.testTarget? | default "check" | split row " ") ...($k.makeFlags)
 }
 
 # make install (`autotools.installTarget`, `autotools.makeFlags`)

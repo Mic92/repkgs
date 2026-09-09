@@ -38,16 +38,16 @@ export def build []: nothing -> nothing {
   x go build -p ($c.njobs | into string) -o $"($c.build)/bin/" ...(common-args $k) ...$k.packages
 }
 
-# go test (`go.testPackages`, default `go.packages`)
+# go test (`go.testPackages`, default `go.packages`), tests.parallel as -p/-parallel, tests.skip as -skip
 export def test []: nothing -> nothing {
-  let c = (ctx); let k = (knobs)
-  x go test -p ($c.njobs | into string) -vet=off ...(common-args $k) ...($k.testPackages? | default $k.packages)
+  let k = (knobs)
+  let skip = (if (test-skips | is-empty) { [] } else { [-skip (test-skips | str join '|')] })
+  x go test -p (test-jobs) -parallel (test-jobs) -vet=off ...$skip ...(common-args $k) ...($k.testPackages? | default $k.packages)
 }
 
-# built binaries (or `bin` from the spec) -> $out/bin
+# the executables go built -> $out/bin (those in `bin` when the spec names some)
 export def install []: nothing -> nothing {
   let c = (ctx)
-  mkdir $"($c.out)/bin"
-  let bins = ($c.spec.bin? | default (ls $"($c.build)/bin" | get name | path basename))
-  for b in $bins { cp $"($c.build)/bin/($b)" $"($c.out)/bin/($b)" }
+  let built = (ls $"($c.build)/bin" | get name | path basename)
+  install-bins $"($c.build)/bin" ($built | where { $c.spec.bin? == null or $in in $c.spec.bin })
 }

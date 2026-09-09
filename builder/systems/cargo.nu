@@ -41,16 +41,16 @@ export def --env setup []: nothing -> nothing {
 
 # cargo build --release
 export def build []: nothing -> nothing { x cargo build --release --offline ...(feature-args (knobs)) }
-# cargo test --release
-export def test []: nothing -> nothing { x cargo test --release --offline ...(feature-args (knobs)) }
-# the spec's `bin` entries cargo built -> $out/bin. Others (symlinks a later step adds) are left
-# to that step; finish checks that every `bin` exists in the end
+# cargo test --release, tests.parallel as --test-threads, tests.skip as --skip filters
+export def test []: nothing -> nothing {
+  x cargo test --release --offline ...(feature-args (knobs)) -- --test-threads (test-jobs) ...(test-skips | each { [--skip $in] } | flatten)
+}
+# the executables cargo built -> $out/bin (those in `bin` when the spec names some), as go does
 export def install []: nothing -> nothing {
   let c = (ctx)
-  mkdir $"($c.out)/bin"
   # with CARGO_BUILD_TARGET set cargo always builds into target/<triple>/
   let release = $"($env.CARGO_TARGET_DIR)/($env.CARGO_BUILD_TARGET)/release"
-  let built = ($c.spec.bin? | default [$c.spec.name] | where {|b| $"($release)/($b)" | path exists })
-  if ($built | is-empty) { error make {msg: $"cargo.install: none of ($c.spec.bin? | default [$c.spec.name]) in ($release)"} }
-  for b in $built { cp $"($release)/($b)" $"($c.out)/bin/($b)" }
+  # cargo's own files there: lib*.rlib/.so/.d and .cargo-lock; the rest are the [[bin]] targets
+  let built = (ls -s $release | where type == file and name !~ '^lib|\.(d|rlib)$|^\.' | get name)
+  install-bins $release ($built | where { $c.spec.bin? == null or $in in $c.spec.bin })
 }

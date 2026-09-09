@@ -35,6 +35,13 @@ export def dep-dirs [deps: list<record<name: string, root: string>>, field: stri
   $deps | each {|d| $d | get $field | each {|rel| $"($d.root)/($rel)" } } | flatten
 }
 
+# files `names` of `dir` -> $out/bin. finish checks afterwards that every `bin` of the spec exists
+export def install-bins [dir: string, names: list<string>]: nothing -> nothing {
+  let c = (ctx)
+  mkdir $"($c.out)/bin"
+  for b in $names { cp $"($dir)/($b)" $"($c.out)/bin/($b)" }
+}
+
 # `tests.parallel = false` -> 1, else njobs; and the `tests.skip` patterns
 export def test-jobs []: nothing -> string { let c = (ctx); if ($c.spec.tests?.parallel? | default true) { $c.njobs } else { 1 } | into string }
 # regexes of test names to leave out

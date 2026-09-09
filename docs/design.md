@@ -179,7 +179,8 @@ The resulting rules:
   the build directory and every dependency, fixed hash seeds for Python and Perl, deterministic
   archives, uncompressed man pages.
 - **Tests run**, in the build by default. `tests.separate` moves them to a second derivation
-  that restores the build tree, so a flaky test cannot change the package's hash.
+  that restores the build tree, so a flaky test cannot change the package's hash. `tests.skip`
+  (name patterns) and `tests.parallel = false` mean the same to ctest, meson, cargo, go and make.
   `tests.version` checks that `bin/x --version` (or the command line given, `"go version"`)
   prints the pinned version, which catches many broken installs (missing data files, wrong
   rpath, stale version string).
