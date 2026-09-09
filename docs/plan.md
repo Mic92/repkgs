@@ -107,5 +107,6 @@ realisations.
   crates now that links are cached. rustc keys should not change when only the vendor store path
   does. Recurring `miss-fail` on identical rebuilds means an unstable conftest key.
 - jig hashes link inputs serially. Thread it if llvm-sized links show up in profiles.
-- m4's gnulib `test-posix_spawn-chdir` spins in the sandbox: check crt_interp's AT_EXECFN
-  fallback when cwd changes.
+- m4's tests are off: gnulib `test-float-h.c` does not compile (C23 `*_IS_IEC_60559` missing
+  from clang's `<float.h>` in gnu23 mode), and `test-posix_spawn-chdir` was seen spinning in the
+  sandbox once. The spawn sequence itself passes against crt_interp outside.
