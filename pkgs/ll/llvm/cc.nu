@@ -28,7 +28,13 @@ def main []: nothing -> nothing {
   # the ELF link policy (interp via crt_interp.o, $ORIGIN RUNPATHs) keys off `libc`; PE needs none of it
   let elf = (if $env.os == "linux" {
     cp $env.crt_interp crt_interp.c  # compile from cwd: the STT_FILE symbol would otherwise record a store path
-    x clang ...(target) -O2 -fPIE -ffreestanding -nostdlib -nostdinc -fno-builtin -fno-stack-protector -fno-asynchronous-unwind-tables -c crt_interp.c -o $"($out)/lib/crt_interp.o"
+    let stubflags = [...(target) -O2 -fPIE -ffreestanding -nostdlib -nostdinc -fno-builtin -fno-stack-protector -fno-asynchronous-unwind-tables]
+    x clang ...$stubflags -c crt_interp.c -o $"($out)/lib/crt_interp.o"
+    # the same code as a flat blob for `formatelf --set-entry-stub` (builder/finish.nu, prebuilt = "reloc")
+    x clang ...$stubflags -DRELOC_STUB -fno-jump-tables -fvisibility=hidden -c crt_interp.c -o reloc_stub.o
+    "SECTIONS { . = 0; .text : { KEEP(*(.text.header)) *(.text.entry) *(.text .text.* .rodata .rodata.*) } /DISCARD/ : { *(.dynsym .dynstr .hash .gnu.hash .dynamic .interp .comment .note.* .eh_frame*) } }\n" | save stub.ld
+    x $lld -pie --no-dynamic-linker -e __reloc_start -T stub.ld reloc_stub.o -o reloc_stub.elf
+    x llvm-objcopy -O binary -j .text reloc_stub.elf $"($out)/lib/reloc_stub.bin"
     {libc: $sysroot, interp: $env.interp, crt: $"($out)/lib/crt_interp.o", runtimes: $"($sysroot)/lib"}
   } else { {} })
   $conf | merge $elf | items {|k, v| $"($k) = ($v)" } | str join "\n" | $in + "\n" | save $"($out)/etc/jig.conf"

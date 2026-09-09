@@ -10,6 +10,11 @@
 //      patch auxv: AT_BASE = ld.so base, AT_ENTRY = the real _start (crt1)
 //   5. jump to ld.so's e_entry with the original, untouched initial stack
 // ld.so then behaves exactly as if the kernel had loaded it as interpreter.
+//
+// -DRELOC_STUB builds the same code as a flat position-independent blob (reloc_stub.bin) that
+// `reloc-fixup` implants into ELFs we did not link (upstream rustc, bun, deno): a header at offset 0
+// carries the program's original e_entry (link-time vaddr, filled in by reloc-fixup) in place of
+// the `_start` symbol reference.
 
 typedef unsigned long u64;
 typedef long i64;
@@ -51,9 +56,19 @@ typedef struct {
 #define PT_NULL 0
 #define PT_PHDR 6
 #define PT_INTERP 3
+#ifdef RELOC_STUB
+// First bytes of reloc_stub.bin. reloc-fixup checks `magic` and writes `entry`.
+struct StubHeader {
+  char magic[8];
+  u64 entry;
+};
+__attribute__((section(".text.header"), used, visibility("hidden")))
+const struct StubHeader reloc_stub_header = {{'R', 'E', 'L', 'O', 'C', 'S', 'T', 'B'}, 0};
+#else
 // The real program entry (crt1.o). Hidden so its address is formed pc-relative: nothing is relocated
 // yet when we run, a GOT load (aarch64/riscv64 default for extern symbols) would read 0.
 extern void _start(void) __attribute__((visibility("hidden")));
+#endif
 
 #if defined(__x86_64__)
 #define SYS_openat 257
@@ -143,12 +158,24 @@ __attribute__((used)) static u64 reloc_main(u64* sp, u64 pagesz_unused) {
   }
   if (!self_ph) die("no AT_PHDR");
   u64 self_bias = 0;
+  int have_phdr = 0;
   Phdr* interp_ph = 0;
   for (u64 i = 0; i < self_phnum; i++) {
-    if (self_ph[i].p_type == PT_PHDR) self_bias = (u64)self_ph - self_ph[i].p_vaddr;
+    if (self_ph[i].p_type == PT_PHDR) {
+      self_bias = (u64)self_ph - self_ph[i].p_vaddr;
+      have_phdr = 1;
+    }
     if (self_ph[i].p_type == PT_NULL && self_ph[i].p_filesz > 1) interp_ph = &self_ph[i];
   }
   if (!interp_ph) die("no disabled PT_INTERP (PT_NULL with contents) found");
+#ifdef RELOC_STUB
+  // reloc-fixup always leaves a PT_PHDR in implanted files, so the bias is exact for ET_EXEC too
+  if (!have_phdr) die("no PT_PHDR");
+  u64 real_entry = self_bias + reloc_stub_header.entry;
+#else
+  (void)have_phdr;
+  u64 real_entry = (u64)&_start;
+#endif
   const char* rel = (const char*)(self_bias + interp_ph->p_vaddr);
 
   // 1. own path. /proc/self/exe is symlink-resolved and absolute. AT_EXECFN is whatever execve got
@@ -233,7 +260,7 @@ __attribute__((used)) static u64 reloc_main(u64* sp, u64 pagesz_unused) {
       have_base = 1;
     }
     if (a[0] == AT_ENTRY) {
-      a[1] = (u64)&_start;
+      a[1] = real_entry;
       have_entry = 1;
     }
   }
@@ -245,7 +272,7 @@ __attribute__((used)) static u64 reloc_main(u64* sp, u64 pagesz_unused) {
 
 #if defined(__x86_64__)
 __asm__(
-    ".text\n.globl __reloc_start\n.type __reloc_start,@function\n"
+    ".section .text.entry,\"ax\"\n.globl __reloc_start\n.type __reloc_start,@function\n"
     "__reloc_start:\n"
     "  mov %rsp, %r12\n"  // keep pristine initial stack pointer (callee-saved)
     "  mov %rsp, %rdi\n"
@@ -257,7 +284,7 @@ __asm__(
 );
 #elif defined(__aarch64__)
 __asm__(
-    ".text\n.globl __reloc_start\n.type __reloc_start,%function\n"
+    ".section .text.entry,\"ax\"\n.globl __reloc_start\n.type __reloc_start,%function\n"
     "__reloc_start:\n"
     "  bti c\n"
     "  mov x19, sp\n"  // callee-saved copy of the initial sp
@@ -270,7 +297,7 @@ __asm__(
     "  br x16\n");
 #elif defined(__riscv)
 __asm__(
-    ".text\n.globl __reloc_start\n.type __reloc_start,@function\n"
+    ".section .text.entry,\"ax\"\n.globl __reloc_start\n.type __reloc_start,@function\n"
     "__reloc_start:\n"
     "  mv s1, sp\n"  // callee-saved copy of the initial sp
     "  mv a0, sp\n"
