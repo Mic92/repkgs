@@ -12,7 +12,7 @@ export def note [step: string, msg: string = ""]: nothing -> nothing {
 }
 
 # what build-system verbs and custom steps get to see: {spec out deps njobs src build platform testsRun}
-export def ctx []: nothing -> record<spec: record, out: string, deps: list<record<name: string, root: string>>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool> { $env.PKGS_CTX | from json }
+export def ctx []: nothing -> record<spec: record, out: string, deps: list<record<name: string, root: string>>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool> { $env.PKGS_CTX }
 
 # a build system's knobs: its defaults overridden by the package's `<bs>.*` attrset
 export def knobs-for [bs: string, defaults: record]: nothing -> record { $defaults | merge ((ctx).spec | get -o $bs | default {}) }
@@ -67,12 +67,12 @@ export def exports-of [p: path]: nothing -> record<name: string, includeDirs: li
   let e = if ($f | path exists) { open $f } else { {} }
   {
     # package name as build systems key on it (sys-libs.nu, dep-root); the store name is <hash>-<name>[-<platform>]
-    name: ($e.name? | default ($p | path basename | str substring 33.. | str replace -r '-(x86_64|aarch64|riscv64|loongarch64|powerpc64le)-\w+$' ''))
-    includeDirs: ($e.includeDirs? | default (existing $p ["include"]))
-    libDirs: ($e.libDirs? | default (existing $p ["lib"]))
-    libs: ($e.libs? | default (glob $"($p)/lib/lib*.so" | each { path parse | get stem | str substring 3.. } | sort))
-    pkgconfigDirs: ($e.pkgconfigDirs? | default (existing $p ["lib/pkgconfig" "share/pkgconfig"]))
-    aclocalDirs: ($e.aclocalDirs? | default (existing $p ["share/aclocal"]))
+    name: ($e.name? | default { $p | path basename | str substring 33.. | str replace -r '-(x86_64|aarch64|riscv64|loongarch64|powerpc64le)-\w+$' '' })
+    includeDirs: ($e.includeDirs? | default { existing $p ["include"] })
+    libDirs: ($e.libDirs? | default { existing $p ["lib"] })
+    libs: ($e.libs? | default { glob $"($p)/lib/lib*.so" | each { path parse | get stem | str substring 3.. } | sort })
+    pkgconfigDirs: ($e.pkgconfigDirs? | default { existing $p ["lib/pkgconfig" "share/pkgconfig"] })
+    aclocalDirs: ($e.aclocalDirs? | default { existing $p ["share/aclocal"] })
     # `{root}` in values: this package's own store path (kept relative in exports.json so the output stays relocatable)
     env: ($e.env? | default {} | items {|k, v| [$k ($v | str replace -a "{root}" $p)] } | into record)
     propagate: ($e.propagate? | default [])

@@ -65,7 +65,7 @@ export def collect [name: string, layout: list<record<to: string>>, inputs: list
     let attrs = (open $env.NIX_ATTRS_JSON_FILE)
     let out = $attrs.outputs.out
     let bin = $"($attrs.seed)/bin"
-    for e in $attrs.layout {
+    $attrs.layout | par-each --threads ($env.NIX_BUILD_CORES? | default "4" | into int) {|e|
       let dst = $"($out)/($e.to)"
       let kind = ([link unpack write copy] | where {|k| $k in ($e | columns) } | first)
       mkdir (if $kind == "unpack" { $dst } else { $dst | path dirname })
@@ -75,7 +75,7 @@ export def collect [name: string, layout: list<record<to: string>>, inputs: list
         "write" => { $e.write | save $dst }
         "copy" => { [(open --raw $e.copy | into binary) ($e.append | into binary)] | bytes collect | save $dst }
       }
-    }
+    } | ignore
     ^$"($bin)/chmod" -R u+w,a-st $out'
   let seed = $env.seed
   let drv = ({
@@ -84,7 +84,7 @@ export def collect [name: string, layout: list<record<to: string>>, inputs: list
     builder: $"($seed)/bin/nu"
     args: ["-c" $ASSEMBLE]
     outputs: {out: {hashAlgo: "r:sha256"}}
-    inputDrvs: ($inputs | reduce --fold {} {|d, acc| $acc | insert $d [out] })
+    inputDrvs: ($inputs | each {|d| [$d [out]] } | into record)
     inputSrcs: [$seed]
     env: {__json: ({name: $name, system: $env.system, outputs: [out], seed: $seed, layout: $layout} | to json --raw)}
   } | add-drv $name $seed ...$inputs)

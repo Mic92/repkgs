@@ -51,10 +51,12 @@ def runtime-closure [lock: record, pyproject: record, extras: list<string>]: not
   }
   let packages = ($lock.package | group-by name)
   let project = (project-entry $lock $pyproject)
+  # a lock repeats a handful of distinct markers hundreds of times: evaluate each once
+  let all_edges = ($lock.package | each {|p| ($p.dependencies? | default []) ++ ($p.optional-dependencies? | default {} | values | flatten) } | flatten)
+  let holds = ($all_edges | get -o marker | compact | uniq | par-each {|m| [$m (pep508 evaluate $m $marker_env)] } | into record)
   let edges_of = {|package: record, extras: list<string>|
     let optional = ($extras | each {|e| $package.optional-dependencies? | default {} | get -o $e | default [] } | flatten)
-    ($package.dependencies? | default []) ++ $optional
-      | where {|edge| $edge.marker? == null or (pep508 evaluate $edge.marker $marker_env) }
+    ($package.dependencies? | default []) ++ $optional | where {|edge| $edge.marker? == null or ($holds | get $edge.marker) }
   }
   # name -> extras already expanded for it
   mut visited = {}

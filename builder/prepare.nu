@@ -96,7 +96,7 @@ export def --env main [
   mkdir $src $env.HOME
   let cache = ("/run/pkgs-cache.sock" | path exists)
   if $cache { compiler-caches }
-  let ctx = {|testsRun| {spec: $spec, out: $out, deps: $deps, njobs: $njobs, src: $env.PWD, build: $build, platform: $plat, testsRun: $testsRun, cache: $cache} | to json -r }
+  let ctx = {|testsRun| {spec: $spec, out: $out, deps: $deps, njobs: $njobs, src: $env.PWD, build: $build, platform: $plat, testsRun: $testsRun, cache: $cache} }
   if $from_tree != "" {
     # same absolute paths as during the build (/build/source, /build/build), so generated files stay valid
     note restore $from_tree

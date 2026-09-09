@@ -79,7 +79,8 @@ export def main [
   }
   for f in (glob $"($c.out)/**/*.la") { rm $f }
   # gzip headers carry an mtime and file name: ship man and info pages uncompressed (the store compresses)
-  for f in (glob $"($c.out)/share/{man,info}/**/*.gz") { x gzip -d $f }
+  let gz = (glob $"($c.out)/share/{man,info}/**/*.gz")
+  if ($gz | is-not-empty) { x gzip -d ...$gz }
   let prebuilt = ($c.spec.prebuilt? | default false)
   # upstream binaries stay byte-identical: their own $ORIGIN rpaths, no debug split, launchers instead
   if not $prebuilt { split-debug $c }
