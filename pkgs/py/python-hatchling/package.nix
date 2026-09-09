@@ -15,4 +15,5 @@ package {
     pkgs.python-trove-classifiers
   ];
   bin = [ "hatchling" ];
+  tests.version = false; # no --version, `hatchling version` reports the project's
 }
