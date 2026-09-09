@@ -4,9 +4,10 @@ purl = "pkg:github/Mic92/formatelf"
 [[source]]
 key = "default"
 url = "https://github.com/Mic92/formatelf/archive/refs/tags/{tag}.tar.gz"
-hash = "sha256-wWCpCxVogWKo/ivGfmAmD8YE8H4CQfs52lMdKsELK/w="
+hash = "sha256-xGXYZmvFBTZiUxtBKKbyqPI8reliajVHOgKT+U9ru0Y="
 
 [pin]
-version = "0.1.0"
-tag = "v0.1.0"
+version = "0.2.1"
+tag = "v0.2.1"
 checked = "2026-09-09"
+date = "2026-09-09"
