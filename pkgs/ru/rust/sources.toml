@@ -4,7 +4,9 @@ purl = "pkg:github/rust-lang/rust"
 [[source]]
 key = "default"
 url = "https://static.rust-lang.org/dist/rustc-{version}-src.tar.xz"
-hash = "sha256-un3UqwdqMBUnusrsJVX8+HMiE4xYI9I9UDc2859GoEk="
+hash = "sha256-lBWYklstPu8ltF3JEPmr+FbMRoD+ax8ji9oTSlYhamM="
 
 [pin]
-version = "1.91.0"
+version = "1.98.1"
+date = "2026-09-03"
+tag = "1.98.1"

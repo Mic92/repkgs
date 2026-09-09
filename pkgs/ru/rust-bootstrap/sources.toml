@@ -4,32 +4,32 @@ purl = "pkg:github/rust-lang/rust"
 [[source]]
 key = "rustc-x86_64"
 url = "https://static.rust-lang.org/dist/rustc-{version}-x86_64-unknown-linux-gnu.tar.xz"
-hash = "sha256-GUTXn73/zRWQu4j76b/NdxAklsr9hrOuaKTC/Kj2Z4Q="
+hash = "sha256-9rY6LNBxKRroSE1EdXi11Fov2iI+R013ST5FTxphFKo="
 
 [[source]]
 key = "rustc-aarch64"
 url = "https://static.rust-lang.org/dist/rustc-{version}-aarch64-unknown-linux-gnu.tar.xz"
-hash = "sha256-bpF5q0d9Km0XZuLb2LCCuJKsvF8o9QhIlrgwChLn/qI="
+hash = "sha256-UZDe+SYazkFsVBN2z6gganvM15naN99rv4a4tAmnFC0="
 
 [[source]]
 key = "cargo-x86_64"
 url = "https://static.rust-lang.org/dist/cargo-{version}-x86_64-unknown-linux-gnu.tar.xz"
-hash = "sha256-ydWArCf/Mqx0ZOplPzLgNGLY8klQrFEWNmey7cwDTUo="
+hash = "sha256-Vffa+XWyypMgboAAeb9qTzjCPhSt4fwKAeiCkiRmOBY="
 
 [[source]]
 key = "cargo-aarch64"
 url = "https://static.rust-lang.org/dist/cargo-{version}-aarch64-unknown-linux-gnu.tar.xz"
-hash = "sha256-xDlisejaG3Q8HVATCqinzOpR1kkyRJzXtbBWNNFJxVM="
+hash = "sha256-aNGyznzAFzGJO7GxW5QQuTd0955OUTlxFvPpAMBE6+8="
 
 [[source]]
 key = "rust-std-x86_64"
 url = "https://static.rust-lang.org/dist/rust-std-{version}-x86_64-unknown-linux-gnu.tar.xz"
-hash = "sha256-ZUwdqauvNKVMdaFiWUMJ79j9DkbIBI58OY5z2quinpA="
+hash = "sha256-M2v27i+RCV65EbZhvY/wDfN+BykfF5uXESkGS/m1ZnE="
 
 [[source]]
 key = "rust-std-aarch64"
 url = "https://static.rust-lang.org/dist/rust-std-{version}-aarch64-unknown-linux-gnu.tar.xz"
-hash = "sha256-m1bZV0j7yVtw7y58kjPH6InOr/mZx//gFJk1I4+q1/g="
+hash = "sha256-+Ft0B8kesKVxdM4US9jsnlh3QGefSU8EjEU4XsI4wco="
 
 [pin]
-version = "1.91.0"
+version = "1.97.1"
