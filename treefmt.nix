@@ -3,11 +3,13 @@
 { pkgs }:
 let
   llvm = pkgs.llvmPackages_23;
-  # nu's own parser/type checker over each file (authoritative). Fails on any error diagnostic
+  # nu's own parser/type checker over each file (authoritative). Fails on any error diagnostic.
+  # cell-path-types: `$rec.field` takes the field's declared type instead of `any`, so typed
+  # records are checked where they are used, not just where they are built
   nu-typecheck = pkgs.writeShellScript "nu-typecheck" ''
     status=0
     for f in "$@"; do
-      out=$(${pkgs.nushell}/bin/nu --no-config-file --ide-check 50 "$f" | ${pkgs.jq}/bin/jq -r 'select(.type == "diagnostic" and .severity == "Error") | "\(.span.start): \(.message)"')
+      out=$(${pkgs.nushell}/bin/nu --no-config-file "--experimental-options=[cell-path-types]" --ide-check 50 "$f" | ${pkgs.jq}/bin/jq -r 'select(.type == "diagnostic" and .severity == "Error") | "\(.span.start): \(.message)"')
       if [ -n "$out" ]; then printf '%s:\n%s\n' "$f" "$out" >&2; status=1; fi
     done
     exit $status

@@ -34,7 +34,7 @@ export def build []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
   cd (project-dir go)
   mkdir $"($c.build)/bin"
-  x go build -p $c.njobs -o $"($c.build)/bin/" ...(common-args $k) ...$k.packages
+  x go build -p ($c.njobs | into string) -o $"($c.build)/bin/" ...(common-args $k) ...$k.packages
 }
 
 # go test (`go.testPackages`, default `go.packages`)
@@ -42,7 +42,7 @@ export def test []: nothing -> nothing {
   let c = (ctx); let k = (knobs)
   if not $c.testsRun { return }
   cd (project-dir go)
-  x go test -p $c.njobs -vet=off ...(common-args $k) ...($k.testPackages? | default $k.packages)
+  x go test -p ($c.njobs | into string) -vet=off ...(common-args $k) ...($k.testPackages? | default $k.packages)
 }
 
 # built binaries (or `bin` from the spec) -> $out/bin

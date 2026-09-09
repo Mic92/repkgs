@@ -45,7 +45,7 @@ def is-foreign [f: path]: nothing -> bool {
 }
 
 # what bin/<name> should launch (the launch record minus env), or null to leave the file as is
-def target [c: record, f: path, owners: list<string>, rdeps: list<string>]: nothing -> oneof<record, nothing> {
+def target [c: record<spec: record, out: string, deps: list<record>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool>, f: path, owners: list<string>, rdeps: list<string>]: nothing -> oneof<record, nothing> {
   let head = (open --raw $f | into binary | bytes at 0..<256)
   let real = $"{root}/bin/.($f | path basename)"
   if ($head | bytes starts-with 0x[23 21]) {
@@ -63,7 +63,7 @@ def target [c: record, f: path, owners: list<string>, rdeps: list<string>]: noth
   }
 }
 
-export def main [c: record]: nothing -> nothing {
+export def main [c: record<spec: record, out: string, deps: list<record>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool>]: nothing -> nothing {
   let bindir = $"($c.out)/bin"
   if not ($bindir | path exists) { return }
   let a = (attrs)

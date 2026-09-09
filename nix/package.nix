@@ -152,6 +152,12 @@ let
   # `<pkg>.tests` restores it and runs only the test verbs, so a failing test cannot change the package
   separate = args.tests.separate or false;
 
+  # same flags as treefmt's nu-typecheck, so what lints clean parses the same way here
+  nuArgs = [
+    "--no-config-file"
+    "--experimental-options=[cell-path-types]"
+    "-c"
+  ];
   stepLine =
     s:
     if isAttrs s then
@@ -214,11 +220,7 @@ let
     // {
       name = if platform.cross then "${name}-${platform.name}" else name;
       outputs = [ "out" ] ++ (if separate then [ "tree" ] else [ ]);
-      args = [
-        "--no-config-file"
-        "-c"
-        script
-      ];
+      args = nuArgs ++ [ script ];
     }
   );
   testsDrv = derivation (
@@ -227,11 +229,7 @@ let
       name = "${drv.name}-tests";
       outputs = [ "out" ];
       package = drv.out;
-      args = [
-        "--no-config-file"
-        "-c"
-        testScript
-      ];
+      args = nuArgs ++ [ testScript ];
     }
   );
 in

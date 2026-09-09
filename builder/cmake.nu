@@ -42,7 +42,7 @@ export def configure []: nothing -> nothing {
 }
 
 # cmake --build
-export def build []: nothing -> nothing { cd (ctx).build; x cmake --build . -j ((ctx).njobs) }
+export def build []: nothing -> nothing { cd (ctx).build; x cmake --build . -j ((ctx).njobs | into string) }
 # ctest, honouring tests.parallel and tests.skip (regex-joined -E)
 export def test []: nothing -> nothing {
   let c = (ctx); cd $c.build
