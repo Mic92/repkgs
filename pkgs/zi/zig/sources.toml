@@ -1,5 +1,5 @@
 [upstream]
-purl = "pkg:github/ziglang/zig"
+purl = "pkg:generic/zig?url=https://ziglang.org/download/index.json"
 
 [[source]]
 key = "default"

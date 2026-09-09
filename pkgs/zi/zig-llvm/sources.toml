@@ -1,6 +1,5 @@
 [upstream]
 purl = "pkg:github/llvm/llvm-project"
-allow = "==21.*"
 
 [[source]]
 key = "default"

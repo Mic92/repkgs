@@ -1,4 +1,4 @@
-# cmake definitions shared by llvm and llvm21
+# cmake definitions shared by llvm and zig-llvm
 {
   LLVM_TARGETS_TO_BUILD = "X86;AArch64;RISCV;LoongArch;PowerPC;ARM;WebAssembly";
   LLVM_LINK_LLVM_DYLIB = true;
