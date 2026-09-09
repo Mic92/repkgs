@@ -3,6 +3,7 @@
 # is the normal form, `normalize` repairs what a union merge leaves (order, duplicate lines).
 
 use lock-go.nu
+use pipeline.nu
 
 # entries of <dir>/<eco>.toml, {} when absent
 export def read [dir: path, eco: string]: nothing -> record {
@@ -34,38 +35,36 @@ export def normalize [file: path]: nothing -> nothing {
   if $norm != (open --raw $file) { $norm | save -f $file }
 }
 
-# treefmt entry point
-# add this package's dependencies ([locks] go = "<dir in source>") to the tree's
-# locks/<eco>.toml ($UPTRACK_LOCKS, default <root>/locks), from the source at the current pin
-# (fetched through `<name>.src`). Entries already in the table are not fetched again
-export def add [pkg: record, --attr: string]: nothing -> record {
-  if ($pkg.locks | is-empty) { return {} }
-  let root = $env.UPTRACK_ROOT? | default $env.PWD
-  let d = (dir)
-  let src = ^nix-build $root -A $"($attr | default $pkg.name).src" --no-out-link | str trim
+# add this package's dependencies ([locks] go = "<dir in source>") to <dir>/<eco>.toml from the
+# source at the current pin (built as `<name>.src`); entries already present are not fetched
+# again. Returns [{eco, keys}]: what this package uses, for prune
+export def add [pkg: record]: nothing -> table<eco: string, keys: list<string>> {
+  if ($pkg.locks | is-empty) { return [] }
+  let src = (^nix-build (pipeline root) -A $"($pkg.name).src" --no-out-link | str trim)
   $pkg.locks | items {|eco, sub|
-    let old = read $d $eco
-    let mine = match $eco { "go" => (lock-go lock ($src | path join $sub) $old) }
-    let new = $old | merge $mine
+    let old = (read (dir) $eco)
+    let mine = (match $eco { "go" => (lock-go lock ($src | path join $sub) $old) })
+    let new = ($old | merge $mine)
     print -e $"  ($eco): ($mine | columns | length) entries, (($new | columns | length) - ($old | columns | length)) new"
-    write $d $eco $new
-    {$eco: ($mine | columns)}
-  } | reduce -f {} {|it, acc| $acc | merge $it }
-}
-
-# $UPTRACK_LOCKS, default <root>/locks
-export def dir []: nothing -> path { $env.UPTRACK_LOCKS? | default ($env.UPTRACK_ROOT? | default $env.PWD | path join locks) }
-
-# rewrite each table to exactly the keys `used` names (eco -> list of keys), dropping the rest
-export def prune [used: record]: nothing -> nothing {
-  let d = (dir)
-  for u in ($used | transpose eco keys) {
-    let old = read $d $u.eco
-    let kept = $old | select ...($u.keys | uniq)
-    print -e $"($u.eco): kept ($kept | columns | length), dropped (($old | columns | length) - ($kept | columns | length))"
-    write $d $u.eco $kept
+    write (dir) $eco $new
+    {eco: $eco, keys: ($mine | columns)}
   }
 }
 
+# $UPTRACK_LOCKS, default <root>/locks
+export def dir []: nothing -> path { $env.UPTRACK_LOCKS? | default (pipeline root | path join locks) }
 
-def main [...files: path]: nothing -> nothing { for f in $files { normalize $f } }
+# rewrite each table to exactly the keys in `used` ([{eco, keys}]), dropping the rest
+export def prune [used: table<eco: string, keys: list<string>>]: nothing -> nothing {
+  for u in $used {
+    let old = (read (dir) $u.eco)
+    let kept = ($old | select ...$u.keys)
+    print -e $"($u.eco): kept ($kept | columns | length), dropped (($old | columns | length) - ($kept | columns | length))"
+    write (dir) $u.eco $kept
+  }
+}
+
+# treefmt entry point
+def main [
+  ...files: path # locks/<eco>.toml to normalize in place
+]: nothing -> nothing { for f in $files { normalize $f } }
