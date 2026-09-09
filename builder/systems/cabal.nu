@@ -84,6 +84,9 @@ export def build []: nothing -> nothing {
 
 export def test []: nothing -> nothing {
   let o = (options)
+  # cabal test errors out (Cabal-7043) when the package declares no test-suite, executable-only packages often do not
+  let cabals = (glob **/*.cabal --exclude [dist-newstyle/**])
+  if ($cabals | is-not-empty) and ($cabals | all {|f| (open --raw $f) !~ '(?im)^\s*test-suite\s' }) { note cabal "no test suites"; return }
   # the package's own test suites (`all:tests` in the project's package, flags still apply)
   x cabal test --enable-tests ...$o.flags all:tests
 }
