@@ -19,10 +19,9 @@ def main []: nothing -> nothing {
     error make {msg: $"cargoVendor: unsupported sources: ($foreign | select name source | to nuon)"}
   }
   let crates = ($packages | where {|p| $p.source? == $CRATES_IO } | each {|c|
-    let file = $"($c.name)-($c.version).tar.gz"
-    {dir: $"($c.name)-($c.version)", checksum: $c.checksum}
-      | merge (dynamic fetchurl-sha256 $file $"https://static.crates.io/crates/($c.name)/($c.name)-($c.version).crate" $c.checksum)
-  })
+    {dir: $"($c.name)-($c.version)", checksum: $c.checksum, file: $"($c.name)-($c.version).tar.gz"
+      url: $"https://static.crates.io/crates/($c.name)/($c.name)-($c.version).crate", sha256: $c.checksum}
+  } | dynamic fetchurls)
   let picked = (sys-libs pick cargo ($packages | get name) $env.sysLibs)
   let layout = [
     ...($crates | each {|c| [{unpack: $c.out, to: $c.dir} (dynamic json-file $"($c.dir)/.cargo-checksum.json" {files: {}, package: $c.checksum})] } | flatten)

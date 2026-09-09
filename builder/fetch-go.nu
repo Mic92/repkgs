@@ -26,9 +26,9 @@ def main []: nothing -> nothing {
     let dir = $"(proxy-case $m.path)/@v"
     $table | get $m.key | items {|ext, sri|
       let file = $"($m.version).($ext)"
-      {to: $"($dir)/($file)"} | merge (dynamic fetchurl-sri $"($m.path | str replace -ar '[^A-Za-z0-9._-]' '_')-($file)" $"($PROXY)/($dir)/($file)" $sri)
+      {to: $"($dir)/($file)", file: $"($m.path)-($file)", url: $"($PROXY)/($dir)/($file)", integrity: $sri}
     }
-  } | flatten)
+  } | flatten | dynamic fetchurls)
   let layout = [
     ...($files | each {|f| {link: $f.out, to: $f.to} })
     ...($modules | each {|m| dynamic json-file $"(proxy-case $m.path)/@v/($m.version).info" {Version: $m.version} })

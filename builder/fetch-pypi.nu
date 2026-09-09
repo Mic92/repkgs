@@ -24,14 +24,12 @@ def main []: nothing -> nothing {
   let force_sdist = (($pyproject.tool?.uv?.no-binary-package? | default []) ++ (sys-libs sdist-packages))
   let libs = (sys-libs pick python $names $env.sysLibs)
 
-  let plan = ($names | each {|name|
+  let plan = ($names | par-each --keep-order {|name|
     let package = ($packages | get $name | first)
     let artefact = (choose-artefact $package ($name in $force_sdist))
     let file = ($artefact.url | path basename | url decode)
-    let sha256 = ($artefact.hash | str replace "sha256:" "")
-    {name: $name, version: $package.version, file: $file, kind: $artefact.kind}
-      | merge (dynamic fetchurl-drv $file $artefact.url sha256 $sha256 $sha256)
-  })
+    {name: $name, version: $package.version, file: $file, kind: $artefact.kind, url: $artefact.url, sha256: ($artefact.hash | str replace "sha256:" "")}
+  } | dynamic fetchurls)
   print -e $"pythonDeps: ($plan | length) packages, ($plan | where kind == sdist | get name | str join ' ') from sdist"
 
   let layout = [

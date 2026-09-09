@@ -21,21 +21,18 @@ def main []: nothing -> nothing {
   let npm = ($lock.npm? | default {} | transpose key entry | each {|p|
     let id = (split-id ($p.key | str replace -r '_.*' ''))
     let url = (tarball-url $id.name $id.version)
-    {name: $id.name, version: $id.version, url: $url, integrity: $p.entry.integrity}
-      | merge (dynamic fetchurl-sri $"(flat-name $id.name)-($id.version).tgz" $url $p.entry.integrity)
-  } | uniq-by name version)
+    {name: $id.name, version: $id.version, url: $url, integrity: $p.entry.integrity, file: $"(flat-name $id.name)-($id.version).tgz"}
+  } | uniq-by name version | dynamic fetchurls)
 
   let jsr = ($lock.jsr? | default {} | transpose key entry | each {|p|
     let id = (split-id $p.key)
     let url = $"($JSR)/($id.name)/($id.version)_meta.json"
-    {name: $id.name, version: $id.version, url: $url}
-      | merge (dynamic fetchurl-sha256 $"jsr-(flat-name $id.name)-($id.version)_meta.json" $url $p.entry.integrity)
-  })
+    {name: $id.name, version: $id.version, url: $url, file: $"jsr-(flat-name $id.name)-($id.version)_meta.json", sha256: $p.entry.integrity}
+  } | dynamic fetchurls)
 
   let https = ($lock.remote? | default {} | items {|url, sha256|
-    let store_name = ($url | url parse | $"($in.host)($in.path)" | str replace -ar '[^A-Za-z0-9._-]' "_")
-    {url: $url} | merge (dynamic fetchurl-sha256 $store_name $url $sha256)
-  })
+    {url: $url, file: ($url | url parse | $"($in.host)($in.path)"), sha256: $sha256}
+  } | dynamic fetchurls)
 
   print -e $"denoDeps: ($npm | length) npm, ($jsr | length) jsr, ($https | length) https"
   dynamic stage deno-deps fetch-deno-files.nu {

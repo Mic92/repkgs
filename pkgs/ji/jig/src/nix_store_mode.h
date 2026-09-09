@@ -6,7 +6,8 @@
 //   jig nix-store add-text <name> [<ref>...] < text     -> prints the store path
 //   jig nix-store add-drv  <name> [<ref>...] < json     -> ATerm-encodes, adds, prints path
 //   jig nix-store submit   <store-path> <output>        -> this build's <output> := that object
-//   jig nix-store fod-path <name> <algo> <hex>            -> store path of a flat fixed output
+//   jig nix-store fetchurls < [{name,url,algo,hex,sri}]  -> [{drv,out}], builtin:fetchurl each
+// JIG_NIX_STORE_OFFLINE=1: no daemon, paths computed locally, nothing written (bench/).
 //
 // add-drv JSON: {"name", "system", "builder", "args":[], "env":{}, "inputDrvs":{path:[outputs]},
 //                "inputSrcs":[], "outputs":{name:{"hashAlgo"?, "hash"?, "path"?}}}

@@ -19,8 +19,8 @@ def main []: nothing -> nothing {
     let nv = (split-id $p.id)
     let url = ($p.val.resolution.tarball? | default (tarball-url $nv.name $nv.version))
     let file = $"($nv.name | str replace "/" "+")-($nv.version).tgz"
-    {id: $p.id, file: $file} | merge (dynamic fetchurl-sri $file $url $p.val.resolution.integrity)
-  })
+    {id: $p.id, file: $file, url: $url, integrity: $p.val.resolution.integrity}
+  } | dynamic fetchurls)
   let layout = [
     ...($fetched | each {|f| {link: $f.out, to: $"tarballs/($f.file)"} })
     (dynamic json-file index.json ($fetched | select id file))

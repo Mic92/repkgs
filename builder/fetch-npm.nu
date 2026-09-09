@@ -19,14 +19,14 @@ def main []: nothing -> nothing {
   let unhashed = ($remote | where { $in.val.integrity? == null })
   if ($unhashed | is-not-empty) { error make {msg: $"npmDeps: no `integrity` for: ($unhashed | get key | str join ', ')"} }
   # the same tarball can appear under several node_modules paths: fetch once per URL
-  let fetched = ($remote | each {|e| {url: $e.val.resolved, integrity: $e.val.integrity} } | uniq-by url | each {|e|
-    {url: $e.url} | merge (dynamic fetchurl-sri ($e.url | url parse | get path | path basename) $e.url $e.integrity)
-  })
-  let by_url = ($fetched | reduce --fold {} {|f, acc| $acc | insert $f.url $f.out })
+  let fetched = ($remote | each {|e| {url: $e.val.resolved, integrity: $e.val.integrity} } | uniq-by url
+    | insert file {|e| $e.url | url parse | get path | path basename }
+    | dynamic fetchurls)
+  let by_url = ($fetched | each {|f| [$f.url $f.out] } | into record)
   let new_lock = ($lock | reject -o dependencies | update packages {|l|
     $l.packages | items {|key, val|
-      {$key: (if $val.resolved? == null { $val } else { $val | update resolved $"file:($by_url | get $val.resolved)" })}
-    } | reduce {|it| merge $it }
+      [$key (if $val.resolved? == null { $val } else { $val | update resolved $"file:($by_url | get $val.resolved)" })]
+    } | into record
   })
   # structured attrs: the lock is far beyond execve's env limit
   dynamic collect npm-deps [(dynamic json-file package-lock.json $new_lock)] ($fetched | get drv)

@@ -153,17 +153,6 @@ auto MakeStorePath(std::string_view store_dir, std::string_view type, std::strin
   return std::format("{}/{}-{}", store_dir, Nix32(CompressHash(Sha256(fingerprint))), name);
 }
 
-// what Nix substitutes for a CA input derivation's output path in the consumer's env/args before
-// the build (DownstreamPlaceholder::unknownCaOutput): the only way to name such a path up front
-auto DownstreamPlaceholder(std::string_view drv_path, std::string_view output) -> std::string {
-  const std::string_view base = drv_path.substr(drv_path.rfind('/') + 1);
-  const std::string_view hash_part = base.substr(0, base.find('-'));
-  std::string_view drv_name = base.substr(base.find('-') + 1);
-  drv_name.remove_suffix(4);  // ".drv"
-  const std::string output_path_name = output == "out" ? std::string{drv_name} : std::format("{}-{}", drv_name, output);
-  return "/" + Nix32(Sha256(std::format("nix-upstream-output:{}:{}", hash_part, output_path_name)));
-}
-
 }  // namespace
 
 // flat (file) ingestion only. `algo` is the hash the *file* is fixed by (sha256, sha512, …). The
@@ -239,6 +228,9 @@ auto DerivationToATerm(std::string_view json_text) -> std::string {
   std::ranges::sort(input_srcs);
   std::map<std::string, std::string> env;
   for (const auto& [key, value] : drv.value("env", nlohmann::json::object()).items()) {
+    if (!value.is_string()) {
+      return {};  // caller reports "did not parse" instead of nlohmann aborting
+    }
     env.emplace(key, value.get<std::string>());
   }
   const std::vector<std::string> args = drv.value("args", std::vector<std::string>{});
@@ -264,6 +256,46 @@ auto DerivationToATerm(std::string_view json_text) -> std::string {
   });
   return out + ")";
 }
+
+namespace {
+
+// builtin:fetchurl derivation for one {name,url,algo,hex,sri}, shaped as <nix/fetchurl.nix> makes it
+auto FetchurlDerivation(const nlohmann::json& file, const std::string& out) -> std::string {
+  const std::string name = file.value("name", "");
+  const std::string algo = file.value("algo", "");
+  const std::string sri = file.value("sri", "");
+  const std::string url = file.value("url", "");
+  const nlohmann::json drv = {
+      {"name", name},
+      {"system", "builtin"},
+      {"builder", "builtin:fetchurl"},
+      {"args", nlohmann::json::array()},
+      {"outputs", {{"out", {{"path", out}, {"hashAlgo", algo}, {"hash", file.value("hex", "")}}}}},
+      {"inputDrvs", nlohmann::json::object()},
+      {"inputSrcs", nlohmann::json::array()},
+      {
+          "env",
+          {
+              {"name", name},
+              {"out", out},
+              {"outputHash", sri},
+              {"outputHashAlgo", sri.starts_with(algo + "-") ? "" : algo},
+              {"outputHashMode", "flat"},
+              {"url", url},
+              {"urls", url},
+              {"executable", ""},
+              {"unpack", ""},
+              {"impureEnvVars", "http_proxy https_proxy ftp_proxy all_proxy no_proxy"},
+              {"preferLocalBuild", "1"},
+              {"system", "builtin"},
+              {"builder", "builtin:fetchurl"},
+          },
+      },
+  };
+  return DerivationToATerm(drv.dump());
+}
+
+}  // namespace
 
 // ---- worker protocol client (builder-rpc-v0 subset) --------------------------------------------
 
@@ -511,28 +543,52 @@ class DaemonConnection {
 
 auto ReadStdin() -> std::string { return {std::istreambuf_iterator<char>(std::cin), {}}; }
 
+// text:sha256 path as the daemon computes it (references sorted into the fingerprint type)
+auto TextPath(std::string_view name, std::span<const std::string> references, std::string_view contents)
+    -> std::string {
+  std::vector<std::string> refs(references.begin(), references.end());
+  std::ranges::sort(refs);
+  std::string type = "text";
+  for (const std::string& ref : refs) {
+    type += ":" + ref;
+  }
+  return MakeStorePath(JIG_STORE_DIR, type, contents, name);
+}
+
+// where derivations go: the daemon during a build; with JIG_NIX_STORE_OFFLINE=1 nowhere, paths
+// are computed locally (bench/, dry runs of a producer outside the sandbox)
+class Store {
+ public:
+  auto Open() -> bool {
+    offline_ = !Env("JIG_NIX_STORE_OFFLINE").empty();
+    return offline_ || daemon_.Connect();
+  }
+  auto AddText(std::string_view name, std::span<const std::string> references, std::string_view contents)
+      -> std::optional<std::string> {
+    if (offline_) {
+      return TextPath(name, references, contents);
+    }
+    return daemon_.AddToStore(name, "text:sha256", references, contents);
+  }
+  auto Submit(std::string_view drv, std::string_view output) -> bool {
+    return offline_ || daemon_.SubmitOutput(drv, output);
+  }
+
+ private:
+  bool offline_ = false;
+  DaemonConnection daemon_;
+};
+
 }  // namespace
 
 auto RunNixStoreMode(std::span<const std::string> args) -> int {
   if (args.empty()) {
-    std::println(stderr, "usage: jig nix-store add-text|add-drv|submit|fod-path|placeholder …");
+    std::println(stderr, "usage: jig nix-store add-text|add-drv|fetchurls|submit …");
     return 2;
   }
   const std::string& verb = args.at(0);
-  if (verb == "fod-path" && args.size() == 4) {
-    std::println("{}", FixedOutputPath(JIG_STORE_DIR, args.at(1), args.at(2), args.at(3)));
-    return 0;
-  }
-  if (verb == "placeholder" && args.size() == 3) {
-    std::println("{}", DownstreamPlaceholder(args.at(1), args.at(2)));
-    return 0;
-  }
-  if (verb == "aterm") {  // offline: JSON on stdin -> ATerm on stdout
-    std::print("{}", DerivationToATerm(ReadStdin()));
-    return 0;
-  }
-  DaemonConnection daemon;
-  if (!daemon.Connect()) {
+  Store store;
+  if (!store.Open()) {
     return 1;
   }
   if ((verb == "add-text" || verb == "add-drv") && args.size() >= 2) {
@@ -544,15 +600,35 @@ auto RunNixStoreMode(std::span<const std::string> args) -> int {
         return 1;
       }
     }
-    const std::optional<std::string> path = daemon.AddToStore(args.at(1), "text:sha256", args.subspan(2), contents);
+    const std::optional<std::string> path = store.AddText(args.at(1), args.subspan(2), contents);
     if (!path) {
       return 1;
     }
     std::println("{}", *path);
     return 0;
   }
+  // [{name,url,algo,hex,sri}] on stdin -> [{drv,out}]: a lock file's worth of fetchurl derivations in one process
+  if (verb == "fetchurls" && args.size() == 1) {
+    const nlohmann::json files = nlohmann::json::parse(ReadStdin(), nullptr, /*allow_exceptions=*/false);
+    if (!files.is_array()) {
+      std::println(stderr, "jig nix-store fetchurls: expected a JSON array");
+      return 1;
+    }
+    nlohmann::json result = nlohmann::json::array();
+    for (const auto& file : files) {
+      const std::string name = file.value("name", "");
+      const std::string out = FixedOutputPath(JIG_STORE_DIR, name, file.value("algo", ""), file.value("hex", ""));
+      const std::optional<std::string> drv = store.AddText(name + ".drv", {}, FetchurlDerivation(file, out));
+      if (!drv) {
+        return 1;
+      }
+      result.push_back({{"drv", *drv}, {"out", out}});
+    }
+    std::println("{}", result.dump());
+    return 0;
+  }
   if (verb == "submit" && args.size() == 3) {
-    return daemon.SubmitOutput(args.at(1), args.at(2)) ? 0 : 1;
+    return store.Submit(args.at(1), args.at(2)) ? 0 : 1;
   }
   std::println(stderr, "jig nix-store: bad arguments");
   return 2;

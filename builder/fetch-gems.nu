@@ -22,8 +22,8 @@ def main []: nothing -> nothing {
 
   let fetched = ($ours | each {|gem|
     let file = $"($gem.name)-($gem.version)(if $gem.platform != "" { $"-($gem.platform)" }).gem"
-    {file: $file} | merge (dynamic fetchurl-drv $file $"($RUBYGEMS)/($file)" sha256 $gem.sha256 $gem.sha256)
-  })
+    {file: $file, url: $"($RUBYGEMS)/($file)", sha256: $gem.sha256}
+  } | dynamic fetchurls)
   let layout = [
     ...($fetched | each {|g| {link: $g.out, to: $"vendor/cache/($g.file)"} })
     {write: $lock, to: "Gemfile.lock"}

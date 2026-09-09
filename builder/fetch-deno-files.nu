@@ -8,7 +8,7 @@ const JSR = "https://jsr.io"
 
 def main []: nothing -> nothing {
   let fetched = (open $env.stage_attrs)
-  let modules = ($fetched.jsr | each {|p| jsr-modules $p } | flatten)
+  let modules = ($fetched.jsr | each {|p| jsr-modules $p } | flatten | dynamic fetchurls)
   print -e $"denoDeps: ($modules | length) jsr modules"
 
   # remote/<scheme>/<host>[_PORT<n>]/<sha256 of path?query>, each with deno's metadata trailer
@@ -45,16 +45,14 @@ def trailer [f: record<url: string, content_type: string>]: nothing -> string {
   $"\n// denoCacheMetadata=({headers: {content-type: $f.content_type}, url: $f.url} | to json -r)"
 }
 
-# the loadable modules of one jsr package version: {url, content_type, drv, out}. jsr's publish-time
-# module graph names them; test data, docs and CI files in the manifest are not fetched
-def jsr-modules [p: record<name: string, version: string, meta: string>]: nothing -> table<url: string, content_type: string, drv: string, out: string> {
+# the loadable modules of one jsr package version as `fetchurls` rows. jsr's publish-time module
+# graph names them; test data, docs and CI files in the manifest are not fetched
+def jsr-modules [p: record<name: string, version: string, meta: string>]: nothing -> table<url: string, content_type: string, file: string, sha256: string> {
   let meta = (open --raw $p.meta | from json)
   let graph = ($meta.moduleGraph2? | default $meta.moduleGraph1? | default {})
   $meta.manifest | transpose path file | where {|m| $graph has $m.path } | each {|m|
     let url = $"($JSR)/($p.name)/($p.version)($m.path)"
-    let store_name = ($"jsr-($p.name)-($p.version)($m.path)" | str replace -ar '[^A-Za-z0-9._-]' "_")
-    {url: $url, content_type: (content-type $url)}
-      | merge (dynamic fetchurl-sha256 $store_name $url ($m.file.checksum | str replace "sha256-" ""))
+    {url: $url, content_type: (content-type $url), file: $"jsr-($p.name)-($p.version)($m.path)", sha256: ($m.file.checksum | str replace "sha256-" "")}
   }
 }
 

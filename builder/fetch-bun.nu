@@ -23,9 +23,9 @@ def main []: nothing -> nothing {
 
   let fetched = ($from_registry | uniq-by id | each {|entry|
     let p = (split-id $entry.id)
-    {id: $entry.id, dir: $"p/(flat-name $p.name)@($p.version)"}
-      | merge (dynamic fetchurl-sri $"(flat-name $p.name)-($p.version).tgz" (tarball-url $p.name $p.version $entry.registry) $entry.integrity)
-  })
+    {id: $entry.id, dir: $"p/(flat-name $p.name)@($p.version)", file: $"(flat-name $p.name)-($p.version).tgz"
+      url: (tarball-url $p.name $p.version $entry.registry), integrity: $entry.integrity}
+  } | dynamic fetchurls)
   let layout = [
     ...($fetched | each {|p| {unpack: $p.out, to: $p.dir} })
     (dynamic json-file index.json ($fetched | select id dir))
