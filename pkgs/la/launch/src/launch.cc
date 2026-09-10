@@ -10,8 +10,9 @@
 // Record (JSON, written by builder/prebuilt.nu `launchers`):
 //   {"program": "{root}/bin/.foo"                    or "{store}/<hash>-cpython/bin/python3",
 //    "args":    ["{root}/bin/.foo"],               prepended before the user's args
-//    "argv0":   "{self}",                          optional, default = program (interpreters
-//                                                  derive their prefix from argv[0], as with #!)
+//    "argv0":   "{argv0}",                         optional, default = program. {argv0} is what
+//                                                  we were invoked as, unresolved: a venv's
+//                                                  bin/python3 -> ours must still see the venv
 //    "env":     {"PATH":  {"prepend": ["{store}/<hash>-jq/bin"], "sep": ":"},
 //                "TZDIR": {"default": "{store}/<hash>-tzdata/share/zoneinfo"},
 //                "FOO":   {"set": "bar"}, "BAR": {"unset": []}}}
@@ -107,11 +108,12 @@ struct Context {
   std::string root;   // <pkg>
   std::string store;  // dirname of <pkg>
   std::string self;   // <pkg>/bin/foo
+  std::string argv0;  // as invoked
 };
 
 auto Expand(std::string text, const Context& ctx) -> std::string {
   for (const auto& [key, val] : std::initializer_list<std::pair<std::string_view, const std::string&>>{
-           {"{root}", ctx.root}, {"{store}", ctx.store}, {"{self}", ctx.self}}) {
+           {"{root}", ctx.root}, {"{store}", ctx.store}, {"{self}", ctx.self}, {"{argv0}", ctx.argv0}}) {
     for (size_t pos = 0; (pos = text.find(key, pos)) != std::string::npos; pos += val.size()) {
       text.replace(pos, key.size(), val);
     }
@@ -180,6 +182,7 @@ auto main(int argc, char** argv) -> int {  // NOLINT(bugprone-exception-escape):
     Die("no argv[0]");
   }
   Context ctx;
+  ctx.argv0 = args[0];
   const fs::path self = InvokedPath(args[0]);
   ctx.self = self.native();
   const fs::path bindir = self.parent_path();

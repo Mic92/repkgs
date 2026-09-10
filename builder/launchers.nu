@@ -55,7 +55,8 @@ def is-foreign [f: path]: nothing -> bool {
 # The launch record for bin/<name> without the env part, or null to leave the file alone.
 #   script          -> its interpreter, with the script as last argument
 #   foreign ELF     -> our ld.so with --library-path over libc and the dependencies
-#   our own ELF     -> itself, only when there is env to inject
+#   our own ELF     -> itself, only when there is env to inject. argv[0] stays what the user ran,
+#                      so a symlink to bin/python3 from a venv still finds its pyvenv.cfg
 def target [c: record, f: path, owners: list<string>, inject: bool]: nothing -> oneof<record, nothing> {
   let head = (open --raw $f | into binary | bytes at 0..<256)
   let real = $"{root}/bin/.($f | path basename)"
@@ -69,7 +70,7 @@ def target [c: record, f: path, owners: list<string>, inject: bool]: nothing -> 
     let libpath = ($libdirs | each {|p| storerel $p $c.out } | str join ":")
     {program: (storerel $c.platform.interp $c.out), args: [--argv0 "{self}" --library-path $libpath $real]}
   } else if $inject {
-    {program: $real, argv0: "{self}"}
+    {program: $real, argv0: "{argv0}"}
   }
 }
 
@@ -82,9 +83,9 @@ export def main [c: record]: nothing -> nothing {
   let launch_rel = $"../../($c.platform.launch | path relative-to $env.NIX_STORE)"
   # Candidates: regular files, and symlinks that resolve inside the package (npm links bin/x to
   # lib/node_modules/…/cli.js). Not: a symlink to a sibling like python3 -> python3.14. The
-  # sibling gets the launcher, the alias keeps pointing at it, and launch's {self} still reports
-  # the alias name as argv[0]. Wrapping the alias too would make it launch the sibling's
-  # launcher, which launches it again, forever.
+  # sibling gets the launcher, the alias keeps pointing at it, and argv[0] keeps the alias
+  # name. Wrapping the alias too would make it launch the sibling's launcher, which launches
+  # it again, forever.
   let entries = (ls -a $bindir | get name | where { ($in | path basename) !~ '^\.' and ($in | path exists) and ($in | path expand) =~ $"^($c.out)/" })
   for f in ($entries | where {|f| ($f | path type) != symlink or (^readlink $f) =~ '/' }) {
     let t = (target $c $f $owners ($renv | is-not-empty))
