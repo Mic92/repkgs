@@ -12,7 +12,7 @@ An experimental package set for stock Nix that revisits a few nixpkgs fundamenta
 - **A compile cache below Nix.** `cc`, `rustc`, `go` and configure probes are cached by content
   on the host, across derivations. Changing a recipe rebuilds the derivation but recompiles
   almost nothing. Optional. Derivations do not mention it.
-- **Cheap evaluation.** A package is a small attrset. No overrides, no fixpoints per package,
+- **Cheap evaluation.** A package is a small attrset. One override tree instead of overlays, no fixpoints per package,
   arguments passed by name as with `callPackage`, nothing more.
 - **Bootstrapped from a small static seed** to glibc in two short stages, and languages
   (Rust, Go, Zig, GHC, OpenJDK) built from source on top, each seeded by its upstream binary.

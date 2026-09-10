@@ -5,7 +5,6 @@
   unpacker,
   system ? null,
 }:
-file:
 let
   fetchurl = import <nix/fetchurl.nix>;
   mirrors = import ./mirrors.nix;
@@ -24,28 +23,6 @@ let
     ++ concatMap (p: map (m: m + substring (stringLength p) (-1) url) mirrors.${p}) (
       filter (p: hasPrefix p url) (attrNames mirrors)
     );
-  t = builtins.fromTOML (builtins.readFile file);
-  pin = t.pin or { };
-  version = pin.version or "";
-  tag = pin.tag or version;
-  mm = builtins.match "([^.]*)\\.?([^.]*).*" version;
-  # every [pin] key is a {key} placeholder, plus three spellings derived from the version
-  vars = {
-    tag = version;
-    version_ = builtins.replaceStrings [ "." ] [ "_" ] version;
-    major = builtins.elemAt mm 0;
-    minor = builtins.elemAt mm 1;
-  }
-  // pin;
-  expand = builtins.replaceStrings (map (k: "{${k}}") (builtins.attrNames vars)) (
-    map toString (builtins.attrValues vars)
-  );
-  byKey = builtins.listToAttrs (
-    map (s: {
-      name = s.key;
-      value = s;
-    }) (t.source or [ ])
-  );
   # "llvm-project-21.1.8.src" from …/llvm-project-21.1.8.src.tar.xz, "fd-v10.5.0" for github tag archives
   # strip one extension, and a ".tar" before it
   stripExt =
@@ -66,53 +43,83 @@ let
       gh = builtins.match "https://github.com/[^/]+/([^/]+)/archive/refs/tags/(.*)" base;
     in
     if gh != null then "${builtins.elemAt gh 0}-${builtins.elemAt gh 1}" else builtins.baseNameOf base;
-  fetch =
-    key:
+  # `pin`: [pin] keys over the file's, `hashes`: source key -> hash (nix/package.nix, overrides)
+  read =
+    pin: hashes: file:
     let
-      s = byKey.${key};
-      url = expand s.url;
-      # a fixed-output path is found by (name, hash): with a constant name a bumped url whose
-      # hash was not updated silently reuses the old download, so the name follows the url
-      name = s.name or (urlName url);
-      isNar = builtins.match ".*\\.nar(\\.[a-z0-9]+)?" url != null;
-    in
-    # `hash` is the NAR hash of what lands in the store: for archives the unpacked tree (single
-    # top-level directory stripped, u+w; uptrack's unpack.nu so its hashes agree), fetched and
-    # unpacked by one fixed-output derivation running the seed's nu (http get, rustls + built-in
-    # roots) and bsdtar, so builds copy a directory instead of decompressing every time.
-    # `unpack = false` and .nar urls (the seed itself) go through builtin:fetchurl.
-    if !(s.unpack or true) || isNar then
-      fetchurl {
-        inherit url;
-        name = s.name or (builtins.baseNameOf url);
-        inherit (s) hash;
-        unpack = isNar;
+      t = builtins.fromTOML (builtins.readFile file);
+      pinned = if pin == { } then t.pin or { } else (t.pin or { }) // pin;
+      version = pinned.version or "";
+      tag = pinned.tag or version;
+      mm = builtins.match "([^.]*)\\.?([^.]*).*" version;
+      # every [pin] key is a {key} placeholder, plus three spellings derived from the version
+      vars = {
+        tag = version;
+        version_ = builtins.replaceStrings [ "." ] [ "_" ] version;
+        major = builtins.elemAt mm 0;
+        minor = builtins.elemAt mm 1;
       }
-    else
-      derivation {
-        inherit name system;
-        urls = withMirrors url;
-        builder = "${unpacker}/bin/nu";
-        args = [
-          "--no-config-file"
-          ../pkgs/up/uptrack/src/unpack.nu
-          "--fetch"
-        ];
-        inherit unpacker;
-        outputHashMode = "recursive";
-        outputHash = s.hash;
-        preferLocalBuild = true;
-        impureEnvVars = [
-          "http_proxy"
-          "https_proxy"
-          "ftp_proxy"
-          "all_proxy"
-          "no_proxy"
-        ];
-      };
+      // pinned;
+      expand = builtins.replaceStrings (map (k: "{${k}}") (builtins.attrNames vars)) (
+        map toString (builtins.attrValues vars)
+      );
+      byKey = builtins.listToAttrs (
+        map (s: {
+          name = s.key;
+          value = if hashes ? ${s.key} then s // { hash = hashes.${s.key}; } else s;
+        }) (t.source or [ ])
+      );
+      fetch =
+        key:
+        let
+          s = byKey.${key};
+          url = expand s.url;
+          # a fixed-output path is found by (name, hash): with a constant name a bumped url whose
+          # hash was not updated silently reuses the old download, so the name follows the url
+          name = s.name or (urlName url);
+          isNar = builtins.match ".*\\.nar(\\.[a-z0-9]+)?" url != null;
+        in
+        # `hash` is the NAR hash of what lands in the store: for archives the unpacked tree (single
+        # top-level directory stripped, u+w; uptrack's unpack.nu so its hashes agree), fetched and
+        # unpacked by one fixed-output derivation running the seed's nu (http get, rustls + built-in
+        # roots) and bsdtar, so builds copy a directory instead of decompressing every time.
+        # `unpack = false` and .nar urls (the seed itself) go through builtin:fetchurl.
+        if !(s.unpack or true) || isNar then
+          fetchurl {
+            inherit url;
+            name = s.name or (builtins.baseNameOf url);
+            inherit (s) hash;
+            unpack = isNar;
+          }
+        else
+          derivation {
+            inherit name system;
+            urls = withMirrors url;
+            builder = "${unpacker}/bin/nu";
+            args = [
+              "--no-config-file"
+              ../pkgs/up/uptrack/src/unpack.nu
+              "--fetch"
+            ];
+            inherit unpacker;
+            outputHashMode = "recursive";
+            outputHash = s.hash;
+            preferLocalBuild = true;
+            impureEnvVars = [
+              "http_proxy"
+              "https_proxy"
+              "ftp_proxy"
+              "all_proxy"
+              "no_proxy"
+            ];
+          };
+    in
+    {
+      inherit version tag fetch;
+      has = key: byKey ? ${key};
+      default = fetch "default";
+      # the same file under another pin (nix/package.nix, for overrides)
+      repin = pin: hashes: read pin hashes file;
+    };
 in
-{
-  inherit version tag fetch;
-  has = key: byKey ? ${key};
-  default = fetch "default";
-}
+read { } { }

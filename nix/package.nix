@@ -10,6 +10,8 @@
   baseTools,
   relocTools,
   nu,
+  # overrides applied to a spec before validation: name -> spec -> spec (nix/overrides.nix)
+  edit,
 }:
 let
   inherit (builtins)
@@ -100,8 +102,13 @@ let
 in
 # sources: the package's sources.toml (nix/sources.nix) or null. It supplies version and source
 # unless package.nix sets them (local trees, demos)
-sources: args0:
+sources0: args0:
 let
+  edited = if edit == null then args0 else edit args0.name args0;
+  # an override may repin the package: `pin.merge = { version = "…"; }` plus
+  # `hash.merge = { default = "sha256-…"; }` re-read sources.toml under the new [pin]
+  repinned = edit != null && sources0 != null && (edited ? pin || edited ? hash);
+  sources = if repinned then sources0.repin (edited.pin or { }) (edited.hash or { }) else sources0;
   args =
     (
       if sources == null then
@@ -113,7 +120,15 @@ let
           source = if sources.has "default" then sources.default else sources.fetch platform.cpu;
         }
     )
-    // args0;
+    // (
+      if repinned then
+        removeAttrs edited [
+          "pin"
+          "hash"
+        ]
+      else
+        edited
+    );
   inherit (args) name;
   uses = args.uses or [ ];
   fail = msg: throw "${name}: ${msg}";

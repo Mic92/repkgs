@@ -27,14 +27,17 @@ In priority order, with the number that says whether we got there:
 
 The constraints we hold ourselves to: stock Nix (with `ca-derivations` and `dynamic-derivations`),
 the normal daemon and `/nix/store`, no import-from-derivation, nothing fetched at eval time.
-glibc is the libc. musl appears only in the static seed and stage0. Build machines are
-x86_64-linux and aarch64-linux, further targets (riscv64, loongarch64, ppc64le, mingw) are cross
-only. The CPU baseline is part of the platform definition (x86-64-v3, armv8.2-a+lse, rv64gc) and
-injected by the compiler driver, so no package carries `-march` flags. nixpkgs is used for dev
-tools (`shell.nix`, treefmt) and to build the seed, nowhere else.
+glibc is the libc. musl appears only in the static seed and stage0.
 
-Not goals: NixOS modules, nixpkgs API compatibility, a hex0-style full-source bootstrap, GCC as
-the system compiler, Darwin.
+Build machines for now are x86_64-linux and aarch64-linux.
+Further targets (riscv64, loongarch64, ppc64le, mingw) are cross only.
+
+The CPU baseline is part of the platform definition (x86-64-v3, armv8.2-a+lse, rv64gc) and
+injected by the compiler driver, so no package carries `-march` flags.
+
+nixpkgs is used for dev tools (`shell.nix`, treefmt) and to build the seed, nowhere else.
+
+Not goals: NixOS modules, nixpkgs API compatibility, a hex0-style full-source bootstrap, GCC as the system compiler.
 
 ## Evaluation
 
@@ -44,8 +47,8 @@ We measured the extremes: 5000 packages as plain attrsets evaluate in 0.44 s and
 38 MB, the same 5000 through `evalModules` take 5.8 s and 1.4 GB.
 
 Here a package is a plain function returning a small attrset (the *spec*), and
-`package` turns a spec into exactly one derivation. There is no module system, no override
-mechanism, no overlay. If you want a different zlib you edit `pkgs/zl/zlib/package.nix`.
+`package` turns a spec into exactly one derivation. There is no module system and no per-package
+fixpoint. Downstream edits go through one override tree (below).
 
 ```
 pkgs/zl/zlib/package.nix     attribute name = directory name, sharded by two letters
@@ -66,8 +69,35 @@ does not depend on other derivations (options, steps, env) travels as one JSON a
 dependency appears exactly once as a path, which is also the shape `derivationStrict` is
 cheapest on: 1000 packages in 0.36 s and 10 MB, native or cross.
 
-The drawback: without overrides, downstream users change a package by editing its file rather
-than composing functions.
+### Overrides
+
+A user of the set changes packages without editing files through one argument:
+
+```nix
+import ./. {
+  overrides = {
+    zlib.autotools.flags.append = [ "--zprefix" ];
+    git.dependencies.remove = [ "pcre2" ];
+    git.dependencies.append = [ "libressl" ];      # a string names a package of the final set
+    curl.env.merge = { CURL_DEBUG = "1"; };
+    jq.pin.merge = { version = "1.8.3"; tag = "jq-1.8.3"; };   # re-reads sources.toml under this pin
+    jq.hash.merge = { default = "sha256-…"; };
+    ffmpeg.steps.set = [ "autotools.build" "autotools.install" ];
+    gcc.edit = spec: spec // { … };               # a function, when the verbs are not enough
+  };
+}
+```
+
+The tree is `<package>.<field>….<verb>` with verbs `set`, `append`, `prepend`, `merge`,
+`remove`, plus `edit` on a package for a spec → spec function. `overrides` may also be a list of such trees. They are
+merged into one tree first, so ten layers cost the same as one: O(packages touched + edits).
+exp. eval-cost measured 54 MB for 10k edits this way against 250–580 MB for `//` overlays,
+`makeOverridable`, per-package `extend` or modules, which all pay per layer.
+
+Every path is checked: an unknown package, a field that does not exist (without `set`),
+`append` on something that is not a list, a dependency string naming no package, all fail with
+the path in the message. The edited spec then goes through the same validation as a written one.
+There is no `.override`, `.overrideAttrs`, overlay or module mechanism besides this.
 
 ## Sources and lock files
 

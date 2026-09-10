@@ -9,9 +9,13 @@
   system ? builtins.currentSystem,
   platform ? system,
   seed ? null,
+  # one tree or a list of them: { zlib.autotools.flags.append = [ … ]; } (nix/overrides.nix)
+  overrides ? { },
 }:
 let
   platforms = import ./nix/platforms.nix;
+  ov = import ./nix/overrides.nix;
+  overrideTree = ov.merge overrides;
   bootstrap = import ./bootstrap { inherit seed system; };
 
   cpu = builtins.head (builtins.split "-" platform);
@@ -27,7 +31,7 @@ let
     if plat.cross then
       import ./. {
         platform = system;
-        inherit seed system;
+        inherit seed system overrides;
       }
     else
       self;
@@ -71,6 +75,8 @@ let
       buildSystems
       baseTools
       ;
+    # identity when there are none, so the common case allocates nothing per package
+    edit = if overrideTree == { } then null else ov.apply self overrideTree;
   };
 
   fetch = import ./nix/fetch.nix {
@@ -127,6 +133,7 @@ let
     );
 
   # pkgs/<first two letters>/<name>/package.nix, attribute name == directory name
+  unknownOverrides = ov.unknown (self // aliases) overrideTree;
   self =
     builtins.listToAttrs (
       builtins.concatMap (
@@ -156,10 +163,13 @@ let
       self.${target}
   ) (builtins.fromTOML (builtins.readFile ./pkgs/aliases.toml));
 in
-self
-// {
-  inherit bootstrap toolchain;
-  platform = plat;
-  # for tools/options: name -> { doc, type } per build system
-  options = builtins.mapAttrs (_: bs: bs.options) buildSystems;
-}
+if unknownOverrides != [ ] then
+  throw "overrides: no packages named ${toString unknownOverrides}"
+else
+  self
+  // {
+    inherit bootstrap toolchain;
+    platform = plat;
+    # for tools/options: name -> { doc, type } per build system
+    options = builtins.mapAttrs (_: bs: bs.options) buildSystems;
+  }
