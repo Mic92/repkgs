@@ -170,6 +170,14 @@ in
       sysLibs = sysLibsFor libs;
     };
 
+  # mix.lock or rebar.lock -> packages/hexpm/<name>-<version>.tar (builder/fetch/hex.nu)
+  hexDeps =
+    {
+      source,
+      root ? ".",
+    }:
+    dynamic "hex-deps" "fetch/hex.nu" { inherit source root; };
+
   # go.sum -> a GOPROXY=file:// tree (builder/systems/go.nu builds -mod=mod against it, offline). go.sum's
   # h1: hashes are not file hashes, so .mod/.zip sha256s come from `locks` (this repo's
   # locks/go.toml, filled by `uptrack lock`); only this package's subset lands in the output, so

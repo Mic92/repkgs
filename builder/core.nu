@@ -29,6 +29,13 @@ export def dep-root [name: string, why: string]: nothing -> string {
   $d.0.root
 }
 
+# store path of the build dependency called `name`, for tools that are not a bin/ on PATH
+export def tool-root [name: string]: nothing -> string {
+  let r = ((ctx).roots | where { (exports-of $in).name == $name })
+  if ($r | is-empty) { error make {msg: $"buildPkgs.($name) must be in buildDependencies"} }
+  $r.0
+}
+
 # absolute directories of one exports field (libDirs, includeDirs, …) across dependencies
 export def dep-dirs [deps: list<record<name: string, root: string>>, field: string]: nothing -> list<string> {
   $deps | each {|d| $d | get $field | each {|rel| $"($d.root)/($rel)" } } | flatten

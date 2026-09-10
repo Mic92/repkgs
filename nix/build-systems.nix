@@ -312,6 +312,43 @@ builtins.mapAttrs
       };
     };
     };
+    mix = {
+      # no test verb by default: MIX_ENV=test deps are outside the prod lock subset
+      verbs = [
+        "build"
+        "install"
+      ];
+      tools = [
+        buildPkgs.elixir
+        buildPkgs.erlang
+        buildPkgs.hex
+        buildPkgs.rebar3
+      ];
+      lock.deps = fetch.hexDeps;
+      dependencies = [ pkgs.erlang ]; # escripts say #!/usr/bin/env escript, releases exec erl
+      options = {
+        deps = deps false "fetch.hexDeps";
+        escript = strs [ ] "escripts `mix escript.build` writes, installed into bin/. Empty: a mix release";
+        flags = flags "mix compile";
+      };
+    };
+    rebar3 = {
+      # no test verb by default: eunit/ct deps live in the test profile, outside rebar.lock
+      verbs = [
+        "build"
+        "install"
+      ];
+      tools = [
+        buildPkgs.rebar3
+        buildPkgs.erlang
+      ];
+      lock.deps = fetch.hexDeps;
+      dependencies = [ pkgs.erlang ];
+      options = {
+        deps = deps false "fetch.hexDeps";
+        flags = flags "rebar3 compile";
+      };
+    };
     npm = {
       tools = [
         buildPkgs.nodejs
