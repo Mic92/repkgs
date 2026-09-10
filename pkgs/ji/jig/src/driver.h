@@ -29,7 +29,7 @@ inline constexpr int kInterpSlack = 12;   // "./" pairs in front of the interp b
 struct PackageCcFlags {
   std::vector<std::string> cflags;    // every compile and link
   std::vector<std::string> cxxflags;  // C++ only
-  std::vector<std::string> ldflags;   // link steps only
+  std::vector<std::string> ldflags;   // link steps only, after argv
 };
 
 struct DriverConf {

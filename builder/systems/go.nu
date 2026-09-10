@@ -11,8 +11,7 @@ export def --env setup []: nothing -> nothing {
     # compile/asm/link take a host-wide jigd slot like cc and rustc do (jig slot)
     GOFLAGS: $"-mod=(if $o.deps != null { 'mod' } else { 'vendor' }) -trimpath -buildvcs=false '-toolexec=(tool jig) slot'"
     GOPROXY: (if $o.deps != null { $"file://($o.deps)" } else { "off" })
-    # cgo reads CGO_CPPFLAGS/CGO_LDFLAGS, not CPPFLAGS/LDFLAGS: dependencies' include and lib dirs
-    CGO_ENABLED: (if $o.cgo { "1" } else { "0" }), CGO_CPPFLAGS: ($env.CPPFLAGS? | default ""), CGO_LDFLAGS: ($env.LDFLAGS? | default "")
+    CGO_ENABLED: (if $o.cgo { "1" } else { "0" })
     # cross: cc already targets the platform, go needs GOARCH; build-machine helpers use CC_FOR_BUILD
     GOOS: "linux", GOARCH: $c.platform.names.go
   }

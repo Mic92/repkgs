@@ -30,13 +30,9 @@ package {
         # transitively). tstrings.h is the header all of it includes
         let h = "src/jdk.jpackage/share/native/common/tstrings.h"
         open --raw $h | str replace "#include <string>" "#include <new>\n#include <string>" | save -f $h
-        # not autotools proper: its own wrapper, and it wants bash. It ignores CPPFLAGS/LDFLAGS
-        # from the environment on purpose and takes them as options
+        # not autotools proper: its own wrapper, and it wants bash
         (x bash configure
           $"--prefix=($c.out)"
-          $"--with-extra-cflags=($env.CPPFLAGS)"
-          $"--with-extra-cxxflags=($env.CPPFLAGS)"
-          $"--with-extra-ldflags=($env.LDFLAGS)"
           $"--with-boot-jdk=(tool java | path dirname | path dirname)"
           --with-toolchain-type=clang
           --enable-headless-only

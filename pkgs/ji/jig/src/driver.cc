@@ -279,7 +279,7 @@ auto BuildDriverArgs(const DriverConf& conf, Language lang, std::span<const std:
   const bool cxx = lang == Language::kCxx;
   UserArgs user = ScanUserArgs(raw_args);
   // toolchain, then package, then build system: later wins. The bracket silences
-  // unused-argument warnings for the link-only/compile-only halves
+  // unused-argument warnings for flags the step does not use
   std::vector<std::string> out{"--start-no-unused-arguments"};
   out.insert(out.end(), conf.flags.begin(), conf.flags.end());
   out.insert(out.end(), conf.package.cflags.begin(), conf.package.cflags.end());
@@ -288,11 +288,12 @@ auto BuildDriverArgs(const DriverConf& conf, Language lang, std::span<const std:
     out.insert(out.end(), conf.cxxflags.begin(), conf.cxxflags.end());
     out.insert(out.end(), conf.package.cxxflags.begin(), conf.package.cxxflags.end());
   }
-  if (user.linking) {
-    out.insert(out.end(), conf.package.ldflags.begin(), conf.package.ldflags.end());
-  }
   out.emplace_back("--end-no-unused-arguments");
   out.insert(out.end(), user.args.begin(), user.args.end());
+  // dependency -L dirs after the build tree's own, like a system lib dir would be
+  if (user.linking && user.have_input) {
+    out.insert(out.end(), conf.package.ldflags.begin(), conf.package.ldflags.end());
+  }
   for (const std::string& mapping : conf.prefix_map) {
     out.push_back("-ffile-prefix-map=" + mapping);
   }
@@ -303,7 +304,10 @@ auto BuildDriverArgs(const DriverConf& conf, Language lang, std::span<const std:
     return out;
   }
 
-  const size_t libs = AddRunpathEntries(conf, cxx, user.args, user.runpath);
+  // RUNPATH candidates: -L dirs from argv as well as from $PKGS_CC
+  std::vector<std::string> link_args = user.args;
+  link_args.insert(link_args.end(), conf.package.ldflags.begin(), conf.package.ldflags.end());
+  const size_t libs = AddRunpathEntries(conf, cxx, link_args, user.runpath);
   out.insert(out.end(),
              {"-Wl,--undefined-version", "-Wl,-rpath," + user.runpath.Render(libs), "-Wl,--enable-new-dtags"});
 

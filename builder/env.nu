@@ -35,8 +35,6 @@ def toolchain [a: record, deps: list<record>]: nothing -> record {
   let mask = {|p: string, under: string| $"($p)=/($under)/($p | path basename | str substring 33..)" }
   {
     CC: cc, CXX: c++, AR: llvm-ar, RANLIB: llvm-ranlib, NM: llvm-nm, STRIP: llvm-strip
-    CPPFLAGS: (dep-dirs $deps includeDirs | each { $"-I($in)" } | str join " ")
-    LDFLAGS: (dep-dirs $deps libDirs | each { $"-L($in)" } | str join " ")
     PKG_CONFIG_PATH: (dep-dirs $deps pkgconfigDirs | str join ":")
     CMAKE_PREFIX_PATH: ($deps | get root | str join ";")
     ACLOCAL_PATH: (dep-dirs $deps aclocalDirs | str join ":")
@@ -48,8 +46,7 @@ def toolchain [a: record, deps: list<record>]: nothing -> record {
   }
 }
 
-# by name so a package turns one off with `cc.hardening.fortify = false` (names as in nixpkgs).
-# -march and the platform's CET/BTI flag are toolchain facts and live in the cc config instead
+# nixpkgs names, so `cc.hardening.fortify = false`. -march and CET/BTI are in the cc config
 const HARDENING = {
   fortify: ["-D_FORTIFY_SOURCE=3"]
   stackprotector: ["-fstack-protector-strong"]
@@ -64,22 +61,24 @@ const HARDENING = {
   bindnow: ["-Wl,-z,now"]
 }
 
-# per-package compiler defaults (design.md "Builders"): profiling-friendly and hardened, plus the
-# package's `cc.{cflags,cxxflags,ldflags}`. Not CFLAGS: jig injects them itself ($PKGS_CC, keyed
-# by toolchain root), so a Makefile that sets CFLAGS cannot drop them and cc-build in a cross
-# build compiles host helpers without target flags
-def package-cc [a: record]: nothing -> record {
+# $PKGS_CC: what jig adds to every target cc command line (dependency dirs, defaults, hardening,
+# the package's cc.*flags), keyed by toolchain root so cc-build gets none of it. Not CFLAGS:
+# a Makefile that sets CFLAGS must not lose them
+def package-cc [a: record, deps: list<record>]: nothing -> record {
   let cc = ($a.spec.cc? | default {})
-  let keep = (if $cc.hardening? == false { {} } else { $HARDENING | merge ($cc.hardening? | default {}) })
-  let on = {|k| ($keep | get -o $k | default false) != false }
-  let h = ($HARDENING | reject libcxxhardening relro bindnow | items {|k, v| if (do $on $k) { $v } } | compact | flatten)
+  let enabled = (if $cc.hardening? == false { {} } else { $HARDENING | merge ($cc.hardening? | default {}) })
+  let harden = {|names: list<string>| $names | each {|n| if ($enabled | get -o $n | default false) != false { $HARDENING | get $n } } | flatten }
+  let compile = ($HARDENING | reject libcxxhardening relro bindnow | columns)
+  # dependency dirs as -isystem and trailing -L: searched after the project's own, like /usr would be
   let flags = {
-    cflags: (["-O2" "-g" "-fno-omit-frame-pointer" "-mno-omit-leaf-frame-pointer"] ++ $h ++ ($cc.cflags? | default []))
-    cxxflags: ((if (do $on libcxxhardening) { $HARDENING.libcxxhardening } else { [] }) ++ ($cc.cxxflags? | default []))
-    ldflags: (([relro bindnow] | each {|k| if (do $on $k) { $HARDENING | get $k } } | compact | flatten) ++ ["-Wl,-z,noexecstack" "-Wl,--as-needed"] ++ ($cc.ldflags? | default []))
+    cflags: ((dep-dirs $deps includeDirs | each { $"-isystem($in)" })
+      ++ ["-O2" "-g" "-fno-omit-frame-pointer" "-mno-omit-leaf-frame-pointer"] ++ (do $harden $compile) ++ ($cc.cflags? | default []))
+    cxxflags: ((do $harden [libcxxhardening]) ++ ($cc.cxxflags? | default []))
+    ldflags: ((dep-dirs $deps libDirs | each { $"-L($in)" })
+      ++ (do $harden [relro bindnow]) ++ ["-Wl,-z,noexecstack" "-Wl,--as-needed"] ++ ($cc.ldflags? | default []))
   }
   let root = (which cc | get 0.path | path expand | path dirname -n 2)
-  {PKGS_CC: ({} | insert $root $flags | to json -r)}
+  {PKGS_CC: ({$root: $flags} | to json -r)}
 }
 
 # rustc and go go through jig only when the environment says so, and more than their own build
@@ -96,7 +95,7 @@ export def --env main [a: record, deps: list<record>, out: string]: nothing -> n
   load-env (sandbox-dirs $a $out)
   load-env (reproducible $a)
   load-env (toolchain $a $deps)
-  load-env (package-cc $a)
+  load-env (package-cc $a $deps)
   load-env ($deps | get env | reduce -f {} {|it, acc| $acc | merge $it })
   load-env ($a.spec.env? | default {})
 }

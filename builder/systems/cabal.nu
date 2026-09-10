@@ -38,9 +38,7 @@ semaphore: True
 with-compiler: ($ghc)
 with-hc-pkg: (tool ghc-pkg)
 " | save -f $"($env.CABAL_DIR)/config"
-  # ghc links through cc without LDFLAGS: dependencies' lib dirs (gmp, libffi, zlib) spelled out
-  let libdirs = (dep-dirs $c.deps libDirs | str join ", ")
-  $"program-locations\n  gcc-location: (tool cc)\npackage *\n  split-sections: True\n  extra-lib-dirs: ($libdirs)\n($o.project)"
+  $"program-locations\n  gcc-location: (tool cc)\npackage *\n  split-sections: True\n($o.project)"
   | save -f cabal.project.local
 }
 

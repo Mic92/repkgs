@@ -215,7 +215,8 @@ The resulting rules:
 
 - **Dependencies contribute data, never behaviour.** Each output carries an `exports.json`
   (include, lib, pkg-config dirs, env, what it propagates), derived from the tree. `prepare`
-  renders the closure into `CPPFLAGS`, `LDFLAGS`, `PKG_CONFIG_PATH`, `CMAKE_PREFIX_PATH`.
+  renders the closure into `-I`/`-L` flags the compiler driver injects, `PKG_CONFIG_PATH` and
+  `CMAKE_PREFIX_PATH`.
   Nothing a dependency ships runs code in your build.
 - **Two dependency lists, not six.** `buildDependencies` run on the build machine and go on
   `PATH`. `dependencies` are for the target and consumed as their exports say.
