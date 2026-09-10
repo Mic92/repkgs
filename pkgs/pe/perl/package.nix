@@ -18,11 +18,11 @@ package {
       run = ''
         cd $c.src
         $"osvers=\"gnulinux\"\nmyuname=\"pkgs\"\nmyhostname=\"pkgs\"\ncf_by=\"pkgs\"\ncf_time=\"1970-01-01\"\n" | save -f config.over
-        let z = ($c.deps | where { ($in.root | path basename) =~ "-zlib$" } | first)
-        $"BUILD_ZLIB = False\nINCLUDE = ($z.root)/include\nLIB = ($z.root)/lib\nOLD_ZLIB = False\nGZIP_OS_CODE = AUTO_DETECT\nUSE_ZLIB_NG = False\nZLIB_INCLUDE = ($z.root)/include\nZLIB_LIB = ($z.root)/lib\n" | save -f cpan/Compress-Raw-Zlib/config.in
+        let z = (dep-root zlib "Compress::Raw::Zlib links it")
+        $"BUILD_ZLIB = False\nINCLUDE = ($z)/include\nLIB = ($z)/lib\nOLD_ZLIB = False\nGZIP_OS_CODE = AUTO_DETECT\nUSE_ZLIB_NG = False\nZLIB_INCLUDE = ($z)/include\nZLIB_LIB = ($z)/lib\n" | save -f cpan/Compress-Raw-Zlib/config.in
         let common = [$"-Dprefix=($c.out)" -Dcc=cc -Uinstallusrbinperl -Dinstallstyle=lib/perl5 -Duserelocatableinc
           -Dman1dir=none -Dman3dir=none "-Accflags=-D_GNU_SOURCE -fno-strict-aliasing"
-          $"-Dlocincpth=($z.root)/include" $"-Dloclibpth=($z.root)/lib"]
+          $"-Dlocincpth=($z)/include" $"-Dloclibpth=($z)/lib"]
         if $c.platform.cross {
           x cp -r $"($env.PERL_CROSS)/." .
           # perl-cross carries a patchset per perl release; a maintenance release it has not
