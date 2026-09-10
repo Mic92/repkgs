@@ -32,10 +32,13 @@ def script-interp [f: path, head: binary, owners: list<string>, inject: bool]: n
   let store = $"($env.NIX_STORE)/"
   # A store path that belongs to neither the package nor a dependency is a build tool that
   # leaked in: pip writes the build python into console scripts, xz's configure writes the build
-  # sh into POSIX_SHELL. Left alone (for a python library that is the python it was built for,
-  # and Nix keeps the reference), but reported, because for a cross build it is wrong.
+  # sh into POSIX_SHELL. For a cross build that program cannot even run, so the line goes back
+  # to `#!/usr/bin/env <name>`: whoever puts the script on PATH brings the interpreter
   if ($interp.0 | str starts-with $store) and not ($owners | any {|d| $interp.0 | str starts-with $"($d)/" }) {
     note script $"bin/($name): #!($interp.0) is a build tool, not a dependency"
+    let text = (open --raw $f)
+    let body = ($text | str substring ($text | str index-of "\n")..)
+    $"#!/usr/bin/env ($interp.0 | path basename)($body)" | save -f $f
     return null
   }
   # A bare name or /usr/bin/env name is looked up in the package and its dependencies, never on
