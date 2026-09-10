@@ -25,10 +25,10 @@ export def --env setup []: nothing -> nothing {
   mkdir $repo
   for f in (glob $"($o.deps)/*.{tar.gz,cabal}") { ^ln -s $f $repo }
   # with jigd up, ghc's parallelism comes from its slots: `jsem` serves them as the -jsem
-  # semaphore. Its name is hashed into unit ids with the other ghc-options, so it is derived from
-  # $out: stable across rebuilds, unique on the host
+  # semaphore. Its name is hashed into unit ids with the other ghc-options, so it is a constant
+  # (each sandbox has its own /dev/shm, builds do not share it)
   load-env {CABAL_DIR: $"($c.build)/cabal", CABAL_UNITS: $"($STORE)/ghc-(^ghc --numeric-version | str trim)-inplace"
-    JSEM: (if $c.cache { $"/jsem_($c.out | path basename | str substring 0..<32)" } else { "" })}
+    JSEM: (if $c.cache { "/jsem" } else { "" })}
   mkdir $env.CABAL_DIR $"(unit-dir)/package.db"
   $"repository local
   url: file+noindex://($repo)
