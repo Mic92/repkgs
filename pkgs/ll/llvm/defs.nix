@@ -1,6 +1,6 @@
 # cmake definitions shared by llvm, llvm22 and zig-llvm
 {
-  LLVM_TARGETS_TO_BUILD = "X86;AArch64;RISCV;LoongArch;PowerPC;ARM;WebAssembly";
+  LLVM_TARGETS_TO_BUILD = "X86;AArch64;RISCV;LoongArch;PowerPC;ARM;WebAssembly;BPF";
   LLVM_LINK_LLVM_DYLIB = true;
   LLVM_BUILD_LLVM_DYLIB = true;
   BUILD_SHARED_LIBS = false;
