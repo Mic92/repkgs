@@ -29,7 +29,11 @@ export def "http cached" [url: string, --max-age: duration = 10min]: nothing -> 
     # hackage serves html unless asked for json. github.com (not the API) answers 406 to json-only
     [Accept "application/json, */*;q=0.5"]
   ] | compact | flatten
-  let r = http get --full --allow-errors --headers $hdrs $url
+  let r0 = http get --full --allow-errors --headers $hdrs $url
+  # an org with SAML enforcement rejects a token not authorized for it, public data is still anonymous
+  let r = if $r0.status == 403 and ($r0.body | to json) =~ "SAML" {
+    http get --full --allow-errors --headers ($hdrs | window 2 --stride 2 | where $it.0 != Authorization | flatten) $url
+  } else { $r0 }
   if $r.status == 304 {
     $old | upsert fetched (date now | format date '%+') | to json | save -f $f
     return {status: 200, body: $old.body}
