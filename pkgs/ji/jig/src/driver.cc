@@ -110,7 +110,14 @@ struct UserArgs {
   bool have_input = false;
   bool shared = false;
   bool no_policy = false;
+  bool optimizes = true;
+  bool sets_fortify = false;
 };
+
+auto IsFortifyArg(std::string_view arg) -> bool {
+  return arg.starts_with("-D_FORTIFY_SOURCE") || arg == "-U_FORTIFY_SOURCE" ||
+         arg.starts_with("-Wp,-D_FORTIFY_SOURCE") || arg.starts_with("-Wp,-U_FORTIFY_SOURCE");
+}
 
 auto ScanUserArgs(std::span<const std::string> raw) -> UserArgs {
   UserArgs user;
@@ -127,6 +134,10 @@ auto ScanUserArgs(std::span<const std::string> raw) -> UserArgs {
     user.shared = user.shared || arg == "-shared";
     user.no_policy = user.no_policy || RefusesLinkPolicy(arg);
     user.have_input = user.have_input || !arg.starts_with('-');
+    user.sets_fortify = user.sets_fortify || IsFortifyArg(arg);
+    if (arg.starts_with("-O")) {
+      user.optimizes = arg != "-O0";
+    }
     user.args.push_back(arg);
   }
   return user;
@@ -282,7 +293,13 @@ auto BuildDriverArgs(const DriverConf& conf, Language lang, std::span<const std:
   // unused-argument warnings for flags the step does not use
   std::vector<std::string> out{"--start-no-unused-arguments"};
   out.insert(out.end(), conf.flags.begin(), conf.flags.end());
-  out.insert(out.end(), conf.package.cflags.begin(), conf.package.cflags.end());
+  // glibc rejects _FORTIFY_SOURCE under -O0, and the command line's own level wins
+  for (const std::string& flag : conf.package.cflags) {
+    if (IsFortifyArg(flag) && (user.sets_fortify || !user.optimizes)) {
+      continue;
+    }
+    out.push_back(flag);
+  }
   if (cxx) {
     out.emplace_back("--driver-mode=g++");
     out.insert(out.end(), conf.cxxflags.begin(), conf.cxxflags.end());

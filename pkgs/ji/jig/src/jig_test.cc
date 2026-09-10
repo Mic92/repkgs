@@ -254,6 +254,12 @@ void TestDriver() {
                    "-fno-rtti", "--end-no-unused-arguments", "-c", "a.cc", "-O0"}));
   out = jig::BuildDriverArgs(pkg, jig::Language::kC, V({"-shared", "-o", "x.so", "x.o", "-L."}));
   assert(jig::Join(out, " ").contains("x.o -L. -Wl,-z,x -Wl,"));
+  pkg.package.cflags = V({"-O2", "-D_FORTIFY_SOURCE=3"});
+  assert(jig::Join(jig::BuildDriverArgs(pkg, jig::Language::kC, V({"-c", "a.c"})), " ").contains("FORTIFY"));
+  assert(!jig::Join(jig::BuildDriverArgs(pkg, jig::Language::kC, V({"-c", "a.c", "-O0"})), " ").contains("FORTIFY"));
+  assert(!jig::Join(jig::BuildDriverArgs(pkg, jig::Language::kC, V({"-c", "a.c", "-O2", "-O0"})), " ").contains("=3"));
+  out = jig::BuildDriverArgs(pkg, jig::Language::kC, V({"-c", "a.c", "-D_FORTIFY_SOURCE=2"}));
+  assert(!jig::Join(out, " ").contains("=3") && jig::Join(out, " ").contains("=2"));
 
   // executable link: rpath (runtime only for C++), interp stub, host rpaths dropped, foreign --dynamic-linker dropped
   out =
