@@ -1,0 +1,9 @@
+beam_jit_common.hpp calls std::abs on integers without <cstdlib>. libstdc++ leaks it
+through other headers, libc++ 22 does not.
+
+--- a/erts/emulator/beam/jit/beam_jit_common.hpp
++++ b/erts/emulator/beam/jit/beam_jit_common.hpp
+@@ -26,2 +26,3 @@
+ #include <asmjit/core.h>
++#include <cstdlib>
+ 

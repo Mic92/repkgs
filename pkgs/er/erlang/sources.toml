@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/erlang/otp"
+
+[[source]]
+key = "default"
+url = "https://github.com/erlang/otp/releases/download/OTP-{version}/otp_src_{version}.tar.gz"
+hash = "sha256-NPDNMw8P8cvjCfkmpi/IdmcDJdXSvPVeRFKCpC0yoHM="
+
+[pin]
+version = "29.0.6"
+tag = "OTP-29.0.6"
+date = "2026-09-01"

@@ -1,0 +1,14 @@
+bin/erl is a sh script that locates the install from $0. `dirname` is its only external
+command before exec, so with this it runs on sh builtins alone (launch records, env -i).
+
+--- a/erts/etc/unix/erl.src.src
++++ b/erts/etc/unix/erl.src.src
+@@ -24,3 +24,7 @@
+ absolute_parent() {
+-    DIR=$(dirname "${1}");
++    case "${1}" in
++        /*) DIR="${1%/*}"; DIR="${DIR:-/}";;
++        */*) DIR="${1%/*}";;
++        *) DIR=.;;
++    esac
+     (cd "$DIR" && pwd -P || echo "/");
