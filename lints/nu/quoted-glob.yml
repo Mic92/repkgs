@@ -1,0 +1,11 @@
+id: quoted-glob
+language: nu
+severity: error
+message: "a string is a literal file name to ls/rm/cp/mv/du even with * in it, use a bare word, `glob`, or `| into glob`"
+rule:
+  any: [{kind: val_string}, {kind: val_interpolated}]
+  regex: '\*'
+  inside:
+    kind: command
+    regex: '^(ls|rm|cp|mv|du)\s'
+    stopBy: {kind: expr_parenthesized}

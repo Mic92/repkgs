@@ -1,0 +1,13 @@
+id: complete-unchecked
+language: nu
+severity: error
+message: "`| complete` swallows the failure and nothing here looks at exit_code"
+rule:
+  kind: pipe_element
+  regex: '^complete$'
+  inside:
+    kind: pipeline
+    not:
+      inside:
+        any: [{kind: stmt_let}, {kind: expr_parenthesized}, {kind: assignment}, {kind: val_closure}]
+        stopBy: end

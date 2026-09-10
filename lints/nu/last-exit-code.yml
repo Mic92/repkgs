@@ -1,0 +1,7 @@
+id: last-exit-code
+language: nu
+severity: error
+message: "$env.LAST_EXIT_CODE is whatever ran last, use `(cmd | complete).exit_code` or `try { cmd }`"
+rule:
+  kind: val_variable
+  regex: 'LAST_EXIT_CODE'
