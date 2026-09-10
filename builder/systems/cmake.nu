@@ -7,9 +7,9 @@ def render [v: oneof<bool, int, string>]: nothing -> string {
   match $v { true => "ON", false => "OFF", _ => ($v | into string) }
 }
 
-# out-of-tree: work in the build directory
 export def setup []: nothing -> nothing { }
 
+# out-of-tree
 export def workdir []: nothing -> string { (ctx).build }
 
 # cmake -G Ninja with prefix/libdir/prefix-path/shared/testing defaults, cross system + emulator, then `cmake.defs`

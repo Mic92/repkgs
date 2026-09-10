@@ -1,9 +1,9 @@
 use ../core.nu *
 
 # meson setup / compile / test / install.
-# out-of-tree: work in the build directory
 export def setup []: nothing -> nothing { }
 
+# out-of-tree
 export def workdir []: nothing -> string { (ctx).build }
 
 # machine file values are meson literals: 'str', [list], true, 1

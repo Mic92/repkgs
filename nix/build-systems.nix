@@ -187,7 +187,7 @@ builtins.mapAttrs
       };
     };
     luarocks = {
-      verbs = [ "build" ];
+      verbs = [ "install" ]; # luarocks make builds into --tree
       tools = [
         buildPkgs.luarocks
         sh
