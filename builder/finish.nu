@@ -62,23 +62,19 @@ def version-check [c: record]: nothing -> nothing {
   note version $"($cmd | str join ' ') -> ($want)(if $relocated { ', relocated' })"
 }
 
-# jig's outcomes summed up per tool: "jig: cc cached=812/855 (95%) compiled=40 linked=3, rustc cached=…".
-# go's cache program writes its own counted line
+# jig's outcomes summed up per tool: "jig: cc cached=812/855 (95%) compiled=40 linked=3, rustc …".
+# $JIG_LOG is one "<tool>\t<outcome>\t<subject>\t<ms>" line per compiler run
 def cache-summary []: nothing -> nothing {
   if not ($env.JIG_LOG | path exists) { return }
-  let ls = (open --raw $env.JIG_LOG | lines)
-  let go = ($ls | where { str starts-with "go " } | each { str substring 3.. })
   # `query` (cc -v, -dM, -print-*) is not a build step and stays out of the counts
-  let tools = ($ls | where { $in !~ "^go |^query " } | each { split row " " | first } | uniq -c
-    | each {|k| let p = ($k.value | parse -r '^(?:(?<tool>rustc)-)?(?<kind>.*)$' | first); {tool: (if ($p.tool | is-empty) { "cc" } else { $p.tool }), kind: $p.kind, count: $k.count} }
-    | group-by tool --to-table
-    | each {|t|
-      let total = ($t.items.count | math sum)
-      let cached = ($t.items | where kind == cached | get count | append 0 | math sum)
-      let rest = ($t.items | where kind != cached | each { $"($in.kind)=($in.count)" })
-      [$t.tool $"cached=($cached)/($total) \(($cached * 100 // $total)%)" ...$rest] | str join " "
-    })
-  let parts = ($tools ++ ($go | each { $"go ($in)" }))
+  let runs = (open --raw $env.JIG_LOG | from tsv --noheaders | rename tool outcome | where outcome != query)
+  let parts = ($runs | group-by tool outcome --to-table | group-by tool --to-table | each {|t|
+    let counts = ($t.items | each {|o| {outcome: $o.outcome, n: ($o.items | length)} })
+    let total = ($counts.n | math sum)
+    let cached = ($counts | where outcome == cached | get n | append 0 | first)
+    let rest = ($counts | where outcome != cached | each { $"($in.outcome)=($in.n)" })
+    [$t.tool $"cached=($cached)/($total) \(($cached * 100 // $total)%)" ...$rest] | str join " "
+  })
   if ($parts | is-not-empty) { note jig ($parts | str join ", ") }
   # a few of the command lines jig would not cache, to spot shapes worth teaching it
   if ($env.JIG_LOG_ARGS | path exists) {

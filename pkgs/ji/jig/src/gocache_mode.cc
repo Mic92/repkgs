@@ -9,8 +9,6 @@
 #include <cstdio>
 #include <filesystem>
 #include <format>
-#include <fstream>
-#include <ios>
 #include <optional>
 #include <print>
 #include <string>
@@ -101,12 +99,10 @@ struct GoSession {
   CacheClient cache;
   bool live = false;
   fs::path dir;
-  std::int64_t hits = 0;
-  std::int64_t misses = 0;
-  std::int64_t puts = 0;
 };
 
 void HandleGet(GoSession& session, std::int64_t request_id, const std::string& action) {
+  const Stopwatch clock;
   std::optional<std::string> output_id;
   std::optional<std::string> body;
   if (session.live) {
@@ -116,11 +112,10 @@ void HandleGet(GoSession& session, std::int64_t request_id, const std::string& a
     body = session.cache.Get(slot::GoOutput(HexEncode(*output_id)));
   }
   if (!output_id || !body) {
-    ++session.misses;
     std::println(stdout, R"({{"ID":{},"Miss":true}})", request_id);
     return;
   }
-  ++session.hits;
+  LogOutcome("go", Outcome::kHit, action, clock);
   const fs::path disk_path = session.dir / HexEncode(*output_id);
   if (!fs::exists(disk_path)) {
     WriteFile(disk_path, *body);
@@ -131,6 +126,7 @@ void HandleGet(GoSession& session, std::int64_t request_id, const std::string& a
 
 void HandlePut(GoSession& session, LineReader& input, std::int64_t request_id, const std::string& action,
                std::string_view req) {
+  const Stopwatch clock;
   const std::string output_id = Base64Decode(JsonField(req, "OutputID"));
   std::string body;
   if (JsonInt(req, "BodySize") > 0) {
@@ -148,7 +144,7 @@ void HandlePut(GoSession& session, LineReader& input, std::int64_t request_id, c
     session.cache.Put(slot::GoOutput(HexEncode(output_id)), body);
     session.cache.Put(slot::GoAction(action), output_id);
   }
-  ++session.puts;
+  LogOutcome("go", Outcome::kMissStored, action, clock);
   std::println(stdout, R"({{"ID":{},"DiskPath":"{}"}})", request_id, disk_path.string());
 }
 
@@ -227,10 +223,6 @@ auto RunGoCacheProg(const std::string& socket_path) -> int {
       HandlePut(session, input, request_id, action, line);
     }
     std::fflush(stdout);
-  }
-  if (const std::string log = Env("JIG_LOG"); !log.empty()) {
-    std::ofstream(log, std::ios::app) << std::format("go cached={} compiled={} stored={}\n", session.hits,
-                                                     session.misses, session.puts);
   }
   return 0;
 }

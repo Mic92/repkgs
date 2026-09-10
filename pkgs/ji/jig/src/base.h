@@ -90,8 +90,7 @@ class Stopwatch {
   std::chrono::steady_clock::time_point start_ = std::chrono::steady_clock::now();
 };
 
-// Appends "<what> <subject> <ms>" to $JIG_LOG if set.
-// one JIG_LOG line. `prefix` distinguishes front ends ("" for cc, "rs-" for rustc)
-void LogOutcome(Outcome outcome, std::string_view subject, const Stopwatch& clock, std::string_view prefix = {});
+// one $JIG_LOG line if set: "<tool>\t<outcome>\t<subject>\t<ms>", summed up by builder/finish.nu
+void LogOutcome(std::string_view tool, Outcome outcome, std::string_view subject, const Stopwatch& clock);
 
 }  // namespace jig

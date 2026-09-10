@@ -271,21 +271,21 @@ auto CompileAndStore(CacheClient& cache, const std::string& compiler, const Requ
     // replayable only if every input is known. A missing header or any link error depends on
     // something absent that a later build may provide
     if (!dep_text || links || run.stderr_text.contains("file not found")) {
-      LogOutcome(Outcome::kMissFail, inv.source, clock);
+      LogOutcome("cc", Outcome::kMissFail, inv.source, clock);
       return run.status;
     }
     const Manifest manifest = BuildManifest(cache, request_key, inputs, inv.source);
     cache.Put(slot::Manifest(request_key), manifest.text);
     cache.Put(slot::ExitStatus(manifest.result_key), std::to_string(run.status));
     cache.Put(slot::Stderr(manifest.result_key), run.stderr_text);
-    LogOutcome(Outcome::kMissStoredFail, inv.source, clock);
+    LogOutcome("cc", Outcome::kMissStoredFail, inv.source, clock);
     return run.status;
   }
 
   const std::optional<std::string> object = ReadFile(inv.output);
   ForwardStdout(inv, object);
   if (!dep_text || !object || (links && !link_dep_text)) {
-    LogOutcome(Outcome::kMissUnstored, inv.source, clock);
+    LogOutcome("cc", Outcome::kMissUnstored, inv.source, clock);
     return 0;
   }
   const Manifest manifest = BuildManifest(cache, request_key, inputs, inv.source);
@@ -296,7 +296,7 @@ auto CompileAndStore(CacheClient& cache, const std::string& compiler, const Requ
   if (inv.wants_depfile) {
     cache.Put(slot::Depfile(manifest.result_key), store.MaskForReplay(*dep_text));
   }
-  LogOutcome(Outcome::kMissStored, inv.source, clock);
+  LogOutcome("cc", Outcome::kMissStored, inv.source, clock);
   return 0;
 }
 
@@ -483,7 +483,7 @@ auto RunCcMode(std::string_view argv0, std::span<const std::string> raw_args, co
     } else if (!primary) {
       outcome = Outcome::kPlainNoSource;
     }
-    LogOutcome(outcome, inv.source, clock);
+    LogOutcome("cc", outcome, inv.source, clock);
     LogUncached(outcome, user_args);
     return status;
   }
@@ -499,7 +499,7 @@ auto RunCcMode(std::string_view argv0, std::span<const std::string> raw_args, co
   const RequestKey request_key = ComputeRequestKey(conf->cc, inv, *primary);
   if (const std::optional<CachedResult> hit = Lookup(cache, request_key, inv)) {
     const int status = Replay(*hit, inv);
-    LogOutcome(status == 0 ? Outcome::kHit : Outcome::kHitFail, inv.source, clock);
+    LogOutcome("cc", status == 0 ? Outcome::kHit : Outcome::kHitFail, inv.source, clock);
     return status;
   }
   return CompileAndStore(cache, conf->cc, request_key, inv, clock);

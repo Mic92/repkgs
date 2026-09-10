@@ -308,13 +308,13 @@ auto OutcomeName(Outcome outcome) -> std::string_view {
   return "?";
 }
 
-void LogOutcome(Outcome outcome, std::string_view subject, const Stopwatch& clock, std::string_view prefix) {
+void LogOutcome(std::string_view tool, Outcome outcome, std::string_view subject, const Stopwatch& clock) {
   static const std::string path = Env("JIG_LOG");
   if (path.empty()) {
     return;
   }
   std::ofstream out(path, std::ios::app);
-  out << std::format("{}{} {} {:.2f}ms\n", prefix, OutcomeName(outcome), subject, clock.ElapsedMs());
+  out << std::format("{}\t{}\t{}\t{:.0f}\n", tool, OutcomeName(outcome), subject, clock.ElapsedMs());
 }
 
 }  // namespace jig
