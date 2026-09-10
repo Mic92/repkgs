@@ -112,6 +112,7 @@ builtins.mapAttrs
         defs = attrs { } "-D cache entries. true/false render ON/OFF, packages their store path";
         generator = str "Ninja" "cmake -G";
         flags = flags "cmake at configure time";
+        skipTests = strs [ ] "ctest -E regexes";
       };
     };
     meson = {
@@ -129,6 +130,7 @@ builtins.mapAttrs
       options = {
         defs = attrs { } "-D options, merged over prefix/libdir/buildtype defaults";
         flags = flags "meson setup";
+        skipTests = strs [ ] "regexes on `meson test --list` names";
       };
     };
     python = {
@@ -161,6 +163,7 @@ builtins.mapAttrs
         features = strs [ ] "--features";
         noDefaultFeatures = bool false "--no-default-features";
         flags = flags "cargo build and cargo test";
+        skipTests = strs [ ] "cargo test --skip filters (substring of the test path)";
         deps = deps true "fetch.cargoVendor";
         toolchain = opt [
           "set"
@@ -214,6 +217,7 @@ builtins.mapAttrs
         ldflags = strs [ ] "-ldflags words (-X main.version=…)";
         packages = strs [ "./..." ] "packages to build";
         testPackages = opt [ "list" "null" ] null "packages to test (null: `packages`)";
+        skipTests = strs [ ] "go test -skip regexes";
         deps = deps true "fetch.goModules" // {
           doc = "GOPROXY tree (fetch.goModules, by default from go.sum), or null to build from the source's vendor/";
         };
@@ -310,7 +314,6 @@ builtins.mapAttrs
         deps = deps true "fetch.yarnDeps";
         flags = flags "yarn install";
       };
-    };
     };
     mix = {
       # no test verb by default: MIX_ENV=test deps are outside the prod lock subset

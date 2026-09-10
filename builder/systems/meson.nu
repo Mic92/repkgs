@@ -68,10 +68,9 @@ export def configure []: nothing -> nothing {
 
 # ninja
 export def build []: nothing -> nothing { x ninja $"-j((ctx).njobs)" }
-# meson test, honouring tests.skip
+# meson test. meson has no exclude flag: every test no meson.skipTests regex matches is named
 export def test []: nothing -> nothing {
-  # meson has no exclude flag: name every test that no tests.skip pattern matches
-  let skip = (test-skips)
+  let skip = (options meson).skipTests
   let names = (if ($skip | is-empty) { [] } else { ^meson test --list | lines | where {|t| not ($skip | any {|s| $t =~ $s }) } })
   x meson test --no-rebuild --print-errorlogs --num-processes (test-jobs) ...$names
 }

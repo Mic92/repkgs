@@ -10,7 +10,7 @@ package {
   };
   tests.parallel = false; # its cmake-integration tests race each other
   # coverage-summary wants gcov. The cmake-integration tests spawn a fresh native cmake+run
-  tests.skip = [
+  cmake.skipTests = [
     "coverage"
   ]
   ++ (

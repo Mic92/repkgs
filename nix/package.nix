@@ -133,7 +133,20 @@ let
   fail = msg: throw "${name}: ${msg}";
 
   unknownUses = filter (u: !(buildSystems ? ${u})) uses;
-  unknownFields = filter (f: !(elem f (reserved ++ uses))) (attrNames args);
+  unknownFields =
+    filter (f: !(elem f (reserved ++ uses))) (attrNames args)
+    ++ map (k: "tests.${k}") (
+      filter (
+        k:
+        !(elem k [
+          "run"
+          "separate"
+          "parallel"
+          "version"
+          "relocated"
+        ])
+      ) (attrNames (args.tests or { }))
+    );
   # one message per option the package sets that its build system does not declare, or declares
   # with another type. Shallow (`typeOf`) on set options only, so it costs nothing per default.
   badOptions = concatMap (

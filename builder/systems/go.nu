@@ -37,10 +37,10 @@ export def build []: nothing -> nothing {
   x go build $"-p=($c.njobs)" -o $"($c.build)/bin/" ...(common-args $o) ...$o.packages
 }
 
-# go test (`go.testPackages`, default `go.packages`), tests.parallel as -p/-parallel, tests.skip as -skip
+# go test (`go.testPackages`, default `go.packages`), tests.parallel as -p/-parallel, go.skipTests as -skip
 export def test []: nothing -> nothing {
   let o = (options go)
-  let skip = (if (test-skips | is-empty) { [] } else { [-skip (test-skips | str join '|')] })
+  let skip = (if ($o.skipTests | is-empty) { [] } else { [-skip ($o.skipTests | str join '|')] })
   x go test -p (test-jobs) -parallel (test-jobs) -vet=off ...$skip ...(common-args $o) ...($o.testPackages | default $o.packages)
 }
 

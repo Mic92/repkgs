@@ -9,7 +9,7 @@ package {
     libpng = "enabled";
     tests = "enabled";
   };
-  tests.skip = [
+  meson.skipTests = [
     "stress-test"
     "tolerance-test"
     "composite"

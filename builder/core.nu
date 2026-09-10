@@ -48,10 +48,8 @@ export def install-bins [dir: string, names: list<string>]: nothing -> nothing {
   for b in $names { cp $"($dir)/($b)" $"($c.out)/bin/($b)" }
 }
 
-# `tests.parallel = false` -> 1, else njobs; and the `tests.skip` patterns
+# `tests.parallel = false` -> 1, else njobs
 export def test-jobs []: nothing -> string { let c = (ctx); if ($c.spec.tests?.parallel? | default true) { $c.njobs } else { 1 } | into string }
-# regexes of test names to leave out
-export def test-skips []: nothing -> list<string> { (ctx).spec.tests?.skip? | default [] }
 
 # run an external, echoing the command line first (the build log is the `set -x` of this tree)
 export def --wrapped x [cmd: string, ...args: string]: nothing -> nothing {

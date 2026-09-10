@@ -43,9 +43,10 @@ export def configure []: nothing -> nothing {
 
 # cmake --build
 export def build []: nothing -> nothing { x cmake --build . $"-j((ctx).njobs)" }
-# ctest, honouring tests.parallel and tests.skip (regex-joined -E)
+# ctest, tests.parallel as -j, cmake.skipTests joined into one -E regex
 export def test []: nothing -> nothing {
-  let exclude = (if (test-skips | is-empty) { [] } else { [-E (test-skips | str join "|")] })
+  let skip = (options cmake).skipTests
+  let exclude = (if ($skip | is-empty) { [] } else { [-E ($skip | str join "|")] })
   x ctest --output-on-failure -j (test-jobs) ...$exclude
 }
 # cmake --install

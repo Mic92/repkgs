@@ -41,9 +41,10 @@ export def workdir []: nothing -> string { project-dir cargo }
 
 # cargo build --release
 export def build []: nothing -> nothing { x cargo build --release --offline ...(args (options cargo)) }
-# cargo test --release, tests.parallel as --test-threads, tests.skip as --skip filters
+# cargo test --release, tests.parallel as --test-threads, cargo.skipTests as --skip filters
 export def test []: nothing -> nothing {
-  x cargo test --release --offline ...(args (options cargo)) -- --test-threads (test-jobs) ...(test-skips | each { [--skip $in] } | flatten)
+  let o = (options cargo)
+  x cargo test --release --offline ...(args $o) -- --test-threads (test-jobs) ...($o.skipTests | each { [--skip $in] } | flatten)
 }
 # the executables cargo built -> $out/bin (those in `bin` when the spec names some), as go does
 export def install []: nothing -> nothing {

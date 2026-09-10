@@ -234,8 +234,10 @@ The resulting rules:
 - **Tests run**, in the build by default. `tests.separate` moves them into a derivation of their
   own, `<pkg>.tests`, which unpacks the kept source and build tree (a second output of the
   package) and runs only the test verbs: the package is finished and usable before its tests
-  ran, and a failing or flaky test is retried without rebuilding it. `tests.skip`
-  (name patterns) and `tests.parallel = false` mean the same to ctest, meson, cargo, go and make.
+  ran, and a failing or flaky test is retried without rebuilding it. `tests.*` says whether and
+  where tests run and means the same everywhere. Which tests to leave out is a build system
+  option (`cmake.skipTests`, `cargo.skipTests`, …) in that runner's own terms, and for
+  ecosystems where `test` is a script the package writes its own `test` step.
   `tests.version` checks that `bin/x --version` (or the command line given, `"go version"`)
   prints the pinned version, which catches many broken installs (missing data files, wrong
   rpath, stale version string).
