@@ -214,48 +214,30 @@ modules.foo = ./build.nu;                   # longer phases in a nu module of it
 The resulting rules:
 
 - **Dependencies contribute data, never behaviour.** Each output carries an `exports.json`
-  (include dirs, lib dirs, pkg-config dirs, env, what it propagates), derived from the tree by
-  default. `prepare` renders the dependency closure into `CPPFLAGS`, `LDFLAGS`, `PKG_CONFIG_PATH`,
-  `CMAKE_PREFIX_PATH`. Nothing a dependency ships can run code in your build. `exports = false`
-  marks toolchains and applications whose `lib/` is nobody's link input.
-- **`buildDependencies` and `dependencies`, not nixpkgs' six lists.** `buildDependencies` run on the build machine and go on
-  `PATH`. `dependencies` are for the target: what they export says how they are consumed
-  (headers and libraries for the compiler, a `bin/` or env for the installed program's launcher).
-- **Cross compilation is the build system's job, done once.** autotools gets `--host` and
-  `config.site`, meson a generated cross file, cmake a toolchain file, cargo `CARGO_TARGET_*`,
-  go `GOARCH`, all from the same platform record. Tests run under qemu where the build system
-  has a hook for it, and are reported as "untested" otherwise.
-- **Hardening and reproducibility are defaults of the compiler driver, not flags packages
-  remember to set.** `-O2 -g`, frame pointers, `_FORTIFY_SOURCE=3`, stack protector, stack clash
-  protection, zero-initialised locals, `-fwrapv`, `-fstrict-flex-arrays=1`,
-  `-fzero-call-used-regs=used-gpr`, `-Werror=format-security`, libc++ fast hardening mode,
-  CET/BTI, full RELRO, `--as-needed`. `-march` comes from
-  the platform. jig injects them itself rather than through `CFLAGS`, so a Makefile that sets
-  `CFLAGS` cannot lose them, and a package turns one off by name (`cc.hardening.fortify = false`)
-  or adds its own (`cc.cflags`, `cc.cxxflags`, `cc.ldflags`). In a cross build `cc-build` sees
-  none of the package's flags. `SOURCE_DATE_EPOCH` (clang derives `__DATE__` from it), `-ffile-prefix-map` for
-  the build directory and every dependency, fixed hash seeds for Python and Perl, deterministic
-  archives, uncompressed man pages.
-- **Tests run**, in the build by default. `tests.separate` moves them into a derivation of their
-  own, `<pkg>.tests`, which unpacks the kept source and build tree (a second output of the
-  package) and runs only the test phases: the package is finished and usable before its tests
-  ran, and a failing or flaky test is retried without rebuilding it. `tests.*` says whether and
-  where tests run and means the same everywhere. Which tests to leave out is a build system
-  option (`cmake.skipTests`, `cargo.skipTests`, …) in that runner's own terms, and for
-  ecosystems where `test` is a script the package writes its own `test` phase.
-  `tests.version` checks that `bin/x --version` (or the command line given, `"go version"`)
-  prints the pinned version, which catches many broken installs (missing data files, wrong
-  rpath, stale version string). It runs under an rtld-audit module (`pkgs/dl/dlaudit`): the
-  loader reports every name it searched and every object it mapped, so a `dlopen("libfoo.so.1")`
-  that found nothing is known and fails the build. DT_NEEDED is checked statically by fixup,
-  dlopen can only be observed, and the version check is the run every package has.
-- **Two data formats between the pieces.** Anything one program writes for another to read is
-  JSON when it is a record (the spec in `NIX_ATTRS_JSON_FILE`, `exports.json`, `.launch`
-  records, `sys-libs.json`, producer attrs) and TSV when it is an append-only log (`JIG_LOG`:
-  tool, outcome, subject, ms). Inside the builder the same facts travel as the typed `ctx`
-  record, not as environment strings to re-split. Environment variables carry only what an
-  external tool defines (`CPPFLAGS`, `PKG_CONFIG_PATH`) or a single scalar for jig
-  (`JIG_SOCK`). Messages for people go through `note`, which Nix renders as `@nix` log lines.
+  (include, lib, pkg-config dirs, env, what it propagates), derived from the tree. `prepare`
+  renders the closure into `CPPFLAGS`, `LDFLAGS`, `PKG_CONFIG_PATH`, `CMAKE_PREFIX_PATH`.
+  Nothing a dependency ships runs code in your build.
+- **Two dependency lists, not six.** `buildDependencies` run on the build machine and go on
+  `PATH`. `dependencies` are for the target and consumed as their exports say.
+- **Cross is the build system's job, done once.** autotools gets `--host` and `config.site`,
+  meson a cross file, cmake a toolchain file, cargo `CARGO_TARGET_*`, go `GOARCH`, all from one
+  platform record. Tests run under qemu where the build system has a hook for it.
+- **Hardening and reproducibility are compiler defaults.** jig injects `-O2 -g`, frame pointers
+  and the nixpkgs hardening set (fortify, stack protector, RELRO, …) itself, not through
+  `CFLAGS`, so no Makefile can drop them. A package turns one off by name
+  (`cc.hardening.fortify = false`) or adds flags (`cc.cflags`, `cxxflags`, `ldflags`). `cc-build`
+  in a cross build sees none of that. `-march` and CET/BTI are per platform in the toolchain
+  config. `SOURCE_DATE_EPOCH`, `-ffile-prefix-map` for build dir and dependencies, fixed hash
+  seeds and deterministic archives cover reproducibility.
+- **Tests run.** In the build by default, in a derivation of their own with `tests.separate`
+  (`<pkg>.tests` restores the kept build tree and runs only the test phases). Which tests to skip
+  is a build system option (`cmake.skipTests`, …). Every package's `bin/x --version` must print
+  the pinned version from an empty environment, under an rtld-audit module (`pkgs/dl/dlaudit`)
+  that fails the build on a `dlopen` that found nothing.
+- **JSON for records, TSV for logs.** The spec, `exports.json`, `.launch` records and producer
+  attrs are JSON, `JIG_LOG` is TSV. Inside the builder the same facts travel as the typed `ctx`
+  record. Environment variables carry only what an external tool defines. Messages for people go
+  through `note`, which Nix renders as `@nix` log lines.
 
 ## jig and jigd: compile cache and build slots
 
