@@ -40,6 +40,7 @@ let
   # build systems that spawn `sh` by name get the seed's dash
   buildSystems = import ./build-systems.nix {
     inherit buildPkgs fetch;
+    platform = plat;
     pkgs = self;
     sh = bootstrap.seed;
   };
@@ -130,8 +131,13 @@ let
         // {
           inherit sources;
           package = package sources;
-          # another package's spec under this name and sources.toml, edited with override verbs
-          variant = base: tree: package sources (ov.applyOne self name tree (base.args // { inherit name; }));
+          # another package's spec under this name, edited with override verbs. Own sources.toml
+          # when the directory has one (llvm22: another pin), else the base's (rust-std: same tarball)
+          variant =
+            base: tree:
+            package (if sources == null then base.sources else sources) (
+              ov.applyOne self name tree (base.args // { inherit name; })
+            );
         }
       )
     );

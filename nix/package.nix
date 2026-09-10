@@ -91,7 +91,7 @@ let
     "use ${tree}/implant.nu"
   ];
 
-  stepRe = "([a-z][a-z0-9]*)\\.([a-zA-Z]+)";
+  phaseRe = "([a-z][a-z0-9]*)\\.([a-zA-Z]+)";
   # "<bs>.test" or an inline phase named "test"
   isTest =
     s:
@@ -99,7 +99,7 @@ let
       s.name == "test"
     else
       let
-        p = match stepRe s;
+        p = match phaseRe s;
       in
       p != null && elemAt p 1 == "test";
 in
@@ -275,7 +275,7 @@ let
       "note phase ${s.name}\ndo {\ncd (${workdir})\nlet c = (ctx)\n${s.run}\n}"
     else
       let
-        p = match stepRe s;
+        p = match phaseRe s;
         bs = elemAt p 0;
         call =
           if elem bs uses then "do {\ncd (${bs} workdir)\n${bs} ${elemAt p 1}\n}" else "${bs} ${elemAt p 1}";
@@ -378,6 +378,8 @@ drv
 // {
   pname = name;
   platform = platform.name;
-  args = args0; # what package.nix wrote, for `variant`
+  # what package.nix wrote and read, for `variant`
+  args = args0;
+  sources = sources0;
 }
 // (if separate then { tests = testsDrv; } else { })
