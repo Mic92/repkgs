@@ -9,6 +9,7 @@ package {
   python.backend = "hatchling";
   python.module = "hatchling";
   dependencies = [
+    pkgs.cpython # bin/hatchling runs under it
     pkgs.python-packaging
     pkgs.python-pathspec
     pkgs.python-pluggy
