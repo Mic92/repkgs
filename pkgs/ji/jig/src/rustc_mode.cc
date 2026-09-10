@@ -198,13 +198,24 @@ auto OnPath(const std::string& name) -> std::string {
   return name;
 }
 
+auto RealPath(const std::string& path) -> std::string {
+  std::error_code error;
+  const fs::path real = fs::canonical(path, error);
+  return error ? path : real.string();
+}
+
 // What a linking rustc (bin, proc-macro, cdylib, dylib) reads besides its rlib externs: the
 // linker (-C linker= or cc from PATH), and for each native -l the file it resolves to in a
 // non-store -L dir (target/build/*/out, written by a build script). Store -L dirs are covered
 // by their masked path in key_args. Not the whole dir: target/debug/deps is on -L too and holds
-// whatever other crates finished first
-void HashLinkInputs(Hasher& hasher, const RustInvocation& inv, const Store& store) {
-  hasher.Field("linker=" + Store::ToolId(OnPath(inv.linker.empty() ? "cc" : inv.linker)));
+// whatever other crates finished first.
+// A linked ELF embeds PT_INTERP, RUNPATH and libstd's location as absolute store paths, so
+// unlike an rlib it is only right for these exact linker and rustc paths: hashed unmasked
+void HashLinkInputs(Hasher& hasher, const RustInvocation& inv, const Store& store, const std::string& rustc) {
+  const std::string linker = OnPath(inv.linker.empty() ? "cc" : inv.linker);
+  hasher.Field("linker=" + store.ToolId(linker));
+  hasher.Field("linker-path=" + RealPath(fs::path(linker).parent_path().string()));
+  hasher.Field("rustc-path=" + RealPath(fs::path(rustc).parent_path().string()));
   for (const std::string& lib : inv.native_libs) {
     for (const std::string& dir : inv.lib_dirs) {
       if (store.IsStorePath(dir)) {
@@ -293,9 +304,9 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
   }
   Hasher hasher;
   // bumped when what a key covers changes, so entries made under the old rules are not asked for
-  hasher.Field("rs-schema=3");
+  hasher.Field("rs-schema=5");
   // cargo may hand us a bare `rustc`: resolve on PATH first, or two toolchains share a key
-  hasher.Field("rustc=" + Store::ToolId(OnPath(rustc)));
+  hasher.Field("rustc=" + store.ToolId(OnPath(rustc)));
   hasher.Field("cwd=" + store.Key(fs::current_path().string()));
   for (const std::string& arg : inv.key_args) {
     hasher.Field(store.Key(arg));
@@ -304,7 +315,7 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
     hasher.Field("extern:" + store.InputId(rlib).value_or("?"));
   }
   if (inv.links) {
-    HashLinkInputs(hasher, inv, store);
+    HashLinkInputs(hasher, inv, store, OnPath(rustc));
   }
   for (const char* var :
        {"CARGO_PKG_NAME", "CARGO_PKG_VERSION", "CARGO_CFG_TARGET_FEATURE", "RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS"}) {

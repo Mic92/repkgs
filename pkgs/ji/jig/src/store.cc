@@ -133,10 +133,11 @@ auto Store::ResolveAll(std::string text) const -> std::string {
   return text;
 }
 
-auto Store::ToolId(const std::string& path) -> std::string {
+auto Store::ToolId(const std::string& path) const -> std::string {
+  const std::filesystem::path tool(path);
   std::error_code error;
-  const std::filesystem::path real = std::filesystem::canonical(path, error);
-  return error ? path : real.string();
+  const std::filesystem::path dir = std::filesystem::canonical(tool.parent_path(), error);
+  return Key(error ? path : (dir / tool.filename()).string());
 }
 
 auto Store::DaemonMayIdentify(std::string_view path) const -> bool {

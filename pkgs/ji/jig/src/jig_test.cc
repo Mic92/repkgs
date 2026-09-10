@@ -75,7 +75,19 @@ void TestStore() {
   assert(store.Key("--sysroot=/a/b/../c/") == "--sysroot=/a/c");
   assert(store.Key("-O2") == "-O2");
   assert(store.Key("-DFOO=./a//b") == "-DFOO=./a//b");
-  assert(jig::Store::ToolId("/no/such/tool") == "/no/such/tool");
+  assert(store.ToolId("/no/such/tool") == "/no/such/tool");
+  // two packages whose bin/rustc link to one launcher: distinct ids, the launcher not in them
+  const fs::path tmp = fs::temp_directory_path() / ("jig-toolid-" + std::to_string(::getpid()));
+  for (const char* pkg : {"rust-a", "rust-b"}) {
+    fs::create_directories(tmp / pkg / "bin");
+    fs::create_symlink(tmp / "launch", tmp / pkg / "bin/rustc");
+  }
+  jig::WriteFile(tmp / "launch", "");
+  fs::create_directory_symlink(tmp / "rust-a", tmp / "alias");
+  assert(store.ToolId(tmp / "rust-a/bin/rustc") == (tmp / "rust-a/bin/rustc").string());
+  assert(store.ToolId(tmp / "rust-a/bin/rustc") != store.ToolId(tmp / "rust-b/bin/rustc"));
+  assert(store.ToolId(tmp / "alias/bin/rustc") == store.ToolId(tmp / "rust-a/bin/rustc"));
+  fs::remove_all(tmp);
   assert(store.Key("-std=c++23") == "-std=c++23");
   assert(store.Key(".") == ".");
 }

@@ -60,9 +60,11 @@ class Store {
   // store files outside our own $out: immutable for the daemon's purposes, so it may answer for them
   [[nodiscard]] auto DaemonMayIdentify(std::string_view path) const -> bool;
   void RememberIdentity(const std::string& path, std::string identity);
-  // Identity of a tool (compiler) for request keys: symlink-resolved, never hash-masked.
-  // Masking would make seed-1/clang and seed-2/clang (or two rustc versions) the same key
-  [[nodiscard]] static auto ToolId(const std::string& path) -> std::string;
+  // Identity of a tool (compiler) for request keys: the directory it sits in, resolved, plus its
+  // own name unresolved, as a Key. bin/rustc in two packages are both symlinks to the same
+  // `launch` binary, so following the last link would merge them, and the launch package's
+  // hash would enter every key. rust-bootstrap/bin/rustc and rust/bin/rustc stay apart by name
+  [[nodiscard]] auto ToolId(const std::string& path) const -> std::string;
 
  private:
   Store();

@@ -77,7 +77,7 @@ auto ComputeRequestKey(const std::string& compiler, const Invocation& inv, std::
   const Store& store = Store::Get();
   const bool links = inv.link_one || inv.link;
   Hasher hasher;
-  hasher.Field("cc=" + Store::ToolId(compiler));
+  hasher.Field("cc=" + store.ToolId(compiler));
   // cwd: relative -I/-include and __FILE__ depend on it. Inside the sandbox it is stable
   hasher.Field("cwd=" + store.Key(fs::current_path().string()));
   std::string_view mode = "mode=compile";
