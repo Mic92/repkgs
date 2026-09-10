@@ -126,21 +126,22 @@ export def write-launcher [name: string, program: string, args: list<string>, va
   note launcher $"bin/($name) -> ($program)"
 }
 
-# no /usr/bin/env in the sandbox: point such scripts at the seed's env (build tree only; installed
-# scripts get launchers). mtimes are kept: a generator script newer than its shipped output makes
-# make regenerate it (coreutils' cu-progs.m4 -> aclocal, ruby's prism templates -> baseruby)
-export def fix-env-shebangs [dir: path, njobs: int = 4]: nothing -> nothing {
-  let env_bin = (tool env)
-  let magic = ("#!/usr/bin/env" | into binary)
+# no /usr/bin/env in the sandbox: point such scripts at the build PATH's env (build tree only;
+# finish turns installed copies back with --undo and bin/ scripts get launchers). mtimes are kept:
+# a generator script newer than its shipped output makes make regenerate it (coreutils'
+# cu-progs.m4 -> aclocal, ruby's prism templates -> baseruby)
+export def fix-env-shebangs [dir: path, njobs: int = 4, --undo]: nothing -> nothing {
+  let ours = $"#!(tool env)"
+  let pair = (if $undo { [$ours "#!/usr/bin/env"] } else { ["#!/usr/bin/env" $ours] } | each { into binary })
   # find does the walk and the executable/size filter in one process: nu stat-ing 180k llvm files
   # on all cores took 20s, this 1.5s. More than 16 threads only contend on the page cache
   ^find $dir -type f -perm -u+x -size -1024k -printf '%T@ %p\n' | lines
   | par-each --threads ([$njobs 16] | math min) {|l|
     let p = ($l | parse '{mtime} {f}' | first)
     let bytes = (open --raw $p.f | into binary)
-    if ($bytes | bytes starts-with $magic) {
+    if ($bytes | bytes starts-with $pair.0) {
       ^chmod u+w $p.f
-      ($"#!($env_bin)" | into binary) ++ ($bytes | bytes at ($magic | bytes length)..) | save -f --raw $p.f
+      $pair.1 ++ ($bytes | bytes at ($pair.0 | bytes length)..) | save -f --raw $p.f
       ^touch -d $"@($p.mtime)" $p.f
     }
   } | ignore

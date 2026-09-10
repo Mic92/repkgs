@@ -2,7 +2,7 @@
 # "product is the package itself" install (lib/node_modules/<name> + package.json's bin links)
 use core.nu *
 
-# node_modules/.bin on PATH, its #!/usr/bin/env lines pointed at the seed
+# node_modules/.bin on PATH, its #!/usr/bin/env lines made runnable
 export def --env after-install [dir: string]: nothing -> nothing {
   fix-env-shebangs $"($dir)/node_modules" (ctx).njobs  # populated after the source tree was fixed
   $env.PATH = ($env.PATH | prepend $"($dir)/node_modules/.bin")

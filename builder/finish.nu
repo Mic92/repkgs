@@ -131,6 +131,8 @@ export def main [
   # gzip headers carry an mtime and file name: ship man and info pages uncompressed (the store compresses)
   let gz = (glob $"($c.out)/share/{man,info}/**/*.gz")
   if ($gz | is-not-empty) { x gzip -d ...$gz }
+  # installed copies of source scripts carry the build env's path from prepare: not a dependency
+  fix-env-shebangs $c.out $c.njobs --undo
   let prebuilt = ($c.spec.prebuilt? | default false)
   # upstream binaries: no debug split. `true` implants interp + stub so they relocate like ours,
   # "ldso" leaves them byte-identical behind an ld.so launcher (builder/prebuilt.nu)
