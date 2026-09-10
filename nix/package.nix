@@ -25,11 +25,9 @@ let
     foldl'
     head
     isAttrs
-    isString
     length
     listToAttrs
     match
-    replaceStrings
     ;
 
   tree = builtins.path {
@@ -90,15 +88,16 @@ let
   ];
 
   stepRe = "([a-z][a-z0-9]*)\\.([a-zA-Z]+)";
+  # "<bs>.test" or an inline step named "test"
   isTest =
     s:
-    isString s
-    && (
+    if isAttrs s then
+      s.name == "test"
+    else
       let
         p = match stepRe s;
       in
-      p != null && elemAt p 1 == "test"
-    );
+      p != null && elemAt p 1 == "test";
 in
 # sources: the package's sources.toml (nix/sources.nix) or null. It supplies version and source
 # unless package.nix sets them (local trees, demos)
@@ -215,29 +214,32 @@ let
     "--experimental-options=[cell-path-types]"
     "-c"
   ];
-  stepLine =
+  # a step's nu text, ungated
+  stepBody =
     s:
     if isAttrs s then
       "note step ${s.name}\ndo {\ncd (${workdir})\nlet c = (ctx)\n${s.run}\n}"
     else
       let
         p = match stepRe s;
+        bs = elemAt p 0;
+        call =
+          if elem bs uses then "do {\ncd (${bs} workdir)\n${bs} ${elemAt p 1}\n}" else "${bs} ${elemAt p 1}";
       in
-      if p == null || !(elem (elemAt p 0) (uses ++ attrNames modules)) then
+      if p == null || !(elem bs (uses ++ attrNames modules)) then
         fail "step '${s}' is not <one of ${toString (uses ++ attrNames modules)}>.<verb>"
-      else if elemAt p 1 == "test" && (!testsRun || separate) then
-        ""
       else
-        let
-          bs = elemAt p 0;
-          call =
-            if elem bs uses then "do {\ncd (${bs} workdir)\n${bs} ${elemAt p 1}\n}" else "${bs} ${elemAt p 1}";
-        in
-        # cross without binfmt decides at build time (prepare) that tests cannot run
-        if elemAt p 1 == "test" then
-          "if (ctx).testsRun {\nnote step ${s}\n${call}\n}"
-        else
-          "note step ${s}\n${call}";
+        "note step ${s}\n${call}";
+  # in the build script: test steps drop out when disabled or separate, and otherwise ask prepare
+  # (cross without binfmt decides at build time that tests cannot run)
+  stepLine =
+    s:
+    if !isTest s then
+      stepBody s
+    else if !testsRun || separate then
+      ""
+    else
+      "if (ctx).testsRun {\n${stepBody s}\n}";
   # `modules.zig = ./build.nu`: the package's own verbs as one more nu module, for steps too long
   # to read inline ("zig.restore"). It imports the builder by bare name (`use core.nu *`)
   modules = args.modules or { };
@@ -262,7 +264,7 @@ let
     prelude
     ++ [ "prepare --from-tree ${drv.tree}" ]
     ++ setups
-    ++ map (s: "note step ${s}\n${replaceStrings [ "." ] [ " " ] s}") (filter isTest steps)
+    ++ map stepBody (filter isTest steps)
     ++ [ "finish tests" ]
   );
 
