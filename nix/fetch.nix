@@ -19,6 +19,7 @@
   system,
   cpu,
   sysLibs ? { },
+  sevenzip ? null,
 }:
 let
   producers = builtins.path {
@@ -216,4 +217,15 @@ in
     path = ./empty;
     name = "empty";
   };
+
+  # VisualStudio.vsman -> {crt,sdk}/: MSVC CRT with the STL, UCRT and the Windows SDK headers
+  # and import libraries for one cpu, the sysroot of the msvc platforms. Unfree (Visual Studio
+  # license terms), so CI keeps it out of the public cache.
+  windowsSdk =
+    { manifest, arch }:
+    dynamic "windows-sdk-${arch}" "fetch/winsdk.nu" {
+      inherit manifest arch;
+      sevenzip = "${sevenzip}";
+      sevenzip_drv = sevenzip.drvPath;
+    };
 }

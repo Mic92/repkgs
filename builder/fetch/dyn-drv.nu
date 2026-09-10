@@ -61,7 +61,9 @@ export def stage [name: string, script: string, attrs: record, inputs: list<stri
 #   {write: <text>, to: <rel path>}                               literal file (index.json, exports.json, …)
 #   {copy: <store file>, append: <text>, to: <rel path>}           the file's bytes with a text trailer (deno's cache format)
 # `inputs` are the .drv paths whose outputs `layout` refers to (plus propagated libraries).
-export def collect [name: string, layout: list<record<to: string>>, inputs: list<string>]: nothing -> nothing {
+# `--script`: a sibling of this file to run instead, with `attrs` as structured attrs, for
+# outputs that are not a plain layout (winsdk-assemble.nu unpacks msi and vsix)
+export def collect [name: string, layout: list<record<to: string>>, inputs: list<string>, --script: string, --attrs: record = {}]: nothing -> nothing {
   const ASSEMBLE = '
     let attrs = (open $env.NIX_ATTRS_JSON_FILE)
     let out = $attrs.outputs.out
@@ -78,17 +80,19 @@ export def collect [name: string, layout: list<record<to: string>>, inputs: list
       }
     } | ignore
     ^$"($bin)/chmod" -R u+w,go-w,a-st $out'
+  const here = path self .
   let seed = $env.seed
+  let srcs = ([$seed] ++ (if $script == null { [] } else { [($here | path dirname)] }))
   let drv = ({
     name: $name
     system: $env.system
     builder: $"($seed)/bin/nu"
-    args: ["-c" $ASSEMBLE]
+    args: (if $script == null { ["-c" $ASSEMBLE] } else { [$"($here)/($script)"] })
     outputs: {out: {hashAlgo: "r:sha256"}}
     inputDrvs: ($inputs | each {|d| [$d [out]] } | into record)
-    inputSrcs: [$seed]
-    env: {__json: ({name: $name, system: $env.system, outputs: [out], seed: $seed, layout: $layout} | to json --raw)}
-  } | add-drv $name $seed ...$inputs)
+    inputSrcs: $srcs
+    env: {__json: ({name: $name, system: $env.system, outputs: [out], seed: $seed, layout: $layout} | merge $attrs | to json --raw)}
+  } | add-drv $name ...$srcs ...$inputs)
   print -e $"($name): ($layout | length) entries, ($inputs | length) inputs -> ($drv)"
   ^jig nix-store submit $drv out
 }

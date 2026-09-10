@@ -84,6 +84,7 @@ let
 
   fetch = import ./fetch.nix {
     inherit (bootstrap.stage0) jig;
+    sevenzip = buildPkgs."7zip";
     nu = bootstrap.seed;
     inherit system;
     inherit (plat) cpu;
