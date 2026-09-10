@@ -4,8 +4,9 @@ purl = "pkg:github/tukaani-project/xz"
 [[source]]
 key = "default"
 url = "https://github.com/tukaani-project/xz/releases/download/{tag}/xz-{version}.tar.xz"
-hash = "sha256-DhBCivleFs6+2f57v5IkqRmMPGHaG+VZOg3ZiRIxIXM="
+hash = "sha256-qxY8EOtak5NzB59u5NI3qf1Ij9/RNUTYw3NsPnIQNQ0="
 
 [pin]
-version = "5.8.3"
-tag = "v5.8.3"
+version = "5.8.4"
+date = "2026-09-09"
+tag = "v5.8.4"
