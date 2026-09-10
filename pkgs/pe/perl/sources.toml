@@ -7,6 +7,12 @@ key = "default"
 url = "https://www.cpan.org/src/5.0/perl-{version}.tar.xz"
 hash = "sha256-SjrMeroh+58iYrXgeJ9nIsFnrVBpIiXsUg/Pm9mfqr8="
 
+[[source]]
+key = "cross"
+url = "https://github.com/arsv/perl-cross/releases/download/{cross}/perl-cross-{cross}.tar.gz"
+hash = "sha256-6BQWltgzuR5bUab1AjuqhrhHuwquo3/HlHjGWJ51Jp4="
+
 [pin]
 version = "5.40.5"
 tag = "v5.40.5"
+cross = "1.6.5"
