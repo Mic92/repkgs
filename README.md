@@ -23,7 +23,18 @@ next is in [docs/plan.md](docs/plan.md).
 
 ## Try it
 
-Needs Nix with `experimental-features = nix-command ca-derivations dynamic-derivations`.
+The **Nix daemon** has to be new enough for dynamic derivations: 2.36 or a 2.36pre from August
+2026 on (nixpkgs `nixVersions.git` qualifies). As NixOS configuration:
+
+```nix
+nix.package = pkgs.nixVersions.git;
+nix.settings = {
+  experimental-features = [ "nix-command" "ca-derivations" "dynamic-derivations" "recursive-nix" ];
+  system-features = [ "builder-rpc-v0" "big-parallel" "kvm" "nixos-test" "benchmark" ];
+};
+```
+
+Then:
 
 ```console
 $ nix-build -A jq                                   # for this machine
@@ -32,10 +43,11 @@ $ nix-build -A ripgrep -A fd -A deno -A pandoc      # cargo, prebuilt, haskell â
 $ nix-build bootstrap -A stage1.x86_64.cc           # only the toolchain
 ```
 
-The first build fetches the seed and builds the toolchain (about 8 minutes), everything after
-that is incremental.
+The first build fetches the seed and builds the toolchain, everything after that is incremental.
 
-To get the compile cache, run the daemon once and let the sandbox see its socket:
+To get the compile cache, run the daemon once and let the sandbox see its socket. Mapping the
+socket in is a per-build `extra-sandbox-paths`, which the Nix daemon only accepts from
+`nix.settings.trusted-users`:
 
 ```console
 $ nix-build -A jigd && ./result/bin/jigd $XDG_RUNTIME_DIR/jigd/socket &
