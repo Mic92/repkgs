@@ -22,7 +22,7 @@ export def build []: nothing -> nothing {
   probe-cache store-dir (probe-cache key $"rebar3-deps/((options rebar3).deps | path basename)" []) _build/default/checkouts
 }
 
-# opt-in ("rebar3.test" in steps): the test profile's deps are not in rebar.lock
+# opt-in ("rebar3.test" in phases): the test profile's deps are not in rebar.lock
 export def test []: nothing -> nothing { x rebar3 eunit }
 
 export def install []: nothing -> nothing {

@@ -10,7 +10,7 @@ package {
   uses = [ "autotools" ];
   autotools.outOfTree = false;
   autotools.testTarget = [ "test_stdlib" ]; # test_mix wants git and network
-  steps = [
+  phases = [
     "autotools.build"
     "autotools.test"
     "autotools.install"

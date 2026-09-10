@@ -15,7 +15,7 @@ package {
     pkgs.libgcc-shim # see nix/build-systems.nix cabal.libs
   ];
   buildDependencies = [ buildPkgs.cpython ];
-  steps = [
+  phases = [
     {
       name = "install";
       run = ''

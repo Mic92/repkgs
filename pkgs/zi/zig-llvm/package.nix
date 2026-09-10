@@ -18,7 +18,7 @@ variant pkgs.llvm {
     LIBCLANG_BUILD_STATIC = false;
     LLD_BUILD_TOOLS = false;
   };
-  steps.set = [
+  phases.set = [
     "cmake.configure"
     "cmake.build"
     "cmake.install"

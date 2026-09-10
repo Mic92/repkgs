@@ -106,7 +106,7 @@ def cache-summary []: nothing -> nothing {
   }
 }
 
-# spec.install {"<dest under $out>": "<glob in the source tree>" | [globs]}: copied after the steps
+# spec.install {"<dest under $out>": "<glob in the source tree>" | [globs]}: copied after the phases
 # ran, a dest ending in / is a directory the matches go into. spec.links {"<path>": "<target>"}
 # `install` sources are globs relative to the source tree (where finish runs)
 def install-map [c: record]: nothing -> nothing {

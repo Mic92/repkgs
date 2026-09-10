@@ -22,7 +22,7 @@ package {
     buildPkgs.pkgconf
   ];
   modules.rust = ./build.nu;
-  steps = [
+  phases = [
     "rust.configure"
     "rust.build"
     "rust.install"

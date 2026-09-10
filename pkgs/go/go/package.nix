@@ -8,7 +8,7 @@ package {
   name = "go";
   source = sources.default;
   buildDependencies = [ buildPkgs.go-bootstrap ];
-  steps = [
+  phases = [
     {
       name = "build";
       run = ''

@@ -25,7 +25,7 @@ package {
     "-X github.com/navidrome/navidrome/consts.gitSha=nix"
   ];
   go.packages = [ "." ];
-  steps = [
+  phases = [
     "npm.build"
     "go.build"
     "go.install"

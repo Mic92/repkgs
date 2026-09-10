@@ -19,7 +19,7 @@ package {
     pkgs.zlib
     pkgs.libgcc-shim
   ];
-  steps = [
+  phases = [
     {
       name = "install";
       run = ''

@@ -7,7 +7,7 @@ package {
   name = "libgcc-shim";
   version = "1";
   source = ./src;
-  steps = [
+  phases = [
     {
       name = "build";
       run = ''

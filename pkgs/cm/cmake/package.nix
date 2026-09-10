@@ -5,7 +5,7 @@ package {
   # ./bootstrap builds a minimal cmake with make, then cmake configures itself. Bundled libs: zlib &
   # co. are cmake packages themselves, using ours would be a cycle
   autotools.configureScript = "bootstrap";
-  steps = [
+  phases = [
     {
       name = "configure";
       run = ''

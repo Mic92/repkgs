@@ -1,6 +1,6 @@
 # The `package` function: spec attrset -> derivation (+ `.tests` when tests.separate).
 # Validates field and option names at eval time, then generates the nu script
-#   use core.nu *; use prepare.nu; use finish.nu; use implant.nu; use <bs>.nu …; prepare; <bs> setup …; <step> …; finish
+#   use core.nu *; use prepare.nu; use finish.nu; use implant.nu; use <bs>.nu …; prepare; <bs> setup …; <phase> …; finish
 # that nu executes in a single nu process. Vocabulary: README.md "Writing a package".
 {
   platform,
@@ -41,7 +41,7 @@ let
     "source"
     "patches"
     "uses"
-    "steps"
+    "phases"
     "buildDependencies"
     "dependencies"
     "bin"
@@ -91,7 +91,7 @@ let
   ];
 
   stepRe = "([a-z][a-z0-9]*)\\.([a-zA-Z]+)";
-  # "<bs>.test" or an inline step named "test"
+  # "<bs>.test" or an inline phase named "test"
   isTest =
     s:
     if isAttrs s then
@@ -193,15 +193,15 @@ let
     else
       true;
 
-  # `install`/`links` alone (prebuilt binaries, data): the one step is copying them into $out
-  steps =
-    args.steps or (
+  # `install`/`links` alone (prebuilt binaries, data): the one phase is copying them into $out
+  phases =
+    args.phases or (
       if length uses == 1 then
-        buildSystems.${head uses}.steps
+        buildSystems.${head uses}.phases
       else if uses == [ ] && (args ? install || args ? links) then
         [ ]
       else
-        fail "'steps' is required with more than one build system"
+        fail "'phases' is required with more than one build system"
     );
   testsRun = args.tests.run or true;
   # a build system's `stack` (tools that are themselves built with it): a member sees only the
@@ -231,11 +231,11 @@ let
     "--experimental-options=[cell-path-types]"
     "-c"
   ];
-  # a step's nu text, ungated
-  stepBody =
+  # a phase's nu text, ungated
+  phaseBody =
     s:
     if isAttrs s then
-      "note step ${s.name}\ndo {\ncd (${workdir})\nlet c = (ctx)\n${s.run}\n}"
+      "note phase ${s.name}\ndo {\ncd (${workdir})\nlet c = (ctx)\n${s.run}\n}"
     else
       let
         p = match stepRe s;
@@ -244,28 +244,28 @@ let
           if elem bs uses then "do {\ncd (${bs} workdir)\n${bs} ${elemAt p 1}\n}" else "${bs} ${elemAt p 1}";
       in
       if p == null || !(elem bs (uses ++ attrNames modules)) then
-        fail "step '${s}' is not <one of ${toString (uses ++ attrNames modules)}>.<phase>"
+        fail "phase '${s}' is not <one of ${toString (uses ++ attrNames modules)}>.<phase>"
       else
-        "note step ${s}\n${call}";
-  # in the build script: test steps drop out when disabled or separate, and otherwise ask prepare
+        "note phase ${s}\n${call}";
+  # in the build script: test phases drop out when disabled or separate, and otherwise ask prepare
   # (cross without binfmt decides at build time that tests cannot run)
-  stepLine =
+  phaseLine =
     s:
     if !isTest s then
-      stepBody s
+      phaseBody s
     else if !testsRun || separate then
       ""
     else
-      "if (ctx).testsRun {\n${stepBody s}\n}";
-  # `modules.zig = ./build.nu`: the package's own phases as one more nu module, for steps too long
+      "if (ctx).testsRun {\n${phaseBody s}\n}";
+  # `modules.zig = ./build.nu`: the package's own phases as one more nu module, for phases too long
   # to read inline ("zig.restore"). It imports the builder by bare name (`use core.nu *`)
   modules = args.modules or { };
   prelude =
     preludeBase
     ++ map (u: "use ${tree}/${buildSystems.${u}.module}") uses
     ++ map (m: "module ${m} { export use ${modules.${m}} * }\nuse ${m}") (attrNames modules);
-  # every step starts in a known directory: `<bs> workdir` for a build system's phases, the first
-  # build system's for inline steps and package modules. setup exports env, hence --env
+  # every phase starts in a known directory: `<bs> workdir` for a build system's phases, the first
+  # build system's for inline phases and package modules. setup exports env, hence --env
   workdir = if uses == [ ] then "(ctx).src" else "${builtins.head uses} workdir";
   setups = map (
     u: "note setup ${u}\ndo --env {\nmkdir (${u} workdir)\ncd (${u} workdir)\n${u} setup\n}"
@@ -274,14 +274,14 @@ let
     prelude
     ++ [ "prepare" ]
     ++ setups
-    ++ map stepLine steps
+    ++ map phaseLine phases
     ++ [ (if separate then "finish --keep-tree" else "finish") ]
   );
   testScript = concatStringsSep "\n" (
     prelude
     ++ [ "prepare --from-tree ${drv.tree}" ]
     ++ setups
-    ++ map stepBody (filter isTest steps)
+    ++ map phaseBody (filter isTest phases)
     ++ [ "finish tests" ]
   );
 
@@ -302,7 +302,7 @@ let
       }) uses
     )
     // {
-      inherit steps prebuilt;
+      inherit phases prebuilt;
     };
   common = setCommon // {
     src = args.source;

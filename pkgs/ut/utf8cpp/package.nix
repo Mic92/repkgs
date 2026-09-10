@@ -2,7 +2,7 @@
 package {
   name = "utf8cpp";
   uses = [ "cmake" ];
-  steps = [
+  phases = [
     "cmake.configure"
     "cmake.install"
   ]; # header-only

@@ -1,5 +1,5 @@
 # What `uses = [ "<name>" ]` means: builder/systems/<name>.nu implements the phases, `phases` is the default
-# step order (build test install unless said otherwise), `tools` go on PATH, `dependencies` add to
+# order (build test install unless said otherwise), `tools` go on PATH, `dependencies` add to
 # the package's, `prebuilt` is the package's default for that field, and `options` are what a
 # package may set under `<name>.*`: `{ type; default; doc; }` each, `type` the `builtins.typeOf`
 # names allowed, checked at eval time along with the name. The module reads the merged result as
@@ -58,7 +58,7 @@ builtins.mapAttrs
     {
       inherit options;
       module = "systems/${name}.nu";
-      steps = map (v: "${name}.${v}") (
+      phases = map (v: "${name}.${v}") (
         bs.phases or [
           "build"
           "test"

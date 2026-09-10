@@ -15,7 +15,7 @@ package {
     pkgs.unzip
   ];
   buildDependencies = [ buildPkgs.unzip ];
-  steps = [
+  phases = [
     {
       name = "configure";
       run = "cd $c.src; x ./configure $\"--prefix=($c.out)\" $\"--with-lua=(dep-root lua 'luarocks runs on it')\"";

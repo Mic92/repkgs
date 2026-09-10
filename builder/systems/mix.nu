@@ -29,7 +29,7 @@ export def workdir []: nothing -> string { project-dir mix }
 
 export def build []: nothing -> nothing { x mix compile --no-deps-check ...(options mix).flags }
 
-# opt-in ("mix.test" in steps): test-only deps are usually not fetched at MIX_ENV=prod
+# opt-in ("mix.test" in phases): test-only deps are usually not fetched at MIX_ENV=prod
 export def test []: nothing -> nothing { x mix test --no-deps-check }
 
 export def install []: nothing -> nothing {

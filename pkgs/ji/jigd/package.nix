@@ -7,7 +7,7 @@ package {
   uses = [ "go" ];
   go.cgo = false;
   tests.version = false; # a daemon, no --version
-  steps = [
+  phases = [
     "go.build"
     "go.install"
   ];

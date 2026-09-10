@@ -8,7 +8,7 @@ package {
   cc.cflags = [ "-DOSSL_RELOCATABLE" ];
   uses = [ "autotools" ];
   # own perl Configure. --openssldir is the §3 ambient path, not a store path
-  steps = [
+  phases = [
     {
       name = "configure";
       run = ''

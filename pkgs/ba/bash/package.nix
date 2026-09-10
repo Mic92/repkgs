@@ -13,7 +13,7 @@ package {
   ];
   tests.relocated = true;
   tests.run = false; # interactive/tty
-  steps = [
+  phases = [
     "autotools.configure"
     "autotools.build"
     "autotools.install"

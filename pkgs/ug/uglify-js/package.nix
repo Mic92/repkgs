@@ -11,6 +11,6 @@ package {
     source = sources.default;
     lockFile = ./package-lock.json;
   };
-  steps = [ "npm.install" ]; # plain JS, nothing to build; its tests take minutes
+  phases = [ "npm.install" ]; # plain JS, nothing to build; its tests take minutes
   bin = [ "uglifyjs" ];
 }

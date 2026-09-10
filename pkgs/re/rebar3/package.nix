@@ -8,7 +8,7 @@ package {
   name = "rebar3";
   buildDependencies = [ buildPkgs.erlang ];
   dependencies = [ pkgs.erlang ];
-  steps = [
+  phases = [
     {
       name = "bootstrap";
       run = ''

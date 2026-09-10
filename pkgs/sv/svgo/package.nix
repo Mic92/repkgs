@@ -4,7 +4,7 @@
 package {
   name = "svgo";
   uses = [ "pnpm" ];
-  steps = [
+  phases = [
     "pnpm.build"
     {
       # test/regression diffs against a `git rev-parse HEAD` baseline, no repo in a tarball

@@ -14,7 +14,7 @@ package {
     buildPkgs.cpython
     buildPkgs.ninja
   ];
-  steps = [
+  phases = [
     {
       name = "configure";
       run = ''

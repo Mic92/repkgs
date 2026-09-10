@@ -1,17 +1,17 @@
 # The package builder's shared vocabulary. nix/package.nix generates, per package, the script
-#   use core.nu *; use prepare.nu; use finish.nu; use <bs>.nu …; prepare; <bs> setup …; <steps> …; finish
-# which runs in one nu process, so `def --env` phases hand cwd and environment on to later steps.
-# This module is what build systems and custom steps import: ctx, options, x, tool, note, exports-of.
+#   use core.nu *; use prepare.nu; use finish.nu; use <bs>.nu …; prepare; <bs> setup …; <phases> …; finish
+# which runs in one nu process, so `def --env` phases hand cwd and environment on to later ones.
+# This module is what build systems and inline phases import: ctx, options, x, tool, note, exports-of.
 
 # One log line per event, in Nix's own structured-log form ("@nix {json}", libutil/logging.cc) so
-# `nix build`/nom show the current phase and `nix log` keeps the text. `step` events become the
-# derivation's phase, everything else an info-level message. nix/package.nix emits one per step
-export def note [step: string, msg: string = ""]: nothing -> nothing {
-  let ev = if $step == "step" { {action: setPhase, phase: $msg} } else { {action: msg, level: 3, msg: $"($step): ($msg)"} }
+# `nix build`/nom show the current phase and `nix log` keeps the text. `phase` events become the
+# derivation's phase, everything else an info-level message. nix/package.nix emits one per phase
+export def note [kind: string, msg: string = ""]: nothing -> nothing {
+  let ev = if $kind == "phase" { {action: setPhase, phase: $msg} } else { {action: msg, level: 3, msg: $"($kind): ($msg)"} }
   print -e $"@nix ($ev | to json -r)"
 }
 
-# what build-system phases and custom steps get to see: {spec out deps njobs src build platform testsRun}
+# what build-system and inline phases get to see: {spec out deps njobs src build platform testsRun}
 export def ctx []: nothing -> record<spec: record, out: string, deps: list<record<name: string, root: string>>, roots: list<string>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool> { $env.PKGS_CTX }
 
 # a build system's options: nix/build-systems.nix defaults merged with the package's `<bs>.*`

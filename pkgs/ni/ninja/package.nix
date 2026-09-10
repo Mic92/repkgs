@@ -3,7 +3,7 @@ package {
   name = "ninja";
   # configure.py needs python, python needs zlib (a cmake package) → cycle. So: every src/*.cc
   # that is not a test, a benchmark, Windows-only, an re2c input or the python browse tool
-  steps = [
+  phases = [
     {
       name = "build";
       run = ''

@@ -15,7 +15,7 @@ package {
     buildPkgs.ninja
   ];
   patches = [ ./libcxx-includes.patch ];
-  steps = [
+  phases = [
     {
       name = "configure";
       run = ''

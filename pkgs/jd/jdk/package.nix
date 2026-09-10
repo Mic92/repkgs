@@ -22,7 +22,7 @@ package {
     buildPkgs.zip
     buildPkgs.unzip
   ];
-  steps = [
+  phases = [
     {
       name = "configure";
       run = ''

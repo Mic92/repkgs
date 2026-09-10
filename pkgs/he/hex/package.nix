@@ -6,7 +6,7 @@
 package {
   name = "hex";
   buildDependencies = [ buildPkgs.elixir ];
-  steps = [
+  phases = [
     {
       name = "archive";
       run = ''

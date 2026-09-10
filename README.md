@@ -79,7 +79,7 @@ package {
 ```
 
 `sources.toml` supplies version and tarball. `uses` names the build system, and the build system
-brings its tools, its default steps (configure, build, test, install) and its options. Options
+brings its tools, its phases (configure, build, test, install) and its options. Options
 are things like `cmake.defs` above, `cargo.features` or `go.tags`. `tools/options cmake` lists
 them. Their names and types are checked at evaluation time, so a typo is an error instead of an
 attribute nobody reads.
@@ -107,12 +107,12 @@ LuaRocks, the lock file in the source is turned into fixed-output fetches at bui
 dynamic derivation, with the hashes the lock file already has. Where it has none (Go, Hackage,
 LuaRocks) they are kept in `locks/*.toml`.
 
-If a package needs something between the standard steps, add `steps`. Each entry is
-either a phase of the build system or a piece of nu with a name. Inside the nu, `$c` holds the
+If a package needs something between or instead of those, it writes `phases` out. Each entry
+is either a phase of the build system or a piece of nu with a name. Inside the nu, `$c` holds the
 paths and facts of the build (`$c.out`, `$c.src`, `$c.build`, `$c.njobs`, `$c.platform`):
 
 ```nix
-steps = [
+phases = [
   "autotools.configure"
   "autotools.build"
   { name = "trim"; run = ''rm $"($c.out)/bin/unwanted"''; }
@@ -120,17 +120,17 @@ steps = [
 ];
 ```
 
-Steps too long to keep inline can live in their own file: `modules.rust = ./build.nu;` makes it
-a module, and steps call its phases as `"rust.configure"`. pkgs/ru/rust does this.
+Phases too long to keep inline can live in their own file: `modules.rust = ./build.nu;` makes it
+a module, and `phases` refers to them as `"rust.configure"`. pkgs/ru/rust does this.
 
 Every build ends the same way. ELF outputs are made relocatable. `bin/<name> --version` runs in
 an empty environment and has to print the pinned version. A `dlopen` that finds nothing during
 that run fails the build, unless `tests.dlopen = [ "libudev.so.1" ]` declares it optional.
 `tests.relocated = true` repeats the run from a copy of the output at another path, and
-`tests.separate = true` puts the test step in its own derivation.
+`tests.separate = true` puts the test phase in its own derivation.
 
 A few fields are rarer. `prebuilt = true` takes an upstream binary and only makes it
-relocatable. `install."bin/deno" = "deno"` copies files with no steps at all.
+relocatable. `install."bin/deno" = "deno"` copies files with no phases at all.
 `exports.propagate = [ pkgs.pcre2 ]` is for a library whose users must also see another, a
 `Requires:` line in its .pc file. `exports = false` marks toolchains and applications that
 nothing links against.

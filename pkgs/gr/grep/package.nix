@@ -6,7 +6,7 @@ package {
   autotools.flags = [ "--disable-perl-regexp" ];
   tests.relocated = true;
   tests.run = false; # perl
-  steps = [
+  phases = [
     "autotools.configure"
     "autotools.build"
     "autotools.install"

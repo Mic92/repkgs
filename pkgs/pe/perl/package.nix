@@ -10,7 +10,7 @@ package {
   # Configure is not autoconf: in-tree, its own flag syntax, no --host (cross needs perl-cross).
   # userelocatableinc: @INC relative to $^X, so no prefix is compiled in
   autotools.outOfTree = false;
-  steps = [
+  phases = [
     {
       name = "configure";
       run = ''

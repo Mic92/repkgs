@@ -13,7 +13,7 @@ package {
     pkgs.alsa-lib
     pkgs.freetype
   ];
-  steps = [
+  phases = [
     {
       # X11 AWT and its dependents would fail the implant for want of libX11 & co
       name = "prune";

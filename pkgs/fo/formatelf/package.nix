@@ -9,7 +9,7 @@ package {
   uses = [ "cargo" ];
   # tree infrastructure (finish.nu implants prebuilt ELFs with it): must not wait for llvm + rust
   cargo.toolchain = buildPkgs.rust-bootstrap;
-  steps = [
+  phases = [
     "cargo.build"
     "cargo.test"
     "cargo.install"

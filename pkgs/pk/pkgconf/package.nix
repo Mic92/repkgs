@@ -11,7 +11,7 @@ package {
     "--with-system-includedir=/nonexistent"
   ];
   tests.run = false; # kyua
-  steps = [
+  phases = [
     "autotools.configure"
     "autotools.build"
     "autotools.install"

@@ -3,7 +3,7 @@
 { package }:
 package {
   name = "fontconfig-headers";
-  steps = [
+  phases = [
     {
       # 2.17 generates fontconfig.h from .h.in for one value, meson.build's cacheversion
       name = "fontconfig.h";

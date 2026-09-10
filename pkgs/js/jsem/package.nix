@@ -4,7 +4,7 @@ package {
   name = "jsem";
   version = "1";
   source = ./src;
-  steps = [
+  phases = [
     {
       name = "build";
       run = ''

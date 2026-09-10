@@ -4,7 +4,7 @@ package {
   uses = [ "cmake" ];
   # configure checks that cargo and rustc exist
   buildDependencies = [ buildPkgs.rust ];
-  steps = [
+  phases = [
     "cmake.configure"
     "cmake.build"
     "cmake.install"

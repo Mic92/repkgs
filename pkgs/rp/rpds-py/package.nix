@@ -11,7 +11,7 @@ package {
   ];
   python.backend = "maturin";
   python.module = "rpds";
-  steps = [
+  phases = [
     "python.build"
     "python.install"
     "python.test"

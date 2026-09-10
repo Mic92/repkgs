@@ -73,7 +73,7 @@ lazy, so `nix-build -A jq` imports one package file. `buildPkgs` is the set for 
 
 `nix/package.nix` validates the spec (unknown field or option, option of the wrong type →
 evaluation error, not a silently ignored attribute) and emits a derivation whose builder is `nu -c "<script>"`. Everything that
-does not depend on other derivations (options, steps, env) travels as one JSON attribute, and each
+does not depend on other derivations (options, phases, env) travels as one JSON attribute, and each
 dependency appears exactly once as a path, which is also the shape `derivationStrict` is
 cheapest on: 1000 packages in 0.36 s and 10 MB, native or cross.
 
@@ -90,7 +90,7 @@ import ./. {
     curl.env.merge = { CURL_DEBUG = "1"; };
     jq.pin.merge = { version = "1.8.3"; tag = "jq-1.8.3"; };   # re-reads sources.toml under this pin
     jq.hash.merge = { default = "sha256-…"; };
-    ffmpeg.steps.set = [ "autotools.build" "autotools.install" ];
+    ffmpeg.phases.set = [ "autotools.build" "autotools.install" ];
     gcc.edit = spec: spec // { … };               # a function, when the verbs are not enough
   };
 }
@@ -109,7 +109,7 @@ There is no `.override`, `.overrideAttrs`, overlay or module mechanism besides t
 
 Inside the tree the same verbs make a variant of another package under its own name and
 `sources.toml`, e.g. `pkgs/ll/llvm22/package.nix` is `{ variant, pkgs }: variant pkgs.llvm { }`
-and zig-llvm is `variant pkgs.llvm { cmake.defs.merge = { … }; steps.set = [ … ]; }`.
+and zig-llvm is `variant pkgs.llvm { cmake.defs.merge = { … }; phases.set = [ … ]; }`.
 
 Packages that are not in the tree come in through the second argument, `packages`: a name to a
 directory holding a package.nix (and sources.toml). They are called like in-tree ones, so
@@ -195,20 +195,20 @@ nixpkgs' `setup.sh` is 1500 lines of bash that every build sources, extended by 
 hooks that dependencies inject into your build implicitly. Phases are strings, evaluated. Whether
 `cmake` runs depends on whether something put it in `nativeBuildInputs`. We ran a blind test of
 five builder API shapes against people and LLMs writing packages. Explicit
-build systems with a plain step list won every round.
+build systems with a plain phase list won every round.
 
 Here one nu process per build runs three things: `prepare` (environment, unpack,
-patch), the package's steps, and `finish` (output checks, debug split, launchers, relocation
+patch), the package's phases, and `finish` (output checks, debug split, launchers, relocation
 fixup, version test, `exports.json`, cache summary). Build systems are nu modules in `builder/`
 exporting `setup configure build test install`. `setup` exports the environment and leaves the
 process in the build system's working directory, so the phases after it just run. A package
 names them:
 
 ```nix
-uses = [ "cmake" ];                         # steps default to cmake's configure/build/test/install
+uses = [ "cmake" ];                         # phases default to cmake's configure/build/test/install
 cmake.defs = { WITH_FOO = true; };          # options are per build system and checked at eval time
-steps = [ "cmake.configure" … { name = "x"; run = "<nu>"; } ];   # only when the default does not fit
-modules.foo = ./build.nu;                   # longer steps in a nu module of its own, "foo.<phase>"
+phases = [ "cmake.configure" … { name = "x"; run = "<nu>"; } ];  # only when the default does not fit
+modules.foo = ./build.nu;                   # longer phases in a nu module of its own, "foo.<phase>"
 ```
 
 The resulting rules:
@@ -237,7 +237,7 @@ The resulting rules:
   ran, and a failing or flaky test is retried without rebuilding it. `tests.*` says whether and
   where tests run and means the same everywhere. Which tests to leave out is a build system
   option (`cmake.skipTests`, `cargo.skipTests`, …) in that runner's own terms, and for
-  ecosystems where `test` is a script the package writes its own `test` step.
+  ecosystems where `test` is a script the package writes its own `test` phase.
   `tests.version` checks that `bin/x --version` (or the command line given, `"go version"`)
   prints the pinned version, which catches many broken installs (missing data files, wrong
   rpath, stale version string). It runs under an rtld-audit module (`pkgs/dl/dlaudit`): the

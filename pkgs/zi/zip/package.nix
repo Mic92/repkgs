@@ -3,7 +3,7 @@
 { package }:
 package {
   name = "zip";
-  steps = [
+  phases = [
     {
       name = "build";
       run = ''

@@ -6,7 +6,7 @@ package {
   name = "lua";
   uses = [ "autotools" ];
   autotools.outOfTree = false;
-  steps = [
+  phases = [
     {
       name = "lua-root";
       run = "cd $c.src; open --raw src/luaconf.h | str replace /usr/local/ $'($c.out)/' | save -f src/luaconf.h";

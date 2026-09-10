@@ -2,7 +2,7 @@
 package {
   name = "bzip2";
   uses = [ "autotools" ];
-  steps = [
+  phases = [
     "autotools.build"
     "autotools.install"
   ]; # plain Makefile
