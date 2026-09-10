@@ -1,12 +1,13 @@
 {
   package,
   pkgs,
+  buildPkgs,
 }:
 package {
   name = "flex";
   uses = [ "autotools" ];
   bootstrapTools = true;
-  buildDependencies = [ pkgs.m4 ];
+  buildDependencies = [ buildPkgs.m4 ];
   dependencies = [ pkgs.m4 ];
   autotools.flags = [
     "ac_cv_path_M4=${pkgs.m4}/bin/m4"

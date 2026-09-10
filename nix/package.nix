@@ -89,7 +89,7 @@ let
     "use ${tree}/implant.nu"
   ];
 
-  stepRe = "([a-z]+)\\.([a-zA-Z]+)";
+  stepRe = "([a-z][a-z0-9]*)\\.([a-zA-Z]+)";
   isTest =
     s:
     isString s
@@ -156,6 +156,15 @@ let
         [ ]
     ) (attrNames (args.${u} or { }))
   ) (filter (u: buildSystems ? ${u}) uses);
+  # a library among the build tools or a tool among the libraries: natively both platforms
+  # coincide and nothing would notice, so it is checked here
+  wrongPlatform =
+    map (d: "dependencies: ${d.pname} is built for ${d.platform}") (
+      filter (d: (d.platform or platform.name) != platform.name) (args.dependencies or [ ])
+    )
+    ++ map (d: "buildDependencies: ${d.pname} is built for ${d.platform}") (
+      filter (d: (d.platform or platform.system) != platform.system) (args.buildDependencies or [ ])
+    );
   checks =
     if unknownUses != [ ] then
       fail "unknown build systems ${toString unknownUses} (have: ${toString (attrNames buildSystems)})"
@@ -163,6 +172,8 @@ let
       fail "unknown fields ${toString unknownFields}"
     else if badOptions != [ ] then
       fail (builtins.concatStringsSep "; " badOptions)
+    else if wrongPlatform != [ ] then
+      fail (builtins.concatStringsSep "; " wrongPlatform)
     else
       true;
 
@@ -310,6 +321,7 @@ assert checks;
 drv
 // {
   pname = name;
+  platform = platform.name;
   args = args0; # what package.nix wrote, for `variant`
 }
 // (if separate then { tests = testsDrv; } else { })

@@ -1,5 +1,9 @@
 # Node.js LTS with npm. V8, libuv, nghttp2, c-ares, ICU (small) stay bundled; zlib and openssl are ours.
-{ package, pkgs }:
+{
+  package,
+  pkgs,
+  buildPkgs,
+}:
 package {
   name = "nodejs";
   dependencies = [
@@ -7,8 +11,8 @@ package {
     pkgs.openssl
   ];
   buildDependencies = [
-    pkgs.cpython
-    pkgs.ninja
+    buildPkgs.cpython
+    buildPkgs.ninja
   ];
   patches = [ ./libcxx-includes.patch ];
   steps = [

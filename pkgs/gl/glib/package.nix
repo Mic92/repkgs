@@ -24,7 +24,7 @@ package {
     pkgs.pcre2
     pkgs.libffi
     pkgs.zlib
-    buildPkgs.cpython # glib-mkenums, gdbus-codegen
+    pkgs.cpython # glib-mkenums, gdbus-codegen are python scripts
   ];
   # meson.build and the codegen tools run python3 with `packaging`
   buildDependencies = [
