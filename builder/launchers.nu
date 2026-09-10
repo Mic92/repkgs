@@ -1,16 +1,12 @@
-# What happens to bin/ after install. Two mechanisms:
+# bin/foo becomes a symlink to the `launch` binary (pkgs/la/launch), the real file moves to
+# bin/.foo, and bin/.foo.launch is a JSON record saying what to exec and with which environment.
+# Used for every script (the record names its interpreter), and for programs too when a
+# dependency contributes PATH entries or env defaults.
 #
-# launchers: bin/foo becomes a symlink to the `launch` binary (pkgs/la/launch), the real file
-#   moves to bin/.foo, and bin/.foo.launch is a JSON record saying what to exec and with which
-#   environment. Used for every script (the record names its interpreter), and for programs too
-#   when a dependency contributes PATH entries or env defaults.
-#
-# implant (`prebuilt = true`): upstream ELF binaries get our dynamic linker, the relocation stub
-#   and a RUNPATH written into them by formatelf, then pass through reloc-fixup like our own.
-#   `prebuilt = "ldso"` is the variant for rust-bootstrap, which formatelf itself is built with:
-#   the ELF stays untouched and a launcher runs it as
-#     <sysroot>/lib/ld.so --argv0 bin/foo --library-path <libc and deps> bin/.foo
-#   argv[0] still says bin/foo, which rustc needs to find its sysroot.
+# `prebuilt = "ldso"` packages (rust-bootstrap, which formatelf itself is built with) also go
+# through here: the upstream ELF stays untouched and its launcher runs it as
+#   <sysroot>/lib/ld.so --argv0 bin/foo --library-path <libc and deps> bin/.foo
+# argv[0] still says bin/foo, which rustc needs to find its sysroot.
 
 use core.nu *
 
@@ -77,7 +73,7 @@ def target [c: record, f: path, owners: list<string>, inject: bool]: nothing -> 
   }
 }
 
-export def launchers [c: record]: nothing -> nothing {
+export def main [c: record]: nothing -> nothing {
   let bindir = $"($c.out)/bin"
   if not ($bindir | path exists) { return }
   let a = (attrs)
@@ -99,35 +95,5 @@ export def launchers [c: record]: nothing -> nothing {
     {env: $renv} | merge $t | to json -r | save -f $"($bindir)/.($name).launch"
     ^ln -s $launch_rel $f
     note launcher $"bin/($name) -> ($t.program)"
-  }
-}
-
-# `prebuilt = true`: give every dynamically linked upstream ELF under bin/, lib/, libexec/ what
-# our linker would have given it, using formatelf:
-#   - a RUNPATH over libc and the dependencies' lib dirs, padded so reloc-fixup can rewrite it
-#     in place afterwards (the slack sizes match pkgs/ji/jig/src/driver.cc)
-#   - for executables also our ld.so as interpreter and the relocation stub as entry point
-# The binary keeps a real /proc/self/exe this way, which bun and node need to re-exec.
-#
-# `dir` is for bindists whose install step runs the binaries from the unpacked tree before they
-# reach $out (ghc's `make install` calls the just-installed ghc-pkg). That tree gets interpreter
-# and RUNPATH but no stub, since the stub only works after reloc-fixup, which runs over $out.
-export def implant [c: record, dir?: path]: nothing -> nothing {
-  let dir = ($dir | default $c.out)
-  let elves = (glob $"($dir)/{bin,lib,libexec}/**/*" | where {|f| ($f | path type) == "file" and (is-elf $f) })
-  let interp = $"($c.platform.interp | path dirname)/(1..12 | each { './' } | str join)($c.platform.interp | path basename)"
-  let libdirs = [($c.platform.interp | path dirname)] ++ (dep-dirs $c.deps libDirs)
-  for f in $elves {
-    let headers = (^llvm-readelf --program-headers $f)
-    # static executables and object files have nothing to resolve
-    if not ($headers | str contains "DYNAMIC ") { continue }
-    let dirs = ($libdirs ++ (^formatelf --print-rpath $f | str trim | split row ":" | compact -e))
-    let runpath = $"($dirs | str join ':'):/('' | fill -c '_' -w (($dirs | length) * 48 - 1))"
-    ^chmod u+w $f
-    # shared objects only need the RUNPATH: upstream's is $ORIGIN at best and never has libc
-    let stub = (if $dir == $c.out { [--set-entry-stub $c.platform.relocStub] } else { [] })
-    let exe = (if ($headers | str contains "INTERP ") { $stub ++ [--set-interpreter $interp] } else { [] })
-    x formatelf ...$exe --set-rpath $runpath $f
-    note implant ($f | path relative-to $dir)
   }
 }

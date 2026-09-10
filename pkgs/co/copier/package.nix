@@ -1,5 +1,5 @@
 # a Python application from uv.lock: wheels where the lock has compatible ones, pyyaml from sdist
-# against our libyaml (sys-libs.nu), pydantic-core's binary wheel given our ld.so and RUNPATH by prebuilt implant
+# against our libyaml (sys-libs.nu), pydantic-core's binary wheel given our ld.so and RUNPATH by implant.nu
 {
   package,
   sources,

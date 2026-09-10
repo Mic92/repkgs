@@ -21,7 +21,7 @@ package {
       run = ''
         # configure runs bin/ghc-toolchain-bin and `make install` the installed ghc-pkg: the
         # bindist must already run here, finish's implant over $out then only adjusts paths
-        prebuilt implant $c $c.src
+        implant $c $c.src
         # the bindist's configure records cc/ld/ar for ghc's settings file and relinks nothing
         x sh ./configure $"--prefix=($c.out)" CC=cc CXX=c++ LD=ld AR=ar RANLIB=ranlib STRIP=llvm-strip
         x make install

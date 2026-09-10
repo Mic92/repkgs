@@ -1,7 +1,8 @@
 # Everything after the last verb: check the output, strip + split debug info, generate launchers,
 # reloc-fixup the tree, version/relocation check, write exports.json, print the cache summary.
 use core.nu *
-use prebuilt.nu
+use implant.nu
+use launchers.nu
 
 # split DWARF to lib/debug, keep .symtab (§4 profiling-friendly). Only files with debug info:
 # upstream .so files out of binary wheels have none, and llvm-objcopy crashes on those that
@@ -135,10 +136,10 @@ export def main [
   fix-env-shebangs $c.out $c.njobs --undo
   let prebuilt = ($c.spec.prebuilt? | default false)
   # upstream binaries: no debug split. `true` implants interp + stub so they relocate like ours,
-  # "ldso" leaves them byte-identical behind an ld.so launcher (builder/prebuilt.nu)
+  # "ldso" leaves them byte-identical behind an ld.so launcher (builder/launchers.nu)
   if $prebuilt == false { split-debug $c }
-  if $prebuilt == true { prebuilt implant $c }
-  prebuilt launchers $c
+  if $prebuilt == true { implant $c }
+  launchers $c
   # RUNPATH/PT_INTERP -> $ORIGIN-relative, in place (pkgs/ji/jig/src/fixup_mode.cc)
   if $prebuilt != "ldso" { x reloc-fixup $c.out }
   version-check $c

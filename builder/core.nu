@@ -111,7 +111,7 @@ export def storerel [p: string, out: string]: nothing -> string {
   } else { $p }
 }
 
-# bin/<name> as a launch record (builder/prebuilt.nu, pkgs/la/launch): `program` with `args`
+# bin/<name> as a launch record (builder/launchers.nu, pkgs/la/launch): `program` with `args`
 # before the user's, `env` name -> value set for it. For build systems whose entry points are not
 # files with a #! line (deno modules); paths are made package-relative here
 export def write-launcher [name: string, program: string, args: list<string>, vars: record = {}]: nothing -> nothing {
