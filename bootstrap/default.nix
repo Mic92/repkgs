@@ -263,10 +263,14 @@ let
     };
 
   cross = platform: mkStage platform (cached stage0.jig) [ stage0.cc ];
-  crossCc = {
-    native = stage0.cc;
-    prebuilt = stage0.jig;
-  };
+  buildPlatform = platforms.forSystem system "glibc";
+  # cc-build: the build machine's glibc cc, what rust's host libstd and CC_FOR_BUILD users expect
+  crossCc =
+    platform:
+    {
+      prebuilt = stage0.jig;
+    }
+    // (if platform == buildPlatform then { } else { native = (stage1 buildPlatform.cpu).cc; });
 
   stage1 =
     cpu:
@@ -290,7 +294,7 @@ let
           locale = platform.triple == (platforms.forSystem system "glibc").triple;
         };
         linuxHeaders = linux-headers;
-        ccArgs = crossCc;
+        ccArgs = crossCc platform;
       };
     in
     c
@@ -312,7 +316,7 @@ let
         libcRecipe = "mingw-w64";
         libcArgs.src = source "mingw-w64";
         builtins' = "builtins-${cpu}-windows.txt";
-        ccArgs = crossCc;
+        ccArgs = crossCc platform;
       };
     in
     c // { mingw-w64 = c.libc; };
