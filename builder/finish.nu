@@ -40,8 +40,9 @@ def version-check [c: record]: nothing -> nothing {
   let want = ($c.spec.version | str replace -r '-r[0-9]+$' "")
   let run = {|root: string|
     cd /
+    # empty environment but for HOME, which any real session has (rebar3 crashes without).
     # bzip2 --version goes on to compress stdin: stdout can be binary
-    let r = (^env -i ...($c.platform.emulator) $"($root)/bin/($cmd.0)" ...($cmd | skip 1) | complete)
+    let r = (^env -i $"HOME=($env.NIX_BUILD_TOP)" ...($c.platform.emulator) $"($root)/bin/($cmd.0)" ...($cmd | skip 1) | complete)
     if $r.exit_code != 0 or not ($"($r.stdout)($r.stderr)" | str contains $want) {
       error make {msg: $"version check: `($cmd | str join ' ')` did not print ($want) \(exit ($r.exit_code))\n($r.stdout)($r.stderr)"}
     }
