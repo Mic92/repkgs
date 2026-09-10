@@ -4,8 +4,9 @@ purl = "pkg:github/nemtrif/utfcpp"
 [[source]]
 key = "default"
 url = "https://github.com/nemtrif/utfcpp/archive/refs/tags/{tag}.tar.gz"
-hash = "sha256-0NbbQMsucrbOGEWAVZGSFp7f4dp31XrurPVVjcYsH+I="
+hash = "sha256-vc7nKVVZ/h6q+dQUNiuXnkcqX7L2CkG6WUiybLNXAjU="
 
 [pin]
-version = "4.1.1"
-tag = "v4.1.1"
+version = "4.2.0"
+date = "2026-08-23"
+tag = "v4.2.0"
