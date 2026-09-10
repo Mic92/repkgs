@@ -62,7 +62,7 @@ def restore [c: record]: nothing -> nothing {
       rm $tar
       $id
     }
-  })
+  } | compact)
   ^ghc-pkg recache $"--package-db=(unit-dir)/package.db"
   note cabal $"($got | length)/($units | length) units cached"
 }

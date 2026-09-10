@@ -4,7 +4,8 @@ use core.nu *
 # fix-env-shebangs edited vendored scripts: keep the crate checksums, drop the per-file ones
 def vendor-checksums []: nothing -> nothing {
   for f in (glob vendor/*/.cargo-checksum.json) {
-    open $f | update files {{}} | to json -r | save -f $f
+    let j = (open $f | update files {{}} | to json -r)
+    $j | save -f $f
   }
 }
 
