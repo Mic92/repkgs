@@ -12,8 +12,7 @@
 // add-drv JSON: {"name", "system", "builder", "args":[], "env":{}, "inputDrvs":{path:[outputs]},
 //                "inputSrcs":[], "outputs":{name:{"hashAlgo"?, "hash"?, "path"?}}}
 // (a subset of `nix derivation show`; enough for fixed, floating-CA and text outputs)
-#ifndef PKGS_CC_NIX_STORE_MODE_H_
-#define PKGS_CC_NIX_STORE_MODE_H_
+#pragma once
 
 #include <span>
 #include <string>
@@ -31,5 +30,3 @@ auto FixedOutputPath(std::string_view store_dir, std::string_view name, std::str
 auto DerivationToATerm(std::string_view json_text) -> std::string;
 
 }  // namespace jig
-
-#endif  // PKGS_CC_NIX_STORE_MODE_H_

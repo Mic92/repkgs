@@ -1,7 +1,6 @@
 // Small utilities shared by every jig mode: files, environment, strings, hashing, timing.
 // No exceptions anywhere in jig: fallible operations return std::optional / bool.
-#ifndef PKGS_CC_BASE_H_
-#define PKGS_CC_BASE_H_
+#pragma once
 
 #include <chrono>
 #include <cstdint>
@@ -96,5 +95,3 @@ class Stopwatch {
 void LogOutcome(Outcome outcome, std::string_view subject, const Stopwatch& clock, std::string_view prefix = {});
 
 }  // namespace jig
-
-#endif  // PKGS_CC_BASE_H_

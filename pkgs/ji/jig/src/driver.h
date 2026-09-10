@@ -9,8 +9,7 @@
 //   runtimes = <dir>                   libc++/libunwind dir, rpath'd whenever C++ or an unwinder is linked
 //   prefix-map = a=b:c=d               -ffile-prefix-map entries (plus $PKGS_PREFIX_MAP at run time)
 // Without a conf, $JIG_CC names the compiler and user args pass through untouched (cache only).
-#ifndef PKGS_CC_DRIVER_H_
-#define PKGS_CC_DRIVER_H_
+#pragma once
 
 #include <optional>
 #include <span>
@@ -51,5 +50,3 @@ auto BuildDriverArgs(const DriverConf& conf, Language lang, std::span<const std:
     -> std::vector<std::string>;
 
 }  // namespace jig
-
-#endif  // PKGS_CC_DRIVER_H_

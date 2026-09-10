@@ -7,8 +7,7 @@
 //   manifests, and store files are hashed like any other. A rebuilt-but-identical toolchain or
 //   dependency then still hits. JIG_STORE_ROOTS lists extra store dirs (any text containing
 //   them) that masked names may resolve to, beyond those on the command line.
-#ifndef PKGS_CC_STORE_H_
-#define PKGS_CC_STORE_H_
+#pragma once
 
 #ifndef JIG_STORE_DIR
 #error "compile with -DJIG_STORE_DIR=\"<nix store dir>\""
@@ -71,5 +70,3 @@ class Store {
 };
 
 }  // namespace jig
-
-#endif  // PKGS_CC_STORE_H_

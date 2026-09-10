@@ -2,8 +2,7 @@
 //   k1 = H(tool, cwd, normalised args, primary source bytes)   -> manifest: "input\tid" lines
 //   k2 = H(k1, manifest)                                        -> artifacts
 // A manifest is valid when every input still has the same id (see Store::InputId).
-#ifndef PKGS_CC_MANIFEST_H_
-#define PKGS_CC_MANIFEST_H_
+#pragma once
 
 #include <optional>
 #include <span>
@@ -38,5 +37,3 @@ auto ValidateManifest(CacheClient& cache, const RequestKey& request_key, std::st
     -> std::optional<ResultKey>;
 
 }  // namespace jig
-
-#endif  // PKGS_CC_MANIFEST_H_

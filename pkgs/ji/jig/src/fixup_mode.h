@@ -7,8 +7,7 @@
 //   - PT_INTERP (when the crt_interp stub is linked, i.e. __reloc_start is exported): store path
 //     -> prefix-relative, segment type -> PT_NULL, e_entry -> __reloc_start
 // Exit status 1 if any file could not be made consistent (unresolvable NEEDED, no slack).
-#ifndef PKGS_CC_FIXUP_MODE_H_
-#define PKGS_CC_FIXUP_MODE_H_
+#pragma once
 
 #include <cstdint>
 #include <cstring>
@@ -58,5 +57,3 @@ class ElfImage {
 };
 
 }  // namespace jig
-
-#endif  // PKGS_CC_FIXUP_MODE_H_

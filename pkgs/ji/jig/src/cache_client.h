@@ -6,8 +6,7 @@
 // Requests may be pipelined: GetMany/Identities write all questions, then read all answers.
 // Values are zstd-compressed by the client. Any I/O problem is reported as a miss / ignored
 // put: the cache is an optimisation only.
-#ifndef PKGS_CC_CACHE_CLIENT_H_
-#define PKGS_CC_CACHE_CLIENT_H_
+#pragma once
 
 #include <cstdint>
 #include <optional>
@@ -56,5 +55,3 @@ class CacheClient {
 };
 
 }  // namespace jig
-
-#endif  // PKGS_CC_CACHE_CLIENT_H_

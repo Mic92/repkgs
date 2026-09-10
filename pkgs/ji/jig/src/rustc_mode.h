@@ -4,8 +4,7 @@
 // .d), stored as one blob. Cargo always passes --out-dir and --emit=dep-info,…, so the command
 // line is left untouched. bin/cdylib/proc-macro crates go through an external linker and are
 // not cached.
-#ifndef PKGS_CC_RUSTC_MODE_H_
-#define PKGS_CC_RUSTC_MODE_H_
+#pragma once
 
 #include <span>
 #include <string>
@@ -42,5 +41,3 @@ auto ParseDepInfo(std::string_view text) -> DepInfo;
 auto RunRustcMode(std::span<const std::string> args, const std::string& socket_path) -> int;
 
 }  // namespace jig
-
-#endif  // PKGS_CC_RUSTC_MODE_H_

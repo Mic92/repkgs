@@ -4,8 +4,7 @@
 //   RequestKey (k1)  what the build system asked for: tool, cwd, args, primary source bytes
 //   ResultKey  (k2)  k1 + the manifest of every other input at the time of the compile
 //   Slot             which artifact of an entry: manifest under k1, object/stderr/depfile/status under k2
-#ifndef PKGS_CC_KEYS_H_
-#define PKGS_CC_KEYS_H_
+#pragma once
 
 #include <cstddef>
 #include <cstdint>
@@ -81,5 +80,3 @@ enum class Language : std::uint8_t { kC, kCxx };
 enum class StderrMode : std::uint8_t { kInherit, kCapture };
 
 }  // namespace jig
-
-#endif  // PKGS_CC_KEYS_H_

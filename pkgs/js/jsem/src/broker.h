@@ -3,8 +3,7 @@
 // idle. The broker keeps one such spare, orders another slot when it was taken and returns slots
 // when ghc gives tokens back. Only sem_trywait/sem_post observe the count (no sem_getvalue: macOS
 // lacks it).
-#ifndef JSEM_BROKER_H_
-#define JSEM_BROKER_H_
+#pragma once
 
 #include <semaphore.h>
 
@@ -58,5 +57,3 @@ class Broker {
 };
 
 }  // namespace jsem
-
-#endif  // JSEM_BROKER_H_

@@ -2,7 +2,6 @@
 // file blobs plus one listing under <key>, so trees sharing files share storage.
 #pragma once
 
-#include <span>
 #include <string>
 
 namespace jig {

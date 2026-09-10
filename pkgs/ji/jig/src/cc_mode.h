@@ -7,8 +7,7 @@
 // *failures* whose inputs are all known. Never cached: -M runs, several sources at once,
 // sources mixed with objects, @response files, a failure caused by something absent (missing
 // header, any link error) that a later build might provide.
-#ifndef PKGS_CC_CC_MODE_H_
-#define PKGS_CC_CC_MODE_H_
+#pragma once
 
 #include <filesystem>
 #include <span>
@@ -40,5 +39,3 @@ auto ParseInvocation(std::span<const std::string> args) -> Invocation;
 auto RunCcMode(std::string_view argv0, std::span<const std::string> raw_args, const std::string& socket_path) -> int;
 
 }  // namespace jig
-
-#endif  // PKGS_CC_CC_MODE_H_

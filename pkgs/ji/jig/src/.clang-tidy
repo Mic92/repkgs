@@ -9,6 +9,7 @@ Checks:
   - portability-*
   - readability-*
   - -google-readability-todo
+  - -portability-avoid-pragma-once
   - -bugprone-easily-swappable-parameters
 WarningsAsErrors: "*"
 HeaderFilterRegex: ".*"

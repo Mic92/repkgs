@@ -1,6 +1,5 @@
 // Running the real compiler.
-#ifndef PKGS_CC_PROCESS_H_
-#define PKGS_CC_PROCESS_H_
+#pragma once
 
 #include <span>
 #include <string>
@@ -38,5 +37,3 @@ struct RunResult {
 auto Run(const std::string& program, std::span<const std::string> args, StderrMode stderr_mode) -> RunResult;
 
 }  // namespace jig
-
-#endif  // PKGS_CC_PROCESS_H_
