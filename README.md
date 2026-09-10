@@ -58,7 +58,7 @@ $ tools/build -A jq     # nix-build with the socket mapped into the sandbox, no 
 Every build log then ends in a line like `jig: cc cached=812/815 (99%) compiled=3` (jig is the
 compiler driver, see below).
 
-## What a package looks like
+## Writing a package
 
 ```
 pkgs/li/libpng/
@@ -76,47 +76,58 @@ package {
 }
 ```
 
-Version and tarball come from `sources.toml`, the steps come from the
-build system named in `uses`, and its options (`cmake.defs` here) are checked at eval time, name
-and type, so
-a typo is an error rather than a silently ignored attribute.
+Version and tarball come from `sources.toml`. `uses` picks the build system, which brings its
+tools, its default steps (`configure build test install`) and its options: `cmake.defs` above,
+`cargo.features`, `go.tags` and so on. `tools/options cmake` lists them. Option names and types
+are checked at evaluation time, so a typo is an error and not a silently ignored attribute.
 
-When the defaults do not fit, `steps` lists what runs, mixing build system verbs with inline nu:
+With more of the vocabulary (pkgs/cu/curl, abridged):
+
+```nix
+{ package, pkgs, buildPkgs }:
+package {
+  name = "curl";
+  uses = [ "cmake" ];
+  cmake.defs = { CURL_USE_OPENSSL = true; CURL_CA_PATH = "/etc/ssl/certs"; };
+  dependencies = [ pkgs.openssl pkgs.zlib pkgs.zstd ];   # linked, target platform
+  buildDependencies = [ buildPkgs.perl ];                # run during the build, build platform
+  tests.run = false;                                     # the suite needs python and minutes
+}
+```
+
+`dependencies` are found through the usual search paths (`-I`, `-L`, pkg-config, cmake) with
+nothing to write in the package. `patches = [ ./x.patch ]` apply after unpacking, and
+`bin = [ "rg" ]` names the executables that must exist when they differ from the package name.
+Lock-file ecosystems (Cargo, Go, npm, pnpm, Yarn, Bundler, Deno, Hex, Hackage, LuaRocks) need
+nothing either: the lock file in the source becomes fixed-output fetches at build time, through
+dynamic derivations and the hashes the lock file already carries. Hashes it lacks (Go, Hackage,
+LuaRocks) are kept in `locks/*.toml`.
+
+When the default steps do not fit, `steps` says what runs. Build system verbs and inline nu mix
+freely, and `$c` is the build context (`out src build njobs platform spec deps`):
 
 ```nix
 steps = [
   "autotools.configure"
   "autotools.build"
-  { name = "fixup"; run = ''rm $"($c.out)/bin/unwanted"''; }   # $c: out, src, build, njobs, platform, spec
+  { name = "trim"; run = ''rm $"($c.out)/bin/unwanted"''; }
   "autotools.install"
 ];
 ```
 
-When the inline nu gets long, `modules.rust = ./build.nu;` makes a nu module of it and steps name
-its verbs as `"rust.configure"` (pkgs/ru/rust). Such a module imports the builder by bare name,
-`use core.nu *`, wherever the file lives.
+Longer nu goes into a module of its own: `modules.rust = ./build.nu;` and steps call its verbs as
+`"rust.configure"` (see pkgs/ru/rust).
 
-Other things a package can say, by example:
+Every build ends with the same checks: ELF outputs are made relocatable, `bin/<first> --version`
+runs in an empty environment and has to print the pinned version, and a `dlopen` that finds
+nothing during that run fails the build (`tests.dlopen = [ "libudev.so.1" ]` allows an optional
+one). `tests.relocated = true` repeats the version run from a copy of the output somewhere else,
+`tests.separate = true` moves the test step into a derivation of its own.
 
-| | |
-|---|---|
-| `buildDependencies = [ buildPkgs.cpython ];` | tools that run during the build (build platform) |
-| `dependencies = [ pkgs.openssl ];` | libraries to link (target platform), found via the usual search paths |
-| `cargo.features = [ "pcre2" ];` | build system options: `tools/options [system]` lists them with types and meaning (declared in `nix/build-systems.nix`) |
-| `cmake.root = "build/cmake";` | every system has `root` (project subdirectory); `deps` (fetched lock-file dependencies, defaulted from the source) and `flags` (extra arguments) mean the same wherever they exist |
-| `bin = [ "rg" "rgrep" ];` | executables that must exist. Defaults to the package name. `bin/<first> --version` must print the pinned version |
-| `tests.relocated = true;` | repeat that check after copying the output somewhere else |
-| `tests.dlopen = [ "libudev.so.1" ];` | sonames the version check may dlopen and not find (optional features). Any other failed dlopen fails the build |
-| `prebuilt = true;` | upstream binary: skip compiling, make it relocatable anyway |
-| `install."bin/deno" = "deno";` | just copy files into `$out`, no steps needed |
-| `exports = false;` | a toolchain or application: dependents should not link against its lib/ |
-| `exports.propagate = [ pkgs.pcre2 ];` | dependencies a dependent needs too (`Requires:` in the .pc file, headers including theirs) |
-| `patches = [ ./fix.patch ];` | applied with `patch -p1` after unpacking |
-
-Lock-file ecosystems (Cargo, Go, npm, pnpm, Yarn, Bundler, Deno, Hackage, LuaRocks) need nothing
-in the package: the lock file in the source is turned into fixed-output fetches at build time
-through dynamic derivations, using the hashes the lock file already carries. Hashes it lacks (Go,
-Hackage, LuaRocks) live in `locks/*.toml`, filled in by `uptrack lock`.
+The less common fields: `prebuilt = true` for an upstream binary that is only made relocatable,
+`install."bin/deno" = "deno"` to copy files without any steps, `exports.propagate = [ pkgs.pcre2 ]`
+for a library whose users need another one too (a `Requires:` line in its .pc file), and
+`exports = false` for toolchains and applications nobody links against.
 
 ## Keeping it current
 
