@@ -15,10 +15,11 @@
 
 namespace jsem {
 
-// created O_EXCL with `tokens`, unlinked on destruction. `name` has a leading slash
+// Create: a new one, unlinked on destruction. Open: somebody else's, left in place
 class Sem {
  public:
   static auto Create(const std::string& name, unsigned tokens) -> std::unique_ptr<Sem>;
+  static auto Open(const std::string& name) -> std::unique_ptr<Sem>;
   ~Sem();
   Sem(const Sem&) = delete;
   auto operator=(const Sem&) -> Sem& = delete;
@@ -30,7 +31,7 @@ class Sem {
 
  private:
   Sem() = default;
-  std::string name_;
+  std::string name_;  // empty: not ours to unlink
   sem_t* sem_ = nullptr;
 };
 
@@ -46,6 +47,12 @@ auto DaemonSource(std::string socket_path, std::string build) -> TokenSource;
 class Broker {
  public:
   Broker(Sem& sem, TokenSource source) : sem_(&sem), source_(std::move(source)) {}
+  ~Broker();  // takes the idle tokens back out
+
+  Broker(const Broker&) = delete;
+  auto operator=(const Broker&) -> Broker& = delete;
+  Broker(Broker&&) = delete;
+  auto operator=(Broker&&) -> Broker& = delete;
   // keep one idle token, return the rest, order one if none
   void Tick();
   [[nodiscard]] auto held() const -> size_t { return held_.size(); }

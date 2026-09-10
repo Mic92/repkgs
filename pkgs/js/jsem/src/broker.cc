@@ -97,9 +97,21 @@ auto Sem::Create(const std::string& name, unsigned tokens) -> std::unique_ptr<Se
   return sem;
 }
 
+auto Sem::Open(const std::string& name) -> std::unique_ptr<Sem> {
+  sem_t* raw = ::sem_open(name.c_str(), 0);
+  if (raw == SEM_FAILED) {
+    return nullptr;
+  }
+  std::unique_ptr<Sem> sem(new Sem());
+  sem->sem_ = raw;
+  return sem;
+}
+
 Sem::~Sem() {
   ::sem_close(sem_);
-  ::sem_unlink(name_.c_str());
+  if (!name_.empty()) {
+    ::sem_unlink(name_.c_str());
+  }
 }
 
 auto Sem::TryWait() -> bool { return ::sem_trywait(sem_) == 0; }
@@ -127,6 +139,11 @@ auto DaemonSource(std::string socket_path, std::string build) -> TokenSource {
     std::shared_ptr<Conn> conn = std::move(*pending);
     return conn->Ok() ? conn : nullptr;
   };
+}
+
+Broker::~Broker() {
+  for (size_t i = 0; i < held_.size() && sem_->TryWait(); ++i) {
+  }
 }
 
 void Broker::Tick() {

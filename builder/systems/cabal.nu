@@ -5,11 +5,9 @@ use ../core.nu *
 # compiler and the dependency closure, so a unit built once on this host (by any package) is
 # fetched from jigd instead of compiled. The store directory is the same fixed path in
 # every sandbox so the paths inside cached units agree.
-# under jsem when the daemon is there to hand out slots
 def --wrapped cabal [...args: string]: nothing -> any {
-  let cmd = (if ($env.JSEM | is-empty) { [cabal ...$args] } else { [jsem cabal ...$args] })
-  print -e $"+ ($cmd | str join ' ')"
-  run-external ...$cmd
+  print -e $"+ cabal ($args | str join ' ')"
+  ^cabal ...$args
 }
 
 const STORE = "/build/cabal-store"
@@ -24,21 +22,25 @@ export def --env setup []: nothing -> nothing {
   let repo = $"($c.build)/repo"
   mkdir $repo
   for f in (glob $"($o.deps)/*.{tar.gz,cabal}") { ^ln -s $f $repo }
-  # with jigd up, ghc's parallelism comes from its slots: `jsem` serves them as the -jsem
-  # semaphore. Its name is hashed into unit ids with the other ghc-options, so it is a constant
-  # (each sandbox has its own /dev/shm, builds do not share it)
-  load-env {CABAL_DIR: $"($c.build)/cabal", CABAL_UNITS: $"($STORE)/ghc-(^ghc --numeric-version | str trim)-inplace"
-    JSEM: (if $c.cache { "/jsem" } else { "" })}
+  load-env {CABAL_DIR: $"($c.build)/cabal", CABAL_UNITS: $"($STORE)/ghc-(^ghc --numeric-version | str trim)-inplace"}
   mkdir $env.CABAL_DIR $"(unit-dir)/package.db"
+  # `semaphore`: cabal creates one per run and hands `-jsem <it>` to ghc on the command line, not
+  # through ghc-options, so unit ids stay free of it. The compiler is a two-line ghc that runs
+  # the real one under jsem (pkgs/js/jsem), which feeds that semaphore from jigd's slots
+  let ghc = $"($c.build)/ghc"
+  $"#!(tool sh)\nexec (tool jsem) (tool ghc) \"$@\"\n" | save -f $ghc
+  chmod +x $ghc
   $"repository local
   url: file+noindex://($repo)
 store-dir: ($STORE)
 jobs: ($c.njobs)
-with-compiler: (tool ghc)
+semaphore: True
+with-compiler: ($ghc)
+with-hc-pkg: (tool ghc-pkg)
 " | save -f $"($env.CABAL_DIR)/config"
   # ghc links through cc without LDFLAGS: dependencies' lib dirs (gmp, libffi, zlib) spelled out
   let libdirs = (dep-dirs $c.deps libDirs | str join ", ")
-  $"program-locations\n  gcc-location: (tool cc)\npackage *\n  ghc-options: (if $c.cache { $"-jsem ($env.JSEM)" } else { "-j" })\n  split-sections: True\n  extra-lib-dirs: ($libdirs)\n($o.project)"
+  $"program-locations\n  gcc-location: (tool cc)\npackage *\n  split-sections: True\n  extra-lib-dirs: ($libdirs)\n($o.project)"
   | save -f cabal.project.local
 }
 
