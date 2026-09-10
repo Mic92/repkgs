@@ -79,8 +79,11 @@ export def launchers [c: record]: nothing -> nothing {
   let owners = ([$c.out] ++ $a.dependencies)
   let launch_rel = $"../../($c.platform.launch | path relative-to $env.NIX_STORE)"
   # files, and symlinks that resolve inside the package (npm's bin -> lib/node_modules/…/cli.js):
-  # the link moves to bin/.<name> beside itself and still resolves
-  for f in (ls $bindir | get name | where { ($in | path basename) !~ '^\.' and ($in | path exists) and ($in | path expand) =~ $"^($c.out)/" }) {
+  # the link moves to bin/.<name> beside itself and still resolves. An alias for a sibling
+  # (python3 -> python3.14) stays a plain link: the sibling gets the launcher, and wrapping the
+  # alias too would make its record point at the sibling's launcher, a loop
+  let entries = (ls -a $bindir | get name | where { ($in | path basename) !~ '^\.' and ($in | path exists) and ($in | path expand) =~ $"^($c.out)/" })
+  for f in ($entries | where {|f| ($f | path type) != symlink or (^readlink $f) =~ '/' }) {
     let t = (target $c $f $owners ($renv | is-not-empty))
     if $t == null { continue }
     let name = ($f | path basename)
