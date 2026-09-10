@@ -33,7 +33,8 @@ auto BuildManifest(CacheClient& cache, const RequestKey& request_key, std::span<
                    std::string_view primary_source) -> Manifest;
 
 // Recompute k2 from a stored manifest. Returns nullopt if any input changed or vanished.
-auto ValidateManifest(CacheClient& cache, const RequestKey& request_key, std::string_view manifest_text)
-    -> std::optional<ResultKey>;
+// `stale`, when given, receives the first listed path whose identity no longer matches
+auto ValidateManifest(CacheClient& cache, const RequestKey& request_key, std::string_view manifest_text,
+                      std::string* stale = nullptr) -> std::optional<ResultKey>;
 
 }  // namespace jig

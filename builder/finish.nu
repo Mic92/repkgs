@@ -67,7 +67,7 @@ def version-check [c: record]: nothing -> nothing {
 def cache-summary []: nothing -> nothing {
   if not ($env.JIG_LOG | path exists) { return }
   # `query` (cc -v, -dM, -print-*) is not a build step and stays out of the counts
-  let runs = (open --raw $env.JIG_LOG | from tsv --noheaders | rename tool outcome | where outcome != query)
+  let runs = (open --raw $env.JIG_LOG | from tsv --noheaders | rename tool outcome subject | where outcome != query)
   let parts = ($runs | group-by tool outcome --to-table | group-by tool --to-table | each {|t|
     let counts = ($t.items | each {|o| {outcome: $o.outcome, n: ($o.items | length)} })
     let total = ($counts.n | math sum)
@@ -76,6 +76,12 @@ def cache-summary []: nothing -> nothing {
     [$t.tool $"cached=($cached)/($total) \(($cached * 100 // $total)%)" ...$rest] | str join " "
   })
   if ($parts | is-not-empty) { note jig ($parts | str join ", ") }
+  let why = ($runs | where tool == rustc and outcome starts-with compiled | get subject | parse "{crate} {reason}")
+  let tally = ($why.reason | each { $in | split row ":" | first } | uniq -c | each { $"($in.value)=($in.count)" })
+  if ($tally | is-not-empty) { note rustc-misses ($tally | str join " ") }
+  # which files invalidated manifests, most frequent first
+  let stale = ($why.reason | where $it starts-with "inputs-changed:" | str replace "inputs-changed:" "" | uniq -c | sort-by -r count | first 5 | each { $"($in.value) ×($in.count)" })
+  if ($stale | is-not-empty) { note rustc-stale ($stale | str join ", ") }
   # a few of the command lines jig would not cache, to spot shapes worth teaching it
   if ($env.JIG_LOG_ARGS | path exists) {
     for l in (open --raw $env.JIG_LOG_ARGS | lines | shuffle | first 5) { note uncached ($l | str substring 0..300) }
@@ -137,8 +143,8 @@ export def main [
   if $prebuilt == false { split-debug $c }
   if $prebuilt == true { implant $c }
   launchers $c
-  # RUNPATH/PT_INTERP -> $ORIGIN-relative, in place (pkgs/ji/jig/src/fixup_mode.cc). When
-  # cross, any mention of a build-machine package in the output is an error
+  # RUNPATH/PT_INTERP -> $ORIGIN-relative, in place (pkgs/ji/jig/src/fixup_mode.cc). A cross
+  # output must not mention build-machine packages
   let a = (attrs)
   let deny = (if $c.platform.cross { $a.buildDependencies | where { $in not-in $a.dependencies } | each { [--deny $in] } | flatten } else { [] })
   if $prebuilt != "ldso" { x reloc-fixup $c.out ...$deny }

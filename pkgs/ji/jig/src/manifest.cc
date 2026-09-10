@@ -118,8 +118,8 @@ auto BuildManifest(CacheClient& cache, const RequestKey& request_key, std::span<
   return Manifest{.text = std::move(text), .result_key = ResultKey(hasher.Finish())};
 }
 
-auto ValidateManifest(CacheClient& cache, const RequestKey& request_key, std::string_view manifest_text)
-    -> std::optional<ResultKey> {
+auto ValidateManifest(CacheClient& cache, const RequestKey& request_key, std::string_view manifest_text,
+                      std::string* stale) -> std::optional<ResultKey> {
   const Store& store = Store::Get();
   const std::vector<Entry> entries = ParseManifest(manifest_text);
   std::vector<std::string> paths;
@@ -133,6 +133,9 @@ auto ValidateManifest(CacheClient& cache, const RequestKey& request_key, std::st
   for (const Entry& entry : entries) {
     const std::optional<std::string> identity = store.InputId(entry.path);
     if (!identity || *identity != std::string_view(entry.line).substr(entry.tab + 1)) {
+      if (stale != nullptr) {
+        *stale = entry.line.substr(0, entry.tab);
+      }
       return std::nullopt;
     }
     hasher.Field(entry.line);

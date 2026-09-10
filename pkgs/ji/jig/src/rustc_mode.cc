@@ -313,8 +313,14 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
   hasher.Field(*source_bytes);
   const RequestKey request_key(Tool::kRustc, hasher.Finish());
 
+  // the log's subject says how far a miss got
+  std::string missed = label + " new-key";
   if (const std::optional<std::string> manifest = cache.Get(slot::Manifest(request_key))) {
-    if (const std::optional<ResultKey> result_key = ValidateManifest(cache, request_key, *manifest)) {
+    std::string stale;
+    const std::optional<ResultKey> result_key = ValidateManifest(cache, request_key, *manifest, &stale);
+    missed = label + " inputs-changed:" + stale;
+    if (result_key) {
+      missed = label + " object-gone";
       const std::optional<std::string> blob = cache.Get(slot::Object(*result_key));
       if (blob && UnpackFiles(*blob, inv.out_dir, inv.extra_filename)) {
         std::print(stderr, "{}", cache.Get(slot::Stderr(*result_key)).value_or(""));
@@ -331,14 +337,14 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
   }
   std::print(stderr, "{}", run.stderr_text);
   if (run.status != 0) {
-    LogOutcome("rustc", Outcome::kMissFail, label, clock);
+    LogOutcome("rustc", Outcome::kMissFail, missed, clock);
     return run.status;
   }
   // with cargo the dep-info is exactly <out-dir>/<crate><extra>.d. Scanning would race sibling variants
   const std::optional<std::string> dep_text =
       ReadFile(fs::path(inv.out_dir) / (inv.crate_name + inv.extra_filename + ".d"));
   if (!dep_text) {
-    LogOutcome("rustc", Outcome::kMissUnstored, label, clock);
+    LogOutcome("rustc", Outcome::kMissUnstored, missed, clock);
     return 0;
   }
   const DepInfo info = ParseDepInfo(*dep_text);
@@ -348,7 +354,7 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
   cache.Put(slot::Manifest(request_key), manifest.text);
   cache.Put(slot::Object(manifest.result_key), PackFiles(info.outputs, inv.extra_filename));
   cache.Put(slot::Stderr(manifest.result_key), run.stderr_text);
-  LogOutcome("rustc", Outcome::kMissStored, label, clock);
+  LogOutcome("rustc", Outcome::kMissStored, missed, clock);
   return 0;
 }
 
