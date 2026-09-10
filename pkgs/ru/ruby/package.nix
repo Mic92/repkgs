@@ -17,12 +17,31 @@ package {
     "--without-git"
     "--without-baseruby"
   ]
-  ++ (if platform.cross then [ "--with-baseruby=${buildPkgs.ruby}/bin/ruby" ] else [ ]);
+  ++ (if platform.cross then [ "--with-baseruby=ruby" ] else [ ]);
+  buildDependencies = if platform.cross then [ buildPkgs.ruby ] else [ ];
   dependencies = [
+    pkgs.bash # rbconfig's CONFIG["SHELL"], mkmf runs commands through it
     pkgs.zlib
     pkgs.openssl
     pkgs.libyaml
     pkgs.libffi
+  ];
+  phases = [
+    "autotools.configure"
+    "autotools.build"
+    "autotools.install"
+    {
+      # rbconfig.rb describes the build machine: configure's bash and clang's InstalledDir line
+      name = "rbconfig";
+      run = ''
+        for f in (glob $"($c.out)/lib/ruby/*/*/rbconfig.rb") {
+          let text = (open --raw $f
+            | str replace -r '(CONFIG\["SHELL"\] = ")[^"]*' ("''${1}" + (dep-root bash "rbconfig SHELL") + "/bin/bash")
+            | str replace -r '(CONFIG\["CC_VERSION_MESSAGE"\] = "[^"]*?)\\nInstalledDir: [^"]*' "''${1}")
+          $text | save -f $f
+        }
+      '';
+    }
   ];
   tests.run = false; # `make check` is hours; tests.version covers "it starts and finds its stdlib"
   bin = [
