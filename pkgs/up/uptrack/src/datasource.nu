@@ -15,6 +15,7 @@ export def versions [p: record<type: string, namespace: string, name: string, qu
     hackage => (fetch $"https://hackage.haskell.org/package/($p.name)/preferred" $p.name | get normal-version | each {|v| {version: $v} })
     gnu => (listing $"https://ftp.gnu.org/gnu/($p.name)/" $p.name)
     generic => (generic $p)
+    visualstudio => (visualstudio $p)
     _ => (error make {msg: $"no datasource for purl type ($p.type)"})
   } | default false prerelease | default null date
     | update prerelease {|r| $r.prerelease or (version is-prerelease $r.version) }
@@ -72,6 +73,13 @@ def listing [url: string, name: string, --regex: oneof<string, nothing>]: nothin
 }
 
 # pkg:generic/<name>?url=…[&regex=…]
+# pkg:visualstudio/<major>: the release channel names the current VisualStudio.vsman. Its URL
+# is not derivable from the version, so the path below download/pr/ rides in [pin] as `pr`
+def visualstudio [p: record<type: string, namespace: string, name: string, qualifiers: record>]: nothing -> table<version: string> {
+  let m = (fetch $"https://aka.ms/vs/($p.name)/release/channel" "visualstudio channel" | from json | get channelItems | where type == Manifest | first)
+  [{version: $m.version, pr: ($m.payloads.0.url | parse -r '/download/pr/(.+)/[^/]+$' | get capture0.0)}]
+}
+
 def generic [p: record<type: string, namespace: string, name: string, qualifiers: record>]: nothing -> table<version: string> {
   if $p.qualifiers.url? == null { error make {msg: $"pkg:generic/($p.name) needs ?url="} }
   listing $p.qualifiers.url $p.name --regex $p.qualifiers.regex?
