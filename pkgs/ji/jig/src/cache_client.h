@@ -33,6 +33,9 @@ class CacheClient {
   // several GETs in one write, answers in order
   auto GetMany(std::span<const std::string> keys) -> std::vector<std::optional<std::string>>;
   void Put(std::string_view key, std::string_view value);
+  // pipelined: one write, then the replies
+  void PutMany(std::span<const std::pair<std::string, std::string>> items);
+  auto HasMany(std::span<const std::string> keys) -> std::vector<bool>;
   // one identity per path in order, empty where the daemon could not read it. Empty vector on error
   auto Identities(std::span<const std::string> paths) -> std::vector<std::string>;
   // blocks until the daemon admits one more compiler for `build`. false: no daemon, run anyway

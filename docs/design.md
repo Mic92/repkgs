@@ -254,6 +254,7 @@ What is cached and what the key is:
 | Go build actions | Go's own action IDs |
 | Haskell | cabal's unit id, which already hashes source, flags and dependencies |
 | autoconf `config.cache`, cmake's probe results | hash of the configure scripts + toolchain and dependency identities + platform + flags |
+| tool cache directories (zig's `ZIG_GLOBAL_CACHE_DIR`) | source + the probe key. Stored as a listing plus one blob per file content (`jig cache put-dir`), so trees under different keys share their files |
 
 jigd (`pkgs/ji/jigd`, Go) serves every build on the machine:
 

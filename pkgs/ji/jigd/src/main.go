@@ -101,6 +101,12 @@ func serve(conn *net.UnixConn) {
 		switch {
 		case len(fields) == 2 && fields[0] == "GET":
 			err = get(conn, out, fields[1])
+		case len(fields) == 2 && fields[0] == "HAS":
+			has := "0\n"
+			if store.Get(fields[1]) != nil {
+				has = "1\n"
+			}
+			_, err = out.WriteString(has)
 		case len(fields) == 3 && fields[0] == "PUT":
 			size, perr := strconv.ParseInt(fields[2], 10, 64)
 			if perr != nil || size < 0 || size > 2<<30 {

@@ -30,23 +30,11 @@ export def store [key: string, file: path]: nothing -> nothing {
   if (ctx).cache and ($file | path exists) { ^jig cache put $key $file | complete }
 }
 
-# a directory as one zstd tarball under `key`. true when restored
+# a directory tree under `key`: file contents deduplicated in jigd, one listing per key
 export def restore-dir [key: string, dir: path]: nothing -> bool {
-  let c = (ctx)
-  let tar = $"($c.build)/(($key | str replace -a '/' '_')).tar.zst"
-  if not ($c.cache and (^jig cache get $key $tar | complete).exit_code == 0) { return false }
-  mkdir $dir
-  ^bsdtar -xf $tar -C $dir
-  rm $tar
-  true
+  (ctx).cache and (^jig cache get-dir $key $dir | complete).exit_code == 0
 }
 
 export def store-dir [key: string, dir: path]: nothing -> nothing {
-  let c = (ctx)
-  if not ($c.cache and ($dir | path exists)) { return }
-  let tar = $"($c.build)/(($key | str replace -a '/' '_')).tar.zst"
-  ^bsdtar -c --zstd -f $tar -C $dir .
-  note cache $"($key | split row / | first 2 | str join /): stored (ls $tar | get 0.size)"
-  ^jig cache put $key $tar | complete | ignore
-  rm $tar
+  if (ctx).cache and ($dir | path exists) { ^jig cache put-dir $key $dir }
 }

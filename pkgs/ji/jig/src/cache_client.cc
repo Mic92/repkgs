@@ -223,4 +223,37 @@ void CacheClient::Put(std::string_view key, std::string_view value) {
   }
 }
 
+void CacheClient::PutMany(std::span<const std::pair<std::string, std::string>> items) {
+  if (!fd_.valid() || items.empty()) {
+    return;
+  }
+  size_t sent = 0;
+  for (const auto& [key, value] : items) {
+    const std::string wire = Compress(value);
+    if (wire.empty() || !SendAll(std::format("PUT {} {}\n", key, wire.size())) || !SendAll(wire)) {
+      break;
+    }
+    ++sent;
+  }
+  for (size_t i = 0; i < sent; ++i) {
+    RecvLine();
+  }
+}
+
+auto CacheClient::HasMany(std::span<const std::string> keys) -> std::vector<bool> {
+  std::vector<bool> have(keys.size(), false);
+  std::string request;
+  for (const std::string& key : keys) {
+    request += std::format("HAS {}\n", key);
+  }
+  if (!fd_.valid() || keys.empty() || !SendAll(request)) {
+    return have;
+  }
+  for (auto&& has : have) {
+    const std::optional<std::string> line = RecvLine();
+    has = line && *line == "1";
+  }
+  return have;
+}
+
 }  // namespace jig

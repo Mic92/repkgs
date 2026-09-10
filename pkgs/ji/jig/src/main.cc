@@ -19,6 +19,7 @@
 #include "base.h"
 #include "cache_client.h"
 #include "cc_mode.h"
+#include "dir_mode.h"
 #include "fixup_mode.h"
 #include "gocache_mode.h"
 #include "keys.h"
@@ -29,10 +30,17 @@
 
 namespace {
 
-// jig cache get|put <key> <file>: plain blobs, for fetchers (nix/fetch.nix goModules)
+// jig cache get|put <key> <file>: plain blobs, for fetchers (nix/fetch.nix goModules).
+// jig cache get-dir|put-dir <key> <dir>: a tree as deduplicated file blobs (dir_mode.h)
 auto RunCacheMode(std::span<const std::string> args, const std::string& socket_path) -> int {
   if (args.size() != 3) {
     return 1;
+  }
+  if (args.front() == "put-dir") {
+    return jig::PutDir(socket_path, args.at(1), args.at(2));
+  }
+  if (args.front() == "get-dir") {
+    return jig::GetDir(socket_path, args.at(1), args.at(2));
   }
   jig::CacheClient cache;
   if (!cache.Connect(socket_path)) {
