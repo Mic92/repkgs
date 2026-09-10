@@ -2,8 +2,8 @@
 # paths relative to the lib dir, project root and cache root, so the directory is valid in the
 # next sandbox: restored before cmake builds stage3, stored after. Keyed on the source tree and
 # patches (store paths, so exact) plus what probe-cache keys on: platform, dependencies, flags
-use ../../../builder/core.nu *
-use ../../../builder/probe-cache.nu
+use core.nu *
+use probe-cache.nu
 
 def key []: nothing -> string {
   let a = (attrs)

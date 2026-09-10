@@ -21,11 +21,11 @@ package {
     buildPkgs.ninja
     buildPkgs.pkgconf
   ];
-  module = ./build.nu;
+  modules.rust = ./build.nu;
   steps = [
-    "self.configure"
-    "self.build"
-    "self.install"
+    "rust.configure"
+    "rust.build"
+    "rust.install"
   ];
   tests.run = false; # x.py test: hours
   bin = [

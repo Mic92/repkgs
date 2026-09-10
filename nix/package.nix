@@ -55,7 +55,7 @@ let
     "prebuilt"
     "install"
     "links"
-    "module"
+    "modules"
   ];
 
   # the part of every derivation that is the same across the set: built once
@@ -196,8 +196,10 @@ let
   separate = args.tests.separate or false;
 
   # same flags as treefmt's nu-typecheck, so what lints clean parses the same way here
+  # include path: a package's own module says `use core.nu *` wherever it lives
   nuArgs = [
     "--no-config-file"
+    "--include-path=${tree}"
     "--experimental-options=[cell-path-types]"
     "-c"
   ];
@@ -209,8 +211,8 @@ let
       let
         p = match stepRe s;
       in
-      if p == null || !(elem (elemAt p 0) (uses ++ selfModule)) then
-        fail "step '${s}' is not <one of ${toString (uses ++ selfModule)}>.<verb>"
+      if p == null || !(elem (elemAt p 0) (uses ++ attrNames modules)) then
+        fail "step '${s}' is not <one of ${toString (uses ++ attrNames modules)}>.<verb>"
       else if elemAt p 1 == "test" && (!testsRun || separate) then
         ""
       # cross without binfmt decides at build time (prepare) that tests cannot run
@@ -218,25 +220,13 @@ let
         "if (ctx).testsRun {\nnote step ${s}\n${elemAt p 0} test\n}"
       else
         "note step ${s}\n${elemAt p 0} ${elemAt p 1}";
-  # `module = ./build.nu`: the package's own verbs, a nu module next to package.nix imported as
-  # `self`, for steps too long to read inline ("self.configure"). It says
-  # `use ../../../builder/core.nu *` like in the tree, so it is laid out that way beside `tree`
-  selfModule = if args ? module then [ "self" ] else [ ];
-  selfTree = derivation {
-    name = "${name}-module";
-    inherit (setCommon) system;
-    builder = "${nu}/bin/nu";
-    args = [
-      "--no-config-file"
-      "-c"
-      "mkdir $\"($env.out)/pkgs/x/x\"; cp ${args.module} $\"($env.out)/pkgs/x/x/self.nu\"; ^$\"${nu}/bin/ln\" -s ${tree} $\"($env.out)/builder\""
-    ];
-    preferLocalBuild = true;
-  };
+  # `modules.zig = ./build.nu`: the package's own verbs as one more nu module, for steps too long
+  # to read inline ("zig.restore"). It imports the builder by bare name (`use core.nu *`)
+  modules = args.modules or { };
   prelude =
     preludeBase
     ++ map (u: "use ${tree}/${buildSystems.${u}.module}") uses
-    ++ map (_: "use ${selfTree}/pkgs/x/x/self.nu") selfModule;
+    ++ map (m: "module ${m} { export use ${modules.${m}} * }\nuse ${m}") (attrNames modules);
   setups = map (u: "note setup ${u}\n${u} setup") uses;
   script = concatStringsSep "\n" (
     prelude

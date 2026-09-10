@@ -1,5 +1,5 @@
 # rust's steps (package.nix `module`): bootstrap.toml for x.py, then build and install through it
-use ../../../builder/core.nu *
+use core.nu *
 
 # x.py reads bootstrap.toml: our llvm, the rust-bootstrap binaries as stage0, one host triple
 export def configure []: nothing -> nothing {

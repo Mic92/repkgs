@@ -24,12 +24,12 @@ package {
   prebuilt = true;
   # zig's own cache, else it writes to $HOME/.cache. build.nu round-trips it through jigd
   env.ZIG_GLOBAL_CACHE_DIR = "/build/zig-cache";
-  module = ./build.nu;
+  modules.zig = ./build.nu;
   steps = [
     "cmake.configure"
-    "self.restore"
+    "zig.restore"
     "cmake.build"
-    "self.store"
+    "zig.store"
     "cmake.install"
   ];
   tests.run = false; # `zig build test` is the multi-hour compiler suite

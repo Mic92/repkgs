@@ -78,8 +78,9 @@ steps = [
 ];
 ```
 
-When the inline nu gets long, `module = ./build.nu;` next to package.nix exports the verbs and
-steps name them as `"self.configure"` (pkgs/ru/rust).
+When the inline nu gets long, `modules.rust = ./build.nu;` makes a nu module of it and steps name
+its verbs as `"rust.configure"` (pkgs/ru/rust). Such a module imports the builder by bare name,
+`use core.nu *`, wherever the file lives.
 
 Other things a package can say, by example:
 

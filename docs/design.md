@@ -196,7 +196,7 @@ names them:
 uses = [ "cmake" ];                         # steps default to cmake's configure/build/test/install
 cmake.defs = { WITH_FOO = true; };          # options are per build system and checked at eval time
 steps = [ "cmake.configure" … { name = "x"; run = "<nu>"; } ];   # only when the default does not fit
-module = ./build.nu;                          # longer steps: the package's own verbs, "self.<verb>"
+modules.foo = ./build.nu;                   # longer steps in a nu module of its own, "foo.<verb>"
 ```
 
 The resulting rules:
