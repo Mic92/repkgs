@@ -2,8 +2,6 @@ use ../core.nu *
 use ../sys-libs.nu
 
 # cargo build/test/install, offline against a vendored registry snapshot. rustc goes through jig's cache.
-def options []: nothing -> record { options-for cargo {features: [], noDefaultFeatures: false, deps: null, flags: []} }
-
 # features and `cargo.flags`, for build and test alike
 def args [o: record<features: list<string>, noDefaultFeatures: bool, flags: list<string>>]: nothing -> list<string> {
   [
@@ -14,7 +12,7 @@ def args [o: record<features: list<string>, noDefaultFeatures: bool, flags: list
 
 # CARGO_HOME + config.toml (vendored registry, offline, linker=cc), path remaps
 export def --env setup []: nothing -> nothing {
-  let c = (ctx); let o = (options)
+  let c = (ctx); let o = (options cargo)
   load-env {CARGO_HOME: $"($c.build)/cargo-home", CARGO_TARGET_DIR: $"($c.build)/target", RUSTC: (tool rustc)}
   mkdir $env.CARGO_HOME
   let host = (^rustc -vV | lines | parse "host: {t}" | get t.0)
@@ -42,10 +40,10 @@ export def --env setup []: nothing -> nothing {
 export def workdir []: nothing -> string { project-dir cargo }
 
 # cargo build --release
-export def build []: nothing -> nothing { x cargo build --release --offline ...(args (options)) }
+export def build []: nothing -> nothing { x cargo build --release --offline ...(args (options cargo)) }
 # cargo test --release, tests.parallel as --test-threads, tests.skip as --skip filters
 export def test []: nothing -> nothing {
-  x cargo test --release --offline ...(args (options)) -- --test-threads (test-jobs) ...(test-skips | each { [--skip $in] } | flatten)
+  x cargo test --release --offline ...(args (options cargo)) -- --test-threads (test-jobs) ...(test-skips | each { [--skip $in] } | flatten)
 }
 # the executables cargo built -> $out/bin (those in `bin` when the spec names some), as go does
 export def install []: nothing -> nothing {

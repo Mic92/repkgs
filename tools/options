@@ -7,7 +7,7 @@ def main [...systems: string]: nothing -> nothing {
   let names = (if ($systems | is-empty) { $all | columns } else { $systems })
   for bs in $names {
     print $"## ($bs)\n"
-    print ($all | get $bs | transpose option v | each {|r| {option: $"`($bs).($r.option)`", type: ($r.v.type | str join " | " | str replace "set | string" package), meaning: $r.v.doc} } | to md --pretty)
+    print ($all | get $bs | transpose option v | each {|r| {option: $"`($bs).($r.option)`", type: ($r.v.type | str join " | " | str replace "set | string" package), default: (if ($r.v.type | str join " " | str contains "set string") { "lock file" } else { $r.v.default | to nuon }), meaning: $r.v.doc} } | to md --pretty)
     print ""
   }
 }

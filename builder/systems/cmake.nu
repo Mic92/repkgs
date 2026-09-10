@@ -2,8 +2,6 @@ use ../core.nu *
 use ../probe-cache.nu
 
 # cmake configure / build / ctest / install with Ninja.
-def options []: nothing -> record { options-for cmake {defs: {}, generator: "Ninja", flags: []} }
-
 # -D values: bools as ON/OFF, everything else as written
 def render [v: oneof<bool, int, string>]: nothing -> string {
   match $v { true => "ON", false => "OFF", _ => ($v | into string) }
@@ -16,7 +14,7 @@ export def workdir []: nothing -> string { (ctx).build }
 
 # cmake -G Ninja with prefix/libdir/prefix-path/shared/testing defaults, cross system + emulator, then `cmake.defs`
 export def configure []: nothing -> nothing {
-  let c = (ctx); let o = (options)
+  let c = (ctx); let o = (options cmake)
   let defs = ({
     CMAKE_INSTALL_PREFIX: $c.out
     CMAKE_BUILD_TYPE: (if ($c.spec.profile? | default "release") == "debug" { "Debug" } else { "Release" })

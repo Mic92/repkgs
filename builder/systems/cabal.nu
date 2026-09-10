@@ -5,7 +5,6 @@ use ../core.nu *
 # compiler and the dependency closure, so a unit built once on this host (by any package) is
 # fetched from jigd instead of compiled. The store directory is the same fixed path in
 # every sandbox so the paths inside cached units agree.
-def options []: nothing -> record { options-for cabal {deps: "", flags: [], exes: [], project: ""} }
 # under jsem when the daemon is there to hand out slots
 def --wrapped cabal [...args: string]: nothing -> any {
   let cmd = (if ($env.JSEM | is-empty) { [cabal ...$args] } else { [jsem cabal ...$args] })
@@ -20,7 +19,7 @@ def unit-dir []: nothing -> string { $env.CABAL_UNITS }
 
 # CABAL_DIR with config: no hackage, the set as file+noindex repository, fixed store dir
 export def --env setup []: nothing -> nothing {
-  let c = (ctx); let o = (options)
+  let c = (ctx); let o = (options cabal)
   # cabal writes its index cache into a noindex repository's directory: a writable one of symlinks
   let repo = $"($c.build)/repo"
   mkdir $repo
@@ -37,7 +36,6 @@ store-dir: ($STORE)
 jobs: ($c.njobs)
 with-compiler: (tool ghc)
 " | save -f $"($env.CABAL_DIR)/config"
-  cd (project-dir cabal)
   # ghc links through cc without LDFLAGS: dependencies' lib dirs (gmp, libffi, zlib) spelled out
   let libdirs = (dep-dirs $c.deps libDirs | str join ", ")
   $"program-locations\n  gcc-location: (tool cc)\npackage *\n  ghc-options: (if $c.cache { $"-jsem ($env.JSEM)" } else { "-j" })\n  split-sections: True\n  extra-lib-dirs: ($libdirs)\n($o.project)"
@@ -83,7 +81,7 @@ def save-units [c: record, before: list<string>]: nothing -> nothing {
 
 # plan, restore cached units, cabal build, store new units
 export def build []: nothing -> nothing {
-  let c = (ctx); let o = (options)
+  let c = (ctx); let o = (options cabal)
   cabal build --dry-run ...(targets $o)
   if $c.cache { restore $c }
   let before = (ls -s (unit-dir) | get name)
@@ -92,7 +90,7 @@ export def build []: nothing -> nothing {
 }
 
 export def test []: nothing -> nothing {
-  let o = (options)
+  let o = (options cabal)
   # cabal test errors out (Cabal-7043) when the package declares no test-suite, executable-only packages often do not
   let cabals = (glob **/*.cabal --exclude [dist-newstyle/**])
   if ($cabals | is-not-empty) and ($cabals | all {|f| (open --raw $f) !~ '(?im)^\s*test-suite\s' }) { note cabal "no test suites"; return }
@@ -102,7 +100,7 @@ export def test []: nothing -> nothing {
 
 # the built executables -> $out/bin
 export def install []: nothing -> nothing {
-  let c = (ctx); let o = (options)
+  let c = (ctx); let o = (options cabal)
   mkdir $"($c.out)/bin"
   for e in $o.exes {
     # list-bin takes exactly one target

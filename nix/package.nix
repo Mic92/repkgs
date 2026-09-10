@@ -269,7 +269,7 @@ let
       map (u: {
         name = u;
         value = buildSystems.${u}.defaults args // (args.${u} or { });
-      }) (filter (u: args ? ${u} || buildSystems.${u}.defaults args != { }) uses)
+      }) uses
     )
     // {
       inherit steps prebuilt;

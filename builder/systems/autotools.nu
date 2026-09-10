@@ -2,7 +2,6 @@ use ../core.nu *
 use ../probe-cache.nu
 
 # ./configure && make [check] && make install. Also plain-Makefile projects via steps/options.
-def options []: nothing -> record { options-for autotools {flags: [], makeFlags: [], configureScript: "configure", outOfTree: true} }
 # CONFIG_SHELL = bash when on PATH (configure scripts in the wild need it), else stage0's dash
 # (the base userland itself). Works in the build dir, or the source when not `outOfTree`
 export def --env setup []: nothing -> nothing {
@@ -10,13 +9,13 @@ export def --env setup []: nothing -> nothing {
   load-env {CONFIG_SHELL: $sh, SHELL: $sh}
 }
 
-export def workdir []: nothing -> string { if (options).outOfTree { (ctx).build } else { project-dir autotools } }
+export def workdir []: nothing -> string { if (options autotools).outOfTree { (ctx).build } else { project-dir autotools } }
 
 # ./configure --prefix=$out (shared only), --host/--build when cross, plus `autotools.flags`.
 # Autoconf scripts also get the two flags every package here wants and autoconf ignores when
 # unknown: no gettext catalogues (ambient data, §3) and no .deps bookkeeping for a one-shot build
 export def --env configure []: nothing -> nothing {
-  let c = (ctx); let o = (options)
+  let c = (ctx); let o = (options autotools)
   let script = $"($c.src)/($o.configureScript)"
   # --host makes configure cross-aware (no running of test programs) Triple, not a nixpkgs "system"
   let host_flags = (if $c.platform.cross { [$"--host=($c.platform.triple)" "--build=x86_64-build-linux-gnu"] } else { [] })
@@ -30,19 +29,19 @@ export def --env configure []: nothing -> nothing {
 
 # make -j (`autotools.buildTarget`, `autotools.makeFlags`)
 export def build []: nothing -> nothing {
-  let c = (ctx); let o = (options)
-  x make $"-j($c.njobs)" ...($o.buildTarget? | default [] ) ...($o.makeFlags)
+  let c = (ctx); let o = (options autotools)
+  x make $"-j($c.njobs)" ...$o.buildTarget ...($o.makeFlags)
 }
 
 # make check (or `autotools.testTarget`), tests.parallel as -j
 export def test []: nothing -> nothing {
-  let o = (options)
-  x make $"-j(test-jobs)" ...($o.testTarget? | default [check]) ...($o.makeFlags)
+  let o = (options autotools)
+  x make $"-j(test-jobs)" ...$o.testTarget ...($o.makeFlags)
 }
 
 # make install (`autotools.installTarget`, `autotools.makeFlags`)
 export def install []: nothing -> nothing {
-  let c = (ctx); let o = (options)
+  let c = (ctx); let o = (options autotools)
   # PREFIX/prefix for configure-less Makefiles. Harmless after configure
-  x make install $"PREFIX=($c.out)" $"prefix=($c.out)" ...($o.makeFlags) ...($o.installFlags? | default [])
+  x make install $"PREFIX=($c.out)" $"prefix=($c.out)" ...($o.makeFlags) ...$o.installFlags
 }

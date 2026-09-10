@@ -4,19 +4,14 @@ use ../node-common.nu
 # npm ci from fetch.npmDeps (`npm.deps`: a package-lock.json whose `resolved` point at store
 # tarballs; npm checks each against the lock's integrity), `npm run <script>`, `npm test`, and the
 # pruned package as lib/node_modules/<name> with its bin links.
-def options []: nothing -> record {
-  options-for npm {script: "build", deps: null, flags: []}
-}
-
 # offline `npm ci` against the rewritten lock
 export def --env setup []: nothing -> nothing {
   let c = (ctx)
-  let o = (options)
+  let o = (options npm)
   load-env {
     npm_config_cache: $"($c.build)/npm-cache", npm_config_offline: "true", npm_config_progress: "false", npm_config_audit: "false"
     npm_config_fund: "false", npm_config_update_notifier: "false", npm_config_loglevel: "warn", NODE_OPTIONS: "--no-deprecation"
   }
-  cd (project-dir npm)
   cp $"($o.deps)/package-lock.json" package-lock.json
   ^chmod u+w package-lock.json  # npm prune rewrites it
   x npm ci --ignore-scripts ...$o.flags
@@ -27,7 +22,7 @@ export def workdir []: nothing -> string { project-dir npm }
 
 # npm run <npm.script> (null: nothing to build)
 export def build []: nothing -> nothing {
-  let script = (options).script
+  let script = (options npm).script
   if $script != null { x npm run $script }
 }
 

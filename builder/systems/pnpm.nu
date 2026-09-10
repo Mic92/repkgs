@@ -5,10 +5,6 @@ use ../node-common.nu
 # tarball against pnpm-lock.yaml's integrity), `pnpm run <script>`, `pnpm test`, and the pruned
 # package as lib/node_modules/<name> with its bin links.
 
-def options []: nothing -> record {
-  options-for pnpm {script: "build", deps: null, flags: []}
-}
-
 # pnpm 10 reads npm_config_*, 11 only pnpm_config_*
 def conf [settings: record]: nothing -> record {
   $settings | items {|k, v| [[$"npm_config_($k)" $v] [$"pnpm_config_($k)" $v]] } | flatten | into record
@@ -16,7 +12,7 @@ def conf [settings: record]: nothing -> record {
 
 export def --env setup []: nothing -> nothing {
   let c = (ctx)
-  let o = (options)
+  let o = (options pnpm)
   load-env (conf {
     # pnpm 11 wants a host part (it names a cache dir) and opens tarballs at the URL minus
     # "file:", so "file:/" + store path: host "nix", file //nix/store/…
@@ -34,7 +30,7 @@ export def workdir []: nothing -> string { project-dir pnpm }
 
 # pnpm run <pnpm.script> (null: nothing to build)
 export def build []: nothing -> nothing {
-  let script = (options).script
+  let script = (options pnpm).script
   if $script != null { x pnpm run $script }
 }
 

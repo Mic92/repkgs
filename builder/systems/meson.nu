@@ -1,8 +1,6 @@
 use ../core.nu *
 
 # meson setup / compile / test / install.
-def options []: nothing -> record { options-for meson {defs: {}, flags: []} }
-
 # out-of-tree: work in the build directory
 export def setup []: nothing -> nothing { }
 
@@ -53,7 +51,7 @@ def cross-files [c: record]: nothing -> list<string> {
 
 # meson setup with prefix/libdir/buildtype defaults, a generated cross file when cross, then `meson.defs`
 export def configure []: nothing -> nothing {
-  let c = (ctx); let o = (options)
+  let c = (ctx); let o = (options meson)
   let opts = ({
     prefix: $c.out
     libdir: "lib"

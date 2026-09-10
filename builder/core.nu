@@ -14,13 +14,12 @@ export def note [step: string, msg: string = ""]: nothing -> nothing {
 # what build-system verbs and custom steps get to see: {spec out deps njobs src build platform testsRun}
 export def ctx []: nothing -> record<spec: record, out: string, deps: list<record<name: string, root: string>>, roots: list<string>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool> { $env.PKGS_CTX }
 
-# a build system's options: its defaults overridden by the package's `<bs>.*` attrset
-export def options-for [bs: string, defaults: record]: nothing -> record { $defaults | merge ((ctx).spec | get -o $bs | default {}) }
+# a build system's options: nix/build-systems.nix defaults merged with the package's `<bs>.*`
+export def options [bs: string]: nothing -> record { (ctx).spec | get $bs }
 
 # the directory a build system works in: the source, or `<bs>.root` below it for monorepos
 export def project-dir [bs: string]: nothing -> string {
-  let root = ((ctx).spec | get -o $bs | get -o root | default ".")
-  [(ctx).src $root] | path join
+  [(ctx).src (options $bs).root] | path join
 }
 
 # store path of the dependency called `name` (its exports name), or an error saying why it is needed

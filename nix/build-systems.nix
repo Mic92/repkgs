@@ -1,12 +1,12 @@
 # What `uses = [ "<name>" ]` means: builder/systems/<name>.nu implements the verbs, `verbs` is the default
 # step order (build test install unless said otherwise), `tools` go on PATH, `dependencies` add to
 # the package's, `prebuilt` is the package's default for that field, and `options` are what a
-# package may set under `<name>.*`: `{ type; doc; }` each, `type` the `builtins.typeOf` names
-# allowed, checked at eval time along with the name. Every system has `root`; `deps` (the
-# fetched tree of locked dependencies, `lock.deps = fetcher` defaults it to the package's own lock
-# file) and `flags` (extra words on the tool's command line) mean the same wherever they exist.
-# Defaults live with the verbs in the .nu module. `tools/options` renders this as a table. `sh` is
-# for tools that spawn a shell by name (ninja, npm run, libtool).
+# package may set under `<name>.*`: `{ type; default; doc; }` each, `type` the `builtins.typeOf`
+# names allowed, checked at eval time along with the name. The module reads the merged result as
+# `options <name>`. Every system has `root`; `deps` (the fetched tree of locked dependencies,
+# `lock.deps = fetcher` defaults it to the package's own lock file) and `flags` (extra words on
+# the tool's command line) mean the same wherever they exist. `tools/options` renders this as a
+# table. `sh` is for tools that spawn a shell by name (ninja, npm run, libtool).
 {
   buildPkgs,
   pkgs,
@@ -14,53 +14,63 @@
   sh,
 }:
 let
-  opt = type: doc: {
+  opt = type: default: doc: {
     type = if builtins.isList type then type else [ type ];
-    inherit doc;
+    inherit default doc;
   };
   str = opt "string";
-  strs = opt "list";
-  bool = opt "bool";
-  attrs = opt "set";
-  # a derivation, or the placeholder string a dynamic derivation's output is at eval time
-  drv = opt [
-    "set"
+  optStr = opt [
     "string"
     "null"
   ];
-  flags = tool: strs "extra arguments for ${tool}";
+  strs = opt "list";
+  bool = opt "bool";
+  attrs = opt "set";
+  # a derivation, or the placeholder string a dynamic derivation's output is at eval time. The
+  # default comes from `lock.deps` (the package's own lock file), null where that is allowed means
+  # the source vendors its dependencies
   deps =
-    fetcher:
-    drv "the locked dependencies, fetched (${fetcher}). Defaults to the package's own lock file";
-  script = str "package.json script `build` runs (default \"build\", null: none)" // {
-    type = [
-      "string"
-      "null"
-    ];
-  };
+    nullable: fetcher:
+    opt (
+      [
+        "set"
+        "string"
+      ]
+      ++ (if nullable then [ "null" ] else [ ])
+    ) null "the locked dependencies, fetched (${fetcher}), by default from the package's own lock file";
+  flags = tool: strs [ ] "extra arguments for ${tool}";
+  script = optStr "build" "package.json script `build` runs (null: none)";
 in
 builtins.mapAttrs
-  (name: bs: {
-    module = "systems/${name}.nu";
-    steps = map (v: "${name}.${v}") (
-      bs.verbs or [
-        "build"
-        "test"
-        "install"
-      ]
-    );
-    defaults =
-      args:
-      builtins.mapAttrs (_: f: f { inherit (args) source; }) (bs.lock or { }) // (bs.defaults or { });
-    options = {
-      root = opt "string" "directory below the source the project lives in (monorepos, build/cmake)";
+  (
+    name: bs:
+    let
+      options = {
+        root = str "." "directory below the source the project lives in (monorepos, build/cmake)";
+      }
+      // bs.options;
+    in
+    {
+      inherit options;
+      module = "systems/${name}.nu";
+      steps = map (v: "${name}.${v}") (
+        bs.verbs or [
+          "build"
+          "test"
+          "install"
+        ]
+      );
+      # what the package's `<name>` record starts from: every option's default, `lock` ones fetched
+      defaults =
+        args:
+        builtins.mapAttrs (_: o: o.default) options
+        // builtins.mapAttrs (_: f: f { inherit (args) source; }) (bs.lock or { });
+      tools = if builtins.isFunction bs.tools then bs.tools else _: bs.tools;
+      dependencies = bs.dependencies or [ ];
+      prebuilt = bs.prebuilt or false;
+      stack = bs.stack or [ ];
     }
-    // bs.options;
-    tools = if builtins.isFunction bs.tools then bs.tools else _: bs.tools;
-    dependencies = bs.dependencies or [ ];
-    prebuilt = bs.prebuilt or false;
-    stack = bs.stack or [ ];
-  })
+  )
   {
     autotools = {
       verbs = [
@@ -73,12 +83,12 @@ builtins.mapAttrs
       tools = [ sh ];
       options = {
         flags = flags "configure";
-        makeFlags = strs "arguments for every make invocation (build, test, install)";
-        installFlags = strs "arguments for `make install` only";
-        configureScript = str "configure script relative to the project (default \"configure\")";
-        outOfTree = bool "configure from a separate build directory (default true)";
-        buildTarget = strs "make goals for build (default: the makefile's default goal)";
-        testTarget = strs "make goals for test (default [\"check\"])";
+        makeFlags = strs [ ] "arguments for every make invocation (build, test, install)";
+        installFlags = strs [ ] "arguments for `make install` only";
+        configureScript = str "configure" "configure script relative to the project";
+        outOfTree = bool true "configure from a separate build directory";
+        buildTarget = strs [ ] "make goals for build (empty: the makefile's default goal)";
+        testTarget = strs [ "check" ] "make goals for test";
       };
     };
     cmake = {
@@ -94,8 +104,8 @@ builtins.mapAttrs
         sh
       ];
       options = {
-        defs = attrs "-D cache entries. true/false render ON/OFF, packages their store path";
-        generator = str "cmake -G (default \"Ninja\")";
+        defs = attrs { } "-D cache entries. true/false render ON/OFF, packages their store path";
+        generator = str "Ninja" "cmake -G";
         flags = flags "cmake at configure time";
       };
     };
@@ -112,7 +122,7 @@ builtins.mapAttrs
         sh
       ];
       options = {
-        defs = attrs "-D options, merged over prefix/libdir/buildtype defaults";
+        defs = attrs { } "-D options, merged over prefix/libdir/buildtype defaults";
         flags = flags "meson setup";
       };
     };
@@ -132,14 +142,9 @@ builtins.mapAttrs
         python-installer
       ];
       options = {
-        backend = str "PEP 517 backend when pyproject.toml names none: setuptools (default), flit_core, maturin";
-        module = str "module the import test loads (default: the package name with - as _)" // {
-          type = [
-            "string"
-            "null"
-          ];
-        };
-        pytest = bool "also run pytest on tests/ (default false)";
+        backend = str "setuptools" "PEP 517 backend when pyproject.toml names none: setuptools, flit_core, maturin";
+        module = optStr null "module the import test loads (null: the package name with - as _)";
+        pytest = bool false "also run pytest on tests/";
       };
     };
     cargo = {
@@ -148,11 +153,14 @@ builtins.mapAttrs
       tools = args: [ (args.cargo.toolchain or buildPkgs.rust) ];
       lock.deps = fetch.cargoVendor;
       options = {
-        features = strs "--features";
-        noDefaultFeatures = bool "--no-default-features (default false)";
+        features = strs [ ] "--features";
+        noDefaultFeatures = bool false "--no-default-features";
         flags = flags "cargo build and cargo test";
-        deps = deps "fetch.cargoVendor";
-        toolchain = drv "the rust to build with (default buildPkgs.rust, rust-bootstrap before that exists)";
+        deps = deps true "fetch.cargoVendor";
+        toolchain = opt [
+          "set"
+          "null"
+        ] null "the rust to build with (null: buildPkgs.rust, rust-bootstrap before that exists)";
       };
     };
     cabal = {
@@ -168,20 +176,14 @@ builtins.mapAttrs
         pkgs.gmp # ghc-bignum: every linked program wants -lgmp
         pkgs.libffi # and the RTS -lffi
       ];
-      # the shared version set (locks/hackage.toml) every cabal package solves against
-      defaults.deps = fetch.hackageSet { };
       options = {
-        deps =
-          drv "hackage repository to solve against (default: the shared set from locks/hackage.toml)"
-          // {
-            type = [
-              "set"
-              "string"
-            ];
-          };
+        deps = deps false "fetch.hackageSet" // {
+          default = fetch.hackageSet { };
+          doc = "hackage repository to solve against, by default the shared set from locks/hackage.toml";
+        };
         flags = flags "every cabal subcommand (--flags=…, --allow-newer)";
-        exes = strs "exe components to build and install";
-        project = str "extra cabal.project text (allow-newer:, constraints:)";
+        exes = strs [ ] "exe components to build and install";
+        project = str "" "extra cabal.project text (allow-newer:, constraints:)";
       };
     };
     luarocks = {
@@ -190,21 +192,12 @@ builtins.mapAttrs
         buildPkgs.luarocks
         sh
       ];
-      # the shared rock versions (locks/luarocks.toml)
-      defaults.deps = fetch.luaRocksSet { inherit (buildPkgs) lua; };
       options = {
-        deps = drv "rock server directory (default: the shared set from locks/luarocks.toml)" // {
-          type = [
-            "set"
-            "string"
-          ];
+        deps = deps false "fetch.luaRocksSet" // {
+          default = fetch.luaRocksSet { inherit (buildPkgs) lua; };
+          doc = "rock server directory, by default the shared set from locks/luarocks.toml";
         };
-        rockspec = str "rockspec file when the source has several (default: luarocks picks)" // {
-          type = [
-            "string"
-            "null"
-          ];
-        };
+        rockspec = optStr null "rockspec file when the source has several (null: luarocks picks)";
         flags = flags "luarocks make";
       };
     };
@@ -212,14 +205,14 @@ builtins.mapAttrs
       tools = [ buildPkgs.go ];
       lock.deps = fetch.goModules;
       options = {
-        tags = strs "-tags";
-        ldflags = strs "-ldflags words (-X main.version=…)";
-        packages = strs "packages to build (default [\"./...\"])";
-        testPackages = strs "packages to test (default: `packages`)";
-        deps = deps "fetch.goModules" // {
-          doc = "GOPROXY tree (fetch.goModules, default from go.sum), or null to build from the source's vendor/";
+        tags = strs [ ] "-tags";
+        ldflags = strs [ ] "-ldflags words (-X main.version=…)";
+        packages = strs [ "./..." ] "packages to build";
+        testPackages = opt [ "list" "null" ] null "packages to test (null: `packages`)";
+        deps = deps true "fetch.goModules" // {
+          doc = "GOPROXY tree (fetch.goModules, by default from go.sum), or null to build from the source's vendor/";
         };
-        cgo = bool "CGO_ENABLED and external linking (default true)";
+        cgo = bool true "CGO_ENABLED and external linking";
         flags = flags "go build and go test";
       };
     };
@@ -233,7 +226,7 @@ builtins.mapAttrs
       dependencies = [ pkgs.nodejs ]; # bin scripts say #!/usr/bin/env node
       options = {
         inherit script;
-        deps = deps "fetch.pnpmDeps";
+        deps = deps true "fetch.pnpmDeps";
         flags = flags "pnpm install";
       };
     };
@@ -253,13 +246,8 @@ builtins.mapAttrs
         python-hatchling
       ];
       options = {
-        deps = deps "fetch.pythonDeps" // {
-          type = [
-            "set"
-            "string"
-          ];
-        };
-        check = strs "modules that must import from the installed layout";
+        deps = deps false "fetch.pythonDeps";
+        check = strs [ ] "modules that must import from the installed layout";
       };
     };
     bundler = {
@@ -269,14 +257,11 @@ builtins.mapAttrs
       ];
       lock.deps = fetch.gems;
       options = {
-        deps = deps "fetch.gems" // {
-          type = [
-            "set"
-            "string"
-          ];
-        };
-        without = strs "Gemfile groups to leave out (default [\"development\" \"test\"])";
-        test = strs "command run under `bundle exec` as the test (default: none, test gems are usually in `without`)";
+        deps = deps false "fetch.gems";
+        without = strs [ "development" "test" ] "Gemfile groups to leave out";
+        test =
+          opt [ "list" "null" ] null
+            "command run under `bundle exec` as the test (null: none, test gems are usually in `without`)";
         flags = flags "bundle install";
       };
     };
@@ -284,15 +269,10 @@ builtins.mapAttrs
       tools = [ buildPkgs.deno ];
       lock.deps = fetch.denoDeps;
       options = {
-        deps = deps "fetch.denoDeps" // {
-          type = [
-            "set"
-            "string"
-          ];
-        };
-        entry = attrs "bin name -> module path: each becomes bin/<name> running `deno run` on it";
-        permissions = strs "permission flags for run and test (default [\"-A\"])";
-        check = bool "deno check the entry points (default true)";
+        deps = deps false "fetch.denoDeps";
+        entry = attrs { } "bin name -> module path: each becomes bin/<name> running `deno run` on it";
+        permissions = strs [ "-A" ] "permission flags for run and test";
+        check = bool true "deno check the entry points";
         flags = flags "deno run and deno test";
       };
     };
@@ -305,14 +285,11 @@ builtins.mapAttrs
       dependencies = [ pkgs.nodejs ]; # bin scripts say #!/usr/bin/env node
       options = {
         inherit script;
-        deps = deps "fetch.bunDeps" // {
-          type = [
-            "set"
-            "string"
-          ];
-        };
+        deps = deps false "fetch.bunDeps";
         flags = flags "bun install";
-        compile = attrs "bin name -> entry module: `bun build --compile` single executables instead of installing the tree";
+        compile =
+          attrs { }
+            "bin name -> entry module: `bun build --compile` single executables instead of installing the tree";
       };
     };
     yarn = {
@@ -325,7 +302,7 @@ builtins.mapAttrs
       dependencies = [ pkgs.nodejs ]; # bin scripts say #!/usr/bin/env node
       options = {
         inherit script;
-        deps = deps "fetch.yarnDeps";
+        deps = deps true "fetch.yarnDeps";
         flags = flags "yarn install";
       };
     };
@@ -338,7 +315,7 @@ builtins.mapAttrs
       dependencies = [ pkgs.nodejs ]; # bin scripts say #!/usr/bin/env node
       options = {
         inherit script;
-        deps = deps "fetch.npmDeps";
+        deps = deps true "fetch.npmDeps";
         flags = flags "npm ci";
       };
     };

@@ -7,17 +7,13 @@ use ../sys-libs.nu
 # Native extensions compile with the cc on PATH (mkmf takes CC from rbconfig, which says "cc").
 # Gems that can link one of our libraries get it via the lock: fetch.gems propagates the library,
 # sys-libs.nu supplies `bundle config build.<gem>` flags and env.
-def options []: nothing -> record {
-  options-for bundler {deps: null, without: [development test], test: null, flags: []}
-}
-
 def app-dir []: nothing -> string { let c = (ctx); $"($c.out)/lib/($c.spec.name)" }
 
 # copy the source to its final place, put the fetched gems and checksummed lock beside it, and
 # configure bundler entirely through BUNDLE_* env (no .bundle/config to clean up afterwards)
 export def --env setup []: nothing -> nothing {
   let c = (ctx)
-  let o = (options)
+  let o = (options bundler)
   let app = (app-dir)
   ^cp -r $"(project-dir bundler)/." $app
   mkdir vendor
@@ -38,7 +34,7 @@ export def workdir []: nothing -> string { app-dir }
 
 # unpack the cached .gem files into vendor/bundle, compiling native extensions
 export def build []: nothing -> nothing {
-  x bundle install --local --no-cache ...((options).flags)
+  x bundle install --local --no-cache ...((options bundler).flags)
   # the .gem archives, bundler's download cache and extension build logs (which embed the build dir)
   rm -rf vendor/cache ...(glob vendor/bundle/ruby/*/cache) ...(glob vendor/bundle/ruby/*/extensions/**/{gem_make.out,mkmf.log})
   fix-env-shebangs vendor/bundle (ctx).njobs
@@ -46,7 +42,7 @@ export def build []: nothing -> nothing {
 
 # `bundler.test`: a command run with `bundle exec` (off by default: test gems are in `without`)
 export def test []: nothing -> nothing {
-  let command = (options).test
+  let command = (options bundler).test
   if $command != null { x bundle exec ...$command }
 }
 
@@ -76,7 +72,7 @@ def bin-stub [name: string, app: string, ruby: string]: nothing -> string {
     $"#!($ruby)/bin/ruby"
     $"ENV['BUNDLE_GEMFILE'] = '($app)/Gemfile'"
     $"ENV['BUNDLE_PATH'] = '($app)/vendor/bundle'"
-    $"ENV['BUNDLE_WITHOUT'] = '((options).without | str join ":")'"
+    $"ENV['BUNDLE_WITHOUT'] = '((options bundler).without | str join ":")'"
     "ENV['BUNDLE_FROZEN'] = 'true'"
     "require 'bundler/setup'"
     $"load '($exe)'"

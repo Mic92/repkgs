@@ -4,9 +4,6 @@ use ../node-common.nu
 # A bun project: `bun install --offline` from fetch.bunDeps, optional `bun run <script>`, `bun test`,
 # then either standalone executables (`bun.compile = { <bin> = "<entry.ts>"; }`) or the package
 # tree under lib/node_modules/<name> with its package.json `bin` entries linked into bin/.
-def options []: nothing -> record {
-  options-for bun {deps: null, script: "build", flags: [], compile: {}}
-}
 
 const LINK_CACHE = path self bun-cache.ts
 
@@ -14,10 +11,9 @@ const LINK_CACHE = path self bun-cache.ts
 # entries as symlinks into the fetched tree (it runs under bun because the names involve bun's hash)
 export def --env setup []: nothing -> nothing {
   let c = (ctx)
-  let o = (options)
+  let o = (options bun)
   let cache = $"($c.build)/bun-cache"
   load-env {BUN_INSTALL_CACHE_DIR: $cache, BUN_INSTALL: $"($c.build)/bun-home", DO_NOT_TRACK: "1"}
-  cd (project-dir bun)
   x bun $LINK_CACHE $o.deps $cache
   x bun install --frozen-lockfile --offline --ignore-scripts ...$o.flags
   node-common after-install $env.PWD
@@ -27,7 +23,7 @@ export def workdir []: nothing -> string { project-dir bun }
 
 # bun run <bun.script> (null: nothing to build)
 export def build []: nothing -> nothing {
-  let script = (options).script
+  let script = (options bun).script
   if $script != null { x bun run $script }
 }
 
@@ -37,7 +33,7 @@ export def test []: nothing -> nothing { x bun test }
 # compiled executables, or the package tree with its bin links
 export def install []: nothing -> nothing {
   let c = (ctx)
-  let o = (options)
+  let o = (options bun)
   if ($o.compile | is-empty) { node-common install-tree; return }
   mkdir $"($c.out)/bin"
   for exe in ($o.compile | transpose name entry) {

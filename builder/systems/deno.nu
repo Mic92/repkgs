@@ -5,14 +5,10 @@ use ../core.nu *
 # `deno.entry` (bin name -> module path) running `deno run --cached-only` on it. pkgs.deno must be
 # a dependency. No `deno compile` yet: it splices into upstream's denort ELF, which would need
 # relinking first.
-def options []: nothing -> record {
-  options-for deno {deps: null, entry: {}, permissions: ["-A"], check: true, flags: []}
-}
-
 # DENO_DIR: a writable copy of deno.deps (deno adds gen/ and *_cache_v2 next to npm/ and remote/)
 export def --env setup []: nothing -> nothing {
   let c = (ctx)
-  let o = (options)
+  let o = (options deno)
   let deno_dir = $"($c.build)/deno-dir"
   ^cp -r $o.deps $deno_dir
   ^chmod -R u+w $deno_dir
@@ -23,20 +19,20 @@ export def workdir []: nothing -> string { project-dir deno }
 
 # type-check the entry points unless deno.check = false
 export def build []: nothing -> nothing {
-  let o = (options)
+  let o = (options deno)
   if $o.check and ($o.entry | is-not-empty) { x deno check --cached-only --frozen ...($o.entry | values) }
 }
 
 # deno test
 export def test []: nothing -> nothing {
-  let o = (options)
+  let o = (options deno)
   x deno test --cached-only --frozen ...$o.permissions ...$o.flags
 }
 
 # lib/<name>/ = project + its DENO_DIR; bin/<bin> = launch record running deno on the entry module
 export def install []: nothing -> nothing {
   let c = (ctx)
-  let o = (options)
+  let o = (options deno)
   let deno = (dep-root deno "deno applications run on it")
   let app = $"($c.out)/lib/($c.spec.name)"
   mkdir ($app | path dirname)

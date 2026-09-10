@@ -172,6 +172,15 @@ else
   // {
     inherit bootstrap toolchain;
     platform = plat;
-    # for tools/options: name -> { doc, type } per build system
-    options = builtins.mapAttrs (_: bs: bs.options) buildSystems;
+    # for tools/options: name -> { doc, type, default } per build system, `deps` defaults (derivations) elided
+    options = builtins.mapAttrs (
+      _: bs:
+      builtins.mapAttrs (
+        _: o:
+        o
+        // {
+          default = if builtins.elem "set" o.type && builtins.elem "string" o.type then null else o.default;
+        }
+      ) bs.options
+    ) buildSystems;
   }

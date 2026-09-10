@@ -1,8 +1,6 @@
 use ../core.nu *
 
 # PEP 517 wheel build + install (setuptools/flit/hatch via `build`, maturin directly), import check, optional pytest.
-def options []: nothing -> record { options-for python {backend: "setuptools", module: null, pytest: false} }
-
 def site-packages [roots: list<string>]: nothing -> list<string> { $roots | each {|r| glob $"($r)/lib/python3*/site-packages" } | flatten }
 
 # those of the python build tools on PATH (PEP 517 backends and friends) and of what they
@@ -26,7 +24,7 @@ export def workdir []: nothing -> string { project-dir python }
 
 # build one wheel into the build dir: `python -m build` for PEP 517 backends, `maturin build` for maturin
 export def build []: nothing -> nothing {
-  let c = (ctx); let o = (options)
+  let c = (ctx); let o = (options python)
   let dist = $"($c.build)/dist"
   if $o.backend == "maturin" {
     # maturin's PEP 517 backend only shells out to `maturin`. Call it directly. cargo setup came from `uses`.
@@ -72,7 +70,7 @@ export def install []: nothing -> nothing {
 
 # runs after install: imports from $out, not from the source tree
 export def test []: nothing -> nothing {
-  let c = (ctx); let o = (options)
+  let c = (ctx); let o = (options python)
   let mod = ($o.module | default ($c.spec.name | str replace -a "-" "_"))
   cd $c.build
   $env.PYTHONPATH = (site-packages [$c.out] | append $env.PYTHONPATH | str join ":")

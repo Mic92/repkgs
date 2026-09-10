@@ -3,11 +3,9 @@ use ../sys-libs.nu
 
 # go build/test/install, modules from a GOPROXY=file:// tree (fetch.goModules, `go.deps`) or,
 # with `go.deps = null`, the source's own vendor/.
-def options []: nothing -> record { options-for go {tags: [], ldflags: [], packages: ["./..."], deps: null, cgo: true, flags: []} }
-
 # offline module resolution, cgo per `go.cgo`
 export def --env setup []: nothing -> nothing {
-  let c = (ctx); let o = (options)
+  let c = (ctx); let o = (options go)
   load-env {
     GOCACHE: $"($c.build)/go-cache", GOPATH: $"($c.build)/go", GOSUMDB: "off", GOTOOLCHAIN: "local"
     # compile/asm/link take a host-wide jigd slot like cc and rustc do (jig slot)
@@ -34,16 +32,16 @@ def common-args [o: record<tags: list<string>, ldflags: list<string>, cgo: bool,
 
 # go build `go.packages` into the build dir (external linker = cc)
 export def build []: nothing -> nothing {
-  let c = (ctx); let o = (options)
+  let c = (ctx); let o = (options go)
   mkdir $"($c.build)/bin"
   x go build $"-p=($c.njobs)" -o $"($c.build)/bin/" ...(common-args $o) ...$o.packages
 }
 
 # go test (`go.testPackages`, default `go.packages`), tests.parallel as -p/-parallel, tests.skip as -skip
 export def test []: nothing -> nothing {
-  let o = (options)
+  let o = (options go)
   let skip = (if (test-skips | is-empty) { [] } else { [-skip (test-skips | str join '|')] })
-  x go test -p (test-jobs) -parallel (test-jobs) -vet=off ...$skip ...(common-args $o) ...($o.testPackages? | default $o.packages)
+  x go test -p (test-jobs) -parallel (test-jobs) -vet=off ...$skip ...(common-args $o) ...($o.testPackages | default $o.packages)
 }
 
 # the executables go built -> $out/bin (those in `bin` when the spec names some)
