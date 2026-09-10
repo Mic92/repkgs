@@ -109,6 +109,7 @@ Other things a package can say, by example:
 | `prebuilt = true;` | upstream binary: skip compiling, make it relocatable anyway |
 | `install."bin/deno" = "deno";` | just copy files into `$out`, no steps needed |
 | `exports = false;` | a toolchain or application: dependents should not link against its lib/ |
+| `exports.propagate = [ pkgs.pcre2 ];` | dependencies a dependent needs too (`Requires:` in the .pc file, headers including theirs) |
 | `patches = [ ./fix.patch ];` | applied with `patch -p1` after unpacking |
 
 Lock-file ecosystems (Cargo, Go, npm, pnpm, Yarn, Bundler, Deno, Hackage, LuaRocks) need nothing
