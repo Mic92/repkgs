@@ -1,6 +1,6 @@
-# What CI builds for one build machine: a native package selection, the cross smoke set per foreign
-# cpu, treefmt, the seed and the mingw sysroot. flake.nix maps this over its systems as `checks`;
-# `nix-build nix/ci.nix -A jq` works without flakes (nixpkgs from NIX_PATH then).
+# What CI builds for one build machine: the whole set as `pkg-<name>` and per foreign cpu as
+# `cross-<cpu>-<name>`, treefmt, the seed and the mingw sysroot. flake.nix maps this over its
+# systems as `checks`; `nix-build nix/ci.nix -A pkg-jq` works without flakes.
 {
   system ? builtins.currentSystem,
   nixpkgs ? <nixpkgs>,
@@ -9,36 +9,6 @@ let
   pkgs = import nixpkgs { inherit system; };
   inherit (pkgs) lib;
 
-  native = [
-    "jq"
-    "fd"
-    "fzf"
-    "ripgrep"
-    "cpython"
-    "cmake"
-    "curl"
-    "glib"
-    "openssl"
-    "perl"
-    "qemu"
-    "uglify-js"
-    "navidrome"
-    "svgo"
-    "maturin"
-    "jigd"
-    "dbmate"
-    "create-hono"
-    "ruby-lsp"
-    "copier"
-    "deployctl"
-  ];
-  cross = [
-    "zlib"
-    "pcre2"
-    "jq"
-    "fd"
-    "fzf"
-  ];
   crossCpus = [
     "aarch64"
     "riscv64"
@@ -47,21 +17,20 @@ let
     "x86_64"
   ];
 
-  set = import ../default.nix { inherit system; };
+  buildCpu = lib.head (lib.splitString "-" system);
   setFor =
     cpu:
     import ../default.nix {
       inherit system;
       platform = "${cpu}-linux";
     };
-  buildCpu = lib.head (lib.splitString "-" system);
+  # prebuilt sources exist only for the cpus upstream ships
+  evaluates = _: p: (builtins.tryEval p.drvPath).success;
+  prefixed = prefix: lib.mapAttrs' (n: v: lib.nameValuePair "${prefix}${n}" v);
+  crossSet = cpu: prefixed "cross-${cpu}-" (lib.filterAttrs evaluates (setFor cpu));
 in
-lib.genAttrs native (n: set.${n})
-// lib.listToAttrs (
-  lib.concatMap (cpu: map (n: lib.nameValuePair "cross-${cpu}-${n}" (setFor cpu).${n}) cross) (
-    lib.filter (cpu: cpu != buildCpu) crossCpus
-  )
-)
+prefixed "pkg-" (setFor buildCpu)
+// lib.mergeAttrsList (map crossSet (lib.filter (cpu: cpu != buildCpu) crossCpus))
 // {
   treefmt =
     pkgs.runCommand "treefmt-check"

@@ -72,7 +72,7 @@ let
       fetch =
         key:
         let
-          s = byKey.${key};
+          s = byKey.${key} or (throw "${toString file}: no source '${key}'");
           url = expand s.url;
           # a fixed-output path is found by (name, hash): with a constant name a bumped url whose
           # hash was not updated silently reuses the old download, so the name follows the url
