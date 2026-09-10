@@ -120,8 +120,8 @@ steps = [
 ];
 ```
 
-Longer nu goes into a file: `modules.rust = ./build.nu;` makes it a module, and steps call its
-verbs as `"rust.configure"`. pkgs/ru/rust does this.
+Steps too long to keep inline can live in their own file: `modules.rust = ./build.nu;` makes it
+a module, and steps call its verbs as `"rust.configure"`. pkgs/ru/rust does this.
 
 Every build ends the same way. ELF outputs are made relocatable. `bin/<name> --version` runs in
 an empty environment and has to print the pinned version. A `dlopen` that finds nothing during
