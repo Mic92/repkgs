@@ -3,20 +3,32 @@
 # $env.sysroot and crt_interp.o. From here on packages just say `cc` / `c++`.
 use ../../../bootstrap/lib.nu *
 
+# clang's msvc driver takes the CRT and SDK roots and derives the include and lib paths for the
+# triple's arch itself, for lld-link too. The sysroot holds windows-sdk's {crt,sdk}/ and our
+# compiler-rt as the resource dir
+def msvc-flags [sysroot: string]: nothing -> list<string> {
+  let v = (ls $"($sysroot)/sdk/include" | get name | path basename | first)
+  (target) ++ [$"-resource-dir=($sysroot)/lib/clang" -rtlib=compiler-rt -fuse-ld=lld
+    -Xmicrosoft-visualc-tools-root $"($sysroot)/crt" -Xmicrosoft-windows-sdk-root $"($sysroot)/sdk" -Xmicrosoft-windows-sdk-version $v]
+}
+
 def main []: nothing -> nothing {
   let out = $env.out
   let sysroot = $env.sysroot
   # absolute seed paths: `cc` must work with an empty PATH, and `clang` on PATH is the cache shim
   let clang = $"($env.seed)/bin/clang"
   let lld = $"($env.seed)/bin/ld.lld"
-  let flags = (ccflags | where { $in != "-unwindlib=none" }) ++ [-unwindlib=libunwind $"--ld-path=($lld)"]
+  let flags = (if $env.libc == "msvc" { msvc-flags $sysroot } else {
+    (ccflags | where { $in != "-unwindlib=none" }) ++ [-unwindlib=libunwind $"--ld-path=($lld)"]
+  })
   mkdir $"($out)/bin" $"($out)/lib" $"($out)/etc"
   cd $env.NIX_BUILD_TOP
 
   cp $"($env.prebuilt)/bin/jig" $"($out)/bin/jig"
   # store dirs a depfile can name (sysroot members, seed resource headers): builder/core.nu hands them
   # to the content-identity compile cache as JIG_STORE_ROOTS
-  $"($sysroot) ($env.seed) (open --raw $'($sysroot)/roots' | str trim)
+  let members = (if ($"($sysroot)/roots" | path exists) { open --raw $"($sysroot)/roots" | str trim } else { "" })
+  $"($sysroot) ($env.seed) ($members)
 " | save $"($out)/etc/roots"
   # no `clang` alias: that name keeps meaning the raw seed compiler, which bootstrap recipes drive themselves
   for n in [cc c++ gcc g++ reloc-fixup gocacheprog rustcwrap] { x ln -s jig $"($out)/bin/($n)" }
@@ -24,7 +36,9 @@ def main []: nothing -> nothing {
   # CC_FOR_BUILD when cross: jig locates its conf via /proc/self/exe, so symlinks to the native cc suffice
   if "native" in $env { for n in [cc c++] { x ln -s $"($env.native)/bin/($n)" $"($out)/bin/($n)-build" } }
 
-  let conf = {cc: $clang, flags: ($flags | str join " "), cxxflags: "-stdlib=libc++", prefix-map: $"($sysroot)=/sysroot:($out)=/cc"}
+  # msvc: the STL is part of the CRT the driver already points at
+  let cxxflags = (if $env.libc == "msvc" { "" } else { "-stdlib=libc++" })
+  let conf = {cc: $clang, flags: ($flags | str join " "), cxxflags: $cxxflags, prefix-map: $"($sysroot)=/sysroot:($out)=/cc"}
   # the ELF link policy (interp via crt_interp.o, $ORIGIN RUNPATHs) keys off `libc`; PE needs none of it
   let elf = (if $env.os == "linux" {
     cp $env.crt_interp crt_interp.c  # compile from cwd: the STT_FILE symbol would otherwise record a store path

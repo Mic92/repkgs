@@ -8,21 +8,32 @@
   packages ? { },
 }:
 let
-  platforms = import ./platforms.nix;
   ov = import ./overrides.nix;
   overrideTree = ov.merge overrides;
   bootstrap = import ../bootstrap { inherit seed system; };
 
   cpu = builtins.head (builtins.split "-" platform);
-  plat = platforms.glibc.${cpu} // rec {
+  windows = builtins.match ".*-windows" platform != null;
+  # <cpu>-windows: the msvc toolchain over the SDK the build machine's set fetches
+  stage =
+    if windows then
+      bootstrap.msvc cpu (
+        fetch.windowsSdk {
+          manifest = (readSources ../pkgs/wi/windows-sdk/sources.toml).fetch "default";
+          arch = cpu;
+        }
+      )
+    else
+      bootstrap.stage1.${cpu};
+  plat = stage.platform // rec {
     inherit system;
     cross = platform != system;
     emulator =
-      if cross then [ "${buildPkgs.qemu}/bin/qemu-${platforms.glibc.${cpu}.names.qemu}" ] else [ ];
+      if cross && !windows then [ "${buildPkgs.qemu}/bin/qemu-${stage.platform.names.qemu}" ] else [ ];
   };
-  toolchain = bootstrap.stage1.${cpu}.cc;
-  launch = bootstrap.stage1.${cpu}.launch;
-  dlaudit = bootstrap.stage1.${cpu}.dlaudit;
+  toolchain = stage.cc;
+  launch = stage.launch or null;
+  dlaudit = stage.dlaudit or null;
   buildPkgs =
     if plat.cross then
       (import ./set.nix {
@@ -181,5 +192,5 @@ in
       throw "overrides: no packages named ${toString unknownOverrides}"
     else
       self;
-  inherit bootstrap buildSystems;
+  inherit bootstrap buildSystems toolchain;
 }

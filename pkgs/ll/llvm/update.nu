@@ -4,7 +4,7 @@
 # list name -> [triple cmake-system-name]
 const TARGETS = {x86_64: [x86_64-unknown-linux-gnu Linux], aarch64: [aarch64-unknown-linux-gnu Linux], riscv64: [riscv64-unknown-linux-gnu Linux]
   loongarch64: [loongarch64-unknown-linux-gnu Linux], powerpc64le: [powerpc64le-unknown-linux-gnu Linux]
-  x86_64-windows: [x86_64-w64-mingw32 Windows], aarch64-windows: [aarch64-w64-mingw32 Windows]}
+  x86_64-windows: [x86_64-pc-windows-msvc Windows], aarch64-windows: [aarch64-pc-windows-msvc Windows]}
 
 def --wrapped in-shell [...cmd: string]: nothing -> string {
   ^nix-shell -p cmake ninja llvmPackages.clang-unwrapped llvmPackages.lld --run ($cmd | str join ' ')

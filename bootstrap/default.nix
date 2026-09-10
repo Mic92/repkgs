@@ -94,7 +94,6 @@ let
         ++ [
           "musl"
           "glibc"
-          "mingw-w64"
           "jig"
           "launch"
           "dlaudit"
@@ -169,14 +168,16 @@ let
     );
 
   # One toolchain chain, the same for every platform: libc headers -> compiler-rt builtins -> libc
-  # -> (kernel headers) -> libc++/libunwind -> configured cc. What differs per libc is the recipe
-  # that provides headers+libc and whether Linux headers are part of the sysroot.
+  # -> (kernel headers) -> libc++/libunwind -> configured cc. What differs per libc is where
+  # headers+libc come from (a recipe run twice, or on msvc a fetched SDK that also is the C++
+  # library) and whether Linux headers are part of the sysroot.
   chain =
     {
       platform,
       run, # mkStage for this platform with its tools
-      libcRecipe, # "musl" | "glibc" | "mingw-w64"; run twice, headersOnly first
+      libcRecipe ? null, # "musl" | "glibc"; run twice, headersOnly first
       libcArgs ? { },
+      libcGiven ? null, # instead of libcRecipe: headers and libraries already there (windows-sdk)
       linuxHeaders ? null, # in compiler-rt's include path and the sysroot; null on windows and in stage0 (added later)
       extraParts ? [ ], # sysroot members after libc that are not compiler-rt inputs (stage0's linux headers)
       builtins' ? "builtins-${platform.cpu}.txt",
@@ -189,7 +190,8 @@ let
           parts = builtins.filter (p: p != null) parts;
           resource = compiler-rt;
         };
-      libc-headers = run libcRecipe (libcArgs // { headersOnly = "1"; });
+      libc-headers =
+        if libcGiven != null then libcGiven else run libcRecipe (libcArgs // { headersOnly = "1"; });
       compiler-rt = run "compiler-rt" (
         {
           src = source "llvm";
@@ -198,17 +200,22 @@ let
         }
         // (if linuxHeaders == null then { } else { inherit linuxHeaders; })
       );
-      libc = run libcRecipe (libcArgs // { inherit compiler-rt; });
-      runtimes = run "runtimes" {
-        src = source "llvm";
-        sysroot = sysroot (
-          [
-            libc
-            linuxHeaders
-          ]
-          ++ extraParts
-        );
-      };
+      libc =
+        if libcGiven != null then libcGiven else run libcRecipe (libcArgs // { inherit compiler-rt; });
+      runtimes =
+        if platform.libc == "msvc" then
+          null
+        else
+          run "runtimes" {
+            src = source "llvm";
+            sysroot = sysroot (
+              [
+                libc
+                linuxHeaders
+              ]
+              ++ extraParts
+            );
+          };
       full = sysroot (
         [
           libc
@@ -305,25 +312,23 @@ let
       dlaudit = mkStage platform (cached stage0.jig) [ c.cc ] "dlaudit" { };
     };
 
-  # Windows cross: mingw-w64 headers + CRT in place of linux-headers + glibc
-  mingw =
-    cpu:
+  # Windows: the CRT, STL and SDK import libraries are Microsoft's (fetch.windowsSdk, which needs
+  # the native set's 7zip, hence `sdk` is passed in by nix/set.nix). compiler-rt builtins are ours.
+  msvc =
+    cpu: sdk:
     let
-      platform = platforms.mingw.${cpu};
-      c = chain {
-        inherit platform;
-        run = cross platform;
-        libcRecipe = "mingw-w64";
-        libcArgs.src = source "mingw-w64";
-        builtins' = "builtins-${cpu}-windows.txt";
-        ccArgs = crossCc platform;
-      };
+      platform = platforms.msvc.${cpu};
     in
-    c // { mingw-w64 = c.libc; };
+    chain {
+      inherit platform;
+      run = cross platform;
+      libcGiven = sdk;
+      builtins' = "builtins-${cpu}-windows.txt";
+      ccArgs = crossCc platform;
+    };
 in
 {
   seed = seedPath;
-  inherit stage0 source;
+  inherit stage0 source msvc;
   stage1 = builtins.mapAttrs (cpu: _: stage1 cpu) platforms.glibc;
-  mingw = builtins.mapAttrs (cpu: _: mingw cpu) platforms.mingw;
 }

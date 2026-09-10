@@ -10,11 +10,17 @@ def main []: nothing -> nothing {
   let obj = $"($env.NIX_BUILD_TOP)/obj"
   let libdir = $"($out)/lib/($env.triple)"
 
-  # only libc *headers* exist at this point (libc itself links against what is built here)
-  let sys = [-nostdlibinc -isystem $"($env.libcHeaders)/include"] ++ (if "linuxHeaders" in $env { [-isystem $"($env.linuxHeaders)/include"] } else { [] })
+  # only libc *headers* exist at this point (libc itself links against what is built here).
+  # msvc: the CRT's own headers plus the SDK's ucrt/um/shared, where windows-sdk keeps them
+  let inc = (if $env.libc == "msvc" {
+    [$"($env.libcHeaders)/crt/include"] ++ (glob $"($env.libcHeaders)/sdk/include/*/{ucrt,um,shared}")
+  } else {
+    [$"($env.libcHeaders)/include"] ++ (if "linuxHeaders" in $env { [$"($env.linuxHeaders)/include"] } else { [] })
+  })
+  let sys = [-nostdlibinc] ++ ($inc | each {|d| [-isystem $d] } | flatten)
   # no -DCOMPILER_RT_HAS_FLOAT16 on ppc: clang has no _Float16 there (cmake probes the same)
   let common = (target) ++ $sys ++ [
-    -O2 -fPIC -fno-builtin -fno-lto -fvisibility=hidden -fomit-frame-pointer -ffreestanding
+    -O2 ...(if $env.os == "windows" { [] } else { [-fPIC] }) -fno-builtin -fno-lto -fvisibility=hidden -fomit-frame-pointer -ffreestanding
     -DVISIBILITY_HIDDEN $"-I($b)" $"-I($src)/third-party/siphash/include"
   ] ++ (if $env.cpu == "powerpc64le" { [] } else { [-DCOMPILER_RT_HAS_FLOAT16] }) ++ (if $env.cpu == "aarch64" { [-DENABLE_BAREMETAL_AARCH64_FMV -DHAS_ASM_LSE] } else { [] })
 
@@ -27,11 +33,13 @@ def main []: nothing -> nothing {
   })
   say $"compiler-rt builtins ($env.cpu): ($items | length) objects"
   mkdir $libdir
-  archive $"($libdir)/libclang_rt.builtins.a" (compile $common $items)
+  # the per-target runtime dir layout: lib<name>.a on ELF, <name>.lib where the linker is lld-link
+  let lib = (if $env.os == "windows" { "clang_rt.builtins.lib" } else { "libclang_rt.builtins.a" })
+  archive $"($libdir)/($lib)" (compile $common $items)
 
   # resource dir = these libs + clang's own intrinsics headers (shipped in the seed)
   copy-tree (^clang --print-resource-dir | str trim | path join include) $"($out)/include"
-  # ELF only: crtbegin/crtend (mingw-w64's CRT brings its own), the profile runtime, GCC crt names
+  # ELF only: crtbegin/crtend (vcruntime brings its own), the profile runtime, GCC crt names
   if $env.os != "linux" { return }
 
   let crtflags = [-DCRT_HAS_INITFINI_ARRAY -DEH_USE_FRAME_REGISTRY]

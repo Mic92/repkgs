@@ -1,5 +1,6 @@
 # What CI builds for one build machine: the whole set as `pkg-<name>` and per foreign cpu as
-# `cross-<cpu>-<name>`, treefmt, the seed and the mingw sysroot. flake.nix maps this over its
+# `cross-<cpu>-<name>`, treefmt and the seed (nothing for <cpu>-windows: the SDK under its
+# toolchain is unfree and stays out of the public cache). flake.nix maps this over its
 # systems as `checks`; `nix-build nix/ci.nix -A pkg-jq` works without flakes.
 {
   system ? builtins.currentSystem,
@@ -44,5 +45,4 @@ prefixed "pkg-" (setFor buildCpu)
         }
       } src && chmod -R u+w src && cd src && treefmt --ci && touch $out";
   inherit (import ../pkgs/se/seed/build.nix { inherit nixpkgs system; }) seed;
-  mingw-w64 = (import ../bootstrap { inherit system; }).mingw.x86_64.mingw-w64;
 }

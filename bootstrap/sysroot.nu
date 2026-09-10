@@ -9,8 +9,8 @@ def main []: nothing -> nothing {
   x ln -s . $"($out)/usr"
   x ln -s lib $"($out)/lib64"
   for p in ($env.parts | split row " ") {
-    for d in [include lib] {
-      if ($"($p)/($d)" | path exists) { x cp -rsf $"($p)/($d)/." $"($out)/($d)/" }
+    for d in [include lib crt sdk] {
+      if ($"($p)/($d)" | path exists) { mkdir $"($out)/($d)"; x cp -rsf $"($p)/($d)/." $"($out)/($d)/" }
     }
   }
   x ln -s $"($env.resource)/include" $"($out)/lib/clang/include"

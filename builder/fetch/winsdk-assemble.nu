@@ -31,6 +31,9 @@ def main []: nothing -> nothing {
     }
   }
   ^chmod -R u+w $out
+  # clang's msvc driver appends the installer's spelling
+  ^ln -s include $"($out)/sdk/Include"
+  ^ln -s lib $"($out)/sdk/Lib"
   for f in (glob $"($out)/**/*") {
     let dir = ($f | path dirname); let b = ($f | path basename); let l = ($b | str downcase)
     if $b != $l and not ($"($dir)/($l)" | path exists) { ^ln -s $b $"($dir)/($l)" }

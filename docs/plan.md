@@ -23,9 +23,9 @@ build-platform-only there. From source lifts that.
 - **Seed 3**: LLVM 23 with LoongArch and PowerPC backends, then loongarch64 and powerpc64le
   cross verified end to end and the aarch64 seed uploaded. Later the seed is built from this
   set's own static packages instead of nixpkgs, as a fixed point in CI.
-- **Windows** (x86_64/aarch64 mingw): mingw-w64 headers and CRT as the libc recipe,
-  compiler-rt/runtimes/cc as in stage1, lld for PE. No interp or RUNPATH (DLLs beside the exe
-  relocate already), `.exe` names, wine as the test emulator. No MSVC ABI.
+- **Windows** (`<cpu>-windows`, MSVC ABI): the toolchain links hello.exe. Next are the build
+  systems (cmake/meson/cargo target settings, `.exe`/`.dll` install names), wine as the test
+  emulator, and which packages make sense there at all.
 - **FreeBSD / NetBSD**: ELF and clang upstream, so crt_interp, `$ORIGIN` and launchers carry
   over. libc from the release's `base.txz` first, from `src.txz` later. No user-mode emulator:
   tests need a VM job.

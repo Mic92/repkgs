@@ -97,9 +97,10 @@ let
       interp = if libc == "musl" then "ld-musl-${cpu}.so.1" else c.interp.glibc;
       flags = c.march ++ c.hardening;
     };
-  # Windows via mingw-w64 (ucrt): PE has no interp/RUNPATH, DLLs beside the .exe are already
-  # relocatable, so finish/launchers have nothing to do. -fcf-protection is ELF-only (CET notes).
-  mingw =
+  # Windows against the MSVC CRT/STL and the Windows SDK (pkgs/wi/windows-sdk): the ABI every
+  # other Windows binary has. PE has no interp/RUNPATH and DLLs beside the .exe are found as is,
+  # so finish/launchers have nothing to do.
+  msvc =
     cpu:
     let
       c = cpus.${cpu};
@@ -107,12 +108,12 @@ let
     {
       inherit cpu;
       inherit (c) march;
-      libc = "mingw";
-      os = "windows";
       inherit (mk cpu "glibc") names;
+      libc = "msvc";
+      os = "windows";
       name = "${cpu}-windows";
-      triple = "${cpu}-w64-mingw32";
-      rustTriple = "${cpu}-pc-windows-gnu";
+      triple = "${cpu}-pc-windows-msvc";
+      rustTriple = "${cpu}-pc-windows-msvc";
       interp = "";
       hardening = [ ];
       flags = c.march;
@@ -122,8 +123,8 @@ in
   forSystem = system: libc: mk (builtins.head (builtins.split "-" system)) libc;
   glibc = builtins.mapAttrs (cpu: _: mk cpu "glibc") cpus;
   musl = builtins.mapAttrs (cpu: _: mk cpu "musl") cpus;
-  mingw = {
-    x86_64 = mingw "x86_64";
-    aarch64 = mingw "aarch64";
+  msvc = {
+    x86_64 = msvc "x86_64";
+    aarch64 = msvc "aarch64";
   };
 }

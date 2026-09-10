@@ -15,7 +15,7 @@ case "${host:-$(uname -m)}" in
   *) site_cpu=unknown ;;
 esac
 case "${host:-linux}" in
-  *mingw*) site_os=windows ;;
+  *windows*) site_os=windows ;;
   *) site_os=linux ;;
 esac
 
