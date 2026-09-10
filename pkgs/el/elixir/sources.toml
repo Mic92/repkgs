@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/elixir-lang/elixir"
+
+[[source]]
+key = "default"
+url = "https://github.com/elixir-lang/elixir/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-Z/lAmD3wyiTnX2e7n2gHELkTpZ3AgGSjqNmvDxCH91g="
+
+[pin]
+version = "1.20.4"
+tag = "v1.20.4"
+date = "2026-08-28"

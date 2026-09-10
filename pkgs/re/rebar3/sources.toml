@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/erlang/rebar3"
+
+[[source]]
+key = "default"
+url = "https://github.com/erlang/rebar3/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-+va3wHlAfVtl3aK6+DVkN/EgpiMxwAGUyNywaWiKTJQ="
+
+[pin]
+version = "3.27.0"
+tag = "3.27.0"
+date = "2026-02-27"
