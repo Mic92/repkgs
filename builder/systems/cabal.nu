@@ -69,12 +69,14 @@ def restore [c: record]: nothing -> nothing {
   note cabal $"($got | length)/($units | length) units cached"
 }
 
-# units cabal built this run -> the cache
+# units cabal built this run -> the cache. Executable units (alex, happy: build tools of other
+# packages) have no package.db entry, just bin/
 def save-units [c: record, before: list<string>]: nothing -> nothing {
   let new = (ls -s (unit-dir) | where type == dir and name != "package.db" and name != "incoming" and name not-in $before | get name)
   $new | par-each --threads $c.njobs {|id|
     let tar = $"($c.build)/($id).tar.zst"
-    ^bsdtar -c --zstd -f $tar -C (unit-dir) $id $"package.db/($id).conf"
+    let conf = ([$"package.db/($id).conf"] | where { $"(unit-dir)/($in)" | path exists })
+    ^bsdtar -c --zstd -f $tar -C (unit-dir) $id ...$conf
     ^jig cache put $"hs:($id)" $tar | complete | ignore
     rm $tar
   }
