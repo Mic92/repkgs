@@ -4,7 +4,7 @@
 // A manifest is valid when every input still has the same id (see Store::InputId).
 #pragma once
 
-#include <optional>
+#include <expected>
 #include <span>
 #include <string>
 #include <string_view>
@@ -32,9 +32,12 @@ struct Manifest {
 auto BuildManifest(CacheClient& cache, const RequestKey& request_key, std::span<const std::string> inputs,
                    std::string_view primary_source) -> Manifest;
 
-// Recompute k2 from a stored manifest. Returns nullopt if any input changed or vanished.
-// `stale`, when given, receives the first listed path whose identity no longer matches
-auto ValidateManifest(CacheClient& cache, const RequestKey& request_key, std::string_view manifest_text,
-                      std::string* stale = nullptr) -> std::optional<ResultKey>;
+// Recompute k2 from a stored manifest, or "inputs-changed:<path>" for the first input whose
+// identity moved or vanished
+auto ValidateManifest(CacheClient& cache, const RequestKey& request_key, std::string_view manifest_text)
+    -> std::expected<ResultKey, std::string>;
+
+// k1 -> manifest -> k2, or why not ("new-key" when k1 has no manifest)
+auto FindResult(CacheClient& cache, const RequestKey& request_key) -> std::expected<ResultKey, std::string>;
 
 }  // namespace jig

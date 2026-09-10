@@ -1,6 +1,7 @@
 #include "manifest.h"
 
 #include <cstddef>
+#include <expected>
 #include <format>
 #include <optional>
 #include <span>
@@ -118,8 +119,8 @@ auto BuildManifest(CacheClient& cache, const RequestKey& request_key, std::span<
   return Manifest{.text = std::move(text), .result_key = ResultKey(hasher.Finish())};
 }
 
-auto ValidateManifest(CacheClient& cache, const RequestKey& request_key, std::string_view manifest_text,
-                      std::string* stale) -> std::optional<ResultKey> {
+auto ValidateManifest(CacheClient& cache, const RequestKey& request_key, std::string_view manifest_text)
+    -> std::expected<ResultKey, std::string> {
   const Store& store = Store::Get();
   const std::vector<Entry> entries = ParseManifest(manifest_text);
   std::vector<std::string> paths;
@@ -133,14 +134,19 @@ auto ValidateManifest(CacheClient& cache, const RequestKey& request_key, std::st
   for (const Entry& entry : entries) {
     const std::optional<std::string> identity = store.InputId(entry.path);
     if (!identity || *identity != std::string_view(entry.line).substr(entry.tab + 1)) {
-      if (stale != nullptr) {
-        *stale = entry.line.substr(0, entry.tab);
-      }
-      return std::nullopt;
+      return std::unexpected("inputs-changed:" + entry.line.substr(0, entry.tab));
     }
     hasher.Field(entry.line);
   }
   return ResultKey(hasher.Finish());
+}
+
+auto FindResult(CacheClient& cache, const RequestKey& request_key) -> std::expected<ResultKey, std::string> {
+  const std::optional<std::string> manifest_text = cache.Get(slot::Manifest(request_key));
+  if (!manifest_text) {
+    return std::unexpected("new-key");
+  }
+  return ValidateManifest(cache, request_key, *manifest_text);
 }
 
 }  // namespace jig

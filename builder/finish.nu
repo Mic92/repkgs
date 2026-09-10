@@ -82,20 +82,24 @@ def cache-summary []: nothing -> nothing {
   if not ($env.JIG_LOG | path exists) { return }
   # `query` (cc -v, -dM, -print-*) is not a build step and stays out of the counts
   let runs = (open --raw $env.JIG_LOG | from tsv --noheaders | rename tool outcome subject | where outcome != query)
-  let parts = ($runs | group-by tool outcome --to-table | group-by tool --to-table | each {|t|
-    let counts = ($t.items | each {|o| {outcome: $o.outcome, n: ($o.items | length)} })
-    let total = ($counts.n | math sum)
-    let cached = ($counts | where outcome == cached | get n | append 0 | first)
-    let rest = ($counts | where outcome != cached | each { $"($in.outcome)=($in.n)" })
+  let tools = ($runs | group-by tool --to-table)
+  let parts = ($tools | each {|t|
+    let counts = ($t.items.outcome | uniq -c)
+    let total = ($t.items | length)
+    let cached = ($counts | where value == cached | get count | append 0 | first)
+    let rest = ($counts | where value != cached | each { $"($in.value)=($in.count)" })
     [$t.tool $"cached=($cached)/($total) \(($cached * 100 // $total)%)" ...$rest] | str join " "
   })
   if ($parts | is-not-empty) { note jig ($parts | str join ", ") }
-  let why = ($runs | where tool == rustc and outcome starts-with compiled | get subject | parse "{crate} {reason}")
-  let tally = ($why.reason | each { $in | split row ":" | first } | uniq -c | each { $"($in.value)=($in.count)" })
-  if ($tally | is-not-empty) { note rustc-misses ($tally | str join " ") }
-  # which files invalidated manifests, most frequent first
-  let stale = ($why.reason | where $it starts-with "inputs-changed:" | str replace "inputs-changed:" "" | uniq -c | sort-by -r count | first 5 | each { $"($in.value) ×($in.count)" })
-  if ($stale | is-not-empty) { note rustc-stale ($stale | str join ", ") }
+  # a miss's subject is "<source> new-key|inputs-changed:<path>|object-gone": tally the reasons
+  # and name the files that invalidated manifests most often
+  for t in $tools {
+    let reasons = ($t.items | where outcome starts-with compiled | get subject | each { split row " " | last })
+    if ($reasons | is-empty) { continue }
+    note $"($t.tool)-misses" ($reasons | each { split row ":" | first } | uniq -c | each { $"($in.value)=($in.count)" } | str join " ")
+    let stale = ($reasons | where $it starts-with "inputs-changed:" | str substring 15.. | uniq -c | sort-by -r count | first 5 | each { $"($in.value) ×($in.count)" })
+    if ($stale | is-not-empty) { note $"($t.tool)-stale" ($stale | str join ", ") }
+  }
   # a few of the command lines jig would not cache, to spot shapes worth teaching it
   if ($env.JIG_LOG_ARGS | path exists) {
     for l in (open --raw $env.JIG_LOG_ARGS | lines | shuffle | first 5) { note uncached ($l | str substring 0..300) }

@@ -6,6 +6,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdio>
+#include <expected>
 #include <filesystem>
 #include <format>
 #include <fstream>
@@ -136,14 +137,12 @@ struct CachedResult {
   std::string stderr_text;
 };
 
-auto Lookup(CacheClient& cache, const RequestKey& request_key, const Invocation& inv) -> std::optional<CachedResult> {
-  const std::optional<std::string> manifest = cache.Get(slot::Manifest(request_key));
-  if (!manifest) {
-    return std::nullopt;
-  }
-  const std::optional<ResultKey> result_key = ValidateManifest(cache, request_key, *manifest);
+// the error is why there is nothing to replay (FindResult's, or "object-gone")
+auto Lookup(CacheClient& cache, const RequestKey& request_key, const Invocation& inv)
+    -> std::expected<CachedResult, std::string> {
+  const std::expected<ResultKey, std::string> result_key = FindResult(cache, request_key);
   if (!result_key) {
-    return std::nullopt;
+    return std::unexpected(result_key.error());
   }
   // everything a replay might need in one pipelined exchange. Unused answers are cheap MISSes
   const std::vector<std::string> keys{
@@ -165,7 +164,7 @@ auto Lookup(CacheClient& cache, const RequestKey& request_key, const Invocation&
   if (result.status == 0) {
     // depfile options are not in the key, so an entry stored by a run without -MD lacks one
     if (!object || (inv.wants_depfile && !depfile)) {
-      return std::nullopt;
+      return std::unexpected("object-gone");
     }
     result.object = std::move(object);
     result.depfile = inv.wants_depfile ? std::move(depfile) : std::nullopt;
@@ -261,8 +260,9 @@ auto RunObserved(CacheClient& cache, const std::string& compiler, const Invocati
 
 // Compile for real, learning the inputs. Store what is replayable. Returns the compiler's status.
 auto CompileAndStore(CacheClient& cache, const std::string& compiler, const RequestKey& request_key,
-                     const Invocation& inv, const Stopwatch& clock) -> int {
+                     const Invocation& inv, const std::string& why, const Stopwatch& clock) -> int {
   const Store& store = Store::Get();
+  const std::string subject = inv.source + " " + why;
   const bool links = inv.link_one || inv.link;
   const auto [run, dep_text, link_dep_text, inputs] = RunObserved(cache, compiler, inv);
 
@@ -271,21 +271,21 @@ auto CompileAndStore(CacheClient& cache, const std::string& compiler, const Requ
     // replayable only if every input is known. A missing header or any link error depends on
     // something absent that a later build may provide
     if (!dep_text || links || run.stderr_text.contains("file not found")) {
-      LogOutcome("cc", Outcome::kMissFail, inv.source, clock);
+      LogOutcome("cc", Outcome::kMissFail, subject, clock);
       return run.status;
     }
     const Manifest manifest = BuildManifest(cache, request_key, inputs, inv.source);
     cache.Put(slot::Manifest(request_key), manifest.text);
     cache.Put(slot::ExitStatus(manifest.result_key), std::to_string(run.status));
     cache.Put(slot::Stderr(manifest.result_key), run.stderr_text);
-    LogOutcome("cc", Outcome::kMissStoredFail, inv.source, clock);
+    LogOutcome("cc", Outcome::kMissStoredFail, subject, clock);
     return run.status;
   }
 
   const std::optional<std::string> object = ReadFile(inv.output);
   ForwardStdout(inv, object);
   if (!dep_text || !object || (links && !link_dep_text)) {
-    LogOutcome("cc", Outcome::kMissUnstored, inv.source, clock);
+    LogOutcome("cc", Outcome::kMissUnstored, subject, clock);
     return 0;
   }
   const Manifest manifest = BuildManifest(cache, request_key, inputs, inv.source);
@@ -296,7 +296,7 @@ auto CompileAndStore(CacheClient& cache, const std::string& compiler, const Requ
   if (inv.wants_depfile) {
     cache.Put(slot::Depfile(manifest.result_key), store.MaskForReplay(*dep_text));
   }
-  LogOutcome("cc", Outcome::kMissStored, inv.source, clock);
+  LogOutcome("cc", Outcome::kMissStored, subject, clock);
   return 0;
 }
 
@@ -489,12 +489,13 @@ auto RunCcMode(std::string_view argv0, std::span<const std::string> raw_args, co
   }
 
   const RequestKey request_key = ComputeRequestKey(conf->cc, inv, *primary);
-  if (const std::optional<CachedResult> hit = Lookup(cache, request_key, inv)) {
+  const std::expected<CachedResult, std::string> hit = Lookup(cache, request_key, inv);
+  if (hit) {
     const int status = Replay(*hit, inv);
     LogOutcome("cc", status == 0 ? Outcome::kHit : Outcome::kHitFail, inv.source, clock);
     return status;
   }
-  return CompileAndStore(cache, conf->cc, request_key, inv, clock);
+  return CompileAndStore(cache, conf->cc, request_key, inv, hit.error(), clock);
 }
 
 }  // namespace jig

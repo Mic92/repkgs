@@ -227,7 +227,7 @@ void TestManifest() {
   assert(jig::slot::Manifest(key) == "m/" + key.text() &&
          jig::slot::Object(manifest.result_key) == "o/" + manifest.result_key.text());
   jig::WriteFile(dir + "/b.h", "B2");
-  assert(!jig::ValidateManifest(offline, key, manifest.text));
+  assert(jig::ValidateManifest(offline, key, manifest.text).error_or("") == "inputs-changed:" + dir + "/b.h");
   std::filesystem::remove_all(dir);
 }
 

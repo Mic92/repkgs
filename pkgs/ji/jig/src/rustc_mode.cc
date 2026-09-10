@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <filesystem>
 #include <format>
 #include <optional>
@@ -287,19 +288,14 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
   const RequestKey request_key(Tool::kRustc, hasher.Finish());
 
   // the log's subject says how far a miss got
-  std::string missed = label + " new-key";
-  if (const std::optional<std::string> manifest = cache.Get(slot::Manifest(request_key))) {
-    std::string stale;
-    const std::optional<ResultKey> result_key = ValidateManifest(cache, request_key, *manifest, &stale);
-    missed = label + " inputs-changed:" + stale;
-    if (result_key) {
-      missed = label + " object-gone";
-      const std::optional<std::string> blob = cache.Get(slot::Object(*result_key));
-      if (blob && UnpackFiles(*blob, inv.out_dir, inv.extra_filename)) {
-        std::print(stderr, "{}", cache.Get(slot::Stderr(*result_key)).value_or(""));
-        LogOutcome("rustc", Outcome::kHit, label, clock);
-        return 0;
-      }
+  const std::expected<ResultKey, std::string> result_key = FindResult(cache, request_key);
+  const std::string missed = label + " " + (result_key ? "object-gone" : result_key.error());
+  if (result_key) {
+    const std::optional<std::string> blob = cache.Get(slot::Object(*result_key));
+    if (blob && UnpackFiles(*blob, inv.out_dir, inv.extra_filename)) {
+      std::print(stderr, "{}", cache.Get(slot::Stderr(*result_key)).value_or(""));
+      LogOutcome("rustc", Outcome::kHit, label, clock);
+      return 0;
     }
   }
 
