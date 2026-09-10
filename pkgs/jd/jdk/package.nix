@@ -3,6 +3,7 @@
   package,
   pkgs,
   buildPkgs,
+  platform,
 }:
 package {
   name = "jdk";
@@ -21,7 +22,8 @@ package {
     buildPkgs.bash
     buildPkgs.zip
     buildPkgs.unzip
-  ];
+  ]
+  ++ (if platform.cross then [ buildPkgs.jdk ] else [ ]);
   phases = [
     {
       name = "configure";
@@ -31,7 +33,10 @@ package {
         let h = "src/jdk.jpackage/share/native/common/tstrings.h"
         open --raw $h | str replace "#include <string>" "#include <new>\n#include <string>" | save -f $h
         # not autotools proper: its own wrapper, and it wants bash
-        (x bash configure
+        let cross = (if $c.platform.cross {
+          [$"--openjdk-target=($c.platform.triple)" $"--with-build-jdk=(tool-root jdk)" "BUILD_CC=cc-build" "BUILD_CXX=c++-build"]
+        } else { [] })
+        (x bash configure ...$cross
           $"--prefix=($c.out)"
           $"--with-boot-jdk=(tool java | path dirname | path dirname)"
           --with-toolchain-type=clang
