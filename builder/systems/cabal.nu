@@ -12,7 +12,7 @@ def --wrapped cabal [...args: string]: nothing -> any {
 
 const STORE = "/build/cabal-store"
 
-# <store>/ghc-<version>-inplace: the units and their package.db
+# cabal's storeDirectory: <store>/<ghc --info "Project Unit Id">
 def unit-dir []: nothing -> string { $env.CABAL_UNITS }
 
 # CABAL_DIR with config: no hackage, the set as file+noindex repository, fixed store dir
@@ -22,11 +22,11 @@ export def --env setup []: nothing -> nothing {
   let repo = $"($c.build)/repo"
   mkdir $repo
   for f in (glob $"($o.deps)/*.{tar.gz,cabal}") { ^ln -s $f $repo }
-  load-env {CABAL_DIR: $"($c.build)/cabal", CABAL_UNITS: $"($STORE)/ghc-(^ghc --numeric-version | str trim)-inplace"}
+  let unit_id = (^ghc --info | parse --regex '"Project Unit Id","([^"]+)"' | get capture0.0)
+  load-env {CABAL_DIR: $"($c.build)/cabal", CABAL_UNITS: $"($STORE)/($unit_id)"}
   mkdir $env.CABAL_DIR $"(unit-dir)/package.db"
-  # `semaphore`: cabal creates one per run and hands `-jsem <it>` to ghc on the command line, not
-  # through ghc-options, so unit ids stay free of it. The compiler is a two-line ghc that runs
-  # the real one under jsem (pkgs/js/jsem), which feeds that semaphore from jigd's slots
+  # `semaphore`: cabal passes -jsem to ghc itself, outside the ghc-options that unit ids hash.
+  # ghc runs under jsem (pkgs/js/jsem), which feeds that semaphore from jigd's slots
   let ghc = $"($c.build)/ghc"
   $"#!(tool sh)\nexec (tool jsem) (tool ghc) \"$@\"\n" | save -f $ghc
   chmod +x $ghc
