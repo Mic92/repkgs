@@ -8,7 +8,7 @@ use core.nu *
 # toolchain/dependency/tool set, platform, flags. $out is the fixed CA placeholder, so stable
 export def key [kind: string, scripts: list<path>]: nothing -> string {
   let c = (ctx)
-  let roots = ($env.JIG_STORE_ROOTS | split row " " | each { path basename | str substring 33.. } | sort)
+  let roots = ($c.roots | each { path basename | str substring 33.. } | sort)
   let id = ({
     kind: $kind
     script: ($scripts | sort | each { open --raw $in | hash sha256 })

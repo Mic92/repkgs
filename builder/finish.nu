@@ -52,7 +52,7 @@ def version-check [c: record]: nothing -> nothing {
     let root = $"($env.NIX_BUILD_TOP)/relocated"
     let a = (attrs)
     # beside the copy: dependencies, the toolchain roots (libc), and launch (bin/ launchers link to it)
-    let siblings = (dep-closure $a.dependencies | get root) ++ ($env.JIG_STORE_ROOTS | split row " ") ++ [($c.platform.launch | path dirname -n 2)]
+    let siblings = (dep-closure $a.dependencies | get root) ++ $c.roots ++ [($c.platform.launch | path dirname -n 2)]
     mkdir $root
     for d in ($siblings | uniq) { ^ln -s $d $root }
     ^cp -r $c.out $root

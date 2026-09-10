@@ -225,6 +225,13 @@ The resulting rules:
   `tests.version` checks that `bin/x --version` (or the command line given, `"go version"`)
   prints the pinned version, which catches many broken installs (missing data files, wrong
   rpath, stale version string).
+- **Two data formats between the pieces.** Anything one program writes for another to read is
+  JSON when it is a record (the spec in `NIX_ATTRS_JSON_FILE`, `exports.json`, `.launch`
+  records, `sys-libs.json`, producer attrs) and TSV when it is an append-only log (`JIG_LOG`:
+  tool, outcome, subject, ms). Inside the builder the same facts travel as the typed `ctx`
+  record, not as environment strings to re-split. Environment variables carry only what an
+  external tool defines (`CPPFLAGS`, `PKG_CONFIG_PATH`) or a single scalar for jig
+  (`JIG_SOCK`). Messages for people go through `note`, which Nix renders as `@nix` log lines.
 
 ## jig and jigd: compile cache and build slots
 

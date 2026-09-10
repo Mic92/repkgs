@@ -4,6 +4,13 @@
 use core.nu *
 
 # every dependency's `field` dirs, absolute
+# store dirs whose files may appear in depfiles: dependencies, build tools, and what the
+# toolchain lists in its etc/roots (sysroot, seed headers). jig takes them space-joined in
+# JIG_STORE_ROOTS, nu code reads (ctx).roots
+def store-roots [a: record]: nothing -> list<string> {
+  $a.dependencies ++ $a.buildDependencies ++ (which cc | each {|c| open --raw ($c.path | path dirname -n 2 | path join etc/roots) | split row " " } | flatten | compact -e)
+}
+
 # PATH, the toolchain's view of dependencies (CPPFLAGS/LDFLAGS/PKG_CONFIG_PATH/…), compile-cache
 # identity, prefix map, §4 default CFLAGS, deps' and the spec's `env`
 def --env build-env [a: record, deps: list<record>, out: string]: nothing -> nothing {
@@ -21,9 +28,7 @@ def --env build-env [a: record, deps: list<record>, out: string]: nothing -> not
   # content identity: a rebuilt-but-identical toolchain or dependency (new store hash, same bytes)
   # still hits. The roots tell jig which concrete store dirs the masked header names map to.
   $env.JIG_STORE_IDENTITY = "content"
-  $env.JIG_STORE_ROOTS = ($a.dependencies ++ $a.buildDependencies
-    ++ (which cc | each {|c| open --raw ($c.path | path dirname | path dirname | path join etc/roots) | str trim })
-    | str join " ")
+  $env.JIG_STORE_ROOTS = (store-roots $a | str join " ")
   $env.CPPFLAGS = (dep-dirs $deps includeDirs | each { $"-I($in)" } | str join " ")
   $env.LDFLAGS = (["-Wl,-z,relro,-z,now,-z,noexecstack,--as-needed"] ++ (dep-dirs $deps libDirs | each { $"-L($in)" }) | str join " ")
   $env.PKG_CONFIG_PATH = (dep-dirs $deps pkgconfigDirs | str join ":")
@@ -97,7 +102,7 @@ export def --env main [
   mkdir $src $env.HOME
   let cache = ($"($env.NIX_STORE | path dirname)/var/nix/jigd/socket" | path exists)
   if $cache { compiler-caches }
-  let ctx = {|testsRun| {spec: $spec, out: $out, deps: $deps, njobs: $njobs, src: $env.PWD, build: $build, platform: $plat, testsRun: $testsRun, cache: $cache} }
+  let ctx = {|testsRun| {spec: $spec, out: $out, deps: $deps, roots: (store-roots $a), njobs: $njobs, src: $env.PWD, build: $build, platform: $plat, testsRun: $testsRun, cache: $cache} }
   if $from_tree != "" {
     # same absolute paths as during the build (/build/source, /build/build), so generated files stay valid
     note restore $from_tree
