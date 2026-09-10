@@ -17,8 +17,9 @@ export def --env setup []: nothing -> nothing {
   ^cp -r $o.deps $deno_dir
   ^chmod -R u+w $deno_dir
   load-env {DENO_DIR: $deno_dir, DENO_NO_UPDATE_CHECK: "1", NO_COLOR: "1"}
-  cd (project-dir deno)
 }
+
+export def workdir []: nothing -> string { project-dir deno }
 
 # type-check the entry points unless deno.check = false
 export def build []: nothing -> nothing {

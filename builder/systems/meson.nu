@@ -4,7 +4,9 @@ use ../core.nu *
 def options []: nothing -> record { options-for meson {defs: {}, flags: []} }
 
 # out-of-tree: work in the build directory
-export def --env setup []: nothing -> nothing { cd (ctx).build }
+export def setup []: nothing -> nothing { }
+
+export def workdir []: nothing -> string { (ctx).build }
 
 # machine file values are meson literals: 'str', [list], true, 1
 def literal [v: oneof<string, list<any>, bool, int>]: nothing -> string {

@@ -44,6 +44,8 @@ with-compiler: (tool ghc)
   | save -f cabal.project.local
 }
 
+export def workdir []: nothing -> string { project-dir cabal }
+
 # `cabal.flags` ("--flags=…", "--allow-newer", …) go to every cabal subcommand: build, test and list-bin must agree
 def targets [o: record]: nothing -> list<string> { $o.flags ++ ($o.exes | each {|e| $"exe:($e)" }) }
 

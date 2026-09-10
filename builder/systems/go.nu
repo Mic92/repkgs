@@ -18,8 +18,9 @@ export def --env setup []: nothing -> nothing {
     # cross: cc already targets the platform, go needs GOARCH; build-machine helpers use CC_FOR_BUILD
     GOOS: "linux", GOARCH: $c.platform.names.go
   }
-  cd (project-dir go)
 }
+
+export def workdir []: nothing -> string { project-dir go }
 
 # cgo builds link through cc so RUNPATH/interp policy and fixup apply (cgo=false: static, internal linker).
 # cgo modules whose library the modules tree propagated get their "use the system one" tags (sys-libs.nu)

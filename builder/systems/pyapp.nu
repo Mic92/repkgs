@@ -22,8 +22,9 @@ export def --env setup []: nothing -> nothing {
     PYTHONDONTWRITEBYTECODE: "1", PYTHONNOUSERSITE: "1", PIP_NO_INDEX: "1"
   }
   load-env (sys-libs env-for python $c.deps)
-  cd (project-dir pyapp)
 }
+
+export def workdir []: nothing -> string { project-dir pyapp }
 
 # dependencies (wheels as fetched, sdists compiled), then the project, then relink foreign ELFs
 export def build []: nothing -> nothing {

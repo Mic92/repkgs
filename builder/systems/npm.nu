@@ -23,6 +23,8 @@ export def --env setup []: nothing -> nothing {
   node-common after-install $env.PWD
 }
 
+export def workdir []: nothing -> string { project-dir npm }
+
 # npm run <npm.script> (null: nothing to build)
 export def build []: nothing -> nothing {
   let script = (options).script

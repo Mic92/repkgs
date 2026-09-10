@@ -207,7 +207,7 @@ let
   stepLine =
     s:
     if isAttrs s then
-      "note step ${s.name}\ndo {\nlet c = (ctx)\n${s.run}\n}"
+      "note step ${s.name}\ndo {\ncd (${workdir})\nlet c = (ctx)\n${s.run}\n}"
     else
       let
         p = match stepRe s;
@@ -216,11 +216,17 @@ let
         fail "step '${s}' is not <one of ${toString (uses ++ attrNames modules)}>.<verb>"
       else if elemAt p 1 == "test" && (!testsRun || separate) then
         ""
-      # cross without binfmt decides at build time (prepare) that tests cannot run
-      else if elemAt p 1 == "test" then
-        "if (ctx).testsRun {\nnote step ${s}\n${elemAt p 0} test\n}"
       else
-        "note step ${s}\n${elemAt p 0} ${elemAt p 1}";
+        let
+          bs = elemAt p 0;
+          call =
+            if elem bs uses then "do {\ncd (${bs} workdir)\n${bs} ${elemAt p 1}\n}" else "${bs} ${elemAt p 1}";
+        in
+        # cross without binfmt decides at build time (prepare) that tests cannot run
+        if elemAt p 1 == "test" then
+          "if (ctx).testsRun {\nnote step ${s}\n${call}\n}"
+        else
+          "note step ${s}\n${call}";
   # `modules.zig = ./build.nu`: the package's own verbs as one more nu module, for steps too long
   # to read inline ("zig.restore"). It imports the builder by bare name (`use core.nu *`)
   modules = args.modules or { };
@@ -228,7 +234,12 @@ let
     preludeBase
     ++ map (u: "use ${tree}/${buildSystems.${u}.module}") uses
     ++ map (m: "module ${m} { export use ${modules.${m}} * }\nuse ${m}") (attrNames modules);
-  setups = map (u: "note setup ${u}\n${u} setup") uses;
+  # every step starts in a known directory: `<bs> workdir` for a build system's verbs, the first
+  # build system's for inline steps and package modules. setup exports env, hence --env
+  workdir = if uses == [ ] then "(ctx).src" else "${builtins.head uses} workdir";
+  setups = map (
+    u: "note setup ${u}\ndo --env {\nmkdir (${u} workdir)\ncd (${u} workdir)\n${u} setup\n}"
+  ) uses;
   script = concatStringsSep "\n" (
     prelude
     ++ [ "prepare" ]

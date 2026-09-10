@@ -9,7 +9,9 @@ def options []: nothing -> record {
 }
 
 # in the project dir
-export def --env setup []: nothing -> nothing { cd (project-dir luarocks) }
+export def setup []: nothing -> nothing { }
+
+export def workdir []: nothing -> string { project-dir luarocks }
 
 # `luarocks.rockspec` when the project has several, else luarocks finds the one
 export def build []: nothing -> nothing {

@@ -10,7 +10,9 @@ def render [v: oneof<bool, int, string>]: nothing -> string {
 }
 
 # out-of-tree: work in the build directory
-export def --env setup []: nothing -> nothing { cd (ctx).build }
+export def setup []: nothing -> nothing { }
+
+export def workdir []: nothing -> string { (ctx).build }
 
 # cmake -G Ninja with prefix/libdir/prefix-path/shared/testing defaults, cross system + emulator, then `cmake.defs`
 export def configure []: nothing -> nothing {

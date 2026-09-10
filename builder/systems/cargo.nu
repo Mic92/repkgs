@@ -37,8 +37,9 @@ export def --env setup []: nothing -> nothing {
       | merge (if $c.platform.cross { {$host: {linker: cc-build, rustflags: $rustflags}} } else { {} }))
   } | to toml | save -f $"($env.CARGO_HOME)/config.toml"
   hide-env -i RUSTFLAGS
-  cd (project-dir cargo)
 }
+
+export def workdir []: nothing -> string { project-dir cargo }
 
 # cargo build --release
 export def build []: nothing -> nothing { x cargo build --release --offline ...(args (options)) }

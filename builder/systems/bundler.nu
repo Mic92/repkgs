@@ -19,9 +19,7 @@ export def --env setup []: nothing -> nothing {
   let c = (ctx)
   let o = (options)
   let app = (app-dir)
-  mkdir ($app | path dirname)
-  ^cp -r (project-dir bundler) $app
-  cd $app
+  ^cp -r $"(project-dir bundler)/." $app
   mkdir vendor
   ^cp -rL $"($o.deps)/vendor/cache" vendor/cache
   ^cp -f $"($o.deps)/Gemfile.lock" Gemfile.lock
@@ -35,6 +33,8 @@ export def --env setup []: nothing -> nothing {
   load-env (sys-libs env-for gems $c.deps)
   load-env (gem-build-env $c.deps)
 }
+
+export def workdir []: nothing -> string { app-dir }
 
 # unpack the cached .gem files into vendor/bundle, compiling native extensions
 export def build []: nothing -> nothing {

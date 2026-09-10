@@ -8,8 +8,9 @@ def options []: nothing -> record { options-for autotools {flags: [], makeFlags:
 export def --env setup []: nothing -> nothing {
   let sh = (if (which bash | is-not-empty) { tool bash } else { tool sh })
   load-env {CONFIG_SHELL: $sh, SHELL: $sh}
-  let c = (ctx); cd (if (options).outOfTree { $c.build } else { $c.src })
 }
+
+export def workdir []: nothing -> string { if (options).outOfTree { (ctx).build } else { project-dir autotools } }
 
 # ./configure --prefix=$out (shared only), --host/--build when cross, plus `autotools.flags`.
 # Autoconf scripts also get the two flags every package here wants and autoconf ignores when

@@ -20,8 +20,9 @@ export def --env setup []: nothing -> nothing {
   let root = (project-dir python)
   let own = ([$root $"($root)/src"] | where { $in | path exists })
   $env.PYTHONPATH = ((site-packages ($c.deps | get root)) ++ (tool-site-packages) ++ $own | str join ":")
-  cd $root
 }
+
+export def workdir []: nothing -> string { project-dir python }
 
 # build one wheel into the build dir: `python -m build` for PEP 517 backends, `maturin build` for maturin
 export def build []: nothing -> nothing {
