@@ -32,6 +32,12 @@ package {
     buildPkgs.python-packaging
   ];
   tests.run = false;
+  # glib-2.0.pc Requires.private libpcre2-8, libffi, zlib: pkgconf wants them for --cflags too
+  exports.propagate = [
+    pkgs.pcre2
+    pkgs.libffi
+    pkgs.zlib
+  ];
   bin = [
     "glib-compile-resources"
     "gdbus"

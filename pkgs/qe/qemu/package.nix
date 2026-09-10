@@ -12,15 +12,18 @@ package {
   ];
   buildDependencies = [
     buildPkgs.cpython
-    buildPkgs.meson
     buildPkgs.ninja
   ];
   steps = [
     {
       name = "configure";
       run = ''
+        # the tooling venv group wants setuptools, wheel and pip to install qemu's own python/
+        # package, which only the functional tests use
+        let deps = (open --raw pythondeps.toml | lines | where { $in !~ '^"(qemu|setuptools|wheel|pip)" =' })
+        $deps | str join "\n" | save -f pythondeps.toml
         cd $c.build
-        (x $env.CONFIG_SHELL $"($c.src)/configure" $"--prefix=($c.out)" --disable-download --without-default-features
+        (x (tool sh) $"($c.src)/configure" $"--prefix=($c.out)" --disable-download --without-default-features
           --enable-linux-user --disable-system --disable-tools --disable-docs --disable-werror
           --target-list=aarch64-linux-user,loongarch64-linux-user,ppc64le-linux-user,riscv64-linux-user,x86_64-linux-user $"--python=(which python3 | get 0.path)")
       '';
@@ -30,8 +33,9 @@ package {
       run = "x ninja -C $c.build $\"-j($c.njobs)\"";
     }
     {
+      # through ninja: the meson that configured is qemu's vendored one, not ours
       name = "install";
-      run = "x meson install -C $c.build --no-rebuild";
+      run = "x ninja -C $c.build install";
     }
   ];
   tests.run = false;
