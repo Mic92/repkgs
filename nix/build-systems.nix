@@ -39,6 +39,11 @@ let
       ++ (if nullable then [ "null" ] else [ ])
     ) null "the locked dependencies, fetched (${fetcher}), by default from the package's own lock file";
   flags = tool: strs [ ] "extra arguments for ${tool}";
+  # bin scripts say #!/usr/bin/env node, prebuilt .node addons (rollup, esbuild) link libgcc_s.so.1
+  nodeDeps = [
+    pkgs.nodejs
+    pkgs.libgcc-shim
+  ];
   script = optStr "build" "package.json script `build` runs (null: none)";
 in
 builtins.mapAttrs
@@ -223,7 +228,7 @@ builtins.mapAttrs
         sh
       ];
       lock.deps = fetch.pnpmDeps;
-      dependencies = [ pkgs.nodejs ]; # bin scripts say #!/usr/bin/env node
+      dependencies = nodeDeps;
       options = {
         inherit script;
         deps = deps true "fetch.pnpmDeps";
@@ -282,7 +287,7 @@ builtins.mapAttrs
         sh
       ];
       lock.deps = fetch.bunDeps;
-      dependencies = [ pkgs.nodejs ]; # bin scripts say #!/usr/bin/env node
+      dependencies = nodeDeps;
       options = {
         inherit script;
         deps = deps false "fetch.bunDeps";
@@ -299,12 +304,13 @@ builtins.mapAttrs
         sh
       ];
       lock.deps = fetch.yarnDeps;
-      dependencies = [ pkgs.nodejs ]; # bin scripts say #!/usr/bin/env node
+      dependencies = nodeDeps;
       options = {
         inherit script;
         deps = deps true "fetch.yarnDeps";
         flags = flags "yarn install";
       };
+    };
     };
     npm = {
       tools = [
@@ -312,7 +318,7 @@ builtins.mapAttrs
         sh
       ];
       lock.deps = fetch.npmDeps;
-      dependencies = [ pkgs.nodejs ]; # bin scripts say #!/usr/bin/env node
+      dependencies = nodeDeps;
       options = {
         inherit script;
         deps = deps true "fetch.npmDeps";
