@@ -72,6 +72,7 @@ enum class Outcome : std::uint8_t {
   kPlainCompile,    // uncacheable compile (-E, -S, several sources, …)
   kPlainLink,       // real link
   kPlainNoSource,   // source unreadable
+  kPlainQuery,      // -v, -print-*, -dM, -E of nothing: a question, not a build step
   kPlainNoSocket,   // no cache server
 };
 auto OutcomeName(Outcome outcome) -> std::string_view;

@@ -28,6 +28,7 @@ struct Invocation {
   bool link_one = false;              // one source straight to an executable, no object inputs
   bool link = false;                  // objects only
   bool cacheable = true;
+  bool query = false;  // asks the compiler something instead of building: -v, -dM, -print-*, -E of no file
   // depfile requested by the build system (-MD/-MMD/-MF/-MT/-Wp,-MD,…): left out of the key,
   // cached as an extra artifact so a hit reproduces it
   bool wants_depfile = false;

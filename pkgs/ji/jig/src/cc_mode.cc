@@ -306,6 +306,9 @@ void LogUncached(Outcome outcome, std::span<const std::string> user_args) {
   if (path.empty()) {
     return;
   }
+  if (outcome == Outcome::kPlainQuery) {
+    return;  // nothing to teach the cache about `cc -v`
+  }
   std::ofstream out(path, std::ios::app);
   out << OutcomeName(outcome) << '\t' << Join(user_args, " ") << '\n';
 }
@@ -359,6 +362,8 @@ namespace {
 void Classify(Invocation& inv, int sources, bool objects, char stop) {
   if (inv.compile_only) {
     inv.cacheable = inv.cacheable && sources == 1;
+    // `-E -dM`, `-E - </dev/null`, `-E -x c /dev/null`: build systems asking for predefined macros
+    inv.query = inv.query || (stop == 'E' && (sources == 0 || inv.source == "/dev/null"));
     if (stop == 'E' && (inv.output.empty() || inv.output == "-")) {
       // the text goes to our stdout; the compiler writes a temp file we replay from
       inv.to_stdout = true;
@@ -405,6 +410,7 @@ auto ParseInvocation(std::span<const std::string> args) -> Invocation {
       inv.output = arg.substr(2);
     } else if (IsNoOutputOption(arg)) {
       inv.cacheable = false;
+      inv.query = true;
     } else if (IsSourceFile(arg)) {
       inv.source = arg;
       ++sources;
@@ -470,7 +476,9 @@ auto RunCcMode(std::string_view argv0, std::span<const std::string> raw_args, co
       status = Run(conf->cc, inv.args, StderrMode::kInherit).status;
     }
     Outcome outcome = Outcome::kPlainNoSocket;
-    if (!inv.cacheable) {
+    if (inv.query) {
+      outcome = Outcome::kPlainQuery;
+    } else if (!inv.cacheable) {
       outcome = inv.compile_only ? Outcome::kPlainCompile : Outcome::kPlainLink;
     } else if (!primary) {
       outcome = Outcome::kPlainNoSource;

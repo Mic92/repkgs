@@ -300,6 +300,8 @@ auto OutcomeName(Outcome outcome) -> std::string_view {
       return "linked";
     case Outcome::kPlainNoSource:
       return "uncacheable-nosrc";
+    case Outcome::kPlainQuery:
+      return "query";
     case Outcome::kPlainNoSocket:
       return "no-daemon";
   }

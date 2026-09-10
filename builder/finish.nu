@@ -68,7 +68,8 @@ def cache-summary []: nothing -> nothing {
   if not ($env.JIG_LOG | path exists) { return }
   let ls = (open --raw $env.JIG_LOG | lines)
   let go = ($ls | where { str starts-with "go " } | each { str substring 3.. })
-  let tools = ($ls | where { $in !~ "^go " } | each { split row " " | first } | uniq -c
+  # `query` (cc -v, -dM, -print-*) is not a build step and stays out of the counts
+  let tools = ($ls | where { $in !~ "^go |^query " } | each { split row " " | first } | uniq -c
     | each {|k| let p = ($k.value | parse -r '^(?:(?<tool>rustc)-)?(?<kind>.*)$' | first); {tool: (if ($p.tool | is-empty) { "cc" } else { $p.tool }), kind: $p.kind, count: $k.count} }
     | group-by tool --to-table
     | each {|t|
