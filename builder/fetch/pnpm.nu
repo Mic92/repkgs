@@ -2,8 +2,8 @@
 # Producer for fetch.pnpmDeps { source, root? }: pnpm-lock.yaml v9 lists every registry package
 # under `packages:` as `name@version` with `resolution.integrity` (SRI); the tarball URL is the
 # registry's canonical one unless `resolution.tarball` says otherwise. Each becomes a
-# builtin:fetchurl fixed by that hash. Output: { tarballs/*.tgz, index.json [{id, file}] }, which
-# pnpm.nu seeds an offline pnpm store from (`pnpm store add`), then installs --offline.
+# builtin:fetchurl fixed by that hash, laid out as a registry mirror (registry/<url path>) that
+# pnpm.nu installs from with registry=file:/… --offline: pnpm derives the same paths from the lock.
 use dyn-drv.nu
 use npm-registry.nu [split-id tarball-url]
 
@@ -18,12 +18,7 @@ def main []: nothing -> nothing {
   let fetched = ($pkgs | each {|p|
     let nv = (split-id $p.id)
     let url = ($p.val.resolution.tarball? | default (tarball-url $nv.name $nv.version))
-    let file = $"($nv.name | str replace "/" "+")-($nv.version).tgz"
-    {id: $p.id, file: $file, url: $url, integrity: $p.val.resolution.integrity}
-  } | dyn-drv fetchurls)
-  let layout = [
-    ...($fetched | each {|f| {link: $f.out, to: $"tarballs/($f.file)"} })
-    (dyn-drv json-file index.json ($fetched | select id file))
-  ]
-  dyn-drv collect pnpm-deps $layout ($fetched | get drv)
+    {id: $p.id, file: ($url | url parse | get path | str trim --left --char "/"), url: $url, integrity: $p.val.resolution.integrity}
+  } | uniq-by file | dyn-drv fetchurls)
+  dyn-drv collect pnpm-deps ($fetched | each {|f| {link: $f.out, to: $"registry/($f.file)"} }) ($fetched | get drv)
 }

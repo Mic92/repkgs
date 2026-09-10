@@ -1,11 +1,12 @@
 [upstream]
 purl = "pkg:npm/pnpm"
-allow = "<11"
+allow = "==11.*"
 
 [[source]]
 key = "default"
 url = "https://registry.npmjs.org/pnpm/-/pnpm-{version}.tgz"
-hash = "sha256-GyG9qZ/ZefkLPbZoprxmFBkSTEbppfi41dSGdc7yFUI="
+hash = "sha256-F6Lphh565QpyTfdgO2t7CEQc7Sdx9CJKwVd6BV+Mqlg="
 
 [pin]
-version = "10.34.5"
+version = "11.26.0"
+date = "2026-09-06"

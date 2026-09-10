@@ -101,7 +101,7 @@ in
       lockFile = if lockFile == null then "" else lockFile;
     };
 
-  # pnpm-lock.yaml (v9) -> { tarballs/, index.json }; builder/systems/pnpm.nu seeds an offline store from it.
+  # pnpm-lock.yaml (v9) -> registry/<url path>, a file:// registry builder/systems/pnpm.nu installs from offline.
   pnpmDeps =
     {
       source,

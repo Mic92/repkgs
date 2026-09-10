@@ -1,4 +1,4 @@
-# pnpm 10's registry tarball is a single bundled dist/pnpm.cjs with no dependencies: copied, with
+# pnpm's registry tarball is a bundled dist/ with no dependencies: copied, with
 # bin/pnpm a launcher onto our node. A build tool (buildPkgs.pnpm in the pnpm build system).
 { package, pkgs }:
 package {
