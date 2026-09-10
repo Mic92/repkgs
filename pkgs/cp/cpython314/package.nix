@@ -18,7 +18,7 @@ package {
   ++ (
     if platform.cross then
       [
-        "--with-build-python=${buildPkgs.cpython}/bin/python3"
+        "--with-build-python=python3" # by name: _sysconfigdata records CONFIG_ARGS
         "ac_cv_buggy_getaddrinfo=no"
       ]
     else
