@@ -488,14 +488,6 @@ auto RunCcMode(std::string_view argv0, std::span<const std::string> raw_args, co
     return status;
   }
 
-  Store& store = Store::Get();
-  store.LearnRoots(conf->cc);
-  store.LearnRoots(fs::current_path().string());
-  store.LearnRoots(Env("JIG_STORE_ROOTS"));
-  for (const std::string& arg : inv.key_args) {
-    store.LearnRoots(arg);
-  }
-
   const RequestKey request_key = ComputeRequestKey(conf->cc, inv, *primary);
   if (const std::optional<CachedResult> hit = Lookup(cache, request_key, inv)) {
     const int status = Replay(*hit, inv);

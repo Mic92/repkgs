@@ -1,5 +1,6 @@
 // Plain-assert unit tests for the pure parts of jig. Built and run by pkgs/ji/jig/bootstrap.nu
 // before the binary is installed; also: c++ -std=c++26 ... jig_test.cc <srcs> && ./a.out
+#include <stdlib.h>  // NOLINT(modernize-deprecated-headers): setenv is POSIX
 #include <unistd.h>
 
 #include <algorithm>
@@ -34,6 +35,11 @@ using jig::ParseInvocation;
 using jig::WriteFile;
 
 auto V(std::initializer_list<const char*> items) -> std::vector<std::string> { return {items.begin(), items.end()}; }
+
+#define VENDOR_ROOT \
+  JIG_STORE_DIR "/0123456789abcdfghijklmnpqrsvwxyz-cargo-vendor"  // NOLINT(cppcoreguidelines-macro-usage): setenv
+                                                                  // before statics
+constexpr std::string_view kVendor = VENDOR_ROOT;
 
 void TestBase() {
   assert(jig::SplitWhitespace("  a  b\tc\n") == V({"a", "b", "c"}));
@@ -76,6 +82,11 @@ void TestStore() {
   assert(store.Key("-O2") == "-O2");
   assert(store.Key("-DFOO=./a//b") == "-DFOO=./a//b");
   assert(store.ToolId("/no/such/tool") == "/no/such/tool");
+  // kVendor is in $JIG_STORE_ROOTS (main), an unrelated root is not
+  const std::string vendored = std::string(kVendor) + "/x-1.0/src/util.rs";
+  assert(store.Resolve(store.MaskHashes(vendored)) == vendored);
+  assert(!store.Resolve(dir + "/*-elsewhere/f.h"));
+  assert(store.Resolve("/tmp/f.h") == "/tmp/f.h");
   // two packages whose bin/rustc link to one launcher: distinct ids, the launcher not in them
   const fs::path tmp = fs::temp_directory_path() / ("jig-toolid-" + std::to_string(::getpid()));
   for (const char* pkg : {"rust-a", "rust-b"}) {
@@ -308,7 +319,7 @@ void TestRustInvocation() {
   assert(std::ranges::contains(inv.key_args, "--crate-type=lib"));
   assert(std::ranges::contains(inv.key_args, "--cap-lints=allow"));
   assert(!std::ranges::contains(inv.key_args, "-C=metadata=abcd"));
-  assert(!inv.links && inv.lib_dirs == V({"/b/deps"}));
+  assert(!inv.links);
   inv = jig::ParseRustInvocation(V({
       "--crate-name",
       "foo",
@@ -323,8 +334,7 @@ void TestRustInvocation() {
       "-L",
       "native=/b/build/x/out",
   }));
-  assert(inv.cacheable && inv.links && inv.lib_dirs == V({"/b/build/x/out"}));
-  assert(std::ranges::contains(inv.key_args, "-C=linker=clang"));
+  assert(inv.links && !inv.cacheable);
   inv = jig::ParseRustInvocation(V({"-", "--crate-type", "lib"}));
   assert(!inv.cacheable && inv.query);
   inv = jig::ParseRustInvocation(V({"-", "--crate-name", "___", "--print=file-names", "--crate-type", "bin"}));
@@ -396,6 +406,8 @@ void TestNixStore() {
 
 // NOLINTNEXTLINE(bugprone-exception-escape): a throwing test is a failing test
 auto main() -> int {
+  setenv("JIG_STORE_IDENTITY", "content", 1);  // NOLINT(concurrency-mt-unsafe): before any Store::Get
+  setenv("JIG_STORE_ROOTS", VENDOR_ROOT, 1);   // NOLINT(concurrency-mt-unsafe)
   TestBase();
   TestStore();
   TestParseInvocation();

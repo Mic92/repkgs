@@ -60,7 +60,7 @@ auto ParseDepfile(std::string_view text) -> std::vector<std::string> {
 namespace {
 
 struct Entry {
-  std::string path;  // resolved to this build's store roots
+  std::string path;  // in this build's store roots, "" when the build lacks the root
   std::string line;  // as stored: "<masked path>\t<identity>"
   size_t tab = 0;
 };
@@ -70,7 +70,7 @@ auto ParseManifest(std::string_view text) -> std::vector<Entry> {
   std::vector<Entry> entries;
   for (std::string& line : Split(text, '\n')) {
     if (const size_t tab = line.find('\t'); tab != std::string::npos) {
-      std::string path = store.Resolve(line.substr(0, tab));
+      std::string path = store.Resolve(line.substr(0, tab)).value_or("");
       entries.push_back({.path = std::move(path), .line = std::move(line), .tab = tab});
     }
   }

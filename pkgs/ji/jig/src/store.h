@@ -5,8 +5,9 @@
 //   arguments are hashed verbatim - exact and free for an immutable store.
 // JIG_STORE_IDENTITY=content: store hashes are masked ("/nix/store/*-name/...") in keys and
 //   manifests, and store files are hashed like any other. A rebuilt-but-identical toolchain or
-//   dependency then still hits. JIG_STORE_ROOTS lists extra store dirs (any text containing
-//   them) that masked names may resolve to, beyond those on the command line.
+//   dependency then still hits. JIG_STORE_ROOTS is the space-separated list of every store dir
+//   the build reads (builder/env.nu store-roots): a masked name maps back to a file through it,
+//   and through nothing else.
 #pragma once
 
 #ifndef JIG_STORE_DIR
@@ -20,11 +21,8 @@
 #include <utility>
 
 namespace jig {
-constexpr size_t kStoreHashLength = 32;  // base-32 characters before the '-' in a store path name
-}  // namespace jig
-#include <vector>
 
-namespace jig {
+constexpr size_t kStoreHashLength = 32;  // base-32 characters before the '-' in a store path name
 
 class Store {
  public:
@@ -47,10 +45,9 @@ class Store {
     return by_content_ ? MaskHashes(std::move(text)) : text;
   }
 
-  // Content mode: remember every concrete store root mentioned in `text` so masked manifest
-  // entries can be mapped back to real files in *this* build.
-  void LearnRoots(std::string_view text);
-  [[nodiscard]] auto Resolve(const std::string& masked_path) const -> std::string;
+  // a masked store path back to this build's file via $JIG_STORE_ROOTS and $out, nullopt for a
+  // root the build lacks
+  [[nodiscard]] auto Resolve(const std::string& masked_path) const -> std::optional<std::string>;
   // every store path in a text (a cached depfile) rewritten to this build's roots
   [[nodiscard]] auto ResolveAll(std::string text) const -> std::string;
 
@@ -71,7 +68,7 @@ class Store {
   std::string dir_ = JIG_STORE_DIR;
   bool by_content_ = false;
   std::string out_;  // $NIX_BUILD_TOP's sibling: our own, still mutable, output
-  std::vector<std::pair<std::string, std::string>> masked_to_real_;
+  std::unordered_map<std::string, std::string> masked_to_real_;
   std::unordered_map<std::string, std::string> known_ids_;
 };
 

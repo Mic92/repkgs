@@ -298,10 +298,7 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
   }
 
   Store& store = Store::Get();
-  store.LearnRoots(rustc);
-  for (const std::string& arg : inv.key_args) {
-    store.LearnRoots(arg);
-  }
+  store.LearnRoots(args);
   Hasher hasher;
   // bumped when what a key covers changes, so entries made under the old rules are not asked for
   hasher.Field("rs-schema=5");

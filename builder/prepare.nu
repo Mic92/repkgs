@@ -62,6 +62,6 @@ export def --env main [
   let wanted = ($spec.tests?.run? | default true)
   if $from_tree == "" and $wanted and $plat.cross and not $plat.transparent { note untested $"($plat.name): no binfmt on this builder" }
   let tests_run = ($from_tree != "" or ($wanted and ((not $plat.cross) or $plat.transparent)))
-  $env.PKGS_CTX = {spec: $spec, out: $out, deps: $deps, roots: (env store-roots $a), njobs: $njobs, src: $env.PWD
+  $env.PKGS_CTX = {spec: $spec, out: $out, deps: $deps, roots: ($env.JIG_STORE_ROOTS | split row " "), njobs: $njobs, src: $env.PWD
     build: $build, platform: $plat, testsRun: $tests_run, cache: $cache}
 }

@@ -1,11 +1,14 @@
 #include "store.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <filesystem>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 #include "base.h"
 
@@ -20,7 +23,19 @@ auto Store::Get() -> Store& {
   return instance;
 }
 
-Store::Store() : by_content_(Env("JIG_STORE_IDENTITY", "path") == "content"), out_(Env("out")) {}
+Store::Store() : by_content_(Env("JIG_STORE_IDENTITY", "path") == "content"), out_(Env("out")) {
+  if (!by_content_) {
+    return;
+  }
+  std::vector<std::string> roots = Split(Env("JIG_STORE_ROOTS"), ' ');
+  roots.push_back(out_);
+  for (std::string& root : roots) {
+    root.resize(std::min(root.size(), root.find('/', dir_.size() + 1)));  // <store>/<hash-name>[/…]
+    if (std::string masked = MaskHashes(root); masked != root) {
+      masked_to_real_.emplace(std::move(masked), std::move(root));
+    }
+  }
+}
 
 auto Store::IsStorePath(std::string_view path) const -> bool {
   return path.size() > dir_.size() && path.starts_with(dir_) && path.at(dir_.size()) == '/';
@@ -84,38 +99,16 @@ auto Store::Key(std::string_view arg) const -> std::string {
   return by_content_ ? MaskHashes(std::move(key)) : key;
 }
 
-void Store::LearnRoots(std::string_view text) {
-  if (!by_content_) {
-    return;
-  }
-  const std::string prefix = dir_ + "/";
-  for (size_t pos = 0; (pos = text.find(prefix, pos)) != std::string_view::npos; pos += prefix.size()) {
-    size_t end = text.find_first_of(kDepfileDelimiters.substr(0, 3), pos);  // space, tab, newline
-    const size_t slash = text.find('/', pos + prefix.size());
-    if (slash != std::string_view::npos && (end == std::string_view::npos || slash < end)) {
-      end = slash;
-    }
-    if (end == std::string_view::npos) {
-      end = text.size();
-    }
-    std::string root(text.substr(pos, end - pos));
-    std::string masked = MaskHashes(root);
-    if (masked != root) {
-      masked_to_real_.emplace_back(std::move(masked), std::move(root));
-    }
-  }
-}
-
-auto Store::Resolve(const std::string& path) const -> std::string {
+auto Store::Resolve(const std::string& path) const -> std::optional<std::string> {
   if (!path.starts_with(dir_ + "/*-")) {
     return path;
   }
-  for (const auto& [masked, real] : masked_to_real_) {
-    if (path.starts_with(masked) && (path.size() == masked.size() || path.at(masked.size()) == '/')) {
-      return real + path.substr(masked.size());
-    }
+  const size_t slash = path.find('/', dir_.size() + 3);
+  const auto root = masked_to_real_.find(path.substr(0, slash));
+  if (root == masked_to_real_.end()) {
+    return std::nullopt;
   }
-  return path;  // unknown root: reading it fails -> cache miss, the safe answer
+  return root->second + (slash == std::string::npos ? "" : path.substr(slash));
 }
 
 auto Store::ResolveAll(std::string text) const -> std::string {
@@ -126,7 +119,7 @@ auto Store::ResolveAll(std::string text) const -> std::string {
     if (end == std::string::npos) {
       end = text.size();
     }
-    const std::string real = Resolve(text.substr(pos, end - pos));
+    const std::string real = Resolve(text.substr(pos, end - pos)).value_or(text.substr(pos, end - pos));
     text.replace(pos, end - pos, real);
     pos += real.size();
   }

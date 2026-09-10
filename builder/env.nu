@@ -21,10 +21,11 @@ def reproducible [a: record]: nothing -> record {
     CONFIG_SITE: $a.CONFIG_SITE}
 }
 
-# store dirs whose files may appear in depfiles: dependencies, build tools, and what the
-# toolchain lists in its etc/roots (sysroot, seed headers)
-export def store-roots [a: record]: nothing -> list<string> {
-  $a.dependencies ++ $a.buildDependencies ++ (which cc | each {|c| open --raw ($c.path | path dirname -n 2 | path join etc/roots) | split row " " } | flatten | compact -e)
+# every store dir this build reads from: the dependency closure (lock trees included), build
+# tools, and what the toolchain lists in its etc/roots (sysroot, seed headers). jig maps masked
+# manifest paths back to files through exactly this list
+def store-roots [a: record, deps: list<record>]: nothing -> list<string> {
+  ($deps | get root) ++ $a.buildDependencies ++ (which cc | each {|c| open --raw ($c.path | path dirname -n 2 | path join etc/roots) | split row " " } | flatten | compact -e) | uniq
 }
 
 # how compilers and build systems find the dependencies, and what jig needs for its cache keys:
@@ -42,7 +43,7 @@ def toolchain [a: record, deps: list<record>]: nothing -> record {
     JIG_LOG: $"($env.NIX_BUILD_TOP)/jig.log"
     JIG_LOG_ARGS: $"($env.NIX_BUILD_TOP)/jig-uncached.log"
     JIG_STORE_IDENTITY: content
-    JIG_STORE_ROOTS: (store-roots $a | str join " ")
+    JIG_STORE_ROOTS: (store-roots $a $deps | str join " ")
     PKGS_PREFIX_MAP: ([$"($env.NIX_BUILD_TOP)=/build"] ++ ($deps | get root | each { do $mask $in deps }) ++ ($a.buildDependencies | each { do $mask $in tools }) | str join ":")
   }
 }
