@@ -39,8 +39,8 @@ export def --env configure []: nothing -> nothing {
   let autoconf_flags = (if $autoconf {
     note config.cache (if (probe-cache restore $key $cache) { "restored" } else { "cold" })
     gnulib-gettext-literal $c.src
-    # not the seed's install: configure records INSTALL's store path in installed Makefiles
-    # (python's config/, bash's lib/bash/Makefile.inc). A copy in the build dir is no reference
+    # like the tool names in config.site, but a relative INSTALL gets ../ prepended per subdir:
+    # a copy in the build dir is absolute and no store reference
     ^cp (tool install) $"($c.build)/install"
     [$"--cache-file=($cache)" --disable-nls --disable-dependency-tracking $"INSTALL=($c.build)/install -c"]
   } else { [] })
