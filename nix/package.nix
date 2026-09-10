@@ -74,6 +74,7 @@ let
         cross
         emulator
         ;
+      inherit (toolchain) sysroot;
       probe = if platform.cross then "${toolchain.sysroot}/lib/${platform.interp}" else "";
       # `prebuilt`: upstream ELFs get our dynamic linker implanted (true) or via launch ("ldso")
       interp = "${toolchain.sysroot}/lib/${platform.interp}";
