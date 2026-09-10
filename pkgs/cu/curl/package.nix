@@ -18,6 +18,20 @@ package {
     CURL_CA_SEARCH_SAFE = true;
   };
   tests.run = false; # needs perl + python impacket + minutes
+  phases = [
+    "cmake.configure"
+    "cmake.build"
+    "cmake.install"
+    {
+      # `curl-config --cc` would echo the build compiler's store path
+      name = "curl-config";
+      run = ''
+        let f = $"($c.out)/bin/curl-config"
+        let text = (open --raw $f | str replace -r "echo '[^']*/bin/cc'" "echo 'cc'")
+        $text | save -f $f
+      '';
+    }
+  ];
   dependencies = [
     pkgs.openssl
     pkgs.zlib
