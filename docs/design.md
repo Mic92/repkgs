@@ -1,7 +1,7 @@
 # Design
 
-This document describes what the package set does differently from nixpkgs,
-which problem each choice addresses, and the drawbacks we accepted.
+This document describes Why the set is built the way it is: what it does differently from nixpkgs, which problem each
+choice addresses, and the drawbacks we accepted.
 Things not built yet are in `plan.md`.
 
 Contents: [Goals](#goals) · [Evaluation](#evaluation) · [Sources and lock files](#sources-and-lock-files)

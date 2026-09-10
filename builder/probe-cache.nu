@@ -1,5 +1,6 @@
-# configure-time probe results (autotools config.cache, cmake's initial cache) shared across
-# builds through jigd, so a package's second build skips the hundreds of compiler probes.
+# Build-tree state shared across builds through jigd under a key over its inputs: configure-time
+# probe results (config.cache, cmake's initial cache), and whole tool cache directories for
+# compilers jig cannot sit in front of (zig).
 
 use core.nu *
 
@@ -27,4 +28,25 @@ export def restore [key: string, file: path]: nothing -> bool {
 # store them for the next build with the same key
 export def store [key: string, file: path]: nothing -> nothing {
   if (ctx).cache and ($file | path exists) { ^jig cache put $key $file | complete }
+}
+
+# a directory as one zstd tarball under `key`. true when restored
+export def restore-dir [key: string, dir: path]: nothing -> bool {
+  let c = (ctx)
+  let tar = $"($c.build)/(($key | str replace -a '/' '_')).tar.zst"
+  if not ($c.cache and (^jig cache get $key $tar | complete).exit_code == 0) { return false }
+  mkdir $dir
+  ^bsdtar -xf $tar -C $dir
+  rm $tar
+  true
+}
+
+export def store-dir [key: string, dir: path]: nothing -> nothing {
+  let c = (ctx)
+  if not ($c.cache and ($dir | path exists)) { return }
+  let tar = $"($c.build)/(($key | str replace -a '/' '_')).tar.zst"
+  ^bsdtar -c --zstd -f $tar -C $dir .
+  note cache $"($key | split row / | first 2 | str join /): stored (ls $tar | get 0.size)"
+  ^jig cache put $key $tar | complete | ignore
+  rm $tar
 }
