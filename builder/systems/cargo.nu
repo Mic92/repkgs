@@ -25,11 +25,12 @@ export def --env setup []: nothing -> nothing {
   load-env ({PKG_CONFIG_ALLOW_CROSS: "1"} | merge $sys)
   if ($sys | is-not-empty) { note sys-libs ($sys | columns | str join " ") }
   # rustflags per target in config (RUSTFLAGS from the environment would replace them): panic
-  # strings embed source paths, map build tree, cargo home and vendor dir away
-  let rustflags = [$"--remap-path-prefix=($c.src)=/src" $"--remap-path-prefix=($env.CARGO_HOME)=/cargo" $"--remap-path-prefix=($o.deps)=/vendor"]
+  # strings embed source paths, map build tree, cargo home and vendor dir away. Frame pointers
+  # like the C side, rustc omits them on x86_64 otherwise
+  let rustflags = [$"--remap-path-prefix=($c.src)=/src" $"--remap-path-prefix=($env.CARGO_HOME)=/cargo" $"--remap-path-prefix=($o.deps)=/vendor" "-Cforce-frame-pointers=yes"]
   # cross: rust carries std for the build machine only, the target's is rust-std (cargo.tools):
   # one sysroot of symlinks over both
-  let sysroot = (if $c.platform.cross {
+  let sysroot = (if $c.platform.cross and $o.toolchain == null {
     let s = $"($c.build)/rust-sysroot"
     let std = (tool-root rust-std)
     mkdir $"($s)/lib/rustlib"

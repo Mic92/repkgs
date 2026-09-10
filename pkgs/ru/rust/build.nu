@@ -44,6 +44,7 @@ export def configure []: nothing -> nothing {
     rust: {
       channel: "stable"
       remap-debuginfo: true
+      frame-pointers: true
       lld: false
       llvm-tools: false
       llvm-bitcode-linker: false
@@ -91,7 +92,7 @@ export def stdConfigure []: nothing -> nothing {
       optimized-compiler-builtins: false
     }
     install: {prefix: $c.out, sysconfdir: "etc"}
-    rust: {channel: "stable", remap-debuginfo: true, lld: false, llvm-tools: false, codegen-backends: []}
+    rust: {channel: "stable", remap-debuginfo: true, frame-pointers: true, lld: false, llvm-tools: false, codegen-backends: []}
     llvm: {download-ci-llvm: false}
     target: ({$triple: {cc: (tool cc), cxx: (tool c++), linker: (tool cc), ar: (tool llvm-ar), ranlib: (tool llvm-ranlib), crt-static: false}}
       | merge {$host: {cc: (tool cc-build), cxx: (tool c++-build), linker: (tool cc-build), ar: (tool llvm-ar)}})
