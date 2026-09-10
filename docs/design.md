@@ -1,12 +1,18 @@
 # Design
 
-Why the set is built the way it is: what it does differently from nixpkgs, which problem each
-choice addresses, and the drawbacks we accepted.
+This document describes what the package set does differently from nixpkgs,
+which problem each choice addresses, and the drawbacks we accepted.
 Things not built yet are in `plan.md`.
 
 Contents: [Goals](#goals) · [Evaluation](#evaluation) · [Sources and lock files](#sources-and-lock-files)
 · [Relocatable outputs](#relocatable-outputs) · [Builders](#builders) · [The compile cache](#the-compile-cache-jig-and-pkgs-cache)
 · [Toolchain and bootstrap](#toolchain-bootstrap-cross) · [Updates](#updates)
+
+Four small in-tree programs come up throughout. **jig** is the compiler driver: the binary that
+is `cc`, `c++` and `rustc` on the build `PATH`, adds our flags, asks the compile cache, and as
+`reloc-fixup` post-processes ELF files. **pkgs-cache** is that cache's host-side daemon.
+**launch** is the one wrapper binary behind every installed script. **uptrack** updates
+versions and lock tables. Each has its section below.
 
 ## Goals
 
@@ -120,7 +126,7 @@ copies, `npmDepsHash` that breaks on every bump). Our rules:
   as a vendor directory. Nix then builds those. Evaluation never sees the lock file, so a
   3000-line lock costs nothing. npm, pnpm, Yarn, Bundler, uv, Bun and Deno work the same way,
   and every build system receives the result as its `deps` option, defaulted from the source. The
-  producer talks to the Nix daemon through jig's own worker-protocol client, so this needs
+  producer talks to the Nix daemon through a small worker-protocol client (in jig), so this needs
   neither a `nix` binary in the sandbox nor recursive Nix.
 - **Hashes a lock file lacks live in one shared table per ecosystem.** Go's `go.sum` hashes a
   file listing rather than the zip Nix downloads, Hackage and LuaRocks have no lock files at all.
@@ -138,7 +144,7 @@ copies, `npmDepsHash` that breaks on every bump). Our rules:
 
 Autoconf gets the same treatment for a different reason: `nix/config.site` pins the probe
 results that are facts of our platforms (the ones gnulib guesses pessimistically when cross
-compiling), while package-specific probe results are cached by jig, not committed.
+compiling), while package-specific probe results go through the compile cache, not into git.
 
 ## Relocatable outputs
 
@@ -156,7 +162,7 @@ How each kind of reference is made relative:
 
 | reference | how |
 |---|---|
-| **ELF NEEDED and RUNPATH** | jig, acting as `cc`, emits absolute RUNPATH entries for exactly the directories that satisfied a `-l` (plus libc and the C++ runtime) and padding. After install, `reloc-fixup` rewrites those bytes in place: each NEEDED becomes `$ORIGIN/../../<hash>-foo/lib/libfoo.so.1` (glibc expands `$ORIGIN` there and opens a name with a slash directly, so loading is one `open` per library instead of a search over every RUNPATH dir), and RUNPATH keeps only libc's dir and dirs nothing was NEEDED from, for `dlopen`. No patchelf, no section growth. |
+| **ELF NEEDED and RUNPATH** | The compiler driver (jig, as `cc`) emits absolute RUNPATH entries for exactly the directories that satisfied a `-l` (plus libc and the C++ runtime) and padding. After install, `reloc-fixup` rewrites those bytes in place: each NEEDED becomes `$ORIGIN/../../<hash>-foo/lib/libfoo.so.1` (glibc expands `$ORIGIN` there and opens a name with a slash directly, so loading is one `open` per library instead of a search over every RUNPATH dir), and RUNPATH keeps only libc's dir and dirs nothing was NEEDED from, for `dlopen`. No patchelf, no section growth. |
 | **The dynamic loader** (PT_INTERP) | The kernel resolves PT_INTERP before any of our code runs, so it cannot be relative. Every executable is linked with a 300-byte stub (`crt-interp`). Fixup turns the PT_INTERP header off and points the entry at the stub, which at startup maps ld.so from a path relative to `/proc/self/exe` and jumps into it. glibc is unmodified, `ldd` still works, cost is 0.09 ms per exec. |
 | **Upstream binaries** | `prebuilt = true`: formatelf implants that same stub and a RUNPATH into the foreign ELF, after which fixup treats it like one of ours. (`prebuilt = "ldso"` instead wraps it in an `ld.so --library-path` launcher, used only where formatelf itself is not built yet.) |
 | **Scripts and wrappers** | One 40 KB static binary, `launch`. `bin/foo` is a hardlink to it, `bin/.foo.launch` is a small record (interpreter, args, env, with `{root}` placeholders), `bin/.foo` is the real script. This replaces both shebang patching and `makeWrapper`. |

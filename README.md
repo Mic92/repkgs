@@ -41,7 +41,8 @@ $ nix-build -A pkgs-cache && ./result/bin/pkgs-cache /tmp/pkgs-cache.sock &
 $ tools/build -A jq     # nix-build with the socket mapped into the sandbox, no remote builders
 ```
 
-Every build log then ends in a line like `jig: cc cached=812/815 (99%) compiled=3`.
+Every build log then ends in a line like `jig: cc cached=812/815 (99%) compiled=3` (jig is the
+compiler driver, see below).
 
 ## What a package looks like
 
