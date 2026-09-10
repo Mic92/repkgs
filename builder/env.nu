@@ -56,9 +56,11 @@ const HARDENING = {
   strictoverflow: ["-fwrapv"]
   strictflexarrays: ["-fstrict-flex-arrays=1"]
   zerocallusedregs: ["-fzero-call-used-regs=used-gpr"]
+  noplt: ["-fno-plt"]
   libcxxhardening: ["-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST"]
   relro: ["-Wl,-z,relro"]
   bindnow: ["-Wl,-z,now"]
+  relr: ["-Wl,-z,pack-relative-relocs"]
 }
 
 # $PKGS_CC: what jig adds to every target cc command line (dependency dirs, defaults, hardening,
@@ -68,14 +70,15 @@ def package-cc [a: record, deps: list<record>]: nothing -> record {
   let cc = ($a.spec.cc? | default {})
   let enabled = (if $cc.hardening? == false { {} } else { $HARDENING | merge ($cc.hardening? | default {}) })
   let harden = {|names: list<string>| $names | each {|n| if ($enabled | get -o $n | default false) != false { $HARDENING | get $n } } | flatten }
-  let compile = ($HARDENING | reject libcxxhardening relro bindnow | columns)
+  let link = [relro bindnow relr]
+  let compile = ($HARDENING | reject libcxxhardening ...$link | columns)
   # dependency dirs as -isystem and trailing -L: searched after the project's own, like /usr would be
   let flags = {
     cflags: ((dep-dirs $deps includeDirs | each { $"-isystem($in)" })
       ++ ["-O2" "-g" "-fno-omit-frame-pointer" "-mno-omit-leaf-frame-pointer"] ++ (do $harden $compile) ++ ($cc.cflags? | default []))
     cxxflags: ((do $harden [libcxxhardening]) ++ ($cc.cxxflags? | default []))
     ldflags: ((dep-dirs $deps libDirs | each { $"-L($in)" })
-      ++ (do $harden [relro bindnow]) ++ ["-Wl,-z,noexecstack" "-Wl,--as-needed"] ++ ($cc.ldflags? | default []))
+      ++ (do $harden $link) ++ ["-Wl,-z,noexecstack" "-Wl,--as-needed"] ++ ($cc.ldflags? | default []))
   }
   let root = (which cc | get 0.path | path expand | path dirname -n 2)
   {PKGS_CC: ({$root: $flags} | to json -r)}

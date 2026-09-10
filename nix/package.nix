@@ -162,9 +162,11 @@ let
       "strictoverflow"
       "strictflexarrays"
       "zerocallusedregs"
+      "noplt"
       "libcxxhardening"
       "relro"
       "bindnow"
+      "relr"
     ];
   };
   subKeys =
