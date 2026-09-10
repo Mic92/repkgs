@@ -1,6 +1,7 @@
 // Bitcask-style blob store: values are appended to the active pack file, an in-memory map says
 // where each key lives, sealed packs get a hint file so startup does not scan data. Eviction drops
-// whole packs, oldest first. Nothing is fsynced: this is a cache, a torn tail is truncated on load.
+// whole packs, least recently read first. Nothing is fsynced: this is a cache, a torn tail is
+// truncated on load.
 //
 //	packs/000042.pack  records: u32 keylen, u32 vallen, key, value   (little endian)
 //	packs/000042.hint  same records without the value, plus u64 offset of the record in .pack
@@ -18,6 +19,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 const (
@@ -35,12 +37,14 @@ type pack struct {
 	id   uint32
 	file *os.File
 	size int64
-	live int64 // bytes of values the index still points at
+	live int64        // bytes of values the index still points at
+	used atomic.Int64 // sequence number of the last Get served from this pack
 }
 
 type Store struct {
 	dir    string
 	budget int64
+	reads  atomic.Int64 // Get counter, the clock for pack.used
 
 	mu     sync.RWMutex
 	index  map[string]loc
@@ -199,7 +203,9 @@ func (s *Store) Get(key string) *io.SectionReader {
 	if !ok {
 		return nil
 	}
-	return io.NewSectionReader(s.packs[l.pack].file, int64(l.off), int64(l.len))
+	p := s.packs[l.pack]
+	p.used.Store(s.reads.Add(1))
+	return io.NewSectionReader(p.file, int64(l.off), int64(l.len))
 }
 
 func (s *Store) Put(key string, value []byte) error {
@@ -232,7 +238,9 @@ func (s *Store) Put(key string, value []byte) error {
 	return nil
 }
 
-// evict drops whole packs, oldest first, until under budget. Called with mu held.
+// evict drops whole sealed packs until under budget: the one longest without a read first (by
+// id among never-read ones), so a full disk forgets what no build asks for, not the oldest
+// toolchain objects every build replays. Called with mu held.
 func (s *Store) evict() {
 	if s.budget <= 0 {
 		return
@@ -243,7 +251,10 @@ func (s *Store) evict() {
 			ids = append(ids, id)
 		}
 	}
-	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	sort.Slice(ids, func(i, j int) bool {
+		ui, uj := s.packs[ids[i]].used.Load(), s.packs[ids[j]].used.Load()
+		return ui < uj || (ui == uj && ids[i] < ids[j])
+	})
 	for _, id := range ids {
 		if s.total <= s.budget {
 			return

@@ -78,6 +78,27 @@ func TestTornTail(t *testing.T) {
 	}
 }
 
+func TestEvictKeepsReadPack(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := OpenStore(dir, 2*packLimit+packLimit/2)
+	big := bytes.Repeat([]byte{1}, 1<<20)
+	per := packLimit / len(big)
+	// two full packs, pack 1 read from, then a third: pack 2 goes, not pack 1
+	for i := 0; i < 2*per; i++ {
+		s.Put(fmt.Sprintf("o/%d", i), big)
+	}
+	read(t, s, "o/0")
+	for i := 2 * per; i < 7*per/2; i++ {
+		s.Put(fmt.Sprintf("o/%d", i), big)
+	}
+	if read(t, s, "o/0") == nil {
+		t.Fatal("pack 1 was read last and got evicted")
+	}
+	if read(t, s, fmt.Sprintf("o/%d", per+1)) != nil {
+		t.Fatal("pack 2 was never read and survived")
+	}
+}
+
 func TestEvictOldestPack(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := OpenStore(dir, packLimit+packLimit/2)

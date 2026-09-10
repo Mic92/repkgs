@@ -7,7 +7,7 @@
 //	SLOT <build>\n         -> OK\n once a compiler slot is free. DONE\n or hang-up returns it (slots.go)
 //	STATS\n               -> gets=… hits=… puts=… ids=… slots=… waiting=… keys=… packs=… bytes=… live=…\n
 //
-// JIGD_SIZE (GiB, default 50) bounds the store; the oldest packs are dropped beyond it.
+// JIGD_SIZE (GiB, default 50) bounds the store; the least recently read packs are dropped beyond it.
 // JIGD_SLOTS (default: CPUs) is how many real compiler runs the host admits at once.
 package main
 
