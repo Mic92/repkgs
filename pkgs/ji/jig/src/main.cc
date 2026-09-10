@@ -3,7 +3,7 @@
 // (nix-store, cache, slot). Anything else is the compiler driver + compile cache.
 // Built and configured by bootstrap/{jig,cc}.nu. See the mode headers for details.
 //
-//   JIG_SOCK  cache socket (default <store>/../var/nix/pkgs-cache/socket) Absent -> everything runs uncached
+//   JIG_SOCK  cache socket (default <store>/../var/nix/jigd/socket) Absent -> everything runs uncached
 //   JIG_LOG   one line per invocation: "<hit|hit-fail|miss-*|plain-*> <source> <ms>"
 //   JIG_LOG_ARGS  "<kind>\t<user args>" for every uncached invocation (what to teach the cache next)
 //   JIG_STORE_IDENTITY, JIG_STORE_ROOTS  see store.h
@@ -68,7 +68,7 @@ auto RunSlotMode(std::span<const std::string> args, const std::string& socket_pa
 auto main(int argc, char** argv) -> int {
   const std::span<char*> raw(argv, static_cast<size_t>(argc));
   const std::vector<std::string> all(raw.begin(), raw.end());
-  const std::string socket_path = jig::Env("JIG_SOCK", jig::Store::Get().StateDir() + "/pkgs-cache/socket");
+  const std::string socket_path = jig::Env("JIG_SOCK", jig::Store::Get().StateDir() + "/jigd/socket");
   std::string mode = all.empty() ? "" : std::filesystem::path(all.at(0)).filename().string();
   std::span<const std::string> args = std::span(all).subspan(all.empty() ? 0 : 1);
   if (mode == "jig" && !args.empty()) {

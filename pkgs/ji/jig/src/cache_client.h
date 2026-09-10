@@ -1,4 +1,4 @@
-// Client for the cache daemon on an AF_UNIX socket (pkgs/pk/pkgs-cache).
+// Client for the cache daemon on an AF_UNIX socket (pkgs/ji/jigd).
 //   "GET key\n"             -> "OK <len>\n<bytes>" | "MISS\n"
 //   "PUT key <len>\n<bytes>" -> "OK\n"
 //   "IDS <n>\n" + n paths   -> n identity lines ("" = unreadable): the daemon memoises store files

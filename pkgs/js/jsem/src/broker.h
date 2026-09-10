@@ -1,5 +1,5 @@
 // GHC's -jsem protocol (a POSIX named semaphore ghc sem_waits on for every capability beyond its
-// first) backed by pkgs-cache slots. A token in the semaphore is a daemon slot this build holds
+// first) backed by jigd slots. A token in the semaphore is a daemon slot this build holds
 // idle. The broker keeps one such spare, orders another slot when it was taken and returns slots
 // when ghc gives tokens back. Only sem_trywait/sem_post observe the count (no sem_getvalue: macOS
 // lacks it).

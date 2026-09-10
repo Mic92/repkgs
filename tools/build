@@ -1,19 +1,19 @@
 #!/bin/sh
-# nix-build through the local compile cache: maps the pkgs-cache socket into the sandbox (needs a
+# nix-build through the local compile cache: maps the jigd socket into the sandbox (needs a
 # trusted user) and keeps the build on this machine, since a remote builder has no cache.
 #   tools/build -A jq            any nix-build arguments
-#   PKGS_CACHE_SOCK=… tools/build -A jq
+#   JIGD_SOCK=… tools/build -A jq
 set -eu
 cd "$(dirname "$0")/.."
 # in the sandbox: a root-owned location on every OS Nix runs on. On the host: the same if the
 # daemon runs as a service, else the user's private runtime dir (never world-writable /tmp:
 # whoever creates the socket first serves every build its objects)
-inside=/nix/var/nix/pkgs-cache/socket
-sock=${PKGS_CACHE_SOCK:-$inside}
-[ -S "$sock" ] || sock=${XDG_RUNTIME_DIR:-/nonexistent}/pkgs-cache/socket
+inside=/nix/var/nix/jigd/socket
+sock=${JIGD_SOCK:-$inside}
+[ -S "$sock" ] || sock=${XDG_RUNTIME_DIR:-/nonexistent}/jigd/socket
 if [ -S "$sock" ]; then
   set -- --option extra-sandbox-paths "$inside=$sock" --builders "" "$@"
 else
-  echo "tools/build: no pkgs-cache socket at $inside or \$XDG_RUNTIME_DIR/pkgs-cache/socket, building uncached" >&2
+  echo "tools/build: no jigd socket at $inside or \$XDG_RUNTIME_DIR/jigd/socket, building uncached" >&2
 fi
 exec nix-build . --no-out-link --log-format bar-with-logs "$@"

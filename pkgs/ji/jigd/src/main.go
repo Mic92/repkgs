@@ -1,4 +1,4 @@
-// Host side of jig's build cache: a pack-file blob store under $XDG_CACHE_HOME/pkgs-cache,
+// Host side of jig's build cache: a pack-file blob store under $XDG_CACHE_HOME/jigd,
 // served on a unix socket that nix.conf's extra-sandbox-paths maps into every build.
 //
 //	GET key\n             -> OK <len>\n<bytes> | MISS\n
@@ -7,8 +7,8 @@
 //	SLOT <build>\n         -> OK\n once a compiler slot is free. DONE\n or hang-up returns it (slots.go)
 //	STATS\n               -> gets=… hits=… puts=… ids=… slots=… waiting=… keys=… packs=… bytes=… live=…\n
 //
-// PKGS_CACHE_SIZE (GiB, default 50) bounds the store; the oldest packs are dropped beyond it.
-// PKGS_CACHE_SLOTS (default: CPUs) is how many real compiler runs the host admits at once.
+// JIGD_SIZE (GiB, default 50) bounds the store; the oldest packs are dropped beyond it.
+// JIGD_SLOTS (default: CPUs) is how many real compiler runs the host admits at once.
 package main
 
 import (
@@ -140,7 +140,7 @@ func serve(conn *net.UnixConn) {
 
 func main() {
 	if len(os.Args) != 2 {
-		log.Fatal("usage: pkgs-cache <socket>")
+		log.Fatal("usage: jigd <socket>")
 	}
 	sock := os.Args[1]
 	cache := os.Getenv("XDG_CACHE_HOME")
@@ -152,20 +152,20 @@ func main() {
 		cache = filepath.Join(home, ".cache")
 	}
 	budget := int64(50)
-	if v := os.Getenv("PKGS_CACHE_SIZE"); v != "" {
+	if v := os.Getenv("JIGD_SIZE"); v != "" {
 		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
 			budget = n
 		}
 	}
 	limit := runtime.NumCPU()
-	if v := os.Getenv("PKGS_CACHE_SLOTS"); v != "" {
+	if v := os.Getenv("JIGD_SLOTS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			limit = n
 		}
 	}
 	slots = NewSlots(limit)
 	var err error
-	store, err = OpenStore(filepath.Join(cache, "pkgs-cache", "packs"), budget<<30)
+	store, err = OpenStore(filepath.Join(cache, "jigd", "packs"), budget<<30)
 	if err != nil {
 		log.Fatal(err)
 	}

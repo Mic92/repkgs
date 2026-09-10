@@ -1,5 +1,5 @@
 # configure-time probe results (autotools config.cache, cmake's initial cache) shared across
-# builds through pkgs-cache, so a package's second build skips the hundreds of compiler probes.
+# builds through jigd, so a package's second build skips the hundreds of compiler probes.
 
 use core.nu *
 

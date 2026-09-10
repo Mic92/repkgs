@@ -3,7 +3,7 @@ use ../core.nu *
 # cabal v2-build against the set's shared hackage repository (locks/hackage.toml), with
 # ghc-bootstrap. Dependencies are cached per unit: cabal's unit-id already hashes source, flags,
 # compiler and the dependency closure, so a unit built once on this host (by any package) is
-# fetched from pkgs-cache instead of compiled. The store directory is the same fixed path in
+# fetched from jigd instead of compiled. The store directory is the same fixed path in
 # every sandbox so the paths inside cached units agree.
 def options []: nothing -> record { options-for cabal {deps: "", flags: [], exes: [], project: ""} }
 # under jsem when the daemon is there to hand out slots
@@ -25,7 +25,7 @@ export def --env setup []: nothing -> nothing {
   let repo = $"($c.build)/repo"
   mkdir $repo
   for f in (glob $"($o.deps)/*.{tar.gz,cabal}") { ^ln -s $f $repo }
-  # with pkgs-cache up, ghc's parallelism comes from its slots: `jsem` serves them as the -jsem
+  # with jigd up, ghc's parallelism comes from its slots: `jsem` serves them as the -jsem
   # semaphore. Its name is hashed into unit ids with the other ghc-options, so it is derived from
   # $out: stable across rebuilds, unique on the host
   load-env {CABAL_DIR: $"($c.build)/cabal", CABAL_UNITS: $"($STORE)/ghc-(^ghc --numeric-version | str trim)-inplace"

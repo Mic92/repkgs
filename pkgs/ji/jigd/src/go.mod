@@ -1,4 +1,4 @@
-module pkgs-cache
+module jigd
 
 go 1.22
 

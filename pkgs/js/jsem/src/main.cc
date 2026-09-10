@@ -1,4 +1,4 @@
-// jsem <program> [args…]: run it with $JSEM naming a POSIX semaphore that hands out pkgs-cache
+// jsem <program> [args…]: run it with $JSEM naming a POSIX semaphore that hands out jigd
 // slots ($JIG_SOCK) as GHC -jsem tokens. A caller may fix the name via $JSEM (cabal hashes
 // ghc-options into unit ids, a fresh name per build would defeat its store).
 #include <stdlib.h>  // NOLINT(modernize-deprecated-headers): setenv is POSIX, not <cstdlib>
@@ -41,7 +41,7 @@ auto main(int argc, char** argv) -> int {
   const std::string build = Env("NIX_BUILD_TOP", "-");
   const std::string name = Env("JSEM", std::format("/jsem_{}", ::getpid()));
   if (!jsem::DaemonUp(socket_path)) {
-    std::fputs(std::format("jsem: no pkgs-cache at JIG_SOCK={}\n", socket_path).c_str(), stderr);
+    std::fputs(std::format("jsem: no jigd at JIG_SOCK={}\n", socket_path).c_str(), stderr);
     return 1;
   }
   const std::unique_ptr<jsem::Sem> sem = jsem::Sem::Create(name, 0);

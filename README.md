@@ -37,7 +37,7 @@ that is incremental.
 To get the compile cache, run the daemon once and let the sandbox see its socket:
 
 ```console
-$ nix-build -A pkgs-cache && ./result/bin/pkgs-cache $XDG_RUNTIME_DIR/pkgs-cache/socket &
+$ nix-build -A jigd && ./result/bin/jigd $XDG_RUNTIME_DIR/jigd/socket &
 $ tools/build -A jq     # nix-build with the socket mapped into the sandbox, no remote builders
 ```
 
@@ -128,8 +128,8 @@ docs/             design.md (why), uptrack.md, plan.md
 ```
 
 The in-tree programs that make this work: **jig** (`pkgs/ji/jig`, C++) is the `cc`/`rustc`
-entry point, cache client and ELF fixup tool. **pkgs-cache** (`pkgs/pk/pkgs-cache`, Go) is the
-host-side cache daemon. **launch** and **crt-interp** are the few hundred bytes that make scripts
+entry point, cache client and ELF fixup tool. **jigd** (`pkgs/ji/jigd`, Go) is its host side: the
+per-machine daemon with the compile cache and the build slots. **launch** and **crt-interp** are the few hundred bytes that make scripts
 and ELF binaries relocatable. **uptrack** (nu) does updates.
 
 ## How the bootstrap goes

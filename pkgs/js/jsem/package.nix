@@ -1,4 +1,4 @@
-# GHC -jsem tokens served from pkgs-cache slots (builder/systems/cabal.nu runs cabal under it)
+# GHC -jsem tokens served from jigd slots (builder/systems/cabal.nu runs cabal under it)
 { package }:
 package {
   name = "jsem";

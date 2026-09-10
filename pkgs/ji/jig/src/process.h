@@ -11,7 +11,7 @@ namespace jig {
 
 class CacheClient;
 
-// Host-wide admission (pkgs-cache SLOT/DONE): several nix builds each running make -j$(nproc)
+// Host-wide admission (jigd SLOT/DONE): several nix builds each running make -j$(nproc)
 // would otherwise start max-jobs × nproc compilers. Held around every real compiler or linker run,
 // never for a cache hit. Sets JIG_SLOT so a jig the child spawns (rustc -> cc for linking) does
 // not wait for a second one. No daemon, or JIG_SLOT already set: no-op.

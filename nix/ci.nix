@@ -25,7 +25,7 @@ let
     "navidrome"
     "svgo"
     "maturin"
-    "pkgs-cache"
+    "jigd"
     "dbmate"
     "create-hono"
     "ruby-lsp"

@@ -95,7 +95,7 @@ export def --env main [
   let src = $"($env.NIX_BUILD_TOP)/source"
   let build = $"($env.NIX_BUILD_TOP)/build"
   mkdir $src $env.HOME
-  let cache = ($"($env.NIX_STORE | path dirname)/var/nix/pkgs-cache/socket" | path exists)
+  let cache = ($"($env.NIX_STORE | path dirname)/var/nix/jigd/socket" | path exists)
   if $cache { compiler-caches }
   let ctx = {|testsRun| {spec: $spec, out: $out, deps: $deps, njobs: $njobs, src: $env.PWD, build: $build, platform: $plat, testsRun: $testsRun, cache: $cache} }
   if $from_tree != "" {

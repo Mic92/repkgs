@@ -5,14 +5,16 @@ which problem each choice addresses, and the drawbacks we accepted.
 Things not built yet are in `plan.md`.
 
 Contents: [Goals](#goals) · [Evaluation](#evaluation) · [Sources and lock files](#sources-and-lock-files)
-· [Relocatable outputs](#relocatable-outputs) · [Builders](#builders) · [The compile cache](#the-compile-cache-jig-and-pkgs-cache)
+· [Relocatable outputs](#relocatable-outputs) · [Builders](#builders) · [jig and jigd](#jig-and-jigd-compile-cache-and-build-slots)
 · [Toolchain and bootstrap](#toolchain-bootstrap-cross) · [Updates](#updates)
 
-Four small in-tree programs come up throughout. **jig** is the compiler driver: the binary that
-is `cc`, `c++` and `rustc` on the build `PATH`, adds our flags, asks the compile cache, and as
-`reloc-fixup` post-processes ELF files. **pkgs-cache** is that cache's host-side daemon.
-**launch** is the one wrapper binary behind every installed script. **uptrack** updates
-versions and lock tables. Each has its section below.
+Some in-tree programs are referred to by name below.
+
+- **jig** is the compiler driver: the binary that is `cc`, `c++` and `rustc` on the build `PATH`, adds our flags, asks the compile cache, and as
+`reloc-fixup` post-processes ELF files.
+- **jigd** is its host side: one daemon per machine holding the compile cache and handing out build slots.
+- **launch** is the one wrapper binary behind every installed script.
+- **uptrack** updates versions and lock tables. Each has its section below.
 
 ## Goals
 
@@ -204,7 +206,7 @@ The resulting rules:
   default. `prepare` renders the dependency closure into `CPPFLAGS`, `LDFLAGS`, `PKG_CONFIG_PATH`,
   `CMAKE_PREFIX_PATH`. Nothing a dependency ships can run code in your build. `exports = false`
   marks toolchains and applications whose `lib/` is nobody's link input.
-- **Two dependency kinds, not six.** `buildDependencies` run on the build machine and go on
+- **`buildDependencies` and `dependencies`, not nixpkgs' six lists.** `buildDependencies` run on the build machine and go on
   `PATH`. `dependencies` are for the target: what they export says how they are consumed
   (headers and libraries for the compiler, a `bin/` or env for the installed program's launcher).
 - **Cross compilation is the build system's job, done once.** autotools gets `--host` and
@@ -224,7 +226,7 @@ The resulting rules:
   prints the pinned version, which catches many broken installs (missing data files, wrong
   rpath, stale version string).
 
-## The compile cache (jig and pkgs-cache)
+## jig and jigd: compile cache and build slots
 
 Nix caches derivations. Change one line of a recipe, or rebuild a dependency to
 an identical result under a new hash, and every compiler invocation downstream runs again. ccache
@@ -236,7 +238,7 @@ libc++, platform flags, prefix maps, the RUNPATH policy, the interp stub) and th
 As `rustc` it is a `RUSTC_WRAPPER`, as `gocacheprog` it speaks Go's cache protocol. It also
 does `reloc-fixup` and is the Nix worker-protocol client for dynamic derivations.
 
-If `/nix/var/nix/pkgs-cache/socket` exists in the sandbox (the user maps the host daemon's socket
+If `/nix/var/nix/jigd/socket` exists in the sandbox (the user maps the host daemon's socket
 in with `extra-sandbox-paths`, `tools/build` does that), jig asks it before compiling. If not, it just compiles. Derivations never
 mention the cache, so outputs are identical either way, and with content-addressed outputs that
 is verifiable by rebuilding without the socket.
@@ -253,13 +255,16 @@ What is cached and what the key is:
 | Haskell | cabal's unit id, which already hashes source, flags and dependencies |
 | autoconf `config.cache`, cmake's probe results | hash of the configure scripts + toolchain and dependency identities + platform + flags |
 
-The daemon (`pkgs/pk/pkgs-cache`, Go) is a bitcask-style store: append-only 256 MiB pack files,
-an in-memory index, hint files for fast startup, whole-pack eviction past a size limit, values
-served with `sendfile`. Clients compress with zstd-1 (3× on objects). It also memoises store-file
-identities so a cache hit does not re-hash a hundred headers, and hands out build slots so that
-384 sandboxes each running `make -j384` do not oversubscribe the machine. cc and rustc take a
-slot per run, go via `-toolexec jig slot`, and GHC through `jsem`, a small broker that serves ghc's
-`-jsem` semaphore from those slots.
+jigd (`pkgs/ji/jigd`, Go) serves every build on the machine:
+
+- **Object cache.** A bitcask-style store: append-only 256 MiB pack files, an in-memory index,
+  hint files for fast startup, whole-pack eviction past a size limit, values served with
+  `sendfile`. Clients compress with zstd-1 (3× on objects).
+- **Store-file identities.** It remembers the content hash of every store file it was asked
+  about, so a cache hit does not re-hash a hundred headers.
+- **Build slots.** 384 sandboxes each running `make -j384` would oversubscribe the machine, so a
+  compiler starts only when jigd grants a slot. cc and rustc take one per run, go via
+  `-toolexec jig slot`, and GHC through `jsem`, which serves ghc's `-jsem` semaphore from slots.
 
 Numbers: sqlite3.c 82 s → 0.08 s, fd's 200 rlibs 218 s → 1.4 s, outputs
 bit-identical. A full stage1 toolchain rebuild after touching its recipe: 5 min → 2.5 min, all of

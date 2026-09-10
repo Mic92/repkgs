@@ -10,7 +10,7 @@ export def --env setup []: nothing -> nothing {
   let c = (ctx); let o = (options)
   load-env {
     GOCACHE: $"($c.build)/go-cache", GOPATH: $"($c.build)/go", GOSUMDB: "off", GOTOOLCHAIN: "local"
-    # compile/asm/link take a host-wide pkgs-cache slot like cc and rustc do (jig slot)
+    # compile/asm/link take a host-wide jigd slot like cc and rustc do (jig slot)
     GOFLAGS: $"-mod=(if $o.deps != null { 'mod' } else { 'vendor' }) -trimpath -buildvcs=false '-toolexec=(tool jig) slot'"
     GOPROXY: (if $o.deps != null { $"file://($o.deps)" } else { "off" })
     # cgo reads CGO_CPPFLAGS/CGO_LDFLAGS, not CPPFLAGS/LDFLAGS: dependencies' include and lib dirs
