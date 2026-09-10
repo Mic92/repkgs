@@ -175,6 +175,12 @@ gl_cv_struct_dirent_d_ino=yes
 gl_cv_have_proc_uptime=yes
 gl_cv_double_slash_root=no
 gl_cv_C_locale_sans_EILSEQ=yes
+gl_cv_func_strcasecmp_works=yes
+
+# package configure.ac run probes: glibc facts all the same
+ac_cv_iconv_omits_bom=no # git
+ac_cv_fread_reads_directories=yes # git
+ac_cv_snprintf_returns_bogus=no # git
 
 # libtool: the toolchain is fixed
 lt_cv_deplibs_check_method=pass_all
