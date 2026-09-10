@@ -139,7 +139,8 @@ export def fix-env-shebangs [dir: path, njobs: int = 4, --undo]: nothing -> noth
   let pair = (if $undo { [$ours "#!/usr/bin/env"] } else { ["#!/usr/bin/env" $ours] } | each { into binary })
   # find does the walk and the executable/size filter in one process: nu stat-ing 180k llvm files
   # on all cores took 20s, this 1.5s. More than 16 threads only contend on the page cache
-  ^find $dir -type f -perm -u+x -size -1024k -printf '%T@ %p\n' | lines
+  # installers drop the x bit (wheels into site-packages), the line stays
+  ^find $dir -type f ...(if $undo { [] } else { [-perm -u+x] }) -size -1024k -printf '%T@ %p\n' | lines
   | par-each --threads ([$njobs 16] | math min) {|l|
     let p = ($l | parse '{mtime} {f}' | first)
     let bytes = (open --raw $p.f | into binary)
