@@ -77,7 +77,7 @@ export def collect [name: string, layout: list<record<to: string>>, inputs: list
         "copy" => { [(open --raw $e.copy | into binary) ($e.append | into binary)] | bytes collect | save $dst }
       }
     } | ignore
-    ^$"($bin)/chmod" -R u+w,a-st $out'
+    ^$"($bin)/chmod" -R u+w,go-w,a-st $out'
   let seed = $env.seed
   let drv = ({
     name: $name
