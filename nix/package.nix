@@ -219,7 +219,7 @@ let
     in
     r.l;
   # tests.separate: the build derivation skips *.test and keeps its tree in output `tree`;
-  # `<pkg>.tests` restores it and runs only the test verbs: a test failure fails that derivation,
+  # `<pkg>.tests` restores it and runs only the test phases: a test failure fails that derivation,
   # not the package, and a retry does not rebuild
   separate = args.tests.separate or false;
 
@@ -244,7 +244,7 @@ let
           if elem bs uses then "do {\ncd (${bs} workdir)\n${bs} ${elemAt p 1}\n}" else "${bs} ${elemAt p 1}";
       in
       if p == null || !(elem bs (uses ++ attrNames modules)) then
-        fail "step '${s}' is not <one of ${toString (uses ++ attrNames modules)}>.<verb>"
+        fail "step '${s}' is not <one of ${toString (uses ++ attrNames modules)}>.<phase>"
       else
         "note step ${s}\n${call}";
   # in the build script: test steps drop out when disabled or separate, and otherwise ask prepare
@@ -257,14 +257,14 @@ let
       ""
     else
       "if (ctx).testsRun {\n${stepBody s}\n}";
-  # `modules.zig = ./build.nu`: the package's own verbs as one more nu module, for steps too long
+  # `modules.zig = ./build.nu`: the package's own phases as one more nu module, for steps too long
   # to read inline ("zig.restore"). It imports the builder by bare name (`use core.nu *`)
   modules = args.modules or { };
   prelude =
     preludeBase
     ++ map (u: "use ${tree}/${buildSystems.${u}.module}") uses
     ++ map (m: "module ${m} { export use ${modules.${m}} * }\nuse ${m}") (attrNames modules);
-  # every step starts in a known directory: `<bs> workdir` for a build system's verbs, the first
+  # every step starts in a known directory: `<bs> workdir` for a build system's phases, the first
   # build system's for inline steps and package modules. setup exports env, hence --env
   workdir = if uses == [ ] then "(ctx).src" else "${builtins.head uses} workdir";
   setups = map (

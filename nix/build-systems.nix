@@ -1,4 +1,4 @@
-# What `uses = [ "<name>" ]` means: builder/systems/<name>.nu implements the verbs, `verbs` is the default
+# What `uses = [ "<name>" ]` means: builder/systems/<name>.nu implements the phases, `phases` is the default
 # step order (build test install unless said otherwise), `tools` go on PATH, `dependencies` add to
 # the package's, `prebuilt` is the package's default for that field, and `options` are what a
 # package may set under `<name>.*`: `{ type; default; doc; }` each, `type` the `builtins.typeOf`
@@ -59,7 +59,7 @@ builtins.mapAttrs
       inherit options;
       module = "systems/${name}.nu";
       steps = map (v: "${name}.${v}") (
-        bs.verbs or [
+        bs.phases or [
           "build"
           "test"
           "install"
@@ -78,7 +78,7 @@ builtins.mapAttrs
   )
   {
     autotools = {
-      verbs = [
+      phases = [
         "configure"
         "build"
         "test"
@@ -97,7 +97,7 @@ builtins.mapAttrs
       };
     };
     cmake = {
-      verbs = [
+      phases = [
         "configure"
         "build"
         "test"
@@ -116,7 +116,7 @@ builtins.mapAttrs
       };
     };
     meson = {
-      verbs = [
+      phases = [
         "configure"
         "build"
         "test"
@@ -134,7 +134,7 @@ builtins.mapAttrs
       };
     };
     python = {
-      verbs = [
+      phases = [
         "build"
         "install"
         "test"
@@ -195,7 +195,7 @@ builtins.mapAttrs
       };
     };
     luarocks = {
-      verbs = [ "install" ]; # luarocks make builds into --tree
+      phases = [ "install" ]; # luarocks make builds into --tree
       tools = [
         buildPkgs.luarocks
         sh
@@ -316,8 +316,8 @@ builtins.mapAttrs
       };
     };
     mix = {
-      # no test verb by default: MIX_ENV=test deps are outside the prod lock subset
-      verbs = [
+      # no test phase by default: MIX_ENV=test deps are outside the prod lock subset
+      phases = [
         "build"
         "install"
       ];
@@ -336,8 +336,8 @@ builtins.mapAttrs
       };
     };
     rebar3 = {
-      # no test verb by default: eunit/ct deps live in the test profile, outside rebar.lock
-      verbs = [
+      # no test phase by default: eunit/ct deps live in the test profile, outside rebar.lock
+      phases = [
         "build"
         "install"
       ];

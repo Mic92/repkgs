@@ -1,4 +1,4 @@
-# Everything before the first build-system verb: the environment (env.nu), the platform, the
+# Everything before the first build-system phase: the environment (env.nu), the platform, the
 # source tree (unpacked and patched, or restored for a tests derivation), and the `ctx` record
 # every later step reads.
 use core.nu *

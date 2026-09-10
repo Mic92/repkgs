@@ -1,4 +1,4 @@
-# Everything after the last verb: check the output, strip + split debug info, generate launchers,
+# Everything after the last phase: check the output, strip + split debug info, generate launchers,
 # reloc-fixup the tree, version/relocation check, write exports.json, print the cache summary.
 use core.nu *
 use implant.nu

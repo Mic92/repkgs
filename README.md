@@ -9,7 +9,7 @@ nixpkgs.
 - **Relocatable outputs.** Binaries find their libraries relative to themselves. A store path
   copied elsewhere still runs, and upstream prebuilt binaries get the same treatment.
 - **Nushell builders.** No bash, no setup hooks, no string-typed phases. A build system is a
-  small nu module with `configure`, `build`, `test` and `install` verbs.
+  small nu module with `configure`, `build`, `test` and `install` phases.
 - **A compile cache below Nix.** `cc`, `rustc`, `go` and configure probes are cached by content
   on the host, across derivations. Change a recipe and the derivation rebuilds, but almost
   nothing recompiles. The cache is a socket in the sandbox and not an input, so `.drv` hashes
@@ -108,7 +108,7 @@ dynamic derivation, with the hashes the lock file already has. Where it has none
 LuaRocks) they are kept in `locks/*.toml`.
 
 If a package needs something between the standard steps, add `steps`. Each entry is
-either a verb of the build system or a piece of nu with a name. Inside the nu, `$c` holds the
+either a phase of the build system or a piece of nu with a name. Inside the nu, `$c` holds the
 paths and facts of the build (`$c.out`, `$c.src`, `$c.build`, `$c.njobs`, `$c.platform`):
 
 ```nix
@@ -121,7 +121,7 @@ steps = [
 ```
 
 Steps too long to keep inline can live in their own file: `modules.rust = ./build.nu;` makes it
-a module, and steps call its verbs as `"rust.configure"`. pkgs/ru/rust does this.
+a module, and steps call its phases as `"rust.configure"`. pkgs/ru/rust does this.
 
 Every build ends the same way. ELF outputs are made relocatable. `bin/<name> --version` runs in
 an empty environment and has to print the pinned version. A `dlopen` that finds nothing during

@@ -1,6 +1,6 @@
 # The package builder's shared vocabulary. nix/package.nix generates, per package, the script
 #   use core.nu *; use prepare.nu; use finish.nu; use <bs>.nu …; prepare; <bs> setup …; <steps> …; finish
-# which runs in one nu process, so `def --env` verbs hand cwd and environment on to later steps.
+# which runs in one nu process, so `def --env` phases hand cwd and environment on to later steps.
 # This module is what build systems and custom steps import: ctx, options, x, tool, note, exports-of.
 
 # One log line per event, in Nix's own structured-log form ("@nix {json}", libutil/logging.cc) so
@@ -11,7 +11,7 @@ export def note [step: string, msg: string = ""]: nothing -> nothing {
   print -e $"@nix ($ev | to json -r)"
 }
 
-# what build-system verbs and custom steps get to see: {spec out deps njobs src build platform testsRun}
+# what build-system phases and custom steps get to see: {spec out deps njobs src build platform testsRun}
 export def ctx []: nothing -> record<spec: record, out: string, deps: list<record<name: string, root: string>>, roots: list<string>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool> { $env.PKGS_CTX }
 
 # a build system's options: nix/build-systems.nix defaults merged with the package's `<bs>.*`

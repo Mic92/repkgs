@@ -201,14 +201,14 @@ Here one nu process per build runs three things: `prepare` (environment, unpack,
 patch), the package's steps, and `finish` (output checks, debug split, launchers, relocation
 fixup, version test, `exports.json`, cache summary). Build systems are nu modules in `builder/`
 exporting `setup configure build test install`. `setup` exports the environment and leaves the
-process in the build system's working directory, so the verbs after it just run. A package
+process in the build system's working directory, so the phases after it just run. A package
 names them:
 
 ```nix
 uses = [ "cmake" ];                         # steps default to cmake's configure/build/test/install
 cmake.defs = { WITH_FOO = true; };          # options are per build system and checked at eval time
 steps = [ "cmake.configure" … { name = "x"; run = "<nu>"; } ];   # only when the default does not fit
-modules.foo = ./build.nu;                   # longer steps in a nu module of its own, "foo.<verb>"
+modules.foo = ./build.nu;                   # longer steps in a nu module of its own, "foo.<phase>"
 ```
 
 The resulting rules:
@@ -233,7 +233,7 @@ The resulting rules:
   archives, uncompressed man pages.
 - **Tests run**, in the build by default. `tests.separate` moves them into a derivation of their
   own, `<pkg>.tests`, which unpacks the kept source and build tree (a second output of the
-  package) and runs only the test verbs: the package is finished and usable before its tests
+  package) and runs only the test phases: the package is finished and usable before its tests
   ran, and a failing or flaky test is retried without rebuilding it. `tests.*` says whether and
   where tests run and means the same everywhere. Which tests to leave out is a build system
   option (`cmake.skipTests`, `cargo.skipTests`, …) in that runner's own terms, and for
