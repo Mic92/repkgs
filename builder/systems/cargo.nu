@@ -27,12 +27,22 @@ export def --env setup []: nothing -> nothing {
   # rustflags per target in config (RUSTFLAGS from the environment would replace them): panic
   # strings embed source paths, map build tree, cargo home and vendor dir away
   let rustflags = [$"--remap-path-prefix=($c.src)=/src" $"--remap-path-prefix=($env.CARGO_HOME)=/cargo" $"--remap-path-prefix=($o.deps)=/vendor"]
+  # cross: rust carries std for the build machine only, the target's is rust-std (cargo.tools):
+  # one sysroot of symlinks over both
+  let sysroot = (if $c.platform.cross {
+    let s = $"($c.build)/rust-sysroot"
+    let std = (tool-root rust-std)
+    mkdir $"($s)/lib/rustlib"
+    for d in (ls $"(tool rustc | path dirname -n 2)/lib/rustlib" | get name) { ^ln -s $d $"($s)/lib/rustlib/" }
+    ^ln -s $"($std)/lib/rustlib/($target)" $"($s)/lib/rustlib/"
+    [$"--sysroot=($s)"]
+  } else { [] })
   {
     source: {crates-io: {replace-with: vendored}, vendored: {directory: $o.deps}}
     net: {offline: true}
     build: {jobs: $c.njobs}
-    target: ({$target: {linker: cc, rustflags: $rustflags}}
-      | merge (if $c.platform.cross { {$host: {linker: cc-build, rustflags: $rustflags}} } else { {} }))
+    target: ({$target: {linker: cc, rustflags: ($rustflags ++ $sysroot)}}
+      | merge (if $c.platform.cross { {$host: {linker: cc-build, rustflags: ($rustflags ++ $sysroot)}} } else { {} }))
   } | to toml | save -f $"($env.CARGO_HOME)/config.toml"
   hide-env -i RUSTFLAGS
 }
