@@ -74,7 +74,7 @@ let
       c = cpus.${cpu};
     in
     (removeAttrs c [ "names" ])
-    // {
+    // rec {
       inherit cpu libc;
       os = "linux";
       names = builtins.mapAttrs (n: _: c.names.${n} or cpu) {
@@ -93,6 +93,7 @@ let
         }
         .${libc}
       }";
+      rustTriple = "${names.rust}-unknown-linux-${if libc == "musl" then "musl" else "gnu"}";
       interp = if libc == "musl" then "ld-musl-${cpu}.so.1" else c.interp.glibc;
       flags = c.march ++ c.hardening;
     };
@@ -111,6 +112,7 @@ let
       inherit (mk cpu "glibc") names;
       name = "${cpu}-windows";
       triple = "${cpu}-w64-mingw32";
+      rustTriple = "${cpu}-pc-windows-gnu";
       interp = "";
       hardening = [ ];
       flags = c.march;

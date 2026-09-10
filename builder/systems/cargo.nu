@@ -16,8 +16,7 @@ export def --env setup []: nothing -> nothing {
   load-env {CARGO_HOME: $"($c.build)/cargo-home", CARGO_TARGET_DIR: $"($c.build)/target", RUSTC: (tool rustc)}
   mkdir $env.CARGO_HOME
   let host = (^rustc -vV | lines | parse "host: {t}" | get t.0)
-  # cc targets the platform, cc-build the build machine (rust spells some cpus differently)
-  let target = ($c.platform.triple | str replace $c.platform.cpu $c.platform.names.rust)
+  let target = $c.platform.rustTriple
   $env.CARGO_BUILD_TARGET = $target
   # -sys crates: link our libraries (builder/sys-libs.nu); the vendor dir propagates the ones
   # Cargo.lock asks for. pkg-config, their usual probe, refuses to answer under --target without ALLOW_CROSS

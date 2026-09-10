@@ -71,6 +71,7 @@ let
         os
         names
         triple
+        rustTriple
         cross
         emulator
         ;

@@ -1,8 +1,6 @@
 # rust's own phases (package.nix `modules.rust`): bootstrap.toml for x.py, then build and install through it
 use core.nu *
 
-def rust-triple [c: record]: nothing -> string { $c.platform.triple | str replace $c.platform.cpu $c.platform.names.rust }
-
 # fix-env-shebangs edited vendored scripts: keep the crate checksums, drop the per-file ones
 def vendor-checksums []: nothing -> nothing {
   for f in (glob vendor/*/.cargo-checksum.json) {
@@ -17,7 +15,7 @@ const FREESTANDING = [wasm32-unknown-unknown wasm32v1-none bpfel-unknown-none bp
 export def configure []: nothing -> nothing {
   let c = (ctx)
   vendor-checksums
-  let triple = (rust-triple $c)
+  let triple = $c.platform.rustTriple
   let rb = (tool rustc | path dirname | path dirname) # rust-bootstrap, a build tool
   {
     change-id: "ignore"
@@ -72,7 +70,7 @@ export def stdConfigure []: nothing -> nothing {
   let c = (ctx)
   vendor-checksums
   let host = (^rustc -vV | lines | parse "host: {t}" | get t.0)
-  let triple = (rust-triple $c)
+  let triple = $c.platform.rustTriple
   let rust = (tool rustc | path dirname -n 2)
   {
     change-id: "ignore"
@@ -92,7 +90,7 @@ export def stdConfigure []: nothing -> nothing {
       optimized-compiler-builtins: false
     }
     install: {prefix: $c.out, sysconfdir: "etc"}
-    rust: {channel: "stable", remap-debuginfo: true, frame-pointers: true, lld: false, llvm-tools: false, codegen-backends: []}
+    rust: {channel: "stable", remap-debuginfo: true, frame-pointers: true, lld: false, llvm-tools: false}
     llvm: {download-ci-llvm: false}
     target: ({$triple: {cc: (tool cc), cxx: (tool c++), linker: (tool cc), ar: (tool llvm-ar), ranlib: (tool llvm-ranlib), crt-static: false}}
       | merge {$host: {cc: (tool cc-build), cxx: (tool c++-build), linker: (tool cc-build), ar: (tool llvm-ar)}})
@@ -104,6 +102,6 @@ export def stdBuild []: nothing -> nothing { x python3 x.py build --stage 0 libr
 
 export def stdInstall []: nothing -> nothing {
   let c = (ctx)
-  x python3 x.py install --stage 0 library/std $"--target=(rust-triple $c)"
+  x python3 x.py install --stage 0 library/std $"--target=($c.platform.rustTriple)"
   rm -rf $"($c.out)/bin" $"($c.out)/share" ...(glob $"($c.out)/lib/rustlib/{install.log,uninstall.sh,manifest-*,components,rust-installer-version}")
 }
