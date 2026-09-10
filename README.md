@@ -13,8 +13,9 @@ An experimental package set for stock Nix that revisits a few nixpkgs fundamenta
   on the host, across derivations. Changing a recipe rebuilds the derivation but recompiles
   almost nothing. It sits behind a socket in the sandbox and is no input of any derivation:
   the same .drv hashes with or without it.
-- **Cheap evaluation.** A package is a small attrset. One override tree instead of overlays, no fixpoints per package,
-  arguments passed by name as with `callPackage`, nothing more.
+- **Cheap evaluation.** A package is a small attrset. One override tree and a `packages`
+  argument for out-of-tree ones instead of overlays, no fixpoints per package, arguments passed
+  by name as with `callPackage`, nothing more.
 - **Bootstrapped from a small static seed** to glibc in two short stages, and languages
   (Rust, Go, Zig, GHC, OpenJDK) built from source on top, each seeded by its upstream binary.
 

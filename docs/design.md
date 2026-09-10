@@ -111,6 +111,18 @@ Inside the tree the same verbs make a variant of another package under its own n
 `sources.toml`, e.g. `pkgs/ll/llvm22/package.nix` is `{ variant, pkgs }: variant pkgs.llvm { }`
 and zig-llvm is `variant pkgs.llvm { cmake.defs.merge = { … }; steps.set = [ … ]; }`.
 
+Packages that are not in the tree come in through the second argument, `packages`: a name to a
+directory holding a package.nix (and sources.toml). They are called like in-tree ones, so
+`variant` works there too, and a name that exists in the tree is replaced:
+
+```nix
+import ./. {
+  packages.openssl-mine = ./openssl-mine;   # { variant, pkgs }: variant pkgs.openssl { patches.append = [ ./fix.patch ]; }
+  overrides.nginx.dependencies.remove = [ "openssl" ];
+  overrides.nginx.dependencies.append = [ "openssl-mine" ];
+}
+```
+
 ## Sources and lock files
 
 `sources.toml` holds a URL template, a hash and the pinned version. `nix/sources.nix` turns it

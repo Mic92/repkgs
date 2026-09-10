@@ -11,6 +11,9 @@
   seed ? null,
   # one tree or a list of them: { zlib.autotools.flags.append = [ … ]; } (nix/overrides.nix)
   overrides ? { },
+  # out-of-tree packages: name -> directory with package.nix (+ sources.toml), called like
+  # in-tree ones. A name that exists in the tree is replaced
+  packages ? { },
 }:
 let
   platforms = import ./nix/platforms.nix;
@@ -31,7 +34,12 @@ let
     if plat.cross then
       import ./. {
         platform = system;
-        inherit seed system overrides;
+        inherit
+          seed
+          system
+          overrides
+          packages
+          ;
       }
     else
       self;
@@ -155,6 +163,7 @@ let
           )
       ) (builtins.attrNames (removeAttrs (builtins.readDir ./pkgs) [ "aliases.toml" ]))
     )
+    // builtins.mapAttrs (n: dir: callPackage dir n) packages
     // aliases;
   # unversioned names for the default line of multi-version packages (pkgs/aliases.toml)
   aliases = builtins.mapAttrs (
