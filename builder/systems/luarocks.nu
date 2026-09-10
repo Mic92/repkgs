@@ -14,4 +14,9 @@ export def install []: nothing -> nothing {
   let o = (options luarocks)
   let lua = (dep-root lua "rocks run on the target lua")
   x luarocks make --tree $c.out $"--only-server=($o.deps)" --deps-mode one --no-doc $"LUA_DIR=($lua)" "CFLAGS=-O2 -fPIC" ...$o.flags ...([$o.rockspec] | compact)
+  # the bin wrappers name luarocks' own config dir: a build tool, and nothing reads it at run time
+  for f in (glob $"($c.out)/bin/*" --no-dir) {
+    let text = (open --raw $f | str replace -r "LUAROCKS_SYSCONFDIR='[^']*' " "")
+    $text | save -f $f
+  }
 }
