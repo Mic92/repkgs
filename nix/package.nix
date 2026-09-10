@@ -305,4 +305,9 @@ let
   );
 in
 assert checks;
-drv // { pname = name; } // (if separate then { tests = testsDrv; } else { })
+drv
+// {
+  pname = name;
+  args = args0; # what package.nix wrote, for `variant`
+}
+// (if separate then { tests = testsDrv; } else { })

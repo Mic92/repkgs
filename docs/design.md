@@ -58,7 +58,7 @@ pkgs/cp/cpython314/          a second major version is simply a second package
 ```
 
 `default.nix { platform }` lists `pkgs/*/*` with `readDir` and calls each `package.nix` with the
-arguments it names (`package pkgs buildPkgs platform fetch sources toolchain`). Everything is
+arguments it names (`package variant pkgs buildPkgs platform fetch sources toolchain`). Everything is
 lazy, so `nix-build -A jq` imports one package file. `buildPkgs` is the set for the build machine
 (the same set when not cross compiling). There are no nested package sets. Another platform is
 `import ./. { platform = … }`.
@@ -98,6 +98,10 @@ Every path is checked: an unknown package, a field that does not exist (without 
 `append` on something that is not a list, a dependency string naming no package, all fail with
 the path in the message. The edited spec then goes through the same validation as a written one.
 There is no `.override`, `.overrideAttrs`, overlay or module mechanism besides this.
+
+Inside the tree the same verbs make a variant of another package under its own name and
+`sources.toml`, e.g. `pkgs/ll/llvm22/package.nix` is `{ variant, pkgs }: variant pkgs.llvm { }`
+and zig-llvm is `variant pkgs.llvm { cmake.defs.merge = { … }; steps.set = [ … ]; }`.
 
 ## Sources and lock files
 

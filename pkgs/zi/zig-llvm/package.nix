@@ -1,18 +1,11 @@
 # LLVM with the clang and lld libraries, of the major zig links against (one behind ours,
-# tracked by update.nu). Same shape as pkgs/ll/llvm otherwise.
-{
-  package,
-  pkgs,
-  buildPkgs,
-}:
-package {
-  name = "zig-llvm";
-  uses = [ "cmake" ];
-  cmake.root = "llvm";
+# tracked by update.nu)
+{ variant, pkgs }:
+variant pkgs.llvm {
   # upstream a558d656 (LLVM 22): RDF specialised std::less/equal_to, which libc++ 23's
   # transparent-comparator machinery rejects
-  patches = [ ./rdf-std-specializations.patch ];
-  cmake.defs = (import ../../ll/llvm/defs.nix) // {
+  patches.set = [ ./rdf-std-specializations.patch ];
+  cmake.defs.merge = {
     # zig's cmake refuses an LLVM without every default target
     LLVM_TARGETS_TO_BUILD = "all";
     LLVM_ENABLE_PROJECTS = "clang;lld";
@@ -25,12 +18,7 @@ package {
     LIBCLANG_BUILD_STATIC = false;
     LLD_BUILD_TOOLS = false;
   };
-  dependencies = [
-    pkgs.zlib
-    pkgs.zstd
-  ];
-  buildDependencies = [ buildPkgs.cpython ];
-  steps = [
+  steps.set = [
     "cmake.configure"
     "cmake.build"
     "cmake.install"
@@ -40,6 +28,4 @@ package {
       run = "glob $\"($c.out)/bin/{git-clang-format,hmaptool,scan-*,analyze-*,intercept-*}\" | each { rm $in }";
     }
   ];
-  tests.run = false; # hours, as llvm
-  bin = [ "llvm-config" ];
 }

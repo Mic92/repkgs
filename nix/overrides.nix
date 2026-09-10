@@ -1,4 +1,5 @@
-# Overrides: edit package specs from outside the tree (docs/design.md "Overrides").
+# Overrides: edit package specs from outside the tree (docs/design.md "Overrides"), and the same
+# verbs in-tree as `variant pkgs.llvm { cmake.defs.merge = { … }; }` in a package.nix.
 #
 #   import ./. { overrides = { jq.autotools.flags.append = [ "--x" ]; }; }
 #
@@ -126,22 +127,23 @@ let
       in
       removeAttrs (cur // edited) removed;
 
+  # one package's subtree applied to its spec (also what `variant` in package.nix files uses)
+  applyOne =
+    pkgs: name: node: spec:
+    (node.edit or (s: s)) (
+      walk {
+        pkg = name;
+        inherit pkgs;
+      } [ ] (removeAttrs node [ "edit" ]) true spec
+    );
   apply =
     pkgs: tree: name: spec:
-    if tree ? ${name} then
-      (tree.${name}.edit or (s: s)) (
-        walk {
-          pkg = name;
-          inherit pkgs;
-        } [ ] (removeAttrs tree.${name} [ "edit" ]) true spec
-      )
-    else
-      spec;
+    if tree ? ${name} then applyOne pkgs name tree.${name} spec else spec;
 
   # packages the tree names that the set lacks
   unknown = pkgs: tree: filter (n: !(pkgs ? ${n})) (attrNames tree);
 in
 {
   merge = trees: if isList trees then mergeTrees trees else trees;
-  inherit apply unknown;
+  inherit apply applyOne unknown;
 }

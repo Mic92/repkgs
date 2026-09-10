@@ -4,7 +4,7 @@
 #
 # Every directory pkgs/<name>/ with a package.nix becomes attribute <name>. A package.nix is
 #   { package, pkgs, ... }: package { name = "<name>"; ... dependencies = [ pkgs.zlib ]; }
-# and may take any of: package pkgs buildPkgs platform fetch sources toolchain.
+# and may take any of: package variant pkgs buildPkgs platform fetch sources toolchain.
 {
   system ? builtins.currentSystem,
   platform ? system,
@@ -116,7 +116,7 @@ let
     inherit system;
   };
   callPackage =
-    dir:
+    dir: name:
     let
       fn = import (dir + "/package.nix");
       st = dir + "/sources.toml";
@@ -128,6 +128,8 @@ let
         // {
           inherit sources;
           package = package sources;
+          # another package's spec under this name and sources.toml, edited with override verbs
+          variant = base: tree: package sources (ov.applyOne self name tree (base.args // { inherit name; }));
         }
       )
     );
@@ -144,7 +146,7 @@ let
         map
           (n: {
             name = n;
-            value = callPackage (dir + "/${n}");
+            value = callPackage (dir + "/${n}") n;
           })
           (
             builtins.filter (n: builtins.pathExists (dir + "/${n}/package.nix")) (
