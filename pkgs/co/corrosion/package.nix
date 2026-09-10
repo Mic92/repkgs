@@ -1,10 +1,9 @@
-{ package }:
+{ package, buildPkgs }:
 package {
   name = "corrosion";
-  uses = [
-    "cmake"
-    "cargo"
-  ];
+  uses = [ "cmake" ];
+  # configure checks that cargo and rustc exist
+  buildDependencies = [ buildPkgs.rust ];
   steps = [
     "cmake.configure"
     "cmake.build"
