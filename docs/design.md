@@ -280,9 +280,9 @@ impossible.
 ```
 seed          static musl binaries: nu, the LLVM multicall binary (clang, lld, llvm-ar …),
               bsdtar, toybox, dash, make, gawk/sed/grep/m4/bison, a minimal python
-  → stage0    musl headers → compiler-rt → musl → linux headers → libc++ → jig → cc     ~3 min
+  → stage0    musl headers → compiler-rt → musl → linux headers → libc++ → jig → cc
               a C/C++ compiler for the build machine, PATH is only the seed
-  → stage1    linux headers → glibc → compiler-rt → libc++ → cc-<platform>              ~5 min
+  → stage1    linux headers → glibc → compiler-rt → libc++ → cc-<platform>
               once per target platform, built by stage0's cc through jig
   → pkgs/*
 ```

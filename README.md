@@ -138,8 +138,8 @@ and ELF binaries relocatable. **uptrack** (nu) does updates.
 
 ```
 seed (static: nu, clang/lld, bsdtar, toybox, make …)
-  → stage0: musl + libc++ + jig → a C/C++ compiler for the build machine        ~3 min
-  → stage1: glibc + compiler-rt + libc++ → cc-<platform>, one per target        ~5 min
+  → stage0: musl + libc++ + jig → a C/C++ compiler for the build machine
+  → stage1: glibc + compiler-rt + libc++ → cc-<platform>, one per target
   → pkgs/*
   → rust, go, zig, ghc, jdk: upstream binary as <lang>-bootstrap → built from source
 ```
