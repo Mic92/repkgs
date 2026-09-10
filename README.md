@@ -107,8 +107,9 @@ LuaRocks, the lock file in the source is turned into fixed-output fetches at bui
 dynamic derivation, with the hashes the lock file already has. Where it has none (Go, Hackage,
 LuaRocks) they are kept in `locks/*.toml`.
 
-When the default steps do not fit, `steps` spells them out. Build system verbs and inline nu mix
-freely. `$c` is the build context: `out`, `src`, `build`, `njobs`, `platform`, `spec`, `deps`.
+If a package needs something between the standard steps, list the steps yourself. Each entry is
+either a verb of the build system or a piece of nu with a name. Inside the nu, `$c` holds the
+paths and facts of the build (`$c.out`, `$c.src`, `$c.build`, `$c.njobs`, `$c.platform`):
 
 ```nix
 steps = [
