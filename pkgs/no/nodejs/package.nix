@@ -19,8 +19,12 @@ package {
     {
       name = "configure";
       run = ''
-        # node's configure is a python script, not autoconf
-        x python3 configure.py $"--prefix=($c.out)" --ninja --shared-zlib --shared-openssl --with-intl=small-icu --without-corepack
+        # a python script, not autoconf. gyp's host toolset (icupkg, mksnapshot) takes CC_host
+        let cross = (if $c.platform.cross {
+          load-env {CC_host: "cc-build", CXX_host: "c++-build", AR_host: "llvm-ar"}
+          [--cross-compiling $"--dest-cpu=($c.platform.names.gyp)" --dest-os=linux]
+        } else { [] })
+        x python3 configure.py $"--prefix=($c.out)" --ninja --shared-zlib --shared-openssl --with-intl=small-icu --without-corepack ...$cross
       '';
     }
     {

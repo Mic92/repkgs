@@ -1,13 +1,14 @@
 # CPU facts, the only place they live. `glibc.<cpu>` / `musl.<cpu>` / `forSystem` add the libc-
 # dependent fields (triple, dynamic linker name). `flags` end up in every cc invocation via jig.conf.
 # `names`: what other ecosystems call the cpu (kernel ARCH=, GOARCH, rust triple prefix, meson
-# cpu_family, qemu-user binary) where it differs from ours.
+# cpu_family, qemu-user binary, gyp/V8 dest-cpu) where it differs from ours.
 let
   cpus = {
     x86_64 = {
       names = {
         kernel = "x86";
         go = "amd64";
+        gyp = "x64";
       };
       march = [ "-march=x86-64-v3" ];
       hardening = [ "-fcf-protection=full" ];
@@ -17,6 +18,7 @@ let
       names = {
         kernel = "arm64";
         go = "arm64";
+        gyp = "arm64";
       };
       march = [ "-march=armv8.2-a+lse" ];
       hardening = [ "-mbranch-protection=standard" ];
@@ -42,6 +44,7 @@ let
       names = {
         kernel = "loongarch";
         go = "loong64";
+        gyp = "loong64";
       };
       march = [
         "-march=loongarch64"
@@ -56,6 +59,7 @@ let
         kernel = "powerpc";
         go = "ppc64le";
         meson = "ppc64";
+        gyp = "ppc64";
         qemu = "ppc64le";
       };
       march = [ "-mcpu=power9" ];
@@ -79,6 +83,7 @@ let
         rust = null;
         meson = null;
         qemu = null;
+        gyp = null;
       };
       name = "${cpu}-linux";
       triple = "${cpu}-unknown-linux-${
