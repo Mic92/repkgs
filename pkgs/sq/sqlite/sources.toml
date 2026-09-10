@@ -4,8 +4,8 @@ purl = "pkg:github/sqlite/sqlite"
 [[source]]
 key = "default"
 url = "https://github.com/sqlite/sqlite/archive/refs/tags/version-{version}.tar.gz"
-hash = "sha256-WECpqZ4jIa29oQAPkT4RRVBVvGrtf3fENtldqiDPUwE="
+hash = "sha256-tjmZGDf3uMchitP3qdINME1q2FJDfNPQoKg9LeLSxg8="
 
 [pin]
-version = "3.53.3"
-tag = "version-3.53.3"
+version = "3.53.4"
+tag = "version-3.53.4"
