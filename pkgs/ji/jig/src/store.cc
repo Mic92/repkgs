@@ -12,7 +12,6 @@
 namespace jig {
 
 namespace {
-constexpr size_t kHashLen = 32;
 constexpr std::string_view kDepfileDelimiters = " \t\n\\:";
 }  // namespace
 
@@ -31,8 +30,8 @@ auto Store::MaskHashes(std::string text) const -> std::string {
   const std::string prefix = dir_ + "/";
   for (size_t pos = 0; (pos = text.find(prefix, pos)) != std::string::npos;) {
     const size_t hash_start = pos + prefix.size();
-    if (text.size() > hash_start + kHashLen && text.at(hash_start + kHashLen) == '-') {
-      text.replace(hash_start, kHashLen, "*");
+    if (text.size() > hash_start + kStoreHashLength && text.at(hash_start + kStoreHashLength) == '-') {
+      text.replace(hash_start, kStoreHashLength, "*");
     }
     pos = hash_start + 1;
   }

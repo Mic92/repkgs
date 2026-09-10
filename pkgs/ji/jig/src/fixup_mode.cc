@@ -54,8 +54,21 @@ auto RelativeFrom(const fs::path& dir, const fs::path& target) -> std::string {
 struct FixupContext {
   fs::path prefix;
   std::vector<fs::path> own_lib_dirs;  // dirs under prefix that contain shared objects
+  std::vector<std::string> denied;     // hash parts of --deny paths
   int errors = 0;
 };
+
+// --deny: store paths that must not appear in any file (finish: build-machine packages when cross)
+void CheckDenied(FixupContext& ctx, const fs::path& path, std::string_view data) {
+  for (const std::string& hash : ctx.denied) {
+    if (const size_t pos = data.find(hash); pos != std::string_view::npos) {
+      const size_t end = std::min(data.size(), pos + kLeakContext);
+      std::println(stderr, "reloc-fixup: {} refers to build-platform {}", fs::relative(path, ctx.prefix).string(),
+                   data.substr(pos, end - pos));
+      ++ctx.errors;
+    }
+  }
+}
 
 // one RUNPATH element: its text, the directory it denotes, whether ld.so must still search it
 struct RunpathDir {
@@ -360,6 +373,7 @@ void FixOne(FixupContext& ctx, const fs::path& path) {
   if (!data) {
     return;
   }
+  CheckDenied(ctx, path, *data);
   ElfImage elf(std::move(*data));
   if (!elf.IsElf64LittleEndian()) {
     return;
@@ -422,10 +436,17 @@ auto ElfImage::WritePadded(std::uint64_t offset, std::uint64_t capacity, std::st
 
 auto RunFixupMode(std::span<const std::string> args) -> int {
   if (args.empty()) {
-    std::println(stderr, "usage: reloc-fixup <prefix>");
+    std::println(stderr, "usage: reloc-fixup <prefix> [--deny <store path>]...");
     return 2;
   }
-  FixupContext ctx{.prefix = fs::path(args.front()).lexically_normal(), .own_lib_dirs = {}, .errors = 0};
+  FixupContext ctx{.prefix = fs::path(args.front()).lexically_normal(), .own_lib_dirs = {}, .denied = {}, .errors = 0};
+  for (size_t i = 1; i + 1 < args.size(); i += 2) {
+    if (args.at(i) != "--deny") {
+      std::println(stderr, "reloc-fixup: unknown argument {}", args.at(i));
+      return 2;
+    }
+    ctx.denied.push_back(fs::path(args.at(i + 1)).filename().string().substr(0, kStoreHashLength));
+  }
   if (!Store::Get().IsStorePath(ctx.prefix.string())) {
     std::println(stderr, "reloc-fixup: {} is not under {}", ctx.prefix.string(), Store::Get().dir());
     return 2;

@@ -18,6 +18,10 @@
 #include <string_view>
 #include <unordered_map>
 #include <utility>
+
+namespace jig {
+constexpr size_t kStoreHashLength = 32;  // base-32 characters before the '-' in a store path name
+}  // namespace jig
 #include <vector>
 
 namespace jig {

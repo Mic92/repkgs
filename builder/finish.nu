@@ -137,8 +137,11 @@ export def main [
   if $prebuilt == false { split-debug $c }
   if $prebuilt == true { implant $c }
   launchers $c
-  # RUNPATH/PT_INTERP -> $ORIGIN-relative, in place (pkgs/ji/jig/src/fixup_mode.cc)
-  if $prebuilt != "ldso" { x reloc-fixup $c.out }
+  # RUNPATH/PT_INTERP -> $ORIGIN-relative, in place (pkgs/ji/jig/src/fixup_mode.cc). When
+  # cross, any mention of a build-machine package in the output is an error
+  let a = (attrs)
+  let deny = (if $c.platform.cross { $a.buildDependencies | where { $in not-in $a.dependencies } | each { [--deny $in] } | flatten } else { [] })
+  if $prebuilt != "ldso" { x reloc-fixup $c.out ...$deny }
   version-check $c
   # exports = false: a toolchain or application whose lib/ is its own business, nothing to link
   let own = (if $c.spec.exports? == false { {includeDirs: [], libDirs: [], libs: [], pkgconfigDirs: [], aclocalDirs: []} } else { $c.spec.exports? | default {} })
