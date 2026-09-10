@@ -107,7 +107,7 @@ LuaRocks, the lock file in the source is turned into fixed-output fetches at bui
 dynamic derivation, with the hashes the lock file already has. Where it has none (Go, Hackage,
 LuaRocks) they are kept in `locks/*.toml`.
 
-If a package needs something between the standard steps, list the steps yourself. Each entry is
+If a package needs something between the standard steps, add `steps`. Each entry is
 either a verb of the build system or a piece of nu with a name. Inside the nu, `$c` holds the
 paths and facts of the build (`$c.out`, `$c.src`, `$c.build`, `$c.njobs`, `$c.platform`):
 
