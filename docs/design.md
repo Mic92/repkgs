@@ -219,8 +219,10 @@ The resulting rules:
   the platform. `SOURCE_DATE_EPOCH` (clang derives `__DATE__` from it), `-ffile-prefix-map` for
   the build directory and every dependency, fixed hash seeds for Python and Perl, deterministic
   archives, uncompressed man pages.
-- **Tests run**, in the build by default. `tests.separate` moves them to a second derivation
-  that restores the build tree, so a flaky test cannot change the package's hash. `tests.skip`
+- **Tests run**, in the build by default. `tests.separate` moves them into a derivation of their
+  own, `<pkg>.tests`, which unpacks the kept source and build tree (a second output of the
+  package) and runs only the test verbs: the package is finished and usable before its tests
+  ran, and a failing or flaky test is retried without rebuilding it. `tests.skip`
   (name patterns) and `tests.parallel = false` mean the same to ctest, meson, cargo, go and make.
   `tests.version` checks that `bin/x --version` (or the command line given, `"go version"`)
   prints the pinned version, which catches many broken installs (missing data files, wrong

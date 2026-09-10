@@ -192,7 +192,8 @@ let
     in
     r.l;
   # tests.separate: the build derivation skips *.test and keeps its tree in output `tree`;
-  # `<pkg>.tests` restores it and runs only the test verbs, so a failing test cannot change the package
+  # `<pkg>.tests` restores it and runs only the test verbs: a test failure fails that derivation,
+  # not the package, and a retry does not rebuild
   separate = args.tests.separate or false;
 
   # same flags as treefmt's nu-typecheck, so what lints clean parses the same way here
