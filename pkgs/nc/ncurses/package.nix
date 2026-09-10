@@ -1,7 +1,13 @@
-{ package }:
+{
+  package,
+  buildPkgs,
+  platform,
+}:
 package {
   name = "ncurses";
   uses = [ "autotools" ];
+  # cross: the terminfo database is compiled by a tic that runs on the build machine
+  buildDependencies = if platform.cross then [ buildPkgs.ncurses ] else [ ];
   # widec with the classic names as linker scripts, libtinfo split out (what ghc bindists NEED),
   # terminfo searched relative to nothing store-bound: $TERMINFO_DIRS and the usual system paths
   autotools.flags = [
@@ -15,7 +21,16 @@ package {
     "--disable-stripping"
     "--with-terminfo-dirs=/etc/terminfo:/lib/terminfo:/usr/share/terminfo"
     "--without-manpages"
-  ];
+  ]
+  ++ (
+    if platform.cross then
+      [
+        "--with-tic-path=${buildPkgs.ncurses}/bin/tic"
+        "--with-infocmp-path=${buildPkgs.ncurses}/bin/infocmp"
+      ]
+    else
+      [ ]
+  );
   phases = [
     {
       name = "configure";
