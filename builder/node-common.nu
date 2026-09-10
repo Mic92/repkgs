@@ -14,7 +14,11 @@ export def install-tree []: nothing -> nothing {
   let tree = $"($c.out)/lib/node_modules/($c.spec.name)"
   mkdir ($tree | path dirname) $"($c.out)/bin"
   ^cp -r . $tree
-  for bin in (open package.json | get bin? | default {} | transpose name path) {
+  let pj = (open package.json)
+  # `bin` as a string means one executable named like the package (npm strips a scope)
+  let bins = ($pj.bin? | default {})
+  let bins = (if ($bins | describe) == string { {($pj.name | path basename): $bins} } else { $bins })
+  for bin in ($bins | transpose name path) {
     ^ln -s $"($tree)/($bin.path)" $"($c.out)/bin/($bin.name)"
   }
 }
