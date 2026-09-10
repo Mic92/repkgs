@@ -4,8 +4,9 @@ purl = "pkg:github/Kitware/CMake"
 [[source]]
 key = "default"
 url = "https://github.com/Kitware/CMake/releases/download/{tag}/cmake-{version}.tar.gz"
-hash = "sha256-y532uuIRpP13Uodi+jsVPxn8bFL45n7gBvJRERQtgdA="
+hash = "sha256-jonPS317BDeQVd/zK5n8tIf7SHoSwmV7v/mJfn6jS0o="
 
 [pin]
-version = "4.1.2"
-tag = "v4.1.2"
+version = "4.4.3"
+date = "2026-08-25"
+tag = "v4.4.3"
