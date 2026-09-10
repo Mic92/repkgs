@@ -10,6 +10,9 @@ def vendor-checksums []: nothing -> nothing {
   }
 }
 
+# std for these needs no libc or linker, so it ships with the compiler (as in nixpkgs)
+const FREESTANDING = [wasm32-unknown-unknown wasm32v1-none bpfel-unknown-none bpfeb-unknown-none]
+
 # x.py reads bootstrap.toml: our llvm, the rust-bootstrap binaries as stage0, one host triple
 export def configure []: nothing -> nothing {
   let c = (ctx)
@@ -24,7 +27,7 @@ export def configure []: nothing -> nothing {
     build: {
       build: $triple
       host: [$triple]
-      target: [$triple]
+      target: ([$triple] ++ $FREESTANDING)
       rustc: $"($rb)/bin/rustc"
       cargo: $"($rb)/bin/cargo"
       docs: false
@@ -47,7 +50,9 @@ export def configure []: nothing -> nothing {
       codegen-backends: [llvm]
       codegen-tests: false # want FileCheck, which our llvm does not install
     }
-    target: {$triple: {llvm-config: $"(dep-root llvm22 'libLLVM')/bin/llvm-config", cc: (tool cc), cxx: (tool c++), linker: (tool cc), ar: (tool ar), ranlib: (tool ranlib), crt-static: false}}
+    target: ({$triple: {llvm-config: $"(dep-root llvm22 'libLLVM')/bin/llvm-config", cc: (tool cc), cxx: (tool c++), linker: (tool cc), ar: (tool ar), ranlib: (tool ranlib), crt-static: false}}
+      # rust#132802: optimized builtins for wasm want a wasm C toolchain
+      | merge ($FREESTANDING | each {|t| {$t: {optimized-compiler-builtins: false, profiler: false}} } | into record))
     dist: {compression-formats: [gz], src-tarball: false}
   } | to toml | save -f bootstrap.toml
 }
