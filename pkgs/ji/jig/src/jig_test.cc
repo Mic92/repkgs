@@ -296,11 +296,27 @@ void TestRustInvocation() {
   assert(std::ranges::contains(inv.key_args, "--crate-type=lib"));
   assert(std::ranges::contains(inv.key_args, "--cap-lints=allow"));
   assert(!std::ranges::contains(inv.key_args, "-C=metadata=abcd"));
-  inv = jig::ParseRustInvocation(
-      V({"--crate-name", "foo", "src/main.rs", "--crate-type", "bin", "--emit=dep-info,link", "--out-dir", "/b"}));
-  assert(!inv.cacheable);
+  assert(!inv.links && inv.lib_dirs == V({"/b/deps"}));
+  inv = jig::ParseRustInvocation(V({
+      "--crate-name",
+      "foo",
+      "src/main.rs",
+      "--crate-type",
+      "bin",
+      "--emit=dep-info,link",
+      "--out-dir",
+      "/b",
+      "-C",
+      "linker=clang",
+      "-L",
+      "native=/b/build/x/out",
+  }));
+  assert(inv.cacheable && inv.links && inv.lib_dirs == V({"/b/build/x/out"}));
+  assert(std::ranges::contains(inv.key_args, "-C=linker=clang"));
   inv = jig::ParseRustInvocation(V({"-", "--crate-type", "lib"}));
-  assert(!inv.cacheable);
+  assert(!inv.cacheable && inv.query);
+  inv = jig::ParseRustInvocation(V({"-", "--crate-name", "___", "--print=file-names", "--crate-type", "bin"}));
+  assert(inv.query);
 }
 
 void TestGoCache() {

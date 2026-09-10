@@ -149,38 +149,74 @@ auto TakeNamedOption(std::span<const std::string> args, size_t& idx, RustInvocat
   } else if (auto value = take("--emit")) {
     inv.has_dep_info = inv.has_dep_info || value->contains("dep-info");
     inv.key_args.push_back("--emit=" + *value);
-  } else if (auto const value = take("-L")) {
-    // search dirs: externs are explicit inputs already
+  } else if (auto value = take("-L")) {
+    // rlib externs are explicit inputs already. The dirs matter for native -l when rustc links
+    const size_t kind = value->find('=');
+    inv.lib_dirs.push_back(kind == std::string::npos ? *value : value->substr(kind + 1));
   } else {
     return false;
   }
   return true;
 }
 
-// -C/-Z/… style options, joined with their value. Metadata hashes only rename outputs
+// -C/-Z/… style options, joined with their value ("-C" "opt=x" and "-Copt=x" both become
+// "-C=opt=x"). Metadata hashes only rename outputs, incremental state is not an input we see
 void TakeCodegenOption(std::span<const std::string> args, size_t& idx, RustInvocation& inv) {
-  constexpr std::string_view kExtraFilename = "extra-filename=";
   std::string full = args.at(idx);
   if (std::ranges::contains(kTwoTokenOptions, std::string_view(full)) && idx + 1 < args.size()) {
     full += "=" + args.at(++idx);
+  } else if (full.starts_with("-C") && !full.starts_with("-C=")) {
+    full.insert(2, "=");
   }
-  if (full.starts_with("-C=incremental=") || full.starts_with("-Cincremental=")) {
+  if (full.starts_with("-C=incremental=")) {
     inv.cacheable = false;
-  } else if (const size_t pos = full.find(kExtraFilename); pos != std::string::npos && full.starts_with("-C")) {
-    inv.extra_filename = full.substr(pos + kExtraFilename.size());
-  } else if (!full.starts_with("-C=metadata=") && !full.starts_with("-Cmetadata=")) {
+  } else if (full.starts_with("-C=extra-filename=")) {
+    inv.extra_filename = full.substr(std::string_view("-C=extra-filename=").size());
+  } else if (!full.starts_with("-C=metadata=")) {
+    if (full.starts_with("-C=linker=")) {
+      inv.linker = full.substr(std::string_view("-C=linker=").size());
+    } else if (full.starts_with("-l=")) {
+      inv.native_libs.push_back(full.substr(full.rfind('=') + 1));  // -l [KIND[:MODIFIERS]=]NAME
+    }
+    inv.links = inv.links || full == "--crate-type=bin" || full == "--crate-type=proc-macro" ||
+                full == "--crate-type=cdylib" || full == "--crate-type=dylib";
+    inv.has_crate_type = inv.has_crate_type || full.starts_with("--crate-type=");
     inv.key_args.push_back(std::move(full));
   }
 }
 
-// executables and dylibs are produced by an external linker whose identity and flags we cannot see
-auto LinksExternally(const RustInvocation& inv) -> bool {
-  const auto crate_type = [&](std::string_view type) -> bool {
-    return std::ranges::contains(inv.key_args, std::format("--crate-type={}", type));
-  };
-  const bool has_type = std::ranges::any_of(
-      inv.key_args, [](const std::string& key_arg) -> bool { return key_arg.starts_with("--crate-type="); });
-  return !has_type || crate_type("bin") || crate_type("cdylib") || crate_type("dylib") || crate_type("proc-macro");
+// first `name` on PATH (name itself if it has a directory part or is not found)
+auto OnPath(const std::string& name) -> std::string {
+  if (!name.contains('/')) {
+    for (const std::string& dir : Split(Env("PATH"), ':')) {
+      std::error_code ignored;
+      if (fs::exists(fs::path(dir) / name, ignored)) {
+        return (fs::path(dir) / name).string();
+      }
+    }
+  }
+  return name;
+}
+
+// What a linking rustc (bin, proc-macro, cdylib, dylib) reads besides its rlib externs: the
+// linker (-C linker= or cc from PATH), and for each native -l the file it resolves to in a
+// non-store -L dir (target/build/*/out, written by a build script). Store -L dirs are covered
+// by their masked path in key_args. Not the whole dir: target/debug/deps is on -L too and holds
+// whatever other crates finished first
+void HashLinkInputs(Hasher& hasher, const RustInvocation& inv, const Store& store) {
+  hasher.Field("linker=" + Store::ToolId(OnPath(inv.linker.empty() ? "cc" : inv.linker)));
+  for (const std::string& lib : inv.native_libs) {
+    for (const std::string& dir : inv.lib_dirs) {
+      if (store.IsStorePath(dir)) {
+        continue;
+      }
+      for (const std::string& file : {std::format("lib{}.a", lib), std::format("lib{}.so", lib)}) {
+        if (const std::optional<std::string> identity = store.InputId((fs::path(dir) / file).string())) {
+          hasher.Field(std::format("native:{}={}", file, *identity));
+        }
+      }
+    }
+  }
 }
 
 }  // namespace
@@ -194,10 +230,10 @@ auto ParseRustInvocation(std::span<const std::string> args) -> RustInvocation {
     if (TakeNamedOption(args, i, inv)) {
       continue;
     }
-    if (arg == "-o" || arg == "--print" || arg.starts_with("--print=") || arg == "-") {
+    if (arg == "--print" || arg.starts_with("--print=") || arg == "-" || arg == "-vV" || arg == "--version") {
+      inv.query = true;
+    } else if (arg == "-o") {
       inv.cacheable = false;
-    } else if (arg.starts_with("-L")) {
-      // -Lnative=…: same as the two-token form
     } else if (!arg.starts_with('-') && arg.ends_with(".rs")) {
       inv.source = arg;
       ++sources;
@@ -205,7 +241,8 @@ auto ParseRustInvocation(std::span<const std::string> args) -> RustInvocation {
       TakeCodegenOption(args, i, inv);
     }
   }
-  if (sources != 1 || LinksExternally(inv) || inv.out_dir.empty() || !inv.has_dep_info) {
+  inv.links = inv.links || !inv.has_crate_type;  // no --crate-type means bin
+  if (inv.query || sources != 1 || inv.out_dir.empty() || !inv.has_dep_info) {
     inv.cacheable = false;
   }
   return inv;
@@ -238,7 +275,9 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
       status = Run(rustc, inv.args, StderrMode::kInherit).status;
     }
     Outcome outcome = Outcome::kPlainNoSocket;
-    if (!inv.cacheable) {
+    if (inv.query) {
+      outcome = Outcome::kPlainQuery;
+    } else if (!inv.cacheable) {
       outcome = Outcome::kPlainCompile;
     } else if (!source_bytes) {
       outcome = Outcome::kPlainNoSource;
@@ -254,14 +293,18 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
   }
   Hasher hasher;
   // bumped when what a key covers changes, so entries made under the old rules are not asked for
-  hasher.Field("rs-schema=2");
-  hasher.Field("rustc=" + Store::ToolId(rustc));
+  hasher.Field("rs-schema=3");
+  // cargo may hand us a bare `rustc`: resolve on PATH first, or two toolchains share a key
+  hasher.Field("rustc=" + Store::ToolId(OnPath(rustc)));
   hasher.Field("cwd=" + store.Key(fs::current_path().string()));
   for (const std::string& arg : inv.key_args) {
     hasher.Field(store.Key(arg));
   }
   for (const std::string& rlib : inv.externs) {
     hasher.Field("extern:" + store.InputId(rlib).value_or("?"));
+  }
+  if (inv.links) {
+    HashLinkInputs(hasher, inv, store);
   }
   for (const char* var :
        {"CARGO_PKG_NAME", "CARGO_PKG_VERSION", "CARGO_CFG_TARGET_FEATURE", "RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS"}) {

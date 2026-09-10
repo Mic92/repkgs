@@ -24,7 +24,14 @@ struct RustInvocation {
   // do not change their contents beyond that name, so they stay out of the key. Artifacts are
   // stored with the stem replaced by "@" and renamed on restore
   std::string extra_filename;
+  // bin, proc-macro, cdylib, dylib: rustc runs the linker, so PATH and native -L dirs are inputs
+  bool links = false;
+  bool has_crate_type = false;
+  std::string linker;                    // -C linker=, else cc
+  std::vector<std::string> lib_dirs;     // -L values without their KIND= prefix
+  std::vector<std::string> native_libs;  // -l names without KIND/MODIFIERS
   bool cacheable = true;
+  bool query = false;  // --print, -vV, `-` as source: cargo probing rustc, not a build step
   bool has_dep_info = false;
 };
 
