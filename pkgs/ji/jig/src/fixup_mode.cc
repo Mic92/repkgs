@@ -84,9 +84,12 @@ auto ReadSections(const ElfImage& elf, const Elf64_Ehdr& ehdr) -> std::vector<Se
   return sections;
 }
 
+// ld.so matches a DT_VERNEED entry to the loaded object by string equality with the DT_NEEDED
+// it was loaded under, so when NEEDED becomes a path vn_file must name the same string
 struct Needed {
   std::string name;
-  std::uint64_t val_offset = 0;  // file offset of this entry's d_un.d_val
+  std::uint64_t val_offset = 0;         // file offset of this entry's d_un.d_val
+  std::vector<std::uint64_t> vn_files;  // file offsets of Elf64_Verneed.vn_file naming it (Elf64_Word)
 };
 
 struct DynamicInfo {
@@ -111,15 +114,52 @@ auto ReadDynamic(const ElfImage& elf, const std::vector<Section>& sections) -> D
     }
     // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): Elf64_Dyn is defined with a union
     if (dyn->d_tag == DT_NEEDED) {
-      info.needed.push_back(
-          {.name = elf.CString(dynstr.offset + dyn->d_un.d_val), .val_offset = off + offsetof(Elf64_Dyn, d_un)});
+      info.needed.push_back({
+          .name = elf.CString(dynstr.offset + dyn->d_un.d_val),
+          .val_offset = off + offsetof(Elf64_Dyn, d_un),
+          .vn_files = {},
+      });
     }
     if (dyn->d_tag == DT_RUNPATH || dyn->d_tag == DT_RPATH) {
       info.runpath_offset = dynstr.offset + dyn->d_un.d_val;
     }
     // NOLINTEND(cppcoreguidelines-pro-type-union-access)
   }
+  const auto verneed =
+      std::ranges::find_if(sections, [](const Section& section) -> bool { return section.type == SHT_GNU_verneed; });
+  for (std::uint64_t off = verneed == sections.end() ? 0 : verneed->offset; off != 0;) {
+    const auto ent = elf.Read<Elf64_Verneed>(off);
+    if (!ent) {
+      break;
+    }
+    const std::string file = elf.CString(dynstr.offset + ent->vn_file);
+    for (Needed& lib : info.needed) {
+      if (lib.name == file) {
+        lib.vn_files.push_back(off + offsetof(Elf64_Verneed, vn_file));
+      }
+    }
+    off = ent->vn_next == 0 ? 0 : off + ent->vn_next;
+  }
   return info;
+}
+
+// GNU ld suffix-merges .dynstr, so a symbol name could be the tail of the RUNPATH string and
+// rewriting it would rename the symbol. lld only merges identical strings. Refuse, do not corrupt
+auto SymbolInside(const ElfImage& elf, const std::vector<Section>& sections, std::uint64_t begin, std::uint64_t end)
+    -> std::optional<std::string> {
+  const auto dynsym =
+      std::ranges::find_if(sections, [](const Section& section) -> bool { return section.type == SHT_DYNSYM; });
+  if (dynsym == sections.end() || dynsym->entsize < sizeof(Elf64_Sym) || dynsym->link >= sections.size()) {
+    return std::nullopt;
+  }
+  const std::uint64_t strtab = sections.at(dynsym->link).offset;
+  for (std::uint64_t off = dynsym->offset; off < SectionEnd(elf, *dynsym); off += dynsym->entsize) {
+    const auto sym = elf.Read<Elf64_Sym>(off);
+    if (sym && strtab + sym->st_name > begin && strtab + sym->st_name < end) {
+      return elf.CString(strtab + sym->st_name);
+    }
+  }
+  return std::nullopt;
 }
 
 // the existing RUNPATH with store entries made $ORIGIN-relative, then this package's own lib dirs
@@ -202,6 +242,12 @@ auto FixRunpath(FixupContext& ctx, const fs::path& path, ElfImage& elf, const st
     neu = blob = RenderRunpath(runpath);
   }
   if (blob != old) {
+    if (const auto sym = SymbolInside(elf, sections, runpath_offset, runpath_offset + old.size())) {
+      std::println(stderr, "{}: symbol '{}' shares bytes with RUNPATH (suffix-merged .dynstr, not lld?)", path.string(),
+                   *sym);
+      ++ctx.errors;
+      return false;
+    }
     if (!elf.WritePadded(runpath_offset, old.size(), blob)) {
       std::println(stderr, "{}: RUNPATH does not fit ({} > {}): {}", path.string(), blob.size(), old.size(), neu);
       ++ctx.errors;
@@ -210,6 +256,9 @@ auto FixRunpath(FixupContext& ctx, const fs::path& path, ElfImage& elf, const st
     std::uint64_t str = runpath_offset + neu.size() + 1 - dynamic.dynstr;
     for (const auto& dep : direct) {
       elf.Write<std::uint64_t>(dep.first->val_offset, str);
+      for (const std::uint64_t vn_file : dep.first->vn_files) {
+        elf.Write<std::uint32_t>(vn_file, static_cast<std::uint32_t>(str));
+      }
       str += target(dep).size() + 1;
     }
     dirty = true;

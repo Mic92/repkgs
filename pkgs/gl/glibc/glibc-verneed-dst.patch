@@ -1,0 +1,47 @@
+From b42da740846beeace5a473bbfec4135bf4349f42 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?J=C3=B6rg=20Thalheim?= <joerg@thalheim.io>
+Date: Thu, 10 Sep 2026 10:32:33 +0200
+Subject: [PATCH] dl-version: expand DSTs in Verneed file names like in
+ DT_NEEDED
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Jörg Thalheim <joerg@thalheim.io>
+---
+ elf/dl-version.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/elf/dl-version.c b/elf/dl-version.c
+index 77969b7726..dabf86aa3d 100644
+--- a/elf/dl-version.c
++++ b/elf/dl-version.c
+@@ -22,6 +22,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <ldsodefs.h>
++#include <dl-dst.h>
+ #include <_itoa.h>
+ 
+ #include <assert.h>
+@@ -197,7 +198,16 @@ _dl_check_map_versions (struct link_map *map, int verbose, int trace_mode)
+       while (1)
+ 	{
+ 	  ElfW(Vernaux) *aux;
+-	  struct link_map *needed = find_needed (strtab + ent->vn_file, map);
++	  /* A DT_NEEDED naming a path with $ORIGIN is loaded under its
++	     expanded name (dl-deps.c expand_dst), so a Verneed entry for it
++	     has to be expanded the same way to find that object.  */
++	  const char *file = strtab + ent->vn_file;
++	  size_t dst_cnt = _dl_dst_count (file);
++	  if (dst_cnt != 0)
++	    file = _dl_dst_substitute
++	      (map, file, alloca (DL_DST_REQUIRED (map, file, strlen (file),
++						  dst_cnt)));
++	  struct link_map *needed = find_needed (file, map);
+ 
+ 	  /* If NEEDED is NULL this means a dependency was not found
+ 	     and no stub entry was created.  This should never happen.  */
+-- 
+2.55.0
+
