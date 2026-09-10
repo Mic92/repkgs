@@ -22,6 +22,7 @@ package {
       run = ''
         # configure derives the .pc dir from pkg-config's search path otherwise
         $env.PKG_CONFIG_LIBDIR = $"($c.out)/lib/pkgconfig"
+        $env.BUILD_CC = $env.CC_FOR_BUILD # cross: it guesses gcc
         autotools configure
       '';
     }
