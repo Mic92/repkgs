@@ -2,8 +2,8 @@
 // root is the primary source, rustc's dep-info lists every module file (the manifest inputs),
 // --extern rlibs are hashed into k1. Artifacts = every rule head in the dep-info (rlib, rmeta,
 // .d), stored as one blob. Cargo always passes --out-dir and --emit=dep-info,…, so the command
-// line is left untouched. bin/cdylib/proc-macro crates go through an external linker and are
-// not cached.
+// line is left untouched. Crates that link (bin, proc-macro, cdylib, dylib) are not cached:
+// the ELF embeds interp, RUNPATH and native libraries as absolute store paths.
 #pragma once
 
 #include <span>
@@ -24,12 +24,8 @@ struct RustInvocation {
   // do not change their contents beyond that name, so they stay out of the key. Artifacts are
   // stored with the stem replaced by "@" and renamed on restore
   std::string extra_filename;
-  // bin, proc-macro, cdylib, dylib: rustc runs the linker, so PATH and native -L dirs are inputs
   bool links = false;
   bool has_crate_type = false;
-  std::string linker;                    // -C linker=, else cc
-  std::vector<std::string> lib_dirs;     // -L values without their KIND= prefix
-  std::vector<std::string> native_libs;  // -l names without KIND/MODIFIERS
   bool cacheable = true;
   bool query = false;  // --print, -vV, `-` as source: cargo probing rustc, not a build step
   bool has_dep_info = false;

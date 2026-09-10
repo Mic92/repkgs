@@ -149,10 +149,8 @@ auto TakeNamedOption(std::span<const std::string> args, size_t& idx, RustInvocat
   } else if (auto value = take("--emit")) {
     inv.has_dep_info = inv.has_dep_info || value->contains("dep-info");
     inv.key_args.push_back("--emit=" + *value);
-  } else if (auto value = take("-L")) {
-    // rlib externs are explicit inputs already. The dirs matter for native -l when rustc links
-    const size_t kind = value->find('=');
-    inv.lib_dirs.push_back(kind == std::string::npos ? *value : value->substr(kind + 1));
+  } else if (take("-L")) {
+    // search dirs only matter when linking; rlib externs are explicit inputs already
   } else {
     return false;
   }
@@ -173,11 +171,6 @@ void TakeCodegenOption(std::span<const std::string> args, size_t& idx, RustInvoc
   } else if (full.starts_with("-C=extra-filename=")) {
     inv.extra_filename = full.substr(std::string_view("-C=extra-filename=").size());
   } else if (!full.starts_with("-C=metadata=")) {
-    if (full.starts_with("-C=linker=")) {
-      inv.linker = full.substr(std::string_view("-C=linker=").size());
-    } else if (full.starts_with("-l=")) {
-      inv.native_libs.push_back(full.substr(full.rfind('=') + 1));  // -l [KIND[:MODIFIERS]=]NAME
-    }
     inv.links = inv.links || full == "--crate-type=bin" || full == "--crate-type=proc-macro" ||
                 full == "--crate-type=cdylib" || full == "--crate-type=dylib";
     inv.has_crate_type = inv.has_crate_type || full.starts_with("--crate-type=");
@@ -198,36 +191,27 @@ auto OnPath(const std::string& name) -> std::string {
   return name;
 }
 
-auto RealPath(const std::string& path) -> std::string {
-  std::error_code error;
-  const fs::path real = fs::canonical(path, error);
-  return error ? path : real.string();
-}
-
-// What a linking rustc (bin, proc-macro, cdylib, dylib) reads besides its rlib externs: the
-// linker (-C linker= or cc from PATH), and for each native -l the file it resolves to in a
-// non-store -L dir (target/build/*/out, written by a build script). Store -L dirs are covered
-// by their masked path in key_args. Not the whole dir: target/debug/deps is on -L too and holds
-// whatever other crates finished first.
-// A linked ELF embeds PT_INTERP, RUNPATH and libstd's location as absolute store paths, so
-// unlike an rlib it is only right for these exact linker and rustc paths: hashed unmasked
-void HashLinkInputs(Hasher& hasher, const RustInvocation& inv, const Store& store, const std::string& rustc) {
-  const std::string linker = OnPath(inv.linker.empty() ? "cc" : inv.linker);
-  hasher.Field("linker=" + store.ToolId(linker));
-  hasher.Field("linker-path=" + RealPath(fs::path(linker).parent_path().string()));
-  hasher.Field("rustc-path=" + RealPath(fs::path(rustc).parent_path().string()));
-  for (const std::string& lib : inv.native_libs) {
-    for (const std::string& dir : inv.lib_dirs) {
-      if (store.IsStorePath(dir)) {
-        continue;
-      }
-      for (const std::string& file : {std::format("lib{}.a", lib), std::format("lib{}.so", lib)}) {
-        if (const std::optional<std::string> identity = store.InputId((fs::path(dir) / file).string())) {
-          hasher.Field(std::format("native:{}={}", file, *identity));
-        }
-      }
+// under a build slot unless it is a probe, logged with why it was not cached
+auto RunUncached(CacheClient& cache, const std::string& socket_path, const std::string& rustc,
+                 const RustInvocation& inv, bool have_source, const std::string& label, const Stopwatch& clock) -> int {
+  int status = 0;
+  {
+    std::optional<Slot> slot;
+    if (!inv.source.empty()) {
+      slot.emplace(cache, socket_path);
     }
+    status = Run(rustc, inv.args, StderrMode::kInherit).status;
   }
+  Outcome outcome = Outcome::kPlainNoSocket;
+  if (inv.query) {
+    outcome = Outcome::kPlainQuery;
+  } else if (!inv.cacheable) {
+    outcome = inv.links ? Outcome::kPlainLink : Outcome::kPlainCompile;
+  } else if (!have_source) {
+    outcome = Outcome::kPlainNoSource;
+  }
+  LogOutcome("rustc", outcome, label, clock);
+  return status;
 }
 
 }  // namespace
@@ -252,8 +236,10 @@ auto ParseRustInvocation(std::span<const std::string> args) -> RustInvocation {
       TakeCodegenOption(args, i, inv);
     }
   }
-  inv.links = inv.links || !inv.has_crate_type;  // no --crate-type means bin
-  if (inv.query || sources != 1 || inv.out_dir.empty() || !inv.has_dep_info) {
+  // what links (bin, build scripts, proc-macro, cdylib; no --crate-type means bin) embeds the
+  // interp, RUNPATH and every native library as absolute store paths: right for one closure only
+  inv.links = inv.links || !inv.has_crate_type;
+  if (inv.query || inv.links || sources != 1 || inv.out_dir.empty() || !inv.has_dep_info) {
     inv.cacheable = false;
   }
   return inv;
@@ -277,28 +263,10 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
     source_bytes = ReadFile(inv.source);
   }
   if (!inv.cacheable || !source_bytes || !cache.Connect(socket_path)) {
-    int status = 0;
-    {
-      std::optional<Slot> slot;
-      if (!inv.source.empty()) {  // not `rustc -vV` and such
-        slot.emplace(cache, socket_path);
-      }
-      status = Run(rustc, inv.args, StderrMode::kInherit).status;
-    }
-    Outcome outcome = Outcome::kPlainNoSocket;
-    if (inv.query) {
-      outcome = Outcome::kPlainQuery;
-    } else if (!inv.cacheable) {
-      outcome = Outcome::kPlainCompile;
-    } else if (!source_bytes) {
-      outcome = Outcome::kPlainNoSource;
-    }
-    LogOutcome("rustc", outcome, label, clock);
-    return status;
+    return RunUncached(cache, socket_path, rustc, inv, source_bytes.has_value(), label, clock);
   }
 
-  Store& store = Store::Get();
-  store.LearnRoots(args);
+  const Store& store = Store::Get();
   Hasher hasher;
   // bumped when what a key covers changes, so entries made under the old rules are not asked for
   hasher.Field("rs-schema=5");
@@ -310,9 +278,6 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
   }
   for (const std::string& rlib : inv.externs) {
     hasher.Field("extern:" + store.InputId(rlib).value_or("?"));
-  }
-  if (inv.links) {
-    HashLinkInputs(hasher, inv, store, OnPath(rustc));
   }
   for (const char* var :
        {"CARGO_PKG_NAME", "CARGO_PKG_VERSION", "CARGO_CFG_TARGET_FEATURE", "RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS"}) {
