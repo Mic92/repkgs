@@ -1,64 +1,8 @@
-# Everything before the first build-system verb: read the spec, export the dependency closure as
-# search paths, unpack + patch the source (or restore a kept tree), lay out $out and the build
-# dir, decide whether tests can run here, and publish it all as PKGS_CTX for `ctx`.
+# Everything before the first build-system verb: the environment (env.nu), the platform, the
+# source tree (unpacked and patched, or restored for a tests derivation), and the `ctx` record
+# every later step reads.
 use core.nu *
-
-# every dependency's `field` dirs, absolute
-# store dirs whose files may appear in depfiles: dependencies, build tools, and what the
-# toolchain lists in its etc/roots (sysroot, seed headers). jig takes them space-joined in
-# JIG_STORE_ROOTS, nu code reads (ctx).roots
-def store-roots [a: record]: nothing -> list<string> {
-  $a.dependencies ++ $a.buildDependencies ++ (which cc | each {|c| open --raw ($c.path | path dirname -n 2 | path join etc/roots) | split row " " } | flatten | compact -e)
-}
-
-# PATH, the toolchain's view of dependencies (CPPFLAGS/LDFLAGS/PKG_CONFIG_PATH/…), compile-cache
-# identity, prefix map, §4 default CFLAGS, deps' and the spec's `env`
-def --env build-env [a: record, deps: list<record>, out: string]: nothing -> nothing {
-  let home = $"($env.NIX_BUILD_TOP)/home"
-  # a writable HOME + XDG dirs for every tool's per-user cache/config (npm, pnpm, bun, luarocks, gem, …). CI: no prompts, no progress bars
-  load-env {PATH: ($a.buildDependencies | each { $"($in)/bin" }), HOME: $home, XDG_CACHE_HOME: $"($home)/.cache", XDG_DATA_HOME: $"($home)/.local/share"
-    XDG_CONFIG_HOME: $"($home)/.config", TMPDIR: $env.NIX_BUILD_TOP, CI: "true"}
-  # reproducibility pins: no wall clock, locale, timezone or hash randomisation in outputs
-  $env.SOURCE_DATE_EPOCH = "315532800"  # 1980-01-01: earliest mtime ZIP (wheels, jars) can store
-  load-env {TZ: "UTC", LC_ALL: "C.UTF-8", ZERO_AR_DATE: "1", PERL_HASH_SEED: "0", PYTHONHASHSEED: "0"
-    KBUILD_BUILD_TIMESTAMP: "@315532800", KBUILD_BUILD_USER: "pkgs", KBUILD_BUILD_HOST: "pkgs", CONFIG_SITE: $a.CONFIG_SITE}
-  $env.out = $out
-  $env.JIG_LOG = $"($env.NIX_BUILD_TOP)/jig.log"
-  $env.JIG_LOG_ARGS = $"($env.NIX_BUILD_TOP)/jig-uncached.log"
-  # content identity: a rebuilt-but-identical toolchain or dependency (new store hash, same bytes)
-  # still hits. The roots tell jig which concrete store dirs the masked header names map to.
-  $env.JIG_STORE_IDENTITY = "content"
-  $env.JIG_STORE_ROOTS = (store-roots $a | str join " ")
-  $env.CPPFLAGS = (dep-dirs $deps includeDirs | each { $"-I($in)" } | str join " ")
-  $env.LDFLAGS = (["-Wl,-z,relro,-z,now,-z,noexecstack,--as-needed"] ++ (dep-dirs $deps libDirs | each { $"-L($in)" }) | str join " ")
-  $env.PKG_CONFIG_PATH = (dep-dirs $deps pkgconfigDirs | str join ":")
-  $env.CMAKE_PREFIX_PATH = ($deps | get root | str join ";")
-  $env.ACLOCAL_PATH = (dep-dirs $deps aclocalDirs | str join ":")
-  load-env {CC: cc, CXX: c++, AR: llvm-ar, RANLIB: llvm-ranlib, NM: llvm-nm, STRIP: llvm-strip}
-  # no build/store paths in DWARF/__FILE__. Handed to the cc wrapper out of band so recorded CFLAGS stay clean
-  let mask = {|p: string, under: string| $"($p)=/($under)/($p | path basename | str substring 33..)" }
-  $env.PKGS_PREFIX_MAP = ([$"($env.NIX_BUILD_TOP)=/build"] ++ ($deps | get root | each { do $mask $in deps }) ++ ($a.buildDependencies | each { do $mask $in tools }) | str join ":")
-  # per-package defaults (§4): profiling-friendly, hardened. -march and the platform's hardening
-  # flag are in the cc conf, so build systems that ignore CFLAGS still get them. __DATE__/__TIME__
-  # need no ban: clang derives them from SOURCE_DATE_EPOCH (set above)
-  $env.CFLAGS = (["-O2" "-fno-omit-frame-pointer" "-mno-omit-leaf-frame-pointer" "-g"
-    "-D_FORTIFY_SOURCE=3" "-fstack-protector-strong" "-fstack-clash-protection" "-ftrivial-auto-var-init=zero"]
-    ++ ($a.spec.cc?.cflags? | default []) | str join " ")
-  $env.CXXFLAGS = $env.CFLAGS
-  load-env ($deps | get env | reduce -f {} {|it, acc| $acc | merge $it })
-  load-env ($a.spec.env? | default {})
-}
-
-# cc always goes through jig. rustc and go only do when asked by environment, and they are run by
-# more than their own build system (maturin and setuptools-rust from pyapp/python, cargo from
-# napi-rs npm packages or gem extensions, `go build` from Makefiles), so ask here, not in cargo.nu/go.nu
-def --env compiler-caches []: nothing -> nothing {
-  if (which rustc | is-not-empty) {
-    # RUSTC absolute so the wrapper's key names the toolchain; incremental artefacts are uncacheable
-    load-env {RUSTC: (which rustc | first | get path), RUSTC_WRAPPER: (which rustcwrap | first | get path), CARGO_INCREMENTAL: "0"}
-  }
-  if (which go | is-not-empty) { $env.GOCACHEPROG = (which gocacheprog | first | get path) }
-}
+use env.nu
 
 # cross: does the builder's binfmt_misc run target binaries transparently (probe = target ld.so)?
 # If not, build systems that support one get the explicit emulator
@@ -70,10 +14,10 @@ def --env resolve-platform [p: record]: nothing -> record {
   $plat
 }
 
+# sources arrive unpacked (nix/sources.nix). cp -p: the store's uniform mtimes keep generated
+# files "newer" than their inputs for make
 def --env unpack [a: record, src: path, njobs: int]: nothing -> nothing {
   note unpack $a.src
-  # sources arrive unpacked (nix/sources.nix). -p: the store's uniform mtimes keep generated
-  # files "newer" than their inputs for make
   ^cp -rp $"($a.src)/." $src
   ^chmod -R u+w $src
   cd $src
@@ -81,42 +25,43 @@ def --env unpack [a: record, src: path, njobs: int]: nothing -> nothing {
   fix-env-shebangs . $njobs
 }
 
+# tests derivation: the kept source+build tree back at the same absolute paths, so configured
+# paths inside it stay valid
+def --env restore [from_tree: string, src: path]: nothing -> nothing {
+  note restore $from_tree
+  ^bsdtar -xf $"($from_tree)/tree.tar.zst" -C $env.NIX_BUILD_TOP
+  cd $src
+}
+
 export def --env main [
-  --from-tree: string = ""  # tests derivation: restore source+build tree of the package instead of unpacking
+  --from-tree: string = ""  # tests derivation: restore the package's tree instead of unpacking
 ]: nothing -> nothing {
   let a = (attrs)
   let spec = $a.spec
-  # in the tests derivation "$out" for build systems is the already-built package, so configured
-  # paths (install prefix baked into the build tree) stay valid. Our own output is just the log
+  # in the tests derivation "$out" for build systems is the already-built package. Our own
+  # output is just the log
   let out = (if $from_tree == "" { $a.outputs.out } else { $a.package })
   $env.PKGS_RESULT = $a.outputs.out
   let njobs = ($env.NIX_BUILD_CORES? | default "4" | into int)
   # the fetched trees of locked dependencies (`<bs>.deps`) are dependencies too: they propagate
   # the libraries their locked packages link (sys-libs.nu)
-  let deps = (dep-closure ($a.dependencies ++ ($a.spec.uses? | default [] | each {|u| $a.spec | get -o $u | get -o deps } | compact)))
-  build-env $a $deps $out
+  let deps = (dep-closure ($a.dependencies ++ ($spec.uses? | default [] | each {|u| $spec | get -o $u | get -o deps } | compact)))
+  env $a $deps $out
   let plat = (resolve-platform $a.platform)
+  let cache = ($"($env.NIX_STORE | path dirname)/var/nix/jigd/socket" | path exists)
+  if $cache { load-env (env compiler-caches) }
 
   let src = $"($env.NIX_BUILD_TOP)/source"
   let build = $"($env.NIX_BUILD_TOP)/build"
-  mkdir $src $env.HOME
-  let cache = ($"($env.NIX_STORE | path dirname)/var/nix/jigd/socket" | path exists)
-  if $cache { compiler-caches }
-  let ctx = {|testsRun| {spec: $spec, out: $out, deps: $deps, roots: (store-roots $a), njobs: $njobs, src: $env.PWD, build: $build, platform: $plat, testsRun: $testsRun, cache: $cache} }
-  if $from_tree != "" {
-    # same absolute paths as during the build (/build/source, /build/build), so generated files stay valid
-    note restore $from_tree
-    ^bsdtar -xf $"($from_tree)/tree.tar.zst" -C $env.NIX_BUILD_TOP
-    cd $src; cd ($spec.root? | default ".")
-    $env.PKGS_CTX = (do $ctx true)
-    return
-  }
-  unpack $a $src $njobs
+  mkdir $src $build
+  if $from_tree == "" { unpack $a $src $njobs } else { restore $from_tree $src }
   cd ($spec.root? | default ".")
-  mkdir $build
+
   # cross tests need transparent binfmt: every harness (libtool wrappers, meson runners, ctest
-  # execute_process) execs target binaries somewhere an explicit emulator hook does not reach (§5)
+  # execute_process) execs target binaries somewhere an explicit emulator hook does not reach
   let wanted = ($spec.tests?.run? | default true)
-  if $wanted and $plat.cross and not $plat.transparent { note untested $"($plat.name): no binfmt on this builder" }
-  $env.PKGS_CTX = (do $ctx ($wanted and ((not $plat.cross) or $plat.transparent)))
+  if $from_tree == "" and $wanted and $plat.cross and not $plat.transparent { note untested $"($plat.name): no binfmt on this builder" }
+  let tests_run = ($from_tree != "" or ($wanted and ((not $plat.cross) or $plat.transparent)))
+  $env.PKGS_CTX = {spec: $spec, out: $out, deps: $deps, roots: (env store-roots $a), njobs: $njobs, src: $env.PWD
+    build: $build, platform: $plat, testsRun: $tests_run, cache: $cache}
 }
