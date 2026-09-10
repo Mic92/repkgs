@@ -24,13 +24,13 @@ package {
     pkgs.pcre2
     pkgs.libffi
     pkgs.zlib
+    buildPkgs.cpython # glib-mkenums, gdbus-codegen
   ];
   # meson.build and the codegen tools run python3 with `packaging`
   buildDependencies = [
     buildPkgs.cpython
     buildPkgs.python-packaging
   ];
-  runtimeDependencies = [ buildPkgs.cpython ]; # glib-mkenums, gdbus-codegen
   tests.run = false;
   bin = [
     "glib-compile-resources"

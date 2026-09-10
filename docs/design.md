@@ -127,7 +127,6 @@ How each kind of reference is made relative:
 | **Upstream binaries** | `prebuilt = true`: formatelf implants that same stub and a RUNPATH into the foreign ELF, after which fixup treats it like one of ours. (`prebuilt = "ldso"` instead wraps it in an `ld.so --library-path` launcher, used only where formatelf itself is not built yet.) |
 | **Scripts and wrappers** | One 40 KB static binary, `launch`. `bin/foo` is a hardlink to it, `bin/.foo.launch` is a small record (interpreter, args, env, with `{root}` placeholders), `bin/.foo` is the real script. This replaces both shebang patching and `makeWrapper`. |
 | **glibc's own data** | gconv modules and locales are found relative to the loaded `libc.so.6` (one small patch). There is no `ld.so.cache`. |
-| **dlopen-only dependencies** | listed as `runtimeDependencies` and linked as `DT_NEEDED`, so both the scanner and relocation see them. |
 | **pkg-config, CMake configs** | `${pcfiledir}`-relative, which both support natively. `.la` files are deleted. |
 | **Environment a dependency exports** | `exports.json` values may contain `{root}`, expanded by the consumer (this is how cacert sets `SSL_CERT_FILE`). |
 | **A prefix compiled into the binary** | the few packages that do this get a dirname-relative patch (openssl's provider path). The rest is caught mechanically: fixup warns on any absolute store reference, and `tests.relocated` copies the output elsewhere and runs `bin/x --version` from there. |
@@ -165,9 +164,9 @@ The resulting rules:
   default. `prepare` renders the dependency closure into `CPPFLAGS`, `LDFLAGS`, `PKG_CONFIG_PATH`,
   `CMAKE_PREFIX_PATH`. Nothing a dependency ships can run code in your build. `exports = false`
   marks toolchains and applications whose `lib/` is nobody's link input.
-- **Three dependency kinds, not six.** `buildDependencies` run on the build machine and go on
-  `PATH`. `dependencies` are for the target and visible to the compiler. `runtimeDependencies`
-  are exec'd or dlopen'd at run time.
+- **Two dependency kinds, not six.** `buildDependencies` run on the build machine and go on
+  `PATH`. `dependencies` are for the target: what they export says how they are consumed
+  (headers and libraries for the compiler, a `bin/` or env for the installed program's launcher).
 - **Cross compilation is the build system's job, done once.** autotools gets `--host` and
   `config.site`, meson a generated cross file, cmake a toolchain file, cargo `CARGO_TARGET_*`,
   go `GOARCH`, all from the same platform record. Tests run under qemu where the build system

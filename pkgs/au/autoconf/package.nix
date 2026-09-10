@@ -11,7 +11,7 @@ package {
     buildPkgs.perl
   ];
   # autoconf, autom4te… are perl and sh scripts that exec m4
-  runtimeDependencies = [
+  dependencies = [
     pkgs.m4
     pkgs.perl
   ];

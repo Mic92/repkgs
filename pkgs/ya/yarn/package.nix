@@ -3,7 +3,7 @@
 { package, pkgs }:
 package {
   name = "yarn";
-  runtimeDependencies = [ pkgs.nodejs ];
+  dependencies = [ pkgs.nodejs ];
   install."lib/node_modules/yarn" = ".";
   links = {
     "bin/yarn" = "../lib/node_modules/yarn/bin/yarn.js";

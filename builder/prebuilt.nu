@@ -1,9 +1,9 @@
 # What happens to bin/ after install, for our own builds and for upstream binaries.
-# launchers (§3): every bin/ script and every program with runtimeDependencies becomes
+# launchers (§3): every bin/ script, and every program when a dependency ships bin/ or env, becomes
 #   bin/foo -> ../../<hash>-launch/bin/launch, the real file bin/.foo, a record bin/.foo.launch
 # (pkgs/la/launch/src/launch.cc). Interpreter from the #! line (resolved among dependencies if it
-# was /usr/bin/env or bare), runtimeDependencies' bin dirs prepended to PATH, their `env` exports
-# applied as defaults.
+# was /usr/bin/env or bare), dependencies' bin dirs prepended to PATH, their `env` exports applied
+# as defaults.
 # implant (`prebuilt = true`): upstream ELFs get our interp, reloc stub and RUNPATH via formatelf.
 # `prebuilt = "ldso"` (rust-bootstrap, which formatelf is built with): upstream binaries keep their
 # foreign PT_INTERP and run behind a launcher as
@@ -12,12 +12,13 @@
 
 use core.nu *
 
-# env block shared by all of a package's launchers: runtimeDependencies on PATH + their exported env
-def runtime-env [rdeps: list<string>, out: string]: nothing -> record {
-  if ($rdeps | is-empty) { return {} }
-  let exported = ($rdeps | each {|d| (exports-of $d).env } | reduce -f {} {|it, acc| $acc | merge $it }
+# env block shared by all of a package's launchers: dependencies with a bin/ on PATH + every
+# dependency's exported env. {} when there is nothing to set
+def runtime-env [deps: list<string>, out: string]: nothing -> record {
+  let exported = ($deps | each {|d| (exports-of $d).env } | reduce -f {} {|it, acc| $acc | merge $it }
     | items {|k, v| [$k {default: (storerel $v $out)}] } | into record)
-  {PATH: {prepend: ($rdeps | each {|d| storerel $"($d)/bin" $out })}} | merge $exported
+  let path = ($deps | where { $"($in)/bin" | path exists } | each {|d| storerel $"($d)/bin" $out })
+  (if ($path | is-empty) { {} } else { {PATH: {prepend: $path}} }) | merge $exported
 }
 
 # the program a script's #! names, as an absolute path that is ours or a dependency's. null = leave
@@ -37,7 +38,7 @@ def script-interp [f: path, head: binary, owners: list<string>, inject: bool]: n
     note script $"bin/($name): #!($interp.0) is a build tool, not a dependency"
     return null
   }
-  # bare or /usr/bin/env name: looked up in dependencies + runtimeDependencies (things built for the
+  # bare or /usr/bin/env name: looked up among dependencies (things built for the
   # platform), not on the build PATH: a cross package's script must not point at the builder's python
   let prog = (if ($interp.0 | str starts-with $store) or $interp.0 == "/bin/sh" { $interp.0 } else {
     $owners | each {|d| $"($d)/bin/($interp.0 | path basename)" } | where { path exists } | get 0?
@@ -52,11 +53,11 @@ def is-foreign [f: path]: nothing -> bool {
 }
 
 # what bin/<name> should launch (the launch record minus env), or null to leave the file as is
-def target [c: record, f: path, owners: list<string>, rdeps: list<string>]: nothing -> oneof<record, nothing> {
+def target [c: record, f: path, owners: list<string>, inject: bool]: nothing -> oneof<record, nothing> {
   let head = (open --raw $f | into binary | bytes at 0..<256)
   let real = $"{root}/bin/.($f | path basename)"
   if ($head | bytes starts-with 0x[23 21]) {
-    let i = (script-interp $f $head $owners ($rdeps | is-not-empty))
+    let i = (script-interp $f $head $owners $inject)
     if $i != null { {program: (storerel $i.program $c.out), args: ($i.args ++ [$real])} }
   } else if not (is-elf $f) {
     null
@@ -65,7 +66,7 @@ def target [c: record, f: path, owners: list<string>, rdeps: list<string>]: noth
     let libdirs = [($c.platform.interp | path dirname)] ++ (dep-dirs $c.deps libDirs)
     let libpath = ($libdirs | each {|p| storerel $p $c.out } | str join ":")
     {program: (storerel $c.platform.interp $c.out), args: [--argv0 "{self}" --library-path $libpath $real]}
-  } else if ($rdeps | is-not-empty) {
+  } else if $inject {
     {program: $real, argv0: "{self}"}
   }
 }
@@ -74,14 +75,13 @@ export def launchers [c: record]: nothing -> nothing {
   let bindir = $"($c.out)/bin"
   if not ($bindir | path exists) { return }
   let a = (attrs)
-  let rdeps = ($a.runtimeDependencies? | default [])
-  let renv = (runtime-env $rdeps $c.out)
-  let owners = ([$c.out] ++ $a.dependencies ++ $rdeps)
+  let renv = (runtime-env $a.dependencies $c.out)
+  let owners = ([$c.out] ++ $a.dependencies)
   let launch_rel = $"../../($c.platform.launch | path relative-to $env.NIX_STORE)"
   # files, and symlinks that resolve inside the package (npm's bin -> lib/node_modules/…/cli.js):
   # the link moves to bin/.<name> beside itself and still resolves
   for f in (ls $bindir | get name | where { ($in | path basename) !~ '^\.' and ($in | path exists) and ($in | path expand) =~ $"^($c.out)/" }) {
-    let t = (target $c $f $owners $rdeps)
+    let t = (target $c $f $owners ($renv | is-not-empty))
     if $t == null { continue }
     let name = ($f | path basename)
     # the real file moves to bin/.<name> (same dir, so $ORIGIN RUNPATHs still hold)

@@ -43,7 +43,6 @@ let
     "steps"
     "buildDependencies"
     "dependencies"
-    "runtimeDependencies"
     "bin"
     "tests"
     "exports"
@@ -247,7 +246,6 @@ let
       "patches"
       "buildDependencies"
       "dependencies"
-      "runtimeDependencies"
       "bootstrapTools"
     ]
     // listToAttrs (
@@ -271,8 +269,7 @@ let
     ++ (if prebuilt == true then relocTools else [ ])
     ++ concatMap (u: buildSystems.${u}.tools args ++ stackBefore buildSystems.${u}.stack) uses
     ++ (if args.bootstrapTools or false then baseTools.bootstrap else baseTools.full);
-    dependencies = (args.dependencies or [ ]) ++ concatMap (u: buildSystems.${u}.libs) uses;
-    runtimeDependencies = args.runtimeDependencies or [ ];
+    dependencies = (args.dependencies or [ ]) ++ concatMap (u: buildSystems.${u}.dependencies) uses;
   };
   drv = derivation (
     common

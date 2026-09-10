@@ -3,7 +3,7 @@
 { package, pkgs }:
 package {
   name = "pnpm";
-  runtimeDependencies = [ pkgs.nodejs ];
+  dependencies = [ pkgs.nodejs ];
   install."lib/node_modules/pnpm" = ".";
   links = {
     "bin/pnpm" = "../lib/node_modules/pnpm/bin/pnpm.cjs";

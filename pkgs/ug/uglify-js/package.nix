@@ -12,7 +12,5 @@ package {
     lockFile = ./package-lock.json;
   };
   steps = [ "npm.install" ]; # plain JS, nothing to build; its tests take minutes
-  # `#!/usr/bin/env node`: needs pkgs.nodejs as runtimeDependency + launcher (wave 7)
-  tests.version = false;
   bin = [ "uglifyjs" ];
 }

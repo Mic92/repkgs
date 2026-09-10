@@ -1,6 +1,6 @@
 # What `uses = [ "<name>" ]` means: builder/systems/<name>.nu implements the verbs, `verbs` is the default
-# step order (build test install unless said otherwise), `tools` go on PATH, `libs` into
-# `dependencies`, `prebuilt` is the package's default for that field, and `options` are what a
+# step order (build test install unless said otherwise), `tools` go on PATH, `dependencies` add to
+# the package's, `prebuilt` is the package's default for that field, and `options` are what a
 # package may set under `<name>.*`: `{ type; doc; }` each, `type` the `builtins.typeOf` names
 # allowed, checked at eval time along with the name. Every system has `root`; `deps` (the
 # fetched tree of locked dependencies, `lock.deps = fetcher` defaults it to the package's own lock
@@ -57,7 +57,7 @@ builtins.mapAttrs
     }
     // bs.options;
     tools = if builtins.isFunction bs.tools then bs.tools else _: bs.tools;
-    libs = bs.libs or [ ];
+    dependencies = bs.dependencies or [ ];
     prebuilt = bs.prebuilt or false;
     stack = bs.stack or [ ];
   })
@@ -163,7 +163,7 @@ builtins.mapAttrs
       ];
       # GHC's threaded RTS ends threads with pthread_exit, for which glibc dlopens libgcc_s.so.1:
       # in the RUNPATH of what is installed, on LD_LIBRARY_PATH (its env export) while building.
-      libs = [
+      dependencies = [
         pkgs.libgcc-shim
         pkgs.gmp # ghc-bignum: every linked program wants -lgmp
         pkgs.libffi # and the RTS -lffi
@@ -230,6 +230,7 @@ builtins.mapAttrs
         sh
       ];
       lock.deps = fetch.pnpmDeps;
+      dependencies = [ pkgs.nodejs ]; # bin scripts say #!/usr/bin/env node
       options = {
         inherit script;
         deps = deps "fetch.pnpmDeps";
@@ -301,6 +302,7 @@ builtins.mapAttrs
         sh
       ];
       lock.deps = fetch.bunDeps;
+      dependencies = [ pkgs.nodejs ]; # bin scripts say #!/usr/bin/env node
       options = {
         inherit script;
         deps = deps "fetch.bunDeps" // {
@@ -320,6 +322,7 @@ builtins.mapAttrs
         sh
       ];
       lock.deps = fetch.yarnDeps;
+      dependencies = [ pkgs.nodejs ]; # bin scripts say #!/usr/bin/env node
       options = {
         inherit script;
         deps = deps "fetch.yarnDeps";
@@ -332,6 +335,7 @@ builtins.mapAttrs
         sh
       ];
       lock.deps = fetch.npmDeps;
+      dependencies = [ pkgs.nodejs ]; # bin scripts say #!/usr/bin/env node
       options = {
         inherit script;
         deps = deps "fetch.npmDeps";

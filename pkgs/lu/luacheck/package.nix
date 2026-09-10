@@ -4,6 +4,5 @@ package {
   name = "luacheck";
   uses = [ "luarocks" ];
   dependencies = [ pkgs.lua ];
-  runtimeDependencies = [ pkgs.lua ];
   tests.version = true;
 }

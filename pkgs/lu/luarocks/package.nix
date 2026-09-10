@@ -10,12 +10,11 @@ package {
   name = "luarocks";
   uses = [ "autotools" ];
   autotools.outOfTree = false;
-  dependencies = [ pkgs.lua ];
-  buildDependencies = [ buildPkgs.unzip ];
-  runtimeDependencies = [
+  dependencies = [
     pkgs.lua
     pkgs.unzip
   ];
+  buildDependencies = [ buildPkgs.unzip ];
   steps = [
     {
       name = "configure";

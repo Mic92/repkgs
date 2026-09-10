@@ -8,7 +8,6 @@ package {
   name = "ruby-lsp";
   uses = [ "bundler" ];
   dependencies = [ pkgs.ruby ];
-  runtimeDependencies = [ pkgs.ruby ];
   bin = [
     "ruby-lsp"
     "ruby-lsp-check"
