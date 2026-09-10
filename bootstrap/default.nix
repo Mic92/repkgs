@@ -58,6 +58,7 @@ let
       inherit json_hpp;
     };
     cc.crt_interp = pkg "crt-interp" + "/src/crt_interp.c";
+    dlaudit.dlaudit = pkg "dlaudit" + "/src/dlaudit.cc";
   };
   # run.nu + lib.nu + the one recipe, laid out as in the tree (bootstrap/, pkgs/x/x/) so the recipe's
   # relative `use ../../bootstrap/lib.nu` resolves, and an edit to one recipe rebuilds only its step
@@ -96,6 +97,7 @@ let
           "mingw-w64"
           "jig"
           "launch"
+          "dlaudit"
           "gnu"
           "toybox"
           "dash"
@@ -296,6 +298,7 @@ let
       glibc = c.libc;
       inherit linux-headers;
       launch = mkStage platform (cached stage0.jig) [ c.cc ] "launch" { };
+      dlaudit = mkStage platform (cached stage0.jig) [ c.cc ] "dlaudit" { };
     };
 
   # Windows cross: mingw-w64 headers + CRT in place of linux-headers + glibc

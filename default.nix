@@ -30,6 +30,7 @@ let
   };
   toolchain = bootstrap.stage1.${cpu}.cc;
   launch = bootstrap.stage1.${cpu}.launch;
+  dlaudit = bootstrap.stage1.${cpu}.dlaudit;
   buildPkgs =
     if plat.cross then
       import ./. {
@@ -80,6 +81,7 @@ let
     inherit
       toolchain
       launch
+      dlaudit
       buildSystems
       baseTools
       ;

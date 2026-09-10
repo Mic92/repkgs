@@ -240,7 +240,10 @@ The resulting rules:
   ecosystems where `test` is a script the package writes its own `test` step.
   `tests.version` checks that `bin/x --version` (or the command line given, `"go version"`)
   prints the pinned version, which catches many broken installs (missing data files, wrong
-  rpath, stale version string).
+  rpath, stale version string). It runs under an rtld-audit module (`pkgs/dl/dlaudit`): the
+  loader reports every name it searched and every object it mapped, so a `dlopen("libfoo.so.1")`
+  that found nothing is known and fails the build. DT_NEEDED is checked statically by fixup,
+  dlopen can only be observed, and the version check is the run every package has.
 - **Two data formats between the pieces.** Anything one program writes for another to read is
   JSON when it is a record (the spec in `NIX_ATTRS_JSON_FILE`, `exports.json`, `.launch`
   records, `sys-libs.json`, producer attrs) and TSV when it is an append-only log (`JIG_LOG`:

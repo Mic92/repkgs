@@ -106,6 +106,7 @@ Other things a package can say, by example:
 | `cmake.root = "build/cmake";` | every system has `root` (project subdirectory); `deps` (fetched lock-file dependencies, defaulted from the source) and `flags` (extra arguments) mean the same wherever they exist |
 | `bin = [ "rg" "rgrep" ];` | executables that must exist. Defaults to the package name. `bin/<first> --version` must print the pinned version |
 | `tests.relocated = true;` | repeat that check after copying the output somewhere else |
+| `tests.dlopen = [ "libudev.so.1" ];` | sonames the version check may dlopen and not find (optional features). Any other failed dlopen fails the build |
 | `prebuilt = true;` | upstream binary: skip compiling, make it relocatable anyway |
 | `install."bin/deno" = "deno";` | just copy files into `$out`, no steps needed |
 | `exports = false;` | a toolchain or application: dependents should not link against its lib/ |

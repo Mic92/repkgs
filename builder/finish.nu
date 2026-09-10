@@ -30,7 +30,9 @@ def bins [c: record]: nothing -> list<string> {
 # revision stripped): "-V", "version", "ghc-pkg --numeric-version". The first word picks the
 # binary when bin/ has it, else the words go to the first `bin`. true (the default with a bin)
 # is "--version". `tests.relocated` reruns it from a copy of `out` under a scratch prefix with
-# the sibling store paths symlinked beside it, cwd / and env -i: the §3 property, per package
+# the sibling store paths symlinked beside it, cwd / and env -i: the §3 property, per package.
+# It runs under the rtld-audit module (pkgs/dl/dlaudit): a dlopen by soname that finds nothing
+# is a dependency missing from the closure, and fails here rather than on some user's code path
 def version-check [c: record]: nothing -> nothing {
   let bins = (bins $c)
   let line = ($c.spec.tests?.version? | default ($bins | is-not-empty))
@@ -38,13 +40,26 @@ def version-check [c: record]: nothing -> nothing {
   let words = (if $line == true { [--version] } else { $line | split row " " })
   let cmd = (if $words.0 in $bins { $words } else { $bins | first 1 | append $words })
   let want = ($c.spec.version | str replace -r '-r[0-9]+$' "")
+  let audit_out = $"($env.NIX_BUILD_TOP)/dlaudit.txt"
+  # for the target's loader only: through qemu-user's -E, not the emulator's own environment
+  # the audit namespace's own libc takes static TLS from the surplus: librustc_driver no longer
+  # fit the default. The surplus is reserved on every thread's stack, so not much more (deno's
+  # tokio workers overflowed at 2M)
+  let audit = ([$"LD_AUDIT=($c.platform.dlaudit)" $"DLAUDIT_OUT=($audit_out)" "GLIBC_TUNABLES=glibc.rtld.optional_static_tls=0x10000"]
+    | where { $c.platform.dlaudit != "" }
+    | each {|e| if ($c.platform.emulator | is-empty) { [$e] } else { [-E $e] } } | flatten)
   let run = {|root: string|
     cd /
+    rm -f $audit_out
     # empty environment but for HOME, which any real session has (rebar3 crashes without).
     # bzip2 --version goes on to compress stdin: stdout can be binary
-    let r = (^env -i $"HOME=($env.NIX_BUILD_TOP)" ...($c.platform.emulator) $"($root)/bin/($cmd.0)" ...($cmd | skip 1) | complete)
+    let r = (^env -i $"HOME=($env.NIX_BUILD_TOP)" ...($c.platform.emulator) ...$audit $"($root)/bin/($cmd.0)" ...($cmd | skip 1) | complete)
     if $r.exit_code != 0 or not ($"($r.stdout)($r.stderr)" | str contains $want) {
       error make {msg: $"version check: `($cmd | str join ' ')` did not print ($want) \(exit ($r.exit_code))\n($r.stdout)($r.stderr)"}
+    }
+    let missed = (if ($audit_out | path exists) { open --raw $audit_out | lines | uniq | where { $in not-in ($c.spec.tests?.dlopen? | default []) } } else { [] })
+    if ($missed | is-not-empty) {
+      error make {msg: $"version check: `($cmd | str join ' ')` dlopens ($missed | str join ', '), not in the closure \(a missing dependency, or tests.dlopen = [names] if optional)"}
     }
   }
   do $run $c.out

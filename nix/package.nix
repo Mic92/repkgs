@@ -6,6 +6,7 @@
   platform,
   toolchain,
   launch,
+  dlaudit,
   buildSystems,
   baseTools,
   relocTools,
@@ -77,6 +78,8 @@ let
       # `prebuilt`: upstream ELFs get our dynamic linker implanted (true) or via launch ("ldso")
       interp = "${toolchain.sysroot}/lib/${platform.interp}";
       launch = "${launch}/bin/launch";
+      # finish.nu runs the version check under it: a failed dlopen fails the build
+      dlaudit = if platform.os == "linux" then "${dlaudit}/lib/dlaudit.so" else "";
       relocStub = "${toolchain}/lib/reloc_stub.bin";
     };
   };
@@ -144,6 +147,7 @@ let
           "parallel"
           "version"
           "relocated"
+          "dlopen"
         ])
       ) (attrNames (args.tests or { }))
     );
