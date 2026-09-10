@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <format>
+#include <json.hpp>
 #include <optional>
 #include <span>
 #include <string>
@@ -180,6 +181,29 @@ auto AddRunpathEntries(const DriverConf& conf, bool cxx, std::span<const std::st
   return libs.size();
 }
 
+// $PKGS_CC (builder/env.nu): {"<toolchain root>": {cflags, cxxflags, ldflags}}. cc-build's
+// root has no entry, so host helpers get toolchain flags only
+auto PackageFlags(const fs::path& root) -> PackageCcFlags {
+  PackageCcFlags flags;
+  const std::string text = Env("PKGS_CC");
+  if (text.empty()) {
+    return flags;
+  }
+  const nlohmann::json all = nlohmann::json::parse(text, nullptr, /*allow_exceptions=*/false);
+  const auto entry = all.find(root.string());
+  if (!all.is_object() || entry == all.end()) {
+    return flags;
+  }
+  const auto list = [&](const char* key) -> std::vector<std::string> {
+    const auto found = entry->find(key);
+    return found == entry->end() ? std::vector<std::string>{} : found->get<std::vector<std::string>>();
+  };
+  flags.cflags = list("cflags");
+  flags.cxxflags = list("cxxflags");
+  flags.ldflags = list("ldflags");
+  return flags;
+}
+
 }  // namespace
 
 auto ParseDriverConf(std::string_view text) -> DriverConf {
@@ -218,11 +242,13 @@ auto LoadDriverConf() -> std::optional<DriverConf> {
   std::error_code error;
   const fs::path self = fs::read_symlink("/proc/self/exe", error);
   if (!error) {
-    if (const std::optional<std::string> text = ReadFile(self.parent_path().parent_path() / "etc/jig.conf")) {
+    const fs::path root = self.parent_path().parent_path();
+    if (const std::optional<std::string> text = ReadFile(root / "etc/jig.conf")) {
       DriverConf conf = ParseDriverConf(*text);
       if (conf.cc.empty()) {
         return std::nullopt;
       }
+      conf.package = PackageFlags(root);
       return conf;
     }
   }
@@ -251,16 +277,21 @@ auto IsSharedLibName(std::string_view base) -> bool {
 auto BuildDriverArgs(const DriverConf& conf, Language lang, std::span<const std::string> raw_args)
     -> std::vector<std::string> {
   const bool cxx = lang == Language::kCxx;
-  // conf flags mix compile- and link-only options. clang would warn about whichever half is unused
+  UserArgs user = ScanUserArgs(raw_args);
+  // toolchain, then package, then build system: later wins. The bracket silences
+  // unused-argument warnings for the link-only/compile-only halves
   std::vector<std::string> out{"--start-no-unused-arguments"};
   out.insert(out.end(), conf.flags.begin(), conf.flags.end());
+  out.insert(out.end(), conf.package.cflags.begin(), conf.package.cflags.end());
   if (cxx) {
     out.emplace_back("--driver-mode=g++");
     out.insert(out.end(), conf.cxxflags.begin(), conf.cxxflags.end());
+    out.insert(out.end(), conf.package.cxxflags.begin(), conf.package.cxxflags.end());
+  }
+  if (user.linking) {
+    out.insert(out.end(), conf.package.ldflags.begin(), conf.package.ldflags.end());
   }
   out.emplace_back("--end-no-unused-arguments");
-
-  UserArgs user = ScanUserArgs(raw_args);
   out.insert(out.end(), user.args.begin(), user.args.end());
   for (const std::string& mapping : conf.prefix_map) {
     out.push_back("-ffile-prefix-map=" + mapping);

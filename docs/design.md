@@ -227,8 +227,13 @@ The resulting rules:
   has a hook for it, and are reported as "untested" otherwise.
 - **Hardening and reproducibility are defaults of the compiler driver, not flags packages
   remember to set.** `-O2 -g`, frame pointers, `_FORTIFY_SOURCE=3`, stack protector, stack clash
-  protection, zero-initialised locals, CET/BTI, full RELRO, `--as-needed`. `-march` comes from
-  the platform. `SOURCE_DATE_EPOCH` (clang derives `__DATE__` from it), `-ffile-prefix-map` for
+  protection, zero-initialised locals, `-fwrapv`, `-fstrict-flex-arrays=1`,
+  `-fzero-call-used-regs=used-gpr`, `-Werror=format-security`, libc++ fast hardening mode,
+  CET/BTI, full RELRO, `--as-needed`. `-march` comes from
+  the platform. jig injects them itself rather than through `CFLAGS`, so a Makefile that sets
+  `CFLAGS` cannot lose them, and a package turns one off by name (`cc.hardening.fortify = false`)
+  or adds its own (`cc.cflags`, `cc.cxxflags`, `cc.ldflags`). In a cross build `cc-build` sees
+  none of the package's flags. `SOURCE_DATE_EPOCH` (clang derives `__DATE__` from it), `-ffile-prefix-map` for
   the build directory and every dependency, fixed hash seeds for Python and Perl, deterministic
   archives, uncompressed man pages.
 - **Tests run**, in the build by default. `tests.separate` moves them into a derivation of their

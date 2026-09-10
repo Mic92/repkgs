@@ -8,6 +8,7 @@
 //   crt = <crt_interp.o>               optional: link the $ORIGIN-interp stub into executables
 //   runtimes = <dir>                   libc++/libunwind dir, rpath'd whenever C++ or an unwinder is linked
 //   prefix-map = a=b:c=d               -ffile-prefix-map entries (plus $PKGS_PREFIX_MAP at run time)
+// and per package, from $PKGS_CC at run time: cflags/cxxflags/ldflags after the conf's, before argv.
 // Without a conf, $JIG_CC names the compiler and user args pass through untouched (cache only).
 #pragma once
 
@@ -25,6 +26,12 @@ inline constexpr int kRunpathSlack = 48;  // pad bytes per RUNPATH entry (abs ->
 inline constexpr int kNeededSlack = 80;   // pad bytes per -l ($ORIGIN/../../<hash>-x/lib/libx.so.N)
 inline constexpr int kInterpSlack = 12;   // "./" pairs in front of the interp basename
 
+struct PackageCcFlags {
+  std::vector<std::string> cflags;    // every compile and link
+  std::vector<std::string> cxxflags;  // C++ only
+  std::vector<std::string> ldflags;   // link steps only
+};
+
 struct DriverConf {
   std::string cc;
   std::string libc;
@@ -34,6 +41,7 @@ struct DriverConf {
   std::vector<std::string> flags;
   std::vector<std::string> cxxflags;
   std::vector<std::string> prefix_map;
+  PackageCcFlags package;
   bool present = false;  // false: conf-less mode, only `cc` (from $JIG_CC) is set
 };
 

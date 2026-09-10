@@ -129,6 +129,10 @@ that run fails the build, unless `tests.dlopen = [ "libudev.so.1" ]` declares it
 `tests.relocated = true` repeats the run from a copy of the output at another path, and
 `tests.separate = true` puts the test phase in its own derivation.
 
+Hardening and `-O2 -g` are compiler defaults, injected by the driver and not through `CFLAGS`.
+`cc.hardening.fortify = false` turns one off, `cc.cflags = [ "-DFOO" ]` (and `cxxflags`,
+`ldflags`) adds to every compile regardless of build system.
+
 A few fields are rarer. `prebuilt = true` takes an upstream binary and only makes it
 relocatable. `install."bin/deno" = "deno"` copies files with no phases at all.
 `exports.propagate = [ pkgs.pcre2 ]` is for a library whose users must also see another, a

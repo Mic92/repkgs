@@ -21,19 +21,18 @@ def machine-file [path: path, sections: record]: nothing -> string {
 }
 
 # cross: meson takes machines from files, not the environment. The host (target) machine is our
-# cc/c++ with the dependency flags core exported; the build machine is cc-build with a pkg-config
+# cc/c++ with the dependency search paths env.nu exported (package cflags ride inside cc); the build machine is cc-build with a pkg-config
 # that finds nothing, so build-time tools never link target libraries. sizeof/alignment go in as
 # properties so cc.sizeof() & co. need no exe wrapper; the emulator still serves cc.run()/tests.
 def cross-files [c: record]: nothing -> list<string> {
   let p = $c.platform
   let split = {|s| $s | default "" | split row " " | where $it != "" }
-  let cargs = ((do $split $env.CPPFLAGS?) ++ (do $split $env.CFLAGS?))
-  let cxxargs = ((do $split $env.CPPFLAGS?) ++ (do $split $env.CXXFLAGS?))
+  let cargs = (do $split $env.CPPFLAGS?)
   let ldargs = (do $split $env.LDFLAGS?)
   let host = (machine-file $"($c.build)/cross.ini" {
     binaries: ({c: "cc", cpp: "c++", ar: "llvm-ar", nm: "llvm-nm", strip: "llvm-strip", objcopy: "llvm-objcopy", pkg-config: "pkg-config"}
       | merge (if ($p.emulator | is-empty) { {} } else { {exe_wrapper: $p.emulator} }))
-    "built-in options": {c_args: $cargs, cpp_args: $cxxargs, c_link_args: $ldargs, cpp_link_args: $ldargs}
+    "built-in options": {c_args: $cargs, cpp_args: $cargs, c_link_args: $ldargs, cpp_link_args: $ldargs}
     properties: {needs_exe_wrapper: true, sizeof_void_p: 8, sizeof_long: 8, sizeof_size_t: 8, alignment_void_p: 8, alignment_double: 8
       sys_root: ($env.PKGS_SYSROOT? | default ""), pkg_config_libdir: ($env.PKG_CONFIG_PATH? | default "")}
     host_machine: {system: $p.os, kernel: $p.os, cpu_family: $p.names.meson, cpu: $p.cpu, endian: "little"}
@@ -62,7 +61,7 @@ export def configure []: nothing -> nothing {
   } | merge $o.defs)
   # when cross the flags live in the machine files; meson would apply env CFLAGS to both machines
   let cross = (if $c.platform.cross { cross-files $c } else { [] })
-  let clean = (if $c.platform.cross { {CFLAGS: "", CXXFLAGS: "", CPPFLAGS: "", LDFLAGS: ""} } else { {} })
+  let clean = (if $c.platform.cross { {CPPFLAGS: "", LDFLAGS: ""} } else { {} })
   with-env $clean { x meson setup . (project-dir meson) ...$cross ...($opts | items {|k, v| $"-D($k)=($v | into string)" }) ...$o.flags }
 }
 

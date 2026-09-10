@@ -15,7 +15,7 @@ export def key [kind: string, scripts: list<path>]: nothing -> string {
     triple: $c.platform.triple
     roots: $roots
     out: $c.out
-    flags: [$env.CFLAGS? $env.CXXFLAGS? $env.CPPFLAGS? $env.LDFLAGS? $env.PKG_CONFIG_PATH?]
+    flags: [($env.PKGS_CC | from json | values) $env.CPPFLAGS? $env.LDFLAGS? $env.PKG_CONFIG_PATH?]
   } | to json -r | hash sha256)
   $"probe/($kind)/($id)"
 }

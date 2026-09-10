@@ -136,21 +136,57 @@ let
   fail = msg: throw "${name}: ${msg}";
 
   unknownUses = filter (u: !(buildSystems ? ${u})) uses;
+  # fields whose sub-keys are a fixed vocabulary: a typo there is as silent as one at top level
+  subFields = {
+    tests = [
+      "run"
+      "separate"
+      "parallel"
+      "version"
+      "relocated"
+      "dlopen"
+    ];
+    cc = [
+      "cflags"
+      "cxxflags"
+      "ldflags"
+      "hardening"
+    ];
+    "cc.hardening" = [
+      "fortify"
+      "stackprotector"
+      "stackclashprotection"
+      "trivialautovarinit"
+      "format"
+      "strictoverflow"
+      "strictflexarrays"
+      "zerocallusedregs"
+      "libcxxhardening"
+      "relro"
+      "bindnow"
+    ];
+  };
+  subKeys =
+    prefix: set:
+    if isAttrs set then
+      concatMap (
+        k:
+        let
+          path = "${prefix}.${k}";
+        in
+        if !(elem k subFields.${prefix}) then
+          [ path ]
+        else if subFields ? ${path} then
+          subKeys path set.${k}
+        else
+          [ ]
+      ) (attrNames set)
+    else
+      [ ];
   unknownFields =
     filter (f: !(elem f (reserved ++ uses))) (attrNames args)
-    ++ map (k: "tests.${k}") (
-      filter (
-        k:
-        !(elem k [
-          "run"
-          "separate"
-          "parallel"
-          "version"
-          "relocated"
-          "dlopen"
-        ])
-      ) (attrNames (args.tests or { }))
-    );
+    ++ subKeys "tests" (args.tests or { })
+    ++ subKeys "cc" (args.cc or { });
   # one message per option the package sets that its build system does not declare, or declares
   # with another type. Shallow (`typeOf`) on set options only, so it costs nothing per default.
   badOptions = concatMap (

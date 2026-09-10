@@ -246,6 +246,15 @@ void TestDriver() {
   out = jig::BuildDriverArgs(conf, jig::Language::kCxx, V({"-c", "a.cc"}));
   assert(out.at(3) == "--driver-mode=g++" && out.at(4) == "-stdlib=libc++");
 
+  // package flags: after the toolchain's, before the build system's. ldflags only when linking
+  jig::DriverConf pkg = conf;
+  pkg.package = {.cflags = V({"-O3"}), .cxxflags = V({"-fno-rtti"}), .ldflags = V({"-Wl,-z,x"})};
+  out = jig::BuildDriverArgs(pkg, jig::Language::kCxx, V({"-c", "a.cc", "-O0"}));
+  assert(out == V({"--start-no-unused-arguments", "--target=x", "-O2", "-O3", "--driver-mode=g++", "-stdlib=libc++",
+                   "-fno-rtti", "--end-no-unused-arguments", "-c", "a.cc", "-O0"}));
+  out = jig::BuildDriverArgs(pkg, jig::Language::kC, V({"-shared", "-o", "x.so", "x.o"}));
+  assert(out.at(3) == "-O3" && out.at(4) == "-Wl,-z,x");
+
   // executable link: rpath (runtime only for C++), interp stub, host rpaths dropped, foreign --dynamic-linker dropped
   out =
       jig::BuildDriverArgs(conf, jig::Language::kC,
