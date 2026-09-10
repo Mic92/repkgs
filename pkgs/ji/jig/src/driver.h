@@ -23,6 +23,7 @@ namespace jig {
 
 // Slack reserved at link time so reloc-fixup can rewrite in place:
 inline constexpr int kRunpathSlack = 48;  // pad bytes per RUNPATH entry (abs -> $ORIGIN-relative)
+inline constexpr int kNeededSlack = 80;   // pad bytes per -l ($ORIGIN/../../<hash>-x/lib/libx.so.N)
 inline constexpr int kInterpSlack = 12;   // "./" pairs in front of the interp basename
 
 struct DriverConf {

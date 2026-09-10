@@ -53,14 +53,15 @@ class RunpathList {
   // verbatim prefix first, then ours, then one pad entry giving `jig fixup` kRunpathSlack bytes
   // per store entry to rewrite them $ORIGIN-relative in place. Ours end in "/.": meson's install
   // step deletes every RUNPATH element that string-equals a build rpath or dependency libdir it
-  // knows, which would take ours with it. fixup normalises the spelling away
-  [[nodiscard]] auto Render() const -> std::string {
+  // knows, which would take ours with it. fixup normalises the spelling away. `libs`: -l count, each
+  // may become a direct $ORIGIN NEEDED string in the same bytes
+  [[nodiscard]] auto Render(size_t libs) const -> std::string {
     std::string out = verbatim_;
     for (const std::string& entry : entries_) {
       out.append(entry).append("/.:");
     }
     const size_t stores = entries_.size() + static_cast<size_t>(std::ranges::count(verbatim_, ':'));
-    return out + "/" + std::string((std::max<size_t>(stores, 1) * kRunpathSlack) - 1, '_');
+    return out + "/" + std::string((std::max<size_t>(stores, 1) * kRunpathSlack) + (libs * kNeededSlack) - 1, '_');
   }
 
  private:
@@ -130,8 +131,10 @@ auto ScanUserArgs(std::span<const std::string> raw) -> UserArgs {
   return user;
 }
 
-// RUNPATH: store -L dirs that satisfy some -l, store .so given by path, the C++ runtime, libc
-void AddRunpathEntries(const DriverConf& conf, bool cxx, std::span<const std::string> args, RunpathList& runpath) {
+// RUNPATH: store -L dirs that satisfy some -l, store .so given by path, the C++ runtime, libc.
+// Returns the -l count
+auto AddRunpathEntries(const DriverConf& conf, bool cxx, std::span<const std::string> args, RunpathList& runpath)
+    -> size_t {
   const Store& store = Store::Get();
   std::vector<std::string> lib_dirs;
   std::vector<std::string> libs;
@@ -174,6 +177,7 @@ void AddRunpathEntries(const DriverConf& conf, bool cxx, std::span<const std::st
     runpath.Add(conf.runtimes);
   }
   runpath.Add(conf.libc + "/lib");
+  return libs.size();
 }
 
 }  // namespace
@@ -268,8 +272,9 @@ auto BuildDriverArgs(const DriverConf& conf, Language lang, std::span<const std:
     return out;
   }
 
-  AddRunpathEntries(conf, cxx, user.args, user.runpath);
-  out.insert(out.end(), {"-Wl,--undefined-version", "-Wl,-rpath," + user.runpath.Render(), "-Wl,--enable-new-dtags"});
+  const size_t libs = AddRunpathEntries(conf, cxx, user.args, user.runpath);
+  out.insert(out.end(),
+             {"-Wl,--undefined-version", "-Wl,-rpath," + user.runpath.Render(libs), "-Wl,--enable-new-dtags"});
 
   const std::string libc_lib = conf.libc + "/lib";
   if (user.shared) {

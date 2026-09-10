@@ -1,7 +1,9 @@
 // reloc-fixup mode (argv[0] = reloc-fixup): `reloc-fixup <prefix>` rewrites every ELF64-LE file
 // under <prefix> in place so the tree is relocatable:
-//   - RUNPATH: store entries -> $ORIGIN-relative, padding/build/host entries dropped, a NEEDED
-//     library found nowhere on the RUNPATH but inside <prefix> gets its dir prepended
+//   - NEEDED: every library a store RUNPATH entry (or a lib dir inside <prefix>) provides becomes
+//     $ORIGIN/<rel>/<soname>, opened directly without a search. libc's stay by soname
+//   - RUNPATH: what is left (libc's dir, dirs that served no NEEDED i.e. dlopen) $ORIGIN-relative,
+//     padding/build/host entries dropped
 //   - PT_INTERP (when the crt_interp stub is linked, i.e. __reloc_start is exported): store path
 //     -> prefix-relative, segment type -> PT_NULL, e_entry -> __reloc_start
 // Exit status 1 if any file could not be made consistent (unresolvable NEEDED, no slack).
