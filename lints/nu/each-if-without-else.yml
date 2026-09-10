@@ -1,0 +1,23 @@
+id: each-if-without-else
+language: nu
+severity: error
+message: "rows where the `if` is false become null and `each` drops them silently: add `else`, filter with `where` first, or say so with `| compact`"
+rule:
+  kind: pipe_element
+  has:
+    kind: command
+    regex: '^(each|par-each)\b'
+    has:
+      kind: val_closure
+      has:
+        kind: pipeline
+        nthChild: {position: 1, reverse: true, ofRule: {kind: pipeline}}
+        has:
+          kind: pipe_element
+          nthChild: {position: 1, reverse: true, ofRule: {kind: pipe_element}}
+          has: {kind: ctrl_if, not: {regex: '\belse\b'}}
+  not:
+    precedes:
+      kind: pipe_element
+      regex: '^(compact|ignore|flatten)\b'
+      stopBy: {kind: pipe_element, not: {regex: '^(compact|ignore|flatten)\b'}}

@@ -20,6 +20,17 @@ let
     for f in "$@"; do ${pkgs.statix}/bin/statix check -c ${./statix.toml} "$f" || status=1; done
     exit $status
   '';
+  # ast-grep over nu with the tree-sitter grammar nushell maintains; rules in lints/nu/
+  sgconfig = pkgs.writeText "sgconfig.yml" (
+    builtins.toJSON {
+      ruleDirs = [ "${./lints/nu}" ];
+      customLanguages.nu = {
+        libraryPath = "${pkgs.tree-sitter-grammars.tree-sitter-nu}/parser";
+        extensions = [ "nu" ];
+        expandoChar = "_";
+      };
+    }
+  );
   nuFiles = [
     "*.nu"
     "pkgs/up/uptrack/src/uptrack"
@@ -100,6 +111,15 @@ pkgs.treefmt.withConfig {
       # nu has no stable formatter, this only checks (parse + types with the nu that runs builds).
       nu-typecheck = {
         command = "${nu-typecheck}";
+        includes = nuFiles;
+      };
+      nu-ast-grep = {
+        command = "${pkgs.ast-grep}/bin/ast-grep";
+        options = [
+          "scan"
+          "--config=${sgconfig}"
+          "--report-style=short"
+        ];
         includes = nuFiles;
       };
     };

@@ -1,0 +1,15 @@
+id: open-save-same-file
+language: nu
+severity: error
+message: "`save -f` truncates the file while `open` at the head of the pipeline still streams it: bind the content with `let` first"
+rule:
+  kind: pipeline
+  all:
+    - has:
+        kind: pipe_element
+        nthChild: 1
+        has: {kind: command, regex: '^open\b', has: {field: arg, pattern: $F}}
+    - has:
+        kind: pipe_element
+        nthChild: {position: 1, reverse: true, ofRule: {kind: pipe_element}}
+        has: {kind: command, regex: '^save\b', has: {field: arg, pattern: $F}}
