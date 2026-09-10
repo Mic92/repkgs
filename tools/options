@@ -3,7 +3,7 @@
 #   tools/options            all systems, markdown
 #   tools/options cmake go   just those
 def main [...systems: string]: nothing -> nothing {
-  let all = (^nix-instantiate --eval --strict --json (($env.FILE_PWD | path dirname) + "/default.nix") -A options | from json)
+  let all = (^nix-instantiate --eval --strict --json (($env.FILE_PWD | path dirname) + "/nix/options.nix") -A options | from json)
   let names = (if ($systems | is-empty) { $all | columns } else { $systems })
   for bs in $names {
     print $"## ($bs)\n"

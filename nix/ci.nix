@@ -75,5 +75,5 @@ lib.genAttrs native (n: set.${n})
         }
       } src && chmod -R u+w src && cd src && treefmt --ci && touch $out";
   inherit (import ../pkgs/se/seed/build.nix { inherit nixpkgs system; }) seed;
-  mingw-w64 = set.bootstrap.mingw.x86_64.mingw-w64;
+  mingw-w64 = (import ../bootstrap { inherit system; }).mingw.x86_64.mingw-w64;
 }

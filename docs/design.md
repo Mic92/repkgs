@@ -151,7 +151,7 @@ copies, `npmDepsHash` that breaks on every bump). Our rules:
   own subset, so adding entries for one package does not rebuild another.
 - **Native libraries behind locked dependencies are picked at build time too.** Whether some
   crate three levels down is `openssl-sys` cannot be known at eval time without IFD. So the set
-  hands the producer a fixed menu of library derivations (`sysLibs` in `default.nix`), the
+  hands the producer a fixed menu of library derivations (`sysLibs` in `nix/set.nix`), the
   producer matches lock entries against a per-ecosystem table (`builder/sys-libs.nu`), and the
   ones needed become real inputs of the vendor derivation, propagated to the package through
   `exports.json`. A package never lists pcre2 because ripgrep's regex crate wants it.
