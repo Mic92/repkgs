@@ -4,7 +4,7 @@ purl = 'pkg:generic/lua?url=https://www.lua.org/ftp/&regex=lua-(5\.4\.\d+)\.tar\
 [[source]]
 key = "default"
 url = "https://www.lua.org/ftp/lua-{version}.tar.gz"
-hash = "sha256-6TMsVp2D3WtvnwyhvwodjQH3kvTXz1rSMWwiHazvKys="
+hash = "sha256-t2xzwJrMSWAAsBjP7AUkE/H8QgMkBYXqtns59RqPoxU="
 
 [pin]
-version = "5.4.8"
+version = "5.4.9"
