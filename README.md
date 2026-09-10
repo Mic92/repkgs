@@ -37,7 +37,7 @@ that is incremental.
 To get the compile cache, run the daemon once and let the sandbox see its socket:
 
 ```console
-$ nix-build -A pkgs-cache && ./result/bin/pkgs-cache /tmp/pkgs-cache.sock &
+$ nix-build -A pkgs-cache && ./result/bin/pkgs-cache $XDG_RUNTIME_DIR/pkgs-cache/socket &
 $ tools/build -A jq     # nix-build with the socket mapped into the sandbox, no remote builders
 ```
 

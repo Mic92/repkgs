@@ -1,4 +1,4 @@
-# host-side daemon for jig's build cache. Run outside the sandbox: pkgs-cache /tmp/pkgs-cache.sock
+# host-side daemon for jig's build cache. Run outside the sandbox: pkgs-cache $XDG_RUNTIME_DIR/pkgs-cache/socket
 { package }:
 package {
   name = "pkgs-cache";

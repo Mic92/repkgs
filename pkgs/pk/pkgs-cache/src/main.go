@@ -169,6 +169,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// a private directory for the socket: connecting to it is trusting whoever serves it
+	if err := os.MkdirAll(filepath.Dir(sock), 0o700); err != nil {
+		log.Fatal(err)
+	}
 	os.Remove(sock)
 	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: sock, Net: "unix"})
 	if err != nil {

@@ -28,6 +28,8 @@ class Store {
   static auto Get() -> Store&;
 
   [[nodiscard]] auto dir() const -> const std::string& { return dir_; }
+  // Nix's state dir next to the store (/nix/store -> /nix/var/nix): where root-owned sockets live
+  [[nodiscard]] auto StateDir() const -> std::string { return dir_.substr(0, dir_.rfind('/')) + "/var/nix"; }
   [[nodiscard]] auto identity_by_content() const -> bool { return by_content_; }
 
   [[nodiscard]] auto IsStorePath(std::string_view path) const -> bool;

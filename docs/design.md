@@ -236,8 +236,8 @@ libc++, platform flags, prefix maps, the RUNPATH policy, the interp stub) and th
 As `rustc` it is a `RUSTC_WRAPPER`, as `gocacheprog` it speaks Go's cache protocol. It also
 does `reloc-fixup` and is the Nix worker-protocol client for dynamic derivations.
 
-If `/run/pkgs-cache.sock` exists in the sandbox (the user maps the host daemon's socket in with
-`extra-sandbox-paths`), jig asks it before compiling. If not, it just compiles. Derivations never
+If `/nix/var/nix/pkgs-cache/socket` exists in the sandbox (the user maps the host daemon's socket
+in with `extra-sandbox-paths`, `tools/build` does that), jig asks it before compiling. If not, it just compiles. Derivations never
 mention the cache, so outputs are identical either way, and with content-addressed outputs that
 is verifiable by rebuilding without the socket.
 
