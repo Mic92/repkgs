@@ -94,7 +94,7 @@ export def stdConfigure []: nothing -> nothing {
     rust: {channel: "stable", remap-debuginfo: true, frame-pointers: true, lld: false, llvm-tools: false}
     llvm: {download-ci-llvm: false}
     target: ({$triple: {cc: (tool cc), cxx: (tool c++), linker: (tool cc), ar: (tool llvm-ar), ranlib: (tool llvm-ranlib), crt-static: false}}
-      | merge (if $c.platform.cross { {$host: {cc: (tool cc-build), cxx: (tool c++-build), linker: (tool cc-build), ar: (tool llvm-ar)}} } else { {} }))
+      | merge (if $c.platform.cross { {$host: {cc: (tool $env.CC_FOR_BUILD), cxx: (tool $env.CXX_FOR_BUILD), linker: (tool $env.CC_FOR_BUILD), ar: (tool llvm-ar)}} } else { {} }))
     dist: {compression-formats: [gz], src-tarball: false}
   } | to toml | save -f bootstrap.toml
 }

@@ -33,12 +33,8 @@ def cross-files [c: record]: nothing -> list<string> {
       sys_root: ($env.PKGS_SYSROOT? | default ""), pkg_config_libdir: ($env.PKG_CONFIG_PATH? | default "")}
     host_machine: {system: $p.osNames.meson, kernel: $p.osNames.mesonKernel, cpu_family: $p.names.meson, cpu: $p.cpu, endian: "little"}
   })
-  # an empty, existing dir: pkg-config with PKG_CONFIG_LIBDIR pointing there finds nothing
-  mkdir $"($c.build)/no-pc"
-  $"#!(tool sh)\nPKG_CONFIG_PATH= PKG_CONFIG_LIBDIR=${0%/*}/no-pc exec pkg-config \"$@\"\n" | save -f $"($c.build)/pkg-config-build"
-  chmod +x $"($c.build)/pkg-config-build"
   let native = (machine-file $"($c.build)/native.ini" {
-    binaries: {c: "cc-build", cpp: "c++-build", ar: "llvm-ar", strip: "llvm-strip", pkg-config: $"($c.build)/pkg-config-build"}
+    binaries: {c: $env.CC_FOR_BUILD, cpp: $env.CXX_FOR_BUILD, ar: "llvm-ar", strip: "llvm-strip", pkg-config: $env.PKG_CONFIG_FOR_BUILD}
   })
   [--cross-file $host --native-file $native]
 }

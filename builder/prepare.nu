@@ -10,8 +10,21 @@ def --env resolve-platform [p: record]: nothing -> record {
   let transparent = ($p.cross and (try { (^$p.probe --version | complete).exit_code == 0 } catch { false }))
   if $p.cross { note platform $"($p.name) binfmt=($transparent)" }
   let plat = ($p | update emulator (if $transparent { [] } else { $p.emulator }) | insert transparent $transparent)
-  load-env {CC_FOR_BUILD: (if $plat.cross { "cc-build" } else { "cc" }), PKGS_EMULATOR: ($plat.emulator | str join " ")}
+  load-env ((build-machine-tools $plat.cross) | merge {PKGS_EMULATOR: ($plat.emulator | str join " ")})
   $plat
+}
+
+# The *_FOR_BUILD convention (AX_PROG_CC_FOR_BUILD, glib, meson's native file reads the same
+# names through meson.nu): build-machine compiler, no target flags, and a pkg-config that finds
+# nothing rather than target libraries
+def build-machine-tools [cross: bool]: nothing -> record {
+  if not $cross { return {CC_FOR_BUILD: "cc", CXX_FOR_BUILD: "c++", CPP_FOR_BUILD: "cc -E", PKG_CONFIG_FOR_BUILD: "pkg-config"} }
+  let dir = $"($env.NIX_BUILD_TOP)/for-build"
+  mkdir $"($dir)/no-pc"
+  $"#!/bin/sh\nPKG_CONFIG_PATH= PKG_CONFIG_LIBDIR=($dir)/no-pc exec pkg-config \"$@\"\n" | save -f $"($dir)/pkg-config"
+  chmod +x $"($dir)/pkg-config"
+  {CC_FOR_BUILD: "cc-build", CXX_FOR_BUILD: "c++-build", CPP_FOR_BUILD: "cc-build -E", PKG_CONFIG_FOR_BUILD: $"($dir)/pkg-config"
+    CFLAGS_FOR_BUILD: "", CXXFLAGS_FOR_BUILD: "", CPPFLAGS_FOR_BUILD: "", LDFLAGS_FOR_BUILD: ""}
 }
 
 # sources arrive unpacked (nix/sources.nix). cp -p: the store's uniform mtimes keep generated
