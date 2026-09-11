@@ -205,4 +205,9 @@ in
       self
   );
   inherit bootstrap buildSystems toolchain;
+  bundle = import ./bundle.nix {
+    nu = bootstrap.seed;
+    tools = [ buildPkgs.formatelf ] ++ baseTools.bootstrap;
+    tree = ../builder;
+  };
 }
