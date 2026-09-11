@@ -1,10 +1,12 @@
 {
   package,
   platform,
+  buildPkgs,
 }:
 package {
   name = "zlib";
   uses = [ "cmake" ];
+  cmake.tool = buildPkgs.cmake-bootstrap;
   cmake.defs = {
     ZLIB_BUILD_EXAMPLES = false;
   };

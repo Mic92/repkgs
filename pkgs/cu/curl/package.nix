@@ -6,6 +6,7 @@
 package {
   name = "curl";
   uses = [ "cmake" ];
+  cmake.tool = buildPkgs.cmake-bootstrap;
   cmake.defs = {
     CURL_USE_OPENSSL = true;
     CURL_USE_LIBPSL = false;

@@ -1,7 +1,12 @@
-{ package, pkgs }:
+{
+  package,
+  pkgs,
+  buildPkgs,
+}:
 package {
   name = "libarchive";
   uses = [ "cmake" ];
+  cmake.tool = buildPkgs.cmake-bootstrap;
   cmake.defs = {
     ENABLE_OPENSSL = false;
     ENABLE_LIBXML2 = false;
