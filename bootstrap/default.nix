@@ -140,6 +140,9 @@ let
           + (if platform.libc == "musl" then "" else "-${platform.name}");
         inherit system;
         __structuredAttrs = true;
+        __contentAddressed = true;
+        outputHashMode = "recursive";
+        outputHashAlgo = "sha256";
         outputs = [ "out" ];
         inherit (platform)
           triple

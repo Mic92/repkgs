@@ -10,8 +10,8 @@ ELF post-processor, **jigd** the per-machine daemon behind it (compile cache, bu
 ## Goals
 
 1. **Cheap evaluation.** ≤ 0.2 ms and 10 KB per package (nixpkgs: 2.6 ms, 135 KB).
-2. **Relocatable outputs.** No output contains its own store path. Content-addressed outputs and
-   early cut-off then work by default, and a closure runs from any directory.
+2. **Relocatable outputs.** No output contains its own store path. Every derivation is
+   content-addressed, so early cut-off works by default, and a closure runs from any directory.
 3. **Nushell builders.** Structured data, real errors, and a seed of a few static binaries.
 4. **One toolchain.** One LLVM targets every platform. Cross is an argument to the set.
 5. **A compile cache under Nix.** Editing a recipe recompiles what changed, not everything after it.
