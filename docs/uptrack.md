@@ -110,7 +110,9 @@ plan entry: the `version:` line our build prints, closure size delta, test resul
 ## Custom stages
 
 Without an `update.nu` a package needs nothing beyond `sources.toml`: versions come from the
-purl's datasource, every `[[source]].url` gets `{version}` substituted and prefetched, missing
+purl's datasource (github, gitlab, pypi, cargo, npm, hackage, gnu, `generic` with `?url=`, and
+two vendor feeds: `visualstudio` for the VS release manifest, `applesdk` for the macOS software
+update catalog), every `[[source]].url` gets `{version}` and the other `[pin]` keys substituted and prefetched, missing
 lock files are detected and generated, verify builds it. That is the path for most packages.
 `pkgs/xx/<name>/update.nu` exists only to replace a stage. It is a nu module exporting any of:
 

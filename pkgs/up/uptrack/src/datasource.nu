@@ -16,6 +16,7 @@ export def versions [p: record<type: string, namespace: string, name: string, qu
     gnu => (listing $"https://ftp.gnu.org/gnu/($p.name)/" $p.name)
     generic => (generic $p)
     visualstudio => (visualstudio $p)
+    applesdk => (applesdk $p)
     _ => (error make {msg: $"no datasource for purl type ($p.type)"})
   } | default false prerelease | default null date
     | update prerelease {|r| $r.prerelease or (version is-prerelease $r.version) }
@@ -78,6 +79,21 @@ def listing [url: string, name: string, --regex: oneof<string, nothing>]: nothin
 def visualstudio [p: record<type: string, namespace: string, name: string, qualifiers: record>]: nothing -> table<version: string> {
   let m = (fetch $"https://aka.ms/vs/($p.name)/release/channel" "visualstudio channel" | from json | get channelItems | where type == Manifest | first)
   [{version: $m.version, pr: ($m.payloads.0.url | parse -r '/download/pr/(.+)/[^/]+$' | get capture0.0)}]
+}
+
+# pkg:applesdk/CLTools_macOSNMOS_SDK: every product in the macOS software update catalog that
+# ships that package. The version is the Command Line Tools release in its .pkm metadata, `path`
+# (the part of the URL after content/downloads/) rides in [pin] since it is not derivable
+const SUCATALOG = "https://swscan.apple.com/content/catalogs/others/index-26-15-14-13-12-10.16-10.15-10.14-10.13-10.12-10.11-10.10-10.9-mountainlion-lion-snowleopard-leopard.merged-1.sucatalog"
+
+def applesdk [p: record<type: string, namespace: string, name: string, qualifiers: record>]: nothing -> table<version: string> {
+  let urls = (fetch $SUCATALOG "apple sucatalog" --max-age 12hr
+    | parse -r $"<string>https://swcdn.apple.com/content/downloads/\(?<path>[^<]+\)/($p.name).pkg</string>" | get path | uniq)
+  $urls | each {|path|
+    let pkm = (fetch $"https://swdist.apple.com/content/downloads/($path)/($p.name).pkm" $p.name --max-age 12hr)
+    let v = ($pkm | parse -r 'pkg-info[^>]* version="(?<v>\d+\.\d+)[.\d]*"' | get -o v.0)
+    if $v != null { {version: $v, path: $path} }
+  } | compact
 }
 
 def generic [p: record<type: string, namespace: string, name: string, qualifiers: record>]: nothing -> table<version: string> {
