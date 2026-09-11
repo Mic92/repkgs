@@ -234,6 +234,7 @@ let
   # a per-cpu tarball in sources.toml, and the dependencies' own verdicts
   badCpu = args ? platforms.cpu && !(elem platform.cpu args.platforms.cpu);
   nativeOnly = (args.platforms.cross or true) == false && platform.cross;
+  bsReasons = filter (r: r != null) (map (u: buildSystems.${u}.unsupported) uses);
   noTarball =
     sources0 != null && !(args0 ? source) && !(sources0.has "default") && !(sources0.has platform.cpu);
   unsupportedDeps = filter (d: !(d.supported or true)) (
@@ -246,6 +247,8 @@ let
       "${name}: not for ${platform.cpu} (platforms.cpu)"
     else if nativeOnly then
       "${name}: runs its own binaries while installing, cannot be cross-built (platforms.cross)"
+    else if bsReasons != [ ] then
+      "${name}: ${head bsReasons}"
     else if noTarball then
       "${name}: sources.toml has no '${platform.cpu}' source"
     else if unsupportedDeps != [ ] then

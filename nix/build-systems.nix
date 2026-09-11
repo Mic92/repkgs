@@ -1,6 +1,7 @@
 # What `uses = [ "<name>" ]` means: builder/systems/<name>.nu implements the phases, `phases` is the default
 # order (build test install unless said otherwise), `tools` go on PATH, `dependencies` add to
-# the package's, `prebuilt` is the package's default for that field, and `options` are what a
+# the package's, `prebuilt` is the package's default for that field, `unsupported` is a reason
+# (or null) why no user of it can build on this platform, and `options` are what a
 # package may set under `<name>.*`: `{ type; default; doc; }` each, `type` the `builtins.typeOf`
 # names allowed, checked at eval time along with the name. The module reads the merged result as
 # `options <name>`. Every system has `root`; `deps` (the fetched tree of locked dependencies,
@@ -74,11 +75,17 @@ builtins.mapAttrs
       tools = if builtins.isFunction bs.tools then bs.tools else _: bs.tools;
       dependencies = bs.dependencies or [ ];
       prebuilt = bs.prebuilt or false;
+      unsupported = bs.unsupported or null;
       stack = bs.stack or [ ];
     }
   )
   {
     autotools = {
+      unsupported =
+        if platform.libc == "msvc" then
+          "configure and libtool do not know the MSVC ABI, config.sub rejects the triple"
+        else
+          null;
       phases = [
         "configure"
         "build"
@@ -179,6 +186,7 @@ builtins.mapAttrs
       };
     };
     cabal = {
+      unsupported = if platform.cross then "ghc-bootstrap only targets the build machine" else null;
       tools = [
         buildPkgs.ghc-bootstrap
         buildPkgs.cabal-bootstrap
