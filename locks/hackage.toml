@@ -20,7 +20,7 @@
 "async" = { cabal = "sha256-RdVYfYo0in4rPwTelj/mM9tJtJzeEMoeb4NL7zuuzuk=", rev = "0", src = "sha256-FIVxvBiAAxASQdpsSRMdBzJOY6iO0oOoTe8ulpRZlhk=", version = "2.2.6" }
 "attoparsec" = { cabal = "sha256-NRKdCrF0HwAPGn0vyDlUSRnub7uPLW5/CmKcQfkQNfM=", rev = "6", src = "sha256-PzN/5YYkVl3hJCb2B8I+YMewnIa04638gnyhiMmXnmw=", version = "0.14.4" }
 "attoparsec-aeson" = { cabal = "sha256-CJSPRbiSxXWNLELiL+L71BpPbcOV+wpDwr9Fih8pVzY=", rev = "1", src = "sha256-/pssI6Fv4f+PQcMplAzMyArKesap6jFPenfPFC2Pnt0=", version = "2.2.2.0" }
-"base" = { cabal = "sha256-GfPAPLPQeD6OIzcM+/FPceOhSqkNyaep/vefylNWce8=", rev = "0", src = "sha256-Uqf2uT0k0Y1a3aFPvm3GmyImS9buNljPo/3p70GLVKI=", version = "4.21.0.0" }
+"base" = { cabal = "sha256-S1YkCRbEIaF3yBE1GOFMxCQ8rjuBU+ml2FtjfVZYo1I=", rev = "0", src = "sha256-oEV7IDdpOC6stHtX0SkviUuj2adbTTWHrJvZP1opOWk=", version = "4.21.2.0" }
 "base-compat" = { cabal = "sha256-pNMiYDRJ5aQiJenfzSNke0uaBQiTmJp//dwLMzUe13U=", rev = "0", src = "sha256-WapJ13eaIKgIkkaQWDZTwr37DlS1Fi34DfWoFjKCRTE=", version = "0.15.0" }
 "base-orphans" = { cabal = "sha256-AB8rMJS3obAOn9XcxRmmK4sUehdUv1UPpCYB/4aOK2U=", rev = "0", src = "sha256-CMwoOjE1D3vSiypdMa9pPuM38lk9PnIimZty3UlUxys=", version = "0.9.4" }
 "base16" = { cabal = "sha256-TdNBIoFo8s3gOVTdchde5yagcT4iAPbHtz9M2NIgc3c=", rev = "4", src = "sha256-hjZjZJELeGCWd4F88/mHvxaQ4fdbugS8kaXtmT1hnN4=", version = "1.0" }
@@ -42,6 +42,7 @@
 "cereal" = { cabal = "sha256-h6Inx7UQIX6gWds91Z2WZe3Y8NHT2N45RY43Gh2UAvs=", rev = "0", src = "sha256-mZBSIGYbJuW9kRML2XclVJOGCKWx1xckCm6zMRIeD2o=", version = "0.5.8.3" }
 "character-ps" = { cabal = "sha256-s47RwHrknnRh5Eyh0Aycok0dywCEJMzZGZFvkv1I2f4=", rev = "0", src = "sha256-It5x/eOLI20+kWioMrXh510ftPQChme990eztMjBUpw=", version = "0.1" }
 "citeproc" = { cabal = "sha256-hfKhruUqm6wPIYgQmvksmv74jtHlR0ta7ZsqMCSMXIQ=", rev = "0", src = "sha256-Zi0v2pOAtaFYIRqgx6pVqfUWudKtetyTzixwQtQ7TfY=", version = "0.13.0.1" }
+"clock" = { cabal = "sha256-uThlWwDPIEzmmr//lGAhvtER0mCan3qcIuKKGiAukRU=", rev = "0", src = "sha256-aumJiv54il4zTNX61dGKPC6OWfoJqve5V9uzikdn3y4=", version = "0.8.4" }
 "cmdargs" = { cabal = "sha256-DRozw5ePvN2k8lQ+Yqw+2K02FS4UHN7r7s5+CNZSnWM=", rev = "0", src = "sha256-uLEuf4eVzxMDe7Bi1FO4bHiOrmJVhYb1npQZqr5um+8=", version = "0.10.22" }
 "colour" = { cabal = "sha256-YT3I1fblG6vlc5inQquNXClk+pi3c/O/bmpyt+h/HG4=", rev = "0", src = "sha256-HzsQVWdavk4zYoAMyb96ubkt/fIaH2yCslJhEnC+loA=", version = "2.3.7" }
 "commonmark" = { cabal = "sha256-Vl9j8T6QAJei34ZLvmqY+7s1ILZMl+RIO7qfvlGbVOo=", rev = "0", src = "sha256-y8iSFJodqkuN2KdbYkhyNhsomicEexKknn9Wi3pA7us=", version = "0.3" }
@@ -54,6 +55,7 @@
 "contravariant" = { cabal = "sha256-KI8dPm+zrc+fNvKP+hiWc/LxMDgSKW37JSNHitMd2eI=", rev = "0", src = "sha256-ZfMmA1TuX9Hyx//FTP+Z0it5TCVPBTc0l5rTeCDm7+M=", version = "1.5.6" }
 "cookie" = { cabal = "sha256-kritKV9s4qLHahZ0fWIALCFCGlsAfMm1DN2a4IX/DyY=", rev = "0", src = "sha256-Gt3mJybjo7vhR8AlFP4MT18sWi/2OELerBDEUaKm96A=", version = "0.5.1" }
 "cryptohash-md5" = { cabal = "sha256-LkJYbXO9sUm96Cnje2VG2E5g1/tJyTMgYztxwl9N7lQ=", rev = "6", src = "sha256-OwjbCuOd8rROgwU60w11RqTGIAqFLCKiQKfgOuEIDwU=", version = "0.11.101.0" }
+"cryptohash-sha256" = { cabal = "sha256-Dp3izM4mHnpbAn6EL29H9Q6w5gWaDemKVHn3WqgWQQc=", rev = "6", src = "sha256-c6fccWOHGoCDdJUDmgmZZ7EfXE/nChGCd4QvenE8a/Y=", version = "0.11.102.1" }
 "crypton" = { cabal = "sha256-eSBo3hnsPnU2e6UvW7aMKwH3YYL5042fy27M/s6PUig=", rev = "0", src = "sha256-vP+EalN0Keqj1kweqIjC37JIBcs62c5sV7GuDzlGI5Q=", version = "1.1.5" }
 "crypton-asn1-encoding" = { cabal = "sha256-RUlKFyOgR6gV0NYgSBwQKNyiik6lzyVUhoaH2pB1OWE=", rev = "0", src = "sha256-SYE6DuJT9ijLgQLdaFeQVgm1LkkMc8VU183wy84pJtI=", version = "0.10.0" }
 "crypton-asn1-parse" = { cabal = "sha256-Siz8SYCVfRonnvaRN+5fZlwkfM2LuWKBLVsHHVQ4k/s=", rev = "0", src = "sha256-NcDyeNj8tyC0rYnCp/JW9/sJi59xoK60k6TDwP53KNk=", version = "0.10.0" }
@@ -80,11 +82,15 @@
 "emojis" = { cabal = "sha256-iGGSgfo/fwLCqD4SJQZpdxrZo7p0f14n27LP0ekAp0M=", rev = "0", src = "sha256-N3F39ERr7jW/jBwjZ404YGIFcUmHlD/kOXmbh5EBfdw=", version = "0.1.5" }
 "erf" = { cabal = "sha256-EcXTdH0XtYkAnL6WVsp5LktbJWDUqkT28egARHlLGos=", rev = "0", src = "sha256-JPC3nH4dJcss1EwiWNekZL9tuAeXdbULYLVKJUYWszc=", version = "2.0.0.0" }
 "exceptions" = { cabal = "sha256-ahDLnC/TzJVY7422eGtTwCMkulrz3h7Cn6hRdO75ZGM=", rev = "3", src = "sha256-m0wr8NAwWhEOHZTGxvB1vxpzUjAnFpsKi+TP83AWvkA=", version = "0.10.9" }
+"extra" = { cabal = "sha256-ucNg8vP7/1ygRla3qgqRslSsfefkuVm65GiKF4/9edE=", rev = "0", src = "sha256-ZqfW1xhkanvagi1nVQ3BhcbiWtH3/s8G/BMuMACYtZg=", version = "1.8.1" }
 "fgl" = { cabal = "sha256-ujWRVh5ABch789EpXuh+ZJwrTCnWYXOY/JoYeDieCYE=", rev = "0", src = "sha256-AvcThNPyhvhHOljFXtPKBA9NFCykut9cAkqwd7xANi8=", version = "5.8.3.1" }
 "file-embed" = { cabal = "sha256-LomDJAwfquAgtKzvbTDwKB9eyHwvOHNtwdxUVjVeIqU=", rev = "0", src = "sha256-XxhnLv+TY1VVfN0WOQVFEgXX7iJ0LtrDE90nz0Kj9BU=", version = "0.0.16.0" }
 "file-io" = { cabal = "sha256-HWioH6aE0Aax7HODbOvj3ppUaIg2kV/j5WogOJhGu04=", rev = "0", src = "sha256-MQoZ5MeS3k0wyRK8cf877LQIGNfHlrmZm80Jedq4fVs=", version = "0.1.5" }
 "filepath" = { cabal = "sha256-FJfCYwry3UE5eQX/Df95+EK9gKE518W/ujeJ/Dyu8Cw=", rev = "1", src = "sha256-VKqGxDL1kyc9e59gfFteChYowmdMb047WlTrDIPbXK8=", version = "1.5.4.0" }
+"filepattern" = { cabal = "sha256-NywXM9g7kAResp2p8BD+15v++Hcc5l6xJqHYPsxUqaI=", rev = "0", src = "sha256-zERdQ56i9lysdgTTV4qiw6YuWpHcmJ9M5bM5DbnlljY=", version = "0.1.3" }
 "ghc-bignum" = { cabal = "sha256-vSBArUOxOb2Wa/dk4kCks/Q1t538EdA0LezWGTKBgUI=", rev = "0", src = "sha256-v0BLkwQNR9MP0DL4VPaO62xyyRL7SiDEFTRhFSLVkGE=", version = "1.3" }
+"ghc-boot-th" = { cabal = "sha256-Z00cASG4mhibriTDAeiWt7acdXDjT2N7m0yl1Fh+Oa4=", rev = "0", src = "sha256-oFQS+UegUphw1yjY9r2/VJxKXcpIGbUYEW7cTi+93pI=", version = "9.12.4" }
+"ghc-internal" = { cabal = "sha256-hBxMWCj+GP7pY/pyjBo3iXhksvZWO/mEknLoALHlwjM=", rev = "0", src = "sha256-Bv6sWtyYdavDqA6s7r+sv/bsCCU3lL/LpRdYcizeoJY=", version = "9.1204.0" }
 "ghc-prim" = { cabal = "sha256-6oIms56qRv3TH1WhO9iwk3QUFGFC53Mrk7S7ck1veoQ=", rev = "0", src = "sha256-zvJcYzTyTwsWdTowj8tXCLxUT0uKs0icQuhblk5ry2M=", version = "0.13.0" }
 "gridtables" = { cabal = "sha256-PEuQHrk7dbyyBrxS96hka6YE1gd23oOad0eAwtQIf9c=", rev = "0", src = "sha256-6KFq31cp4qPshCjNQy4pw4UUYusy1Ch6qGYlvia1TGQ=", version = "0.1.1.0" }
 "haddock-library" = { cabal = "sha256-0Y+qMir4A0+DhSXTH5t1kc76R8YzCnqJCfhHz1cwKL4=", rev = "5", src = "sha256-fAdeyaN4sKLZ1gXnITUgHmx/8xZWTyyXQRNYL0O+ogo=", version = "1.11.0" }
@@ -93,6 +99,7 @@
 "happy-lib" = { cabal = "sha256-74Kb9/SJQCdC6l2gk9RUnPn3RaCqDmiUz2e1Jg+QMG4=", rev = "0", src = "sha256-0uBmKxK1IAh4fDgLlKzU9u0KCvBLsNQz7YxKwA8eMAM=", version = "2.2" }
 "hashable" = { cabal = "sha256-FA/Fra0Wb3tSdWfL0m/0gejaSma9/IS+Pd8o2+tm8nU=", rev = "0", src = "sha256-7Qt8EM6Syf/kVCDa3DjG0520hv82M/8TVnzJ9195sRI=", version = "1.5.1.0" }
 "haskell-lexer" = { cabal = "sha256-OTMA4iP3uEwzTYd4BIG87emDkqqL2CvIgtdrVLfRxpk=", rev = "0", src = "sha256-nXbhUoEGsbMubkZSZOOTgcpLRQtypLUzHn5RJ2QKGkE=", version = "1.2.1" }
+"heaps" = { cabal = "sha256-dM5gojuO8ke4vKce6zgonoKzteg7I4NgCyyDimghgGg=", rev = "0", src = "sha256-h2OkZjotCzyRJAClR9Zq4RtGqVRAO2dHJyFI6VCqA4I=", version = "0.4.1" }
 "hpke" = { cabal = "sha256-+xB2cKCuuRtGJuCx3/Tn7DNC5IkxzJlJONla8aI/ZF0=", rev = "0", src = "sha256-GgDgXDRLF/fSsorhlXbCrsNI1xyZVYP4WIJkpZ3If6I=", version = "0.1.0" }
 "hsc2hs" = { cabal = "sha256-ObJf2SmwKwGj/ln+x8qLLabw+eKCJ2t6hOY6RwLE1yU=", rev = "5", src = "sha256-b04014j+LKcJHuChAwfuinwGChuokPK/+tFqfU1c73Y=", version = "0.68.10" }
 "hslua-cli" = { cabal = "sha256-7YdEs6T2qs0zZYIUYAyRd4ZtDu1Bkq1MVzG9WFbjpmA=", rev = "0", src = "sha256-X2wK+s8E2H3bbGxKvSmWRUkzapp4or7gnur1LZVqdcA=", version = "1.4.4" }
@@ -111,6 +118,9 @@
 "ipynb" = { cabal = "sha256-0+yT9E+sfd6wblQZ0FdzIYMcyQPssXbKa+UBXFXpiTo=", rev = "1", src = "sha256-mnQ9dOlczM+tykpzT0THs+KluDjaP5BEIxWQ1zVRkcc=", version = "0.2" }
 "isocline" = { cabal = "sha256-ASfzBRaUsMVfrYfevfpZD+QYT66+Hg/h5VLJvr+6K8Y=", rev = "0", src = "sha256-kJDGnoCCzaRSFOQeggW85nGmwEt4rEEre6z/ra/nVGg=", version = "1.0.9" }
 "jira-wiki-markup" = { cabal = "sha256-FCqI9JphkRBG1Qd7BbR83h5lZ9a8sX6ezMVLDP/Pk6Y=", rev = "1", src = "sha256-nKI9Npw8zxs/+yCd2o5iiKX1kB+4I1ETgl+kjTro5SA=", version = "1.5.1" }
+"js-dgtable" = { cabal = "sha256-91y0+lPIjGV5S+zdSOsNOyuKvYmj1cGeh6+R9SJcFeQ=", rev = "0", src = "sha256-4o3WW+6Ag7FyEBNOIuAcY0ncM8O3vRdwWXPNAU6fIKw=", version = "0.5.2" }
+"js-flot" = { cabal = "sha256-TBxEepovugrbptMGeDAqMMMrnf3p56qekVZIPhVFCW0=", rev = "0", src = "sha256-G6LyprjYXadsQfUmyYkDy7EH+GQuUGwHLB5+PCD+Xno=", version = "0.8.3" }
+"js-jquery" = { cabal = "sha256-/b39TUE4SMZ4o3N/K5haXbZreWxoR7GuCCRuo3lcC6I=", rev = "0", src = "sha256-oIf6AaHFL1OG1D9TVfZIQcWktWtTcgCQ1mtaoAv+sQY=", version = "3.7.1" }
 "libyaml" = { cabal = "sha256-aKXtgozt859ErRa3onqB71BjDilpYKVJV1R3+Nsokes=", rev = "0", src = "sha256-1il+ybHrtOS1gKQ1fYQNCKb1PhOhDAxT7nS5c7um+hM=", version = "0.1.4" }
 "libyaml-clib" = { cabal = "sha256-gKFI9e5QF6ezkBviHA8QORzx9DdP++wMxrs03Wxo73M=", rev = "0", src = "sha256-BFJrxU5fz0ccK9IoVOa1GeFipuPWVOhmzYhiEDxyUUk=", version = "0.2.5" }
 "lua" = { cabal = "sha256-307n69bSrBPdLkGa+b+1sFtDLyzWOPvRpgiaRhPJsAc=", rev = "0", src = "sha256-VOx38hZFnnLj4RYNo0M/yK9dnmapSAVkK9edQe28Uv4=", version = "2.3.4" }
@@ -143,6 +153,7 @@
 "semialign" = { cabal = "sha256-z228t3xdka+kRFcjtnAsIitMLr1/hxRm5/C9+o7XAHE=", rev = "0", src = "sha256-D1E4nlevZGBC3OwlEZYGF77ihXIxrCkSKM9O9mIalGQ=", version = "1.4" }
 "semigroupoids" = { cabal = "sha256-UsWjRv33Q4Bhj2f/eEmJ75B4SY273/CeTY4v7SAgLiw=", rev = "1", src = "sha256-5IJY5JVCJF72xY1/QZqD0dGrkbAT2Sw7XIx8BI2qoS4=", version = "6.0.2" }
 "serialise" = { cabal = "sha256-pn+JtVM7EUitRl3H8kuu7S4unn2B0qFH/H+o/xCJyk0=", rev = "5", src = "sha256-Y5SXmf/RBnXvcOpwHB62PmGGKbOy97JfB8WpZuJOd/Q=", version = "0.2.6.1" }
+"shake" = { cabal = "sha256-hwTzX3hX9xre8rdKr7VYD3PfqwBKgEcY1BjBZ5j0oYY=", rev = "0", src = "sha256-QXbW44w7eBPwGfI3dGbZ8B24QgVu7BzaqKI7gM7dy4o=", version = "0.19.9" }
 "skylighting" = { cabal = "sha256-2gEcT7W8gp+Em2kTwC0CW4VmTnfIJOt8D+3deJKc6W0=", rev = "0", src = "sha256-Bd9rzgq6Wvfae2GOGJHL4Cgz9oELJAXpbCVOn/dBAB8=", version = "0.14.7" }
 "skylighting-core" = { cabal = "sha256-LKpsI/z6vTPHotbjl7vN74wzenqCrcrb9cRFKwKgPIU=", rev = "0", src = "sha256-4E+8e0JDtctpgZrhDya9N1+U2Jhqk5zU5vbKVV2rfb0=", version = "0.14.7" }
 "skylighting-format-ansi" = { cabal = "sha256-TlJcuPxfE9nPnR8dBxIMxJTZG7/jkEXEG3q2zxx3o2E=", rev = "0", src = "sha256-I9+obC7NJgGi7+1JZ+suwFBaUsFHdgVM5NiXB8LeCps=", version = "0.1" }

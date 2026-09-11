@@ -5,8 +5,8 @@
 use core.nu *
 
 # key = kind + every explicit input of the probes: the script that defines them, the masked
-# toolchain/dependency/tool set, platform, flags. $out is the fixed CA placeholder, so stable
-export def key [kind: string, scripts: list<path>]: nothing -> string {
+# toolchain/dependency/tool set, platform, flags, and $out unless the tree records no prefix
+export def key [kind: string, scripts: list<path>, --no-out]: nothing -> string {
   let c = (ctx)
   let roots = ($c.roots | each { path basename | str substring 33.. } | sort)
   let id = ({
@@ -14,7 +14,7 @@ export def key [kind: string, scripts: list<path>]: nothing -> string {
     script: ($scripts | sort | each { open --raw $in | hash sha256 })
     triple: $c.platform.triple
     roots: $roots
-    out: $c.out
+    out: (if $no_out { null } else { $c.out })
     flags: [($env.PKGS_CC | from json | values) $env.PKG_CONFIG_PATH?]
   } | to json -r | hash sha256)
   $"probe/($kind)/($id)"
