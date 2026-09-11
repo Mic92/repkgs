@@ -47,6 +47,7 @@ let
     pkgs.nodejs
     pkgs.libgcc-shim
   ];
+  nodeTools = [ buildPkgs.libgcc-shim ]; # the same addons while building (builder/node-common.nu)
   script = optStr "build" "package.json script `build` runs (null: none)";
 in
 builtins.mapAttrs
@@ -209,10 +210,7 @@ builtins.mapAttrs
         buildPkgs.cabal-bootstrap
         buildPkgs.jsem
       ];
-      # GHC's threaded RTS ends threads with pthread_exit, for which glibc dlopens libgcc_s.so.1:
-      # in the RUNPATH of what is installed, on LD_LIBRARY_PATH (its env export) while building.
       dependencies = [
-        pkgs.libgcc-shim
         pkgs.gmp # ghc-bignum: every linked program wants -lgmp
         pkgs.libffi # and the RTS -lffi
       ];
@@ -260,7 +258,8 @@ builtins.mapAttrs
       tools = [
         buildPkgs.nodejs
         sh
-      ];
+      ]
+      ++ nodeTools;
       lock.deps = fetch.pnpmDeps;
       dependencies = nodeDeps;
       options = {
@@ -315,7 +314,7 @@ builtins.mapAttrs
     };
     bun = {
       tool = buildPkgs.bun;
-      tools = [ sh ];
+      tools = [ sh ] ++ nodeTools;
       lock.deps = fetch.bunDeps;
       dependencies = nodeDeps;
       options = {
@@ -332,7 +331,8 @@ builtins.mapAttrs
       tools = [
         buildPkgs.nodejs
         sh
-      ];
+      ]
+      ++ nodeTools;
       lock.deps = fetch.yarnDeps;
       dependencies = nodeDeps;
       options = {
@@ -380,7 +380,7 @@ builtins.mapAttrs
     };
     npm = {
       tool = buildPkgs.nodejs;
-      tools = [ sh ];
+      tools = [ sh ] ++ nodeTools;
       lock.deps = fetch.npmDeps;
       dependencies = nodeDeps;
       options = {

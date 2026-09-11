@@ -1,0 +1,79 @@
+From 54939da2649c38265d996ee03ac59afdc19224d6 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?J=C3=B6rg=20Thalheim?= <joerg@thalheim.io>
+Date: Sat, 12 Sep 2026 00:22:42 +0200
+Subject: [PATCH] unwind-link: dlopen the libunwind next to libc.so
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+pthread_exit, pthread_cancel and backtrace load the unwinder lazily by
+soname, found only through the system search path or LD_LIBRARY_PATH.
+This libc ships in a relocatable prefix with LLVM's libunwind.so.1 beside
+it: name it relative to libc itself, $ORIGIN is expanded against the
+object that calls dlopen.
+
+Signed-off-by: Jörg Thalheim <joerg@thalheim.io>
+---
+ misc/unwind-link.c              |  6 ------
+ sysdeps/generic/unwind-link.h   | 10 ++++------
+ sysdeps/generic/unwind-resume.c |  2 +-
+ 3 files changed, 5 insertions(+), 13 deletions(-)
+
+diff --git a/misc/unwind-link.c b/misc/unwind-link.c
+index c5c1a3ea69..435fcabe5a 100644
+--- a/misc/unwind-link.c
++++ b/misc/unwind-link.c
+@@ -37,12 +37,6 @@ static void *global_libgcc_handle;
+    may depend on unwinding.  */
+ __libc_lock_define (static, lock);
+ 
+-#ifndef HAVE_CC_WITH_LIBUNWIND
+-# define UNWIND_SONAME LIBGCC_S_SO
+-#else
+-# define UNWIND_SONAME LIBUNWIND_SO
+-#endif
+-
+ struct unwind_link *
+ __libc_unwind_link_get (void)
+ {
+diff --git a/sysdeps/generic/unwind-link.h b/sysdeps/generic/unwind-link.h
+index ea39e525d2..735e2e5cc8 100644
+--- a/sysdeps/generic/unwind-link.h
++++ b/sysdeps/generic/unwind-link.h
+@@ -30,16 +30,14 @@ unwind_arch_adjustment (void *prev, void *addr)
+ }
+ #endif
+ 
++/* The unwinder installed next to this libc.so: the dynamic loader expands
++   $ORIGIN relative to the object calling dlopen, which is libc.  */
++#define UNWIND_SONAME "$ORIGIN/libunwind.so.1"
++
+ #ifdef SHARED
+ # include <pointer_guard.h>
+ # include <unwind-resume.h>
+ 
+-# ifndef HAVE_CC_WITH_LIBUNWIND
+-#  define UNWIND_SONAME LIBGCC_S_SO
+-# else
+-#  define UNWIND_SONAME LIBUNWIND_SO
+-# endif
+-
+ # if UNWIND_LINK_FRAME_STATE_FOR
+ struct frame_state;
+ # endif
+diff --git a/sysdeps/generic/unwind-resume.c b/sysdeps/generic/unwind-resume.c
+index 18c40501bb..6832f27966 100644
+--- a/sysdeps/generic/unwind-resume.c
++++ b/sysdeps/generic/unwind-resume.c
+@@ -26,7 +26,7 @@ link (void)
+ {
+   struct unwind_link *unwind_link = __libc_unwind_link_get ();
+   if (unwind_link == NULL)
+-    __libc_fatal (LIBGCC_S_SO " must be installed for unwinding to work\n");
++    __libc_fatal (UNWIND_SONAME " must be installed for unwinding to work\n");
+   return unwind_link;
+ }
+ 
+-- 
+2.55.0
+

@@ -1,6 +1,7 @@
 use ../core.nu *
 use python.nu [tool-site-packages]
 use ../sys-libs.nu
+use ../implant.nu
 
 # A Python application installed from its uv.lock (fetch.pythonDeps):
 #   $out/lib/<name>/site-packages   every locked dependency, then the project itself
@@ -38,6 +39,8 @@ export def build []: nothing -> nothing {
 
   x python3 -m build --wheel --no-isolation --skip-dependency-check --outdir $"($c.build)/project" .
   install-wheel (glob $"($c.build)/project/*.whl" | first) --scripts
+  # the test phase imports them before finish would get to it
+  implant $c
 }
 
 # `pyapp.check`: modules that must import with the final layout
