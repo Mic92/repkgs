@@ -377,6 +377,18 @@ let
 
   # an upstream-binary package says `prebuilt`, or one of its build systems does (pyapp: wheels)
   prebuilt = args.prebuilt or (any (u: buildSystems.${u}.prebuilt == true) uses);
+  # Set-valued options may expose independently configurable fields while retaining defaults for
+  # the rest (`autotools.configure.script` does not have to repeat `.parallel`).
+  withOptionDefaults =
+    defaults: given:
+    defaults
+    // builtins.mapAttrs (
+      k: v:
+      if isAttrs v && !(v ? type && v.type == "derivation") && isAttrs (defaults.${k} or null) then
+        defaults.${k} // v
+      else
+        v
+    ) given;
   spec =
     removeAttrs args [
       "source"
@@ -388,7 +400,7 @@ let
     // listToAttrs (
       map (u: {
         name = u;
-        value = buildSystems.${u}.defaults args // (args.${u} or { });
+        value = withOptionDefaults (buildSystems.${u}.defaults args) (args.${u} or { });
       }) uses
     )
     // {
