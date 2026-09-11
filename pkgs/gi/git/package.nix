@@ -14,7 +14,7 @@ package {
     "autotools"
     "cargo"
   ];
-  cargo.toolchain = buildPkgs.rust-bootstrap;
+  cargo.tool = buildPkgs.rust-bootstrap;
   cargo.deps = null;
   phases = [
     "autotools.configure"
