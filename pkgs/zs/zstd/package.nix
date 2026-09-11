@@ -1,10 +1,12 @@
 {
   package,
   pkgs,
+  buildPkgs,
 }:
 package {
   name = "zstd";
   uses = [ "cmake" ];
+  cmake.tool = buildPkgs.cmake-bootstrap; # cmake links this
   cmake.root = "build/cmake";
   cmake.defs = {
     ZSTD_BUILD_CONTRIB = false;

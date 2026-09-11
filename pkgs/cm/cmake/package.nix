@@ -1,47 +1,42 @@
+# cmake proper: configured by cmake-bootstrap, linking the set's libraries where the platform has
+# them (bundled otherwise: msvc has no autotools, so no xz, bzip2, curl)
 {
-  package,
-  platform,
+  variant,
+  pkgs,
+  buildPkgs,
 }:
-package (
-  {
-    name = "cmake";
-    tests.run = false; # ≈1 h
-    tests.relocated = true;
-    bin = [
-      "cmake"
-      "ctest"
-      "cpack"
-    ];
-  }
-  // (
-    if platform.cross then
-      {
-        # configured by the build machine's cmake (the cmake build system brings it)
-        uses = [ "cmake" ];
-        cmake.defs = {
-          CMAKE_USE_OPENSSL = false;
-          CMAKE_USE_SYSTEM_LIBRARIES = false;
-        };
-      }
-    else
-      {
-        uses = [ "autotools" ];
-        # ./bootstrap builds a minimal cmake with make, then cmake configures itself. Bundled libs: zlib &
-        # co. are cmake packages themselves, using ours would be a cycle
-        autotools.configureScript = "bootstrap";
-        phases = [
-          {
-            name = "configure";
-            run = ''
-              cd $c.build
-              (x $env.CONFIG_SHELL $"($c.src)/bootstrap" $"--prefix=($c.out)" $"--parallel=($c.njobs)" --no-system-libs
-                --no-qt-gui --docdir=share/doc/cmake --mandir=share/man
-                -- -DCMAKE_USE_OPENSSL=OFF -DBUILD_TESTING=OFF -DCMake_BUILD_LTO=OFF $"-DCMAKE_SYSTEM_PREFIX_PATH=($c.platform.sysroot)")
-            '';
-          }
-          "autotools.build"
-          "autotools.install"
-        ];
-      }
-  )
-)
+let
+  system = builtins.filter (p: p.supported) [
+    pkgs.bzip2
+    pkgs.curl
+    pkgs.expat
+    pkgs.libarchive
+    pkgs.xz
+    pkgs.zlib
+    pkgs.zstd
+  ];
+  has = p: p.supported;
+in
+variant pkgs.cmake-bootstrap {
+  name.set = "cmake";
+  uses.set = [ "cmake" ];
+  autotools.remove = true;
+  phases.remove = true;
+  platforms.remove = true;
+  cmake.set = {
+    tool = buildPkgs.cmake-bootstrap;
+    defs = {
+      BUILD_TESTING = false;
+      CMAKE_USE_OPENSSL = false;
+      CMAKE_USE_SYSTEM_LIBRARY_BZIP2 = has pkgs.bzip2;
+      CMAKE_USE_SYSTEM_LIBRARY_CURL = has pkgs.curl;
+      CMAKE_USE_SYSTEM_LIBRARY_EXPAT = has pkgs.expat;
+      CMAKE_USE_SYSTEM_LIBRARY_LIBARCHIVE = has pkgs.libarchive;
+      CMAKE_USE_SYSTEM_LIBRARY_LIBLZMA = has pkgs.xz;
+      CMAKE_USE_SYSTEM_LIBRARY_ZLIB = has pkgs.zlib;
+      CMAKE_USE_SYSTEM_LIBRARY_ZSTD = has pkgs.zstd;
+      # not packaged: cppdap, form, jsoncpp, librhash, libuv, nghttp2 stay bundled
+    };
+  };
+  dependencies.set = system;
+}
