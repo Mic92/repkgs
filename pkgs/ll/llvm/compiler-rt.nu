@@ -10,7 +10,10 @@ def libc-includes []: nothing -> list<string> {
   let libc = (cc-fact $env.libcHeaders include-dirs | each {|d| $"($env.libcHeaders)/($d)" })
   let linux = (if "linuxHeaders" in $env { [$"($env.linuxHeaders)/include"] } else { [] })
   let dirs = $libc ++ $linux
-  [-nostdlibinc] ++ ($dirs | each {|d| [-isystem $d] } | flatten)
+  # the libc's case-insensitive header overlay (windows-sdk), relative to its own location
+  let flags = (cc-fact $env.libcHeaders flags | default [] | str replace SYSROOT $env.libcHeaders)
+  let vfs = ($flags | enumerate | where item == "-ivfsoverlay" | each {|e| [-ivfsoverlay ($flags | get ($e.index + 1))] } | flatten)
+  [-nostdlibinc] ++ ($dirs | each {|d| [-isystem $d] } | flatten) ++ $vfs
 }
 
 # One compile item per list entry. "@lse/outline_atomic_<op><size>_<model>.S" stands for
@@ -35,8 +38,8 @@ def builtins-lib [out: string]: nothing -> string {
   }
 }
 
-# ELF only: crtbegin/crtend (vcruntime and libSystem bring their own), the profile runtime, and
-# GCC's crt names for glibc's Makeconfig, which links them even when configure saw compiler-rt
+# ELF only: crtbegin/crtend (vcruntime and libSystem bring their own) and GCC's crt names for
+# glibc's Makeconfig, which links them even when configure saw compiler-rt
 def elf-extras [src: string, out: string, common: list<string>]: nothing -> nothing {
   let b = $"($src)/compiler-rt/lib/builtins"
   let libdir = $"($out)/lib/($env.triple)"
@@ -48,18 +51,30 @@ def elf-extras [src: string, out: string, common: list<string>]: nothing -> noth
   cd $libdir
   for n in [crtbegin.o crtbeginS.o crtbeginT.o] { x ln -s clang_rt.crtbegin.o $n }
   for n in [crtend.o crtendS.o] { x ln -s clang_rt.crtend.o $n }
+}
 
-  # runtime for -coverage / -fprofile-instr-generate. Needs kernel headers (mmap flags), so stage1 only
-  if "linuxHeaders" not-in $env { return }
+# runtime for -coverage / -fprofile-instr-generate, where clang looks for it per binfmt. On ELF it
+# needs kernel headers (mmap flags), so stage1 only
+def profile-runtime [src: string, out: string]: nothing -> nothing {
+  if $env.binfmt == "elf" and "linuxHeaders" not-in $env { return }
   let p = $"($src)/compiler-rt/lib/profile"
-  # WindowsMMap is the win32 port, *ROCm* the separate clang_rt.profile_rocm (needs the sanitizer interception layer)
-  let srcs = (glob $"($p)/*.{c,cpp}" | where { ($in | path basename) !~ "^WindowsMMap|ROCm" })
-  let flags = (target) ++ (libc-includes) ++ [
-    -O2 -fPIC -nostdinc++ -w $"-I($src)/compiler-rt/include" $"-I($p)"
-    -DCOMPILER_RT_HAS_ATOMICS=1 -DCOMPILER_RT_HAS_FCNTL_LCK=1 -DCOMPILER_RT_HAS_FLOCK=1 -DCOMPILER_RT_HAS_UNAME=1
-  ]
+  # *ROCm* is the separate clang_rt.profile_rocm (needs the sanitizer interception layer),
+  # WindowsMMap the win32 mmap port
+  let skip = (if $env.binfmt == "coff" { "ROCm" } else { "^WindowsMMap|ROCm" })
+  let srcs = (glob $"($p)/*.{c,cpp}" | where { ($in | path basename) !~ $skip })
+  let has = ({
+    elf: [-DCOMPILER_RT_HAS_ATOMICS=1 -DCOMPILER_RT_HAS_FCNTL_LCK=1 -DCOMPILER_RT_HAS_FLOCK=1 -DCOMPILER_RT_HAS_UNAME=1 -fPIC]
+    macho: [-DCOMPILER_RT_HAS_ATOMICS=1 -DCOMPILER_RT_HAS_FCNTL_LCK=1 -DCOMPILER_RT_HAS_FLOCK=1 -DCOMPILER_RT_HAS_UNAME=1 -fPIC]
+    coff: [-DCOMPILER_RT_HAS_ATOMICS=1]
+  } | get $env.binfmt)
+  let flags = (target) ++ (libc-includes) ++ [-O2 -nostdinc++ -w $"-I($src)/compiler-rt/include" $"-I($p)"] ++ $has
+  let lib = ({
+    elf: $"($out)/lib/($env.triple)/libclang_rt.profile.a"
+    coff: $"($out)/lib/($env.triple)/clang_rt.profile.lib"
+    macho: $"($out)/lib/darwin/libclang_rt.profile_osx.a"
+  } | get $env.binfmt)
   let items = ($srcs | each {|f| {src: $f, obj: $"($env.NIX_BUILD_TOP)/obj/profile/($f | path basename).o"} })
-  archive $"($libdir)/libclang_rt.profile.a" (compile $flags $items)
+  archive $lib (compile $flags $items)
 }
 
 def main []: nothing -> nothing {
@@ -89,4 +104,5 @@ def main []: nothing -> nothing {
   # resource dir = these libs + clang's own intrinsics headers (shipped in the seed)
   copy-tree (^clang --print-resource-dir | str trim | path join include) $"($out)/include"
   if $env.binfmt == "elf" { elf-extras $src $out $common }
+  profile-runtime $src $out
 }
