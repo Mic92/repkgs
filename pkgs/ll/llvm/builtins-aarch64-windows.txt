@@ -123,7 +123,6 @@
 @lse/outline_atomic_swp8_3.S
 @lse/outline_atomic_swp8_4.S
 @lse/outline_atomic_swp8_5.S
-aarch64/chkstk.S
 aarch64/emupac.cpp
 aarch64/fp_mode.c
 aarch64/sme-abi-assert.c
