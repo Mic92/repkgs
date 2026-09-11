@@ -16,13 +16,11 @@ package {
     "autotools.install"
   ];
   autotools.buildTarget = [
-    (
-      {
-        linux = "linux";
-        macos = "macosx";
-      }
-      .${platform.os}
-    )
+    {
+      linux = "linux";
+      macos = "macosx";
+    }
+    .${platform.os}
   ];
   autotools.makeFlags = [
     "MYCFLAGS=-fPIC"
