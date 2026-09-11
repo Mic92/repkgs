@@ -23,9 +23,12 @@ package {
         let deps = (open --raw pythondeps.toml | lines | where { $in !~ '^"(qemu|setuptools|wheel|pip)" =' })
         $deps | str join "\n" | save -f pythondeps.toml
         cd $c.build
+        # --cross-prefix is what switches configure to a cross build
+        $env.PKG_CONFIG = "pkg-config"
+        let cross = (if $c.platform.cross { [$"--cross-prefix=($c.platform.triple)-" $"--host-cc=($env.CC_FOR_BUILD)"] } else { [] })
         (x (tool sh) $"($c.src)/configure" $"--prefix=($c.out)" --disable-download --without-default-features
           --enable-linux-user --disable-system --disable-tools --disable-docs --disable-werror
-          --target-list=aarch64-linux-user,loongarch64-linux-user,ppc64le-linux-user,riscv64-linux-user,x86_64-linux-user $"--python=(which python3 | get 0.path)")
+          --target-list=aarch64-linux-user,loongarch64-linux-user,ppc64le-linux-user,riscv64-linux-user,x86_64-linux-user $"--python=(which python3 | get 0.path)" ...$cross)
       '';
     }
     {
