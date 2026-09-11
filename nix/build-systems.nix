@@ -111,12 +111,13 @@ builtins.mapAttrs
         "test"
         "install"
       ];
-      tools = [
-        buildPkgs.cmake
+      tools = args: [
+        args.cmake.tool
         buildPkgs.ninja
         sh
       ];
       options = {
+        tool = opt "set" buildPkgs.cmake "cmake package to configure, build, test, and install with";
         defs = attrs { } "-D cache entries. true/false render ON/OFF, packages their store path";
         generator = str "Ninja" "cmake -G";
         flags = flags "cmake at configure time";

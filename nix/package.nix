@@ -221,7 +221,7 @@ let
   unsupportedDeps = filter (d: !(d.supported or true)) (
     common.dependencies
     ++ (args.buildDependencies or [ ])
-    ++ concatMap (u: buildSystems.${u}.tools args) uses
+    ++ concatMap (u: buildSystems.${u}.tools spec) uses
   );
   unsupportedReason =
     if badCpu then
@@ -404,7 +404,8 @@ let
     ]
     ++ (args.buildDependencies or [ ])
     ++ (if prebuilt == true then relocTools else [ ])
-    ++ concatMap (u: buildSystems.${u}.tools args ++ stackBefore buildSystems.${u}.stack) uses
+    # Tool selectors see the same defaulted build-system options as the builder.
+    ++ concatMap (u: buildSystems.${u}.tools spec ++ stackBefore buildSystems.${u}.stack) uses
     ++ (if args.bootstrapTools or false then baseTools.bootstrap else baseTools.full);
     dependencies = (args.dependencies or [ ]) ++ concatMap (u: buildSystems.${u}.dependencies) uses;
   };
