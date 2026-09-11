@@ -2,10 +2,12 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdlib>
 #include <filesystem>
 #include <format>
 #include <json.hpp>
 #include <optional>
+#include <print>
 #include <span>
 #include <string>
 #include <string_view>
@@ -230,6 +232,17 @@ auto ParseDriverConf(std::string_view text) -> DriverConf {
     const std::string value(Trim(line.substr(equals + 1)));
     if (key == "cc") {
       conf.cc = value;
+    } else if (key == "binfmt") {
+      if (value == "elf") {
+        conf.binfmt = BinFmt::kElf;
+      } else if (value == "macho") {
+        conf.binfmt = BinFmt::kMachO;
+      } else if (value == "coff") {
+        conf.binfmt = BinFmt::kCoff;
+      } else {
+        std::println(stderr, "jig.conf: binfmt = {} is none of elf, macho, coff", value);
+        std::exit(2);
+      }
     } else if (key == "flags") {
       conf.flags = SplitWhitespace(value);
     } else if (key == "cxxflags") {
@@ -317,7 +330,7 @@ auto BuildDriverArgs(const DriverConf& conf, Language lang, std::span<const std:
   for (const std::string& mapping : Split(Env("PKGS_PREFIX_MAP"), ':')) {
     out.push_back("-ffile-prefix-map=" + mapping);
   }
-  if (!user.linking || !user.have_input || user.no_policy || conf.libc.empty()) {
+  if (!user.linking || !user.have_input || user.no_policy || conf.binfmt != BinFmt::kElf) {
     return out;
   }
 

@@ -238,6 +238,14 @@ void TestDriver() {
   assert(conf.present && conf.cc == "/seed/bin/clang" && conf.flags == V({"--target=x", "-O2"}));
   const std::string store = jig::Store::Get().dir();
 
+  // macho/coff: no interp, no RUNPATH, whatever else the conf says
+  jig::DriverConf macho = jig::ParseDriverConf(
+      "cc = /seed/bin/clang\nbinfmt = macho\nflags = --target=arm64-apple-macos14.0\nlibc = /sr\n");
+  assert(macho.binfmt == jig::BinFmt::kMachO);
+  for (const std::string& arg : jig::BuildDriverArgs(macho, jig::Language::kC, V({"a.c", "-o", "a"}))) {
+    assert(!arg.contains("rpath") && !arg.contains("dynamic-linker") && !arg.contains("crt_interp"));
+  }
+
   // compile: conf flags, no link policy
   std::vector<std::string> out = jig::BuildDriverArgs(conf, jig::Language::kC, V({"-c", "a.c"}));
   assert(out == V({"--start-no-unused-arguments", "--target=x", "-O2", "--end-no-unused-arguments", "-c", "a.c"}));

@@ -145,6 +145,7 @@ let
           cpu
           libc
           os
+          binfmt
           interp
           ;
         karch = platform.names.kernel;

@@ -1,64 +1,95 @@
-# compiler-rt without cmake: builtins (per-arch file list in $env.list = pkgs/ll/llvm/builtins-<cpu>.txt,
-# written by the update.nu next to it), crtbegin/crtend, and the profile runtime. Flags are the ones cmake would use.
-# The output is laid out as a clang resource dir (include/ + lib/<triple>/) so -resource-dir= works.
+# compiler-rt without cmake: builtins (per-target file list in $env.list = pkgs/ll/llvm/builtins-*.txt,
+# written by the update.nu next to it), and on ELF crtbegin/crtend plus the profile runtime. Flags
+# are the ones cmake would use. The output is laid out as a clang resource dir (include/ + lib/) so
+# -resource-dir= works.
 use ../../../bootstrap/lib.nu *
+
+# Only libc *headers* exist at this point (libc itself links against what is built here).
+# msvc: the CRT's own headers plus the SDK's ucrt/um/shared, where windows-sdk keeps them
+def libc-includes []: nothing -> list<string> {
+  let h = $env.libcHeaders
+  let libc = (match $env.libc {
+    "msvc" => ([$"($h)/crt/include"] ++ (glob $"($h)/sdk/include/*/{ucrt,um,shared}"))
+    _ => [$"($h)/include"]
+  })
+  let linux = (if "linuxHeaders" in $env { [$"($env.linuxHeaders)/include"] } else { [] })
+  let dirs = $libc ++ $linux
+  [-nostdlibinc] ++ ($dirs | each {|d| [-isystem $d] } | flatten)
+}
+
+# One compile item per list entry. "@lse/outline_atomic_<op><size>_<model>.S" stands for
+# aarch64/lse.S built with those three defines (cmake generates the same by symlinking).
+def builtin-item [b: string, obj: string, f: string]: nothing -> record {
+  let lse = ($f | parse -r '^@lse/outline_atomic_(?<op>[a-z]+)(?<size>[0-9]+)_(?<model>[0-9])\.S$')
+  if ($lse | is-not-empty) {
+    let l = $lse.0
+    return {src: $"($b)/aarch64/lse.S", obj: $"($obj)/($f).o", flags: [$"-DL_($l.op)" $"-DSIZE=($l.size)" $"-DMODEL=($l.model)"]}
+  }
+  let std = (if ($f | str ends-with ".cpp") { [-std=c++17 -fno-exceptions -fno-rtti -nostdinc++] } else { [-std=gnu11] })
+  {src: $"($b)/($f)", obj: $"($obj)/($f).o", flags: $std}
+}
+
+# Where each driver looks for the builtins: the per-target runtime dir with lib<name>.a (ELF) or
+# <name>.lib (lld-link)
+def builtins-lib [out: string]: nothing -> string {
+  match $env.binfmt {
+    "elf" => $"($out)/lib/($env.triple)/libclang_rt.builtins.a"
+    "coff" => $"($out)/lib/($env.triple)/clang_rt.builtins.lib"
+  }
+}
+
+# ELF only: crtbegin/crtend (vcruntime brings its own), the profile runtime, and
+# GCC's crt names for glibc's Makeconfig, which links them even when configure saw compiler-rt
+def elf-extras [src: string, out: string, common: list<string>]: nothing -> nothing {
+  let b = $"($src)/compiler-rt/lib/builtins"
+  let libdir = $"($out)/lib/($env.triple)"
+  let crtflags = [-DCRT_HAS_INITFINI_ARRAY -DEH_USE_FRAME_REGISTRY]
+  compile $common [
+    {src: $"($b)/crtbegin.c", obj: $"($libdir)/clang_rt.crtbegin.o", flags: $crtflags}
+    {src: $"($b)/crtend.c", obj: $"($libdir)/clang_rt.crtend.o", flags: $crtflags}
+  ]
+  cd $libdir
+  for n in [crtbegin.o crtbeginS.o crtbeginT.o] { x ln -s clang_rt.crtbegin.o $n }
+  for n in [crtend.o crtendS.o] { x ln -s clang_rt.crtend.o $n }
+
+  # runtime for -coverage / -fprofile-instr-generate. Needs kernel headers (mmap flags), so stage1 only
+  if "linuxHeaders" not-in $env { return }
+  let p = $"($src)/compiler-rt/lib/profile"
+  # WindowsMMap is the win32 port, *ROCm* the separate clang_rt.profile_rocm (needs the sanitizer interception layer)
+  let srcs = (glob $"($p)/*.{c,cpp}" | where { ($in | path basename) !~ "^WindowsMMap|ROCm" })
+  let flags = (target) ++ (libc-includes) ++ [
+    -O2 -fPIC -nostdinc++ -w $"-I($src)/compiler-rt/include" $"-I($p)"
+    -DCOMPILER_RT_HAS_ATOMICS=1 -DCOMPILER_RT_HAS_FCNTL_LCK=1 -DCOMPILER_RT_HAS_FLOCK=1 -DCOMPILER_RT_HAS_UNAME=1
+  ]
+  let items = ($srcs | each {|f| {src: $f, obj: $"($env.NIX_BUILD_TOP)/obj/profile/($f | path basename).o"} })
+  archive $"($libdir)/libclang_rt.profile.a" (compile $flags $items)
+}
 
 def main []: nothing -> nothing {
   let out = $env.out
   let src = (unpack llvm compiler-rt third-party/siphash)
   let b = $"($src)/compiler-rt/lib/builtins"
   let obj = $"($env.NIX_BUILD_TOP)/obj"
-  let libdir = $"($out)/lib/($env.triple)"
 
-  # only libc *headers* exist at this point (libc itself links against what is built here).
-  # msvc: the CRT's own headers plus the SDK's ucrt/um/shared, where windows-sdk keeps them
-  let inc = (if $env.libc == "msvc" {
-    [$"($env.libcHeaders)/crt/include"] ++ (glob $"($env.libcHeaders)/sdk/include/*/{ucrt,um,shared}")
-  } else {
-    [$"($env.libcHeaders)/include"] ++ (if "linuxHeaders" in $env { [$"($env.linuxHeaders)/include"] } else { [] })
-  })
-  let sys = [-nostdlibinc] ++ ($inc | each {|d| [-isystem $d] } | flatten)
+  let pic = ({elf: [-fPIC], coff: []} | get $env.binfmt)
   # no -DCOMPILER_RT_HAS_FLOAT16 on ppc: clang has no _Float16 there (cmake probes the same)
-  let common = (target) ++ $sys ++ [
-    -O2 ...(if $env.os == "windows" { [] } else { [-fPIC] }) -fno-builtin -fno-lto -fvisibility=hidden -fomit-frame-pointer -ffreestanding
-    -DVISIBILITY_HIDDEN $"-I($b)" $"-I($src)/third-party/siphash/include"
-  ] ++ (if $env.cpu == "powerpc64le" { [] } else { [-DCOMPILER_RT_HAS_FLOAT16] }) ++ (if $env.cpu == "aarch64" { [-DENABLE_BAREMETAL_AARCH64_FMV -DHAS_ASM_LSE] } else { [] })
-
-  # list entries "@lse/outline_atomic_<op><size>_<model>.S" mean: aarch64/lse.S with those three defines
-  let items = (read-list $env.list | each {|f|
-    let lse = ($f | parse -r '^@lse/outline_atomic_(?<op>[a-z]+)(?<size>[0-9]+)_(?<model>[0-9])\.S$')
-    if ($lse | is-empty) { {src: $"($b)/($f)", obj: $"($obj)/($f).o", flags: (if ($f | str ends-with ".cpp") { [-std=c++17 -fno-exceptions -fno-rtti -nostdinc++] } else { [-std=gnu11] })} } else {
-      {src: $"($b)/aarch64/lse.S", obj: $"($obj)/($f).o", flags: [$"-DL_($lse.0.op)" $"-DSIZE=($lse.0.size)" $"-DMODEL=($lse.0.model)"]}
-    }
+  let percpu = (match $env.cpu {
+    "powerpc64le" => []
+    "aarch64" => [-DCOMPILER_RT_HAS_FLOAT16 -DENABLE_BAREMETAL_AARCH64_FMV -DHAS_ASM_LSE]
+    _ => [-DCOMPILER_RT_HAS_FLOAT16]
   })
+  let common = (target) ++ (libc-includes) ++ $pic ++ $percpu ++ [
+    -O2 -fno-builtin -fno-lto -fvisibility=hidden -fomit-frame-pointer -ffreestanding
+    -DVISIBILITY_HIDDEN $"-I($b)" $"-I($src)/third-party/siphash/include"
+  ]
+
+  let items = (read-list $env.list | each {|f| builtin-item $b $obj $f })
   say $"compiler-rt builtins ($env.cpu): ($items | length) objects"
-  mkdir $libdir
-  # the per-target runtime dir layout: lib<name>.a on ELF, <name>.lib where the linker is lld-link
-  let lib = (if $env.os == "windows" { "clang_rt.builtins.lib" } else { "libclang_rt.builtins.a" })
-  archive $"($libdir)/($lib)" (compile $common $items)
+  let lib = (builtins-lib $out)
+  mkdir ($lib | path dirname)
+  archive $lib (compile $common $items)
 
   # resource dir = these libs + clang's own intrinsics headers (shipped in the seed)
   copy-tree (^clang --print-resource-dir | str trim | path join include) $"($out)/include"
-  # ELF only: crtbegin/crtend (vcruntime brings its own), the profile runtime, GCC crt names
-  if $env.os != "linux" { return }
-
-  let crtflags = [-DCRT_HAS_INITFINI_ARRAY -DEH_USE_FRAME_REGISTRY]
-  compile $common [
-    {src: $"($b)/crtbegin.c", obj: $"($libdir)/clang_rt.crtbegin.o", flags: $crtflags}
-    {src: $"($b)/crtend.c", obj: $"($libdir)/clang_rt.crtend.o", flags: $crtflags}
-  ]
-  # runtime for -coverage / -fprofile-instr-generate. Needs kernel headers (mmap flags), so stage1 only
-  if "linuxHeaders" in $env {
-    let p = $"($src)/compiler-rt/lib/profile"
-    # WindowsMMap is the win32 port; *ROCm* is the separate clang_rt.profile_rocm (needs the sanitizer interception layer)
-    let psrcs = (glob $"($p)/*.{c,cpp}" | where { ($in | path basename) !~ "^WindowsMMap|ROCm" })
-    let pflags = (target) ++ $sys ++ [-O2 -fPIC -nostdinc++ -w $"-I($src)/compiler-rt/include" $"-I($p)"
-      -DCOMPILER_RT_HAS_ATOMICS=1 -DCOMPILER_RT_HAS_FCNTL_LCK=1 -DCOMPILER_RT_HAS_FLOCK=1 -DCOMPILER_RT_HAS_UNAME=1]
-    archive $"($libdir)/libclang_rt.profile.a" (compile $pflags ($psrcs | each {|f| {src: $f, obj: $"($obj)/profile/($f | path basename).o"} }))
-  }
-
-  # glibc's Makeconfig links GCC's crt names even when configure detected compiler-rt
-  cd $libdir
-  for n in [crtbegin.o crtbeginS.o crtbeginT.o] { x ln -s clang_rt.crtbegin.o $n }
-  for n in [crtend.o crtendS.o] { x ln -s clang_rt.crtend.o $n }
+  if $env.binfmt == "elf" { elf-extras $src $out $common }
 }

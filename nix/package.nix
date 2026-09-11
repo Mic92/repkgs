@@ -15,6 +15,7 @@
   edit,
 }:
 let
+  elf = platform.binfmt == "elf";
   inherit (builtins)
     any
     attrNames
@@ -69,6 +70,7 @@ let
         name
         cpu
         os
+        binfmt
         names
         triple
         rustTriple
@@ -79,9 +81,9 @@ let
       probe = if platform.cross then "${toolchain.sysroot}/lib/${platform.interp}" else "";
       # `prebuilt`: upstream ELFs get our dynamic linker implanted (true) or via launch ("ldso")
       interp = "${toolchain.sysroot}/lib/${platform.interp}";
-      launch = if platform.os == "linux" then "${launch}/bin/launch" else "";
+      launch = if elf then "${launch}/bin/launch" else "";
       # finish.nu runs the version check under it: a failed dlopen fails the build
-      dlaudit = if platform.os == "linux" then "${dlaudit}/lib/dlaudit.so" else "";
+      dlaudit = if elf then "${dlaudit}/lib/dlaudit.so" else "";
       relocStub = "${toolchain}/lib/reloc_stub.bin";
     };
   };

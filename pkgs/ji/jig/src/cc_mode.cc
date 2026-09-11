@@ -451,6 +451,10 @@ auto RunCcMode(std::string_view argv0, std::span<const std::string> raw_args, co
   // classify on what the build system said. The conf's injected flags (crt_interp.o, rpaths) are
   // part of the key but must not make a configure probe look like a real link
   Invocation inv = ParseInvocation(user_args);
+  // a cached link learns its inputs from ld.lld's --dependency-file; ld64.lld and lld-link have none
+  if ((inv.link || inv.link_one) && conf->binfmt != BinFmt::kElf) {
+    inv.cacheable = false;
+  }
   if (conf->present) {
     inv.args = BuildDriverArgs(*conf, lang, user_args);
     for (const std::string& arg : inv.args) {

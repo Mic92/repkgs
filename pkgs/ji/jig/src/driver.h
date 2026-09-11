@@ -12,6 +12,7 @@
 // Without a conf, $JIG_CC names the compiler and user args pass through untouched (cache only).
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <span>
 #include <string>
@@ -32,8 +33,12 @@ struct PackageCcFlags {
   std::vector<std::string> ldflags;   // link steps only, after argv
 };
 
+// The link policy (interp, RUNPATH) and lld's --dependency-file exist for ELF only.
+enum class BinFmt : std::uint8_t { kElf, kMachO, kCoff };
+
 struct DriverConf {
   std::string cc;
+  BinFmt binfmt = BinFmt::kElf;
   std::string libc;
   std::string interp = "ld-linux-x86-64.so.2";
   std::string crt;

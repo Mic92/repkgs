@@ -1,5 +1,6 @@
 # CPU facts, the only place they live. `glibc.<cpu>` / `musl.<cpu>` / `forSystem` add the libc-
-# dependent fields (triple, dynamic linker name). `flags` end up in every cc invocation via jig.conf.
+# dependent fields (triple, dynamic linker name) and `binfmt` (elf | macho | coff), which is what
+# decides linker flavour, PIC, crt objects, interp/RUNPATH and whether launchers apply. `flags` end up in every cc invocation via jig.conf.
 # `names`: what other ecosystems call the cpu (kernel ARCH=, GOARCH, rust triple prefix, meson
 # cpu_family, qemu-user binary, gyp/V8 dest-cpu) where it differs from ours.
 let
@@ -77,6 +78,7 @@ let
     // rec {
       inherit cpu libc;
       os = "linux";
+      binfmt = "elf";
       names = builtins.mapAttrs (n: _: c.names.${n} or cpu) {
         kernel = null;
         go = null;
@@ -111,6 +113,7 @@ let
       inherit (mk cpu "glibc") names;
       libc = "msvc";
       os = "windows";
+      binfmt = "coff";
       name = "${cpu}-windows";
       triple = "${cpu}-pc-windows-msvc";
       rustTriple = "${cpu}-pc-windows-msvc";
