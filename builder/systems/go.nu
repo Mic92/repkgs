@@ -13,7 +13,7 @@ export def --env setup []: nothing -> nothing {
     GOPROXY: (if $o.deps != null { $"file://($o.deps)" } else { "off" })
     CGO_ENABLED: (if $o.cgo { "1" } else { "0" })
     # cross: cc already targets the platform, go needs GOARCH; build-machine helpers use CC_FOR_BUILD
-    GOOS: "linux", GOARCH: $c.platform.names.go
+    GOOS: $c.platform.osNames.go, GOARCH: $c.platform.names.go
   }
 }
 

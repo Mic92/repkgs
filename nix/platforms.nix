@@ -5,23 +5,26 @@
 # nix/hardening.nix names: what it adds (cfprotection, branchprotection) or cannot take.
 # `names`: what other ecosystems call the cpu (kernel ARCH=, GOARCH, rust triple prefix, meson
 # cpu_family, qemu-user binary, gyp/V8 dest-cpu, apple's clang arch) where it differs from ours,
-# and `osNames` the same for the os (cmake CMAKE_SYSTEM_NAME, meson system and kernel).
+# and `osNames` the same for the os (cmake CMAKE_SYSTEM_NAME, meson system and kernel, GOOS).
 let
   oses = {
     linux.osNames = {
       cmake = "Linux";
       meson = "linux";
       mesonKernel = "linux";
+      go = "linux";
     };
     windows.osNames = {
       cmake = "Windows";
       meson = "windows";
       mesonKernel = "nt";
+      go = "windows";
     };
     macos.osNames = {
       cmake = "Darwin";
       meson = "darwin";
       mesonKernel = "xnu";
+      go = "darwin";
     };
   };
   cpus = {
