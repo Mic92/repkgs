@@ -14,36 +14,29 @@ source (go, rust, zig, jdk are done this way). Left:
 - **ghc**: from source, booted by `ghc-bootstrap`.
 - **node**: swap the remaining bundled deps for ours where configure allows.
 
-Until then these are build tools only, never linked into outputs, pinned per cpu for x86_64 and
-aarch64 (rust also riscv64). Where upstream has no binary their users are `supported = false`.
-Where upstream has none, `repkgs bootstrap <x>` cross builds ours from x86_64 and uploads it as
-`<x>-bootstrap`'s source (go riscv64 done). jdk next: its output links zlib/freetype by store
-path, so it needs bundling into one self-contained tree first. ghc once it cross-builds.
+Until then these are build tools only, never linked into outputs, pinned per cpu. zig, bun, deno
+and node have no upstream riscv64 binary: `repkgs bootstrap <x>` cross builds and uploads ours
+once they cross-build. ghc neither, and hadrian (9.6 to 9.12) cannot produce a compiler that runs
+on another machine, only cross compilers: riscv64 Haskell waits for that or a native builder.
 
 ## Platforms
 
-- **Seed**: loongarch64 and powerpc64le cross verified end to end (backends are in LLVM 23,
-  seeds for x86_64, aarch64, riscv64 are up). Later the seed is built from this set's own
-  static packages instead of nixpkgs, as a fixed point in CI.
-- **Windows** (`<cpu>-windows`, MSVC ABI): toolchain, hardening, cmake/meson target names, a
-  case-insensitive SDK header overlay and the cmake/meson C libraries are in (zlib, libpng,
-  expat, pcre2, sqlite, inih, freetype …), autotools is `unsupported` there. Next: `.exe`/`.dll`
-  install names, the cargo target, go (`GOOS` is wired), wine as the test emulator.
+- **Seed**: loongarch64 and powerpc64le end to end (backends are in). The seed built from this
+  set's own static packages instead of nixpkgs, as a fixed point in CI.
+- **Windows**: `.exe`/`.dll` install names, the cargo and go targets, wine as the test
+  emulator. autotools stays `unsupported` there.
 - **FreeBSD / NetBSD**: ELF and clang upstream, so crt_interp, `$ORIGIN` and launchers carry
   over. libc from the release's `base.txz` first, from `src.txz` later. No user-mode emulator:
   tests need a VM job.
-- **macOS** (`aarch64-macos`): toolchain over Apple's SDK with `ld64.lld`, `bin/ld` is the
-  Mach-O lld so libtool sees no GNU ld, build systems name the target, the autotools and cmake
-  C libraries build (gmp, libffi, libyaml, xz, oniguruma, ncurses, sqlite, lua …). Next: our own
-  libc++ with `@rpath` install names, script launchers for Mach-O, pruning the SDK of libraries
-  this set builds itself (as nixpkgs does), and a darwin builder hop for tests.
+- **macOS**: our own libc++ with `@rpath` install names, script launchers for Mach-O, pruning
+  the SDK of libraries this set builds itself, a darwin builder hop for tests.
 - **wasm32-wasi** as one more cross platform: wasi-libc instead of glibc, no launcher.
 
 ## Ecosystems
 
 Each is an interpreter package, a build system module, one lock-file producer, and a
-`locks/<registry>.toml` only where the upstream lock has no usable hash (Erlang/Elixir done:
-mix, rebar3, `fetch.hexDeps`). In rough order of value per effort:
+`locks/<registry>.toml` only where the upstream lock has no usable hash. In rough order of value
+per effort:
 
 | ecosystem | status / shape |
 |---|---|
@@ -64,12 +57,9 @@ npm/pnpm/bun, and `uptrack check` should warn when a lock names a library the se
 
 ## Infrastructure
 
-- **Reproducibility**: with every derivation content-addressed, a rebuild that yields a
-  different store path is the signal. A CI job running `repkgs repro` (rebuild without the
-  cache socket, report path mismatches, diffoscope those).
-- **CI**: nixbot on both build platforms plus riscv64 cross, harmonia cache with realisations.
-  The whole set builds natively and cross to aarch64/riscv64 on one machine today, unverified
-  by CI.
+- **CI**: nixbot on both build platforms plus the cross targets, harmonia cache with
+  realisations. A `repkgs repro` job: rebuild without the cache socket, a different store path
+  is the signal, diffoscope those.
 - **uptrack**: reports, `sync-github`.
 
 ## jig follow-ups

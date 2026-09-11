@@ -3,7 +3,7 @@
 # its store path as a nar to the GitHub release `bootstrap-<pkg>-<version>` and add a
 # `<cpu>` source to pkgs/*/<pkg>-bootstrap/sources.toml. The riscv64 set then fetches it like an
 # upstream tarball (fixed-output, no dependency on this machine's derivations).
-#   tools/upload-bootstrap.nu go jdk [--cpus riscv64] [--repo Mic92/repkgs] [--store-path /nix/store/…]
+#   tools/upload-bootstrap.nu jdk [--cpus riscv64] [--repo Mic92/repkgs] [--store-path /nix/store/…]
 
 def main [
   ...pkgs: string # package names whose output becomes <pkg>-bootstrap's source
