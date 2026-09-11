@@ -164,13 +164,13 @@ builtins.mapAttrs
       };
     };
     cargo = {
-      # `cargo.toolchain = buildPkgs.rust-bootstrap` for what must exist before llvm and rust are
+      # `cargo.tool = buildPkgs.rust-bootstrap` for what must exist before llvm and rust are
       # built: formatelf, which every `prebuilt = true` package needs
       # cross: std for the target is its own package, <toolchain>-std, from the same release
       tools =
         args:
         let
-          toolchain = args.cargo.toolchain or buildPkgs.rust;
+          toolchain = args.cargo.tool;
         in
         [ toolchain ] ++ (if platform.cross then [ pkgs."${toolchain.pname}-std" ] else [ ]);
       lock.deps = fetch.cargoVendor;
@@ -180,10 +180,7 @@ builtins.mapAttrs
         flags = flags "cargo build and cargo test";
         skipTests = strs [ ] "cargo test --skip filters (substring of the test path)";
         deps = deps true "fetch.cargoVendor";
-        toolchain = opt [
-          "set"
-          "null"
-        ] null "the rust to build with (null: buildPkgs.rust, rust-bootstrap before that exists)";
+        tool = opt "set" buildPkgs.rust "rust package providing cargo and rustc";
       };
     };
     cabal = {

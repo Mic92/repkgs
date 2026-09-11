@@ -8,7 +8,7 @@ package {
   name = "formatelf";
   uses = [ "cargo" ];
   # tree infrastructure (finish.nu implants prebuilt ELFs with it): must not wait for llvm + rust
-  cargo.toolchain = buildPkgs.rust-bootstrap;
+  cargo.tool = buildPkgs.rust-bootstrap;
   phases = [
     "cargo.build"
     "cargo.test"
