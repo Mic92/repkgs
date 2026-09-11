@@ -1,11 +1,11 @@
 #!/usr/bin/env nu
 # Build the seed nar for each system, upload to the GitHub release `seed-<version>` and rewrite
 # ./sources.toml. Version comes from build.nix's seed name (seed-<N>-<system>).
-#   pkgs/se/seed/upload.nu [--systems x86_64-linux,aarch64-linux] [--repo Mic92/dotfiles]
+#   pkgs/se/seed/upload.nu [--systems x86_64-linux,aarch64-linux] [--repo Mic92/repkgs]
 
 def main [
   --systems: string = "x86_64-linux,aarch64-linux" # comma separated, others keep their sources.toml entry
-  --repo: string = "Mic92/dotfiles" # GitHub repo holding the seed-<N> releases
+  --repo: string = "Mic92/repkgs" # GitHub repo holding the seed-<N> releases
 ]: nothing -> nothing {
   let here = ($env.CURRENT_FILE | path dirname)
   let toml = $"($here)/sources.toml"
