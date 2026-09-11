@@ -8,6 +8,7 @@
 package {
   name = "ghc-bootstrap";
   prebuilt = true;
+  platforms.cross = false;
   dependencies = [
     pkgs.gmp
     pkgs.ncurses
