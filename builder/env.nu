@@ -1,6 +1,6 @@
 # The process environment every build step inherits. Each function returns a record, `main`
 # loads them in order: sandbox dirs, reproducibility pins, the toolchain's view of the
-# dependencies, default flags, then the dependencies' and the spec's own `env` on top.
+# dependencies, default flags, then the build tools' and the spec's own `env` on top.
 use core.nu *
 
 # writable HOME and XDG dirs for tools with per-user caches (npm, pnpm, bun, luarocks, gem),
@@ -84,6 +84,7 @@ export def --env main [a: record, deps: list<record>, out: string]: nothing -> n
   load-env (reproducible $a)
   load-env (toolchain $a $deps)
   load-env (package-cc $a $deps)
-  load-env ($deps | get env | reduce -f {} {|it, acc| $acc | merge $it })
+  # exported env is for what runs during the build: from build tools, not target dependencies
+  load-env ($a.buildDependencies | each { (exports-of $in).env } | reduce -f {} {|it, acc| $acc | merge $it })
   load-env ($a.spec.env? | default {})
 }
