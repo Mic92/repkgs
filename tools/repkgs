@@ -1,0 +1,200 @@
+#!/usr/bin/env nu
+# One entry point for working on the set. Every subcommand is a thin wrapper that ends in
+# nix-build, nix, uptrack, jigd or treefmt: `repkgs <cmd> --help` shows what it runs.
+
+const INSIDE = "/nix/var/nix/jigd/socket"
+
+def root []: nothing -> string { $env.CURRENT_FILE | path expand | path dirname -n 2 }
+
+def platform-arg [p]: nothing -> list<string> { if $p == null { [] } else { [--argstr platform $p] } }
+
+# `s.7zip` is a parse error in nix, `s."7zip"` is not
+def sel [attr: string]: nothing -> string { $attr | split row "." | each {|a| $'"($a)"' } | str join "." }
+
+def set-expr [p]: nothing -> string {
+  let arg = (if $p == null { "{ }" } else { $"{ platform = \"($p)\"; }" })
+  $"\(import (root) ($arg)\)"
+}
+
+# a socket file something is listening on (a crashed jigd leaves the file behind)
+def is-socket [p: string]: nothing -> bool {
+  ($p | path exists) and (ls -D $p | get 0.type) == "socket" and (open --raw /proc/net/unix | str contains $" ($p | path expand)\n")
+}
+
+# under /tmp, not XDG_RUNTIME_DIR: the nix build user has to reach it through extra-sandbox-paths
+def jigd-dir []: nothing -> string { $"/tmp/jigd-(id -u)" }
+
+def jigd-socket []: nothing -> any {
+  [$env.JIGD_SOCK? $INSIDE $"(jigd-dir)/socket"] | compact | where {|p| is-socket $p } | get 0?
+}
+
+# maps the jigd socket into the sandbox (trusted user) and keeps the build local, a remote has no cache
+def cache-args []: nothing -> list<string> {
+  let sock = (jigd-socket)
+  if $sock == null {
+    print -e "repkgs: no jigd socket, building uncached (repkgs cache start)"
+    []
+  } else {
+    [--option extra-sandbox-paths $"($INSIDE)=($sock)" --builders ""]
+  }
+}
+
+def drv [attr: string, p]: nothing -> string {
+  ^nix-instantiate (root) -A $attr ...(platform-arg $p) --quiet --quiet | str trim
+}
+
+def main []: nothing -> nothing { help main }
+
+# build packages through the compile cache
+def "main build" [
+  --for: string # platform, e.g. aarch64-linux, x86_64-windows
+  ...attrs: string # package attributes (jq, jq.tests)
+]: nothing -> nothing {
+  if ($attrs | is-empty) { error make {msg: "repkgs build <attr>…, or nix-build -A ci for the whole set"} }
+  ^nix-build (root) --no-out-link --log-format bar-with-logs ...(cache-args) ...(platform-arg $for) ...($attrs | each {|a| [-A $a] } | flatten)
+}
+
+# build <pkg>.tests (tests.separate packages), or the package itself when it tests in-build
+def "main test" [
+  --for: string # platform
+  ...attrs: string
+]: nothing -> nothing {
+  let set = (set-expr $for)
+  let targets = ($attrs | each {|a| if (^nix-instantiate --eval --expr $"($set).(sel $a) ? tests" | str trim) == "true" { $"($a).tests" } else { $a } })
+  if $for == null { main build ...$targets } else { main build --for $for ...$targets }
+}
+
+# the build log of a package's derivation
+def "main log" [
+  --for: string # platform
+  attr: string
+]: nothing -> nothing {
+  let d = (drv $attr $for)
+  let r = (^nix log $d | complete)
+  if $r.exit_code != 0 { error make {msg: $"no local log for ($d): built elsewhere or substituted, `repkgs build` it here first"} }
+  print $r.stdout
+}
+
+# a shell with the package's build environment (nix-shell on its derivation)
+def "main shell" [
+  --for: string # platform
+  attr: string
+]: nothing -> nothing {
+  ^nix-shell (drv $attr $for)
+}
+
+# package names for a platform, or the ones it does not support and why
+def "main list" [
+  --for: string # platform
+  --unsupported # show what `supported` filters out, with the reason
+]: nothing -> table {
+  let set = (set-expr $for)
+  if $unsupported {
+    ^nix-instantiate --eval --strict --json --expr $"let s = ($set); in map \(n: { name = n; reason = s.${n}.unsupportedReason; }\) \(builtins.filter \(n: !s.${n}.supported\) \(builtins.attrNames s\)\)" | from json
+  } else {
+    ^nix-instantiate --eval --json --expr $"builtins.attrNames ($set)" | from json | wrap name
+  }
+}
+
+# version, platform support and store path facts of one package without building it
+def "main info" [
+  --for: string # platform
+  attr: string
+]: nothing -> record {
+  let set = (set-expr $for)
+  ^nix-instantiate --eval --strict --json --expr $"let p = ($set).(sel $attr); in { name = p.pname; version = p.version or null; platform = p.platform; supported = p.supported; reason = p.unsupportedReason; uses = p.args.uses or []; }" | from json
+}
+
+# the options every build system accepts (<name>.* in a package.nix)
+def "main options" [
+  ...systems: string # build systems, default all
+]: nothing -> nothing {
+  let all = (^nix-instantiate --eval --strict --json $"(root)/nix/options.nix" -A options | from json)
+  let names = (if ($systems | is-empty) { $all | columns } else { $systems })
+  let unknown = ($names | where $it not-in ($all | columns))
+  if ($unknown | is-not-empty) { error make {msg: $"no build system ($unknown | str join ' '), have: ($all | columns | str join ' ')"} }
+  for bs in $names {
+    print $"## ($bs)\n"
+    print ($all | get $bs | transpose option v | each {|r| {option: $"`($bs).($r.option)`", type: ($r.v.type | str join " | " | str replace "set | string" package), default: (if ($r.v.type | str join " " | str contains "set string") { "lock file" } else { $r.v.default | to nuon }), meaning: $r.v.doc} } | to md --pretty)
+    print ""
+  }
+}
+
+# a new package directory with sources.toml from a purl and url template (uptrack init)
+def "main new" [
+  name: string # attribute name
+  purl: string # pkg:github/owner/repo, pkg:pypi/name, pkg:gnu/name, …
+  url: string # source url with {version} {tag} {major} {minor}
+]: nothing -> nothing {
+  let dir = $"(root)/pkgs/($name | str substring 0..<2)/($name)"
+  if ($dir | path exists) { error make {msg: $"($dir) exists"} }
+  try { ^$"(root)/pkgs/up/uptrack/src/uptrack" init $dir $purl $url } catch {
+    rm -rf $dir
+    error make {msg: $"uptrack init failed for ($purl), nothing written"}
+  }
+  if not ($"($dir)/package.nix" | path exists) {
+    $"{\n  package,\n  pkgs,\n}:\npackage {\n  name = \"($name)\";\n  uses = [ \"autotools\" ];\n}\n" | save $"($dir)/package.nix"
+  }
+  print -e $"($dir): edit package.nix, then repkgs build ($name)"
+}
+
+# versions and lock tables: uptrack check | apply | lock | verify | rehash | list
+def --wrapped "main update" [...args: string]: nothing -> nothing {
+  ^$"(root)/pkgs/up/uptrack/src/uptrack" ...$args
+}
+
+# rebuild and compare against the store (nix-build --check)
+def "main repro" [
+  --for: string # platform
+  ...attrs: string # default: zlib xz pcre2 jq sqlite ncurses
+]: nothing -> table {
+  let attrs = (if ($attrs | is-empty) { [zlib xz pcre2 jq sqlite ncurses] } else { $attrs })
+  $attrs | each {|a|
+    let build = (^nix-build (root) -A $a --no-out-link ...(platform-arg $for) | complete)
+    if $build.exit_code != 0 { return {attr: $a, status: build-failed} }
+    let check = (^nix-build (root) -A $a --no-out-link --check --keep-failed ...(platform-arg $for) | complete)
+    {attr: $a, status: (if $check.exit_code == 0 { "reproducible" } else if $check.stderr =~ "may not be deterministic|differs" { "DIFFERS" } else { "check-failed" })}
+  }
+}
+
+# the compile cache daemon: start | stop | status
+def "main cache" [
+  action: string # start, stop or status
+  --size: int = 50 # GiB before whole packs are evicted (start)
+]: nothing -> nothing {
+  let dir = (jigd-dir)
+  let sock = $"($dir)/socket"
+  let pidfile = $"($dir)/pid"
+  match $action {
+    "start" => {
+      if (is-socket $sock) { print -e $"jigd already serving ($sock)"; return }
+      mkdir $dir
+      rm -f $sock
+      let jigd = (^nix-build (root) -A jigd --no-out-link | str trim)
+      let pid = (^sh -c $"JIGD_SIZE=($size) setsid ($jigd)/bin/jigd ($sock) >($dir)/log 2>&1 & echo $!" | str trim)
+      $pid | save -f $pidfile
+      print -e $"jigd pid ($pid), socket ($sock), log ($dir)/log"
+    }
+    "stop" => {
+      if ($pidfile | path exists) { ^kill (open --raw $pidfile | str trim); rm -f $pidfile $sock }
+    }
+    "status" => {
+      let s = (jigd-socket)
+      if $s == null { print "jigd: not running"; return }
+      print $"jigd: ($s)"
+      if ($"($dir)/log" | path exists) { ^tail -n 3 $"($dir)/log" }
+    }
+    _ => { error make {msg: "repkgs cache start|stop|status"} }
+  }
+}
+
+# build seed nars on this machine and upload them (pkgs/se/seed/upload.nu)
+def --wrapped "main seed" [...args: string]: nothing -> nothing {
+  ^$"(root)/pkgs/se/seed/upload.nu" ...$args
+}
+
+# format and lint the tree (treefmt)
+def --wrapped "main fmt" [...args: string]: nothing -> nothing {
+  cd (root)
+  ^treefmt ...$args
+}

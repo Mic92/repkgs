@@ -61,7 +61,7 @@ npm/pnpm/bun, and `uptrack check` should warn when a lock names a library the se
 
 ## Infrastructure
 
-- **Reproducibility**: a CI job running `tools/repro-check` (rebuild without the cache socket,
+- **Reproducibility**: a CI job running `repkgs repro` (rebuild without the cache socket,
   report CA path mismatches, diffoscope those).
 - **CI**: nixbot on both build platforms plus riscv64 cross, harmonia cache with realisations.
 - **uptrack**: reports, `sync-github`.

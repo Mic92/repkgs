@@ -47,16 +47,25 @@ $ nix-build bootstrap -A stage1.x86_64.cc           # just the toolchain
 
 The first build fetches the seed and builds the toolchain. Everything after that is incremental.
 
-The compile cache is optional. Start its daemon once, then build through `tools/build`, which
-is `nix-build` with the socket mapped into the sandbox. That mapping is a per-build
-`extra-sandbox-paths`, so your user has to be in `nix.settings.trusted-users`.
+`repkgs` (tools/, on PATH with direnv) wraps the common tasks, `repkgs <cmd> --help` says what
+each runs:
 
 ```console
-$ nix-build -A jigd && ./result/bin/jigd $XDG_RUNTIME_DIR/jigd/socket &
-$ tools/build -A jq
+$ repkgs cache start                     # the compile cache daemon (jigd), optional
+$ repkgs build jq                        # nix-build with the cache socket mapped into the sandbox
+$ repkgs build --for aarch64-linux jq    # cross
+$ repkgs test jq                         # jq.tests
+$ repkgs log jq                          # the build log
+$ repkgs list --for riscv64-linux --unsupported   # what a platform lacks and why
+$ repkgs info deno                       # version, build systems, platform support
+$ repkgs options cmake                   # every cmake.* option with type and default
+$ repkgs new foo pkg:github/o/foo 'https://…/foo-{version}.tar.gz'
+$ repkgs update check                    # uptrack: what is outdated
+$ repkgs repro zlib                      # rebuild and compare
 ```
 
-Build logs then end in a line like `jig: cc cached=812/815 (99%) compiled=3`.
+Mapping the cache socket is a per-build `extra-sandbox-paths`, so your user has to be in
+`nix.settings.trusted-users`. Build logs then end in a line like `jig: cc cached=812/815 (99%) compiled=3`.
 
 ## Writing a package
 
@@ -80,7 +89,7 @@ package {
 
 `sources.toml` supplies version and tarball. `uses` names the build system, and the build system
 brings its tools, its phases (configure, build, test, install) and its options. Options
-are things like `cmake.defs` above, `cargo.features` or `go.tags`. `tools/options cmake` lists
+are things like `cmake.defs` above, `cargo.features` or `go.tags`. `repkgs options cmake` lists
 them. Their names and types are checked at evaluation time, so a typo is an error instead of an
 attribute nobody reads.
 
@@ -141,8 +150,8 @@ nothing links against.
 
 ## Keeping it current
 
-`uptrack` (pkgs/up/uptrack) reads every `sources.toml`, asks upstream for new versions, and
-rewrites pin and hash:
+`uptrack` (pkgs/up/uptrack, also `repkgs update …`) reads every `sources.toml`, asks upstream
+for new versions, and rewrites pin and hash:
 
 ```console
 $ uptrack check          # what is outdated
@@ -163,7 +172,7 @@ nix/              evaluation. package.nix turns a spec into a derivation, build-
 builder/          build time. prepare, finish, and one nu module per build system
 locks/            hashes that lock files lack (go.sum, hackage, luarocks)
 docs/             design.md (why), uptrack.md, plan.md
-tools/            build (nix-build with the cache), options, repro-check
+tools/repkgs      the cli: build, test, log, list, info, options, new, update, repro, cache, seed, fmt
 ```
 
 Four in-tree programs hold this together. **jig** (pkgs/ji/jig, C++) is what `cc` and `rustc`

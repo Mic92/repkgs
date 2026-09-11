@@ -1,3 +1,4 @@
 result
 result-*
 pkgs/ji/jig/build/
+!/.envrc

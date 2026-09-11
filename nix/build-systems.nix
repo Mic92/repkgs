@@ -6,7 +6,7 @@
 # names allowed, checked at eval time along with the name. The module reads the merged result as
 # `options <name>`. Every system has `root`; `deps` (the fetched tree of locked dependencies,
 # `lock.deps = fetcher` defaults it to the package's own lock file) and `flags` (extra words on
-# the tool's command line) mean the same wherever they exist. `tools/options` renders this as a
+# the tool's command line) mean the same wherever they exist. `repkgs options` renders this as a
 # table. `sh` is for tools that spawn a shell by name (ninja, npm run, libtool).
 {
   buildPkgs,

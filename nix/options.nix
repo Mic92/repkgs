@@ -1,4 +1,4 @@
-# tools/options: every build system's options as { type, default, doc }. `deps` defaults are
+# repkgs options: every build system's options as { type, default, doc }. `deps` defaults are
 # fetcher derivations, elided to null so the result is plain JSON
 {
   system ? builtins.currentSystem,
