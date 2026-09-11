@@ -9,6 +9,18 @@ use ../sys-libs.nu
 # sys-libs.nu supplies `bundle config build.<gem>` flags and env.
 def app-dir []: nothing -> string { let c = (ctx); $"($c.out)/lib/($c.spec.name)" }
 
+# mkmf runs on the host ruby but must describe the target: its rbconfig.rb first on RUBYLIB,
+# copied out so the host ruby does not pick up the target's .so files beside it
+def --env cross-rbconfig []: nothing -> nothing {
+  let c = (ctx)
+  if not $c.platform.cross { return }
+  let target = (glob $"(dep-root ruby "extensions compile against the target ruby")/lib/ruby/*/*/rbconfig.rb" | first)
+  let dir = $"($c.build)/cross-rbconfig"
+  mkdir $dir
+  cp $target $dir
+  $env.RUBYLIB = ([$dir] ++ ($env.RUBYLIB? | default "" | split row ":" | where { $in != "" }) | str join ":")
+}
+
 # copy the source to its final place, put the fetched gems and checksummed lock beside it, and
 # configure bundler entirely through BUNDLE_* env (no .bundle/config to clean up afterwards)
 export def --env setup []: nothing -> nothing {
@@ -28,6 +40,7 @@ export def --env setup []: nothing -> nothing {
   }
   load-env (sys-libs env-for gems $c.deps)
   load-env (gem-build-env $c.deps)
+  cross-rbconfig
 }
 
 export def workdir []: nothing -> string { app-dir }
