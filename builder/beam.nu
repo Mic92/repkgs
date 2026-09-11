@@ -14,5 +14,6 @@ export def install-escript [f: path]: nothing -> nothing {
   let name = ($f | path basename)
   mkdir $"($c.out)/lib/escript"
   cp $f $"($c.out)/lib/escript/($name)"
-  write-launcher $name (tool escript) [$"($c.out)/lib/escript/($name)"]
+  # the target's escript (a dependency), not the one on PATH that ran the build
+  write-launcher $name $"(dep-root erlang "escripts run under the target erlang")/bin/escript" [$"($c.out)/lib/escript/($name)"]
 }
