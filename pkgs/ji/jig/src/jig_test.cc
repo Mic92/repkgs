@@ -249,6 +249,9 @@ void TestDriver() {
       "/cc/lib/crt_interp.o\nruntimes = /sr/rt/lib\n");
   assert(conf.present && conf.cc == "/seed/bin/clang" && conf.flags == V({"--target=x", "-O2"}));
   const std::string store = jig::Store::Get().dir();
+  const auto out_has = [](const std::vector<std::string>& v, const std::string& s) {
+    assert(std::find(v.begin(), v.end(), s) != v.end());
+  };
 
   // macho/coff: no interp, no RUNPATH, whatever else the conf says
   jig::DriverConf macho = jig::ParseDriverConf(
@@ -257,6 +260,12 @@ void TestDriver() {
   for (const std::string& arg : jig::BuildDriverArgs(macho, jig::Language::kC, V({"a.c", "-o", "a"}))) {
     assert(!arg.contains("rpath") && !arg.contains("dynamic-linker") && !arg.contains("crt_interp"));
   }
+
+  jig::DriverConf coff =
+      jig::ParseDriverConf("cc = /seed/bin/clang\nbinfmt = coff\nflags = --target=x86_64-pc-windows-msvc\n");
+  out_has(jig::BuildDriverArgs(coff, jig::Language::kCxx, V({"-std=c++11", "-c", "a.cc"})), "-std=c++14");
+  out_has(jig::BuildDriverArgs(coff, jig::Language::kCxx, V({"-std=gnu++17", "-c", "a.cc"})), "-std=gnu++17");
+  out_has(jig::BuildDriverArgs(macho, jig::Language::kCxx, V({"-std=c++11", "-c", "a.cc"})), "-std=c++11");
 
   // compile: conf flags, no link policy
   std::vector<std::string> out = jig::BuildDriverArgs(conf, jig::Language::kC, V({"-c", "a.c"}));

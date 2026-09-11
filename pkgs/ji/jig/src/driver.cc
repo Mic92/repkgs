@@ -121,7 +121,17 @@ auto IsFortifyArg(std::string_view arg) -> bool {
          arg.starts_with("-Wp,-D_FORTIFY_SOURCE") || arg.starts_with("-Wp,-U_FORTIFY_SOURCE");
 }
 
-auto ScanUserArgs(std::span<const std::string> raw) -> UserArgs {
+// MSVC's STL has no C++11 mode and cl.exe no /std: below c++14: older requests mean c++14 there
+auto MsvcFloorStd(const std::string& arg) -> std::string {
+  for (std::string_view old : {"++98", "++03", "++0x", "++11"}) {
+    if ((arg.starts_with("-std=c") || arg.starts_with("-std=gnu")) && arg.ends_with(old)) {
+      return arg.substr(0, arg.size() - 2) + "14";
+    }
+  }
+  return arg;
+}
+
+auto ScanUserArgs(std::span<const std::string> raw, BinFmt binfmt) -> UserArgs {
   UserArgs user;
   for (size_t i = 0; i < raw.size(); ++i) {
     if (std::optional<std::string> rpath = TakeRpathArg(raw, i)) {
@@ -140,7 +150,7 @@ auto ScanUserArgs(std::span<const std::string> raw) -> UserArgs {
     if (arg.starts_with("-O")) {
       user.optimizes = arg != "-O0";
     }
-    user.args.push_back(arg);
+    user.args.push_back(binfmt == BinFmt::kCoff ? MsvcFloorStd(arg) : arg);
   }
   return user;
 }
@@ -301,7 +311,7 @@ auto IsSharedLibName(std::string_view base) -> bool {
 auto BuildDriverArgs(const DriverConf& conf, Language lang, std::span<const std::string> raw_args)
     -> std::vector<std::string> {
   const bool cxx = lang == Language::kCxx;
-  UserArgs user = ScanUserArgs(raw_args);
+  UserArgs user = ScanUserArgs(raw_args, conf.binfmt);
   // toolchain, then package, then build system: later wins. The bracket silences
   // unused-argument warnings for flags the step does not use
   std::vector<std::string> out{"--start-no-unused-arguments"};
