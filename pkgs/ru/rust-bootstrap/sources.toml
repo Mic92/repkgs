@@ -31,5 +31,10 @@ key = "rust-std-aarch64"
 url = "https://static.rust-lang.org/dist/rust-std-{version}-aarch64-unknown-linux-gnu.tar.xz"
 hash = "sha256-+Ft0B8kesKVxdM4US9jsnlh3QGefSU8EjEU4XsI4wco="
 
+[[source]]
+key = "rust-std-riscv64"
+url = "https://static.rust-lang.org/dist/rust-std-{version}-riscv64gc-unknown-linux-gnu.tar.xz"
+hash = "sha256-qfK/yM+XJqg5XkrJ+5Jdp17eM/b/tQ4YxeFX1VUuTRk="
+
 [pin]
 version = "1.97.1"

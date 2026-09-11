@@ -103,6 +103,9 @@ export def stdBuild []: nothing -> nothing { x python3 x.py build --stage 0 libr
 
 export def stdInstall []: nothing -> nothing {
   let c = (ctx)
-  x python3 x.py install --stage 0 library/std $"--target=($c.platform.rustTriple)"
-  rm -rf $"($c.out)/bin" $"($c.out)/share" ...(glob $"($c.out)/lib/rustlib/{install.log,uninstall.sh,manifest-*,components,rust-installer-version}")
+  # x.py install has no stage 0 path: take the target rustlib out of the stage0 sysroot
+  let host = (^rustc -vV | lines | parse "host: {t}" | get t.0)
+  let lib = $"lib/rustlib/($c.platform.rustTriple)/lib"
+  mkdir $"($c.out)/($lib | path dirname)"
+  cp -r $"($c.build)/($host)/stage0-sysroot/($lib)" $"($c.out)/($lib)"
 }

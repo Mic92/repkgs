@@ -27,11 +27,11 @@ export def --env setup []: nothing -> nothing {
   # strings embed source paths, map build tree, cargo home and vendor dir away. Frame pointers
   # like the C side, rustc omits them on x86_64 otherwise
   let rustflags = [$"--remap-path-prefix=($c.src)=/src" $"--remap-path-prefix=($env.CARGO_HOME)=/cargo" $"--remap-path-prefix=($o.deps)=/vendor" "-Cforce-frame-pointers=yes"]
-  # cross: rust carries std for the build machine only, the target's is rust-std (cargo.tools):
-  # one sysroot of symlinks over both
-  let sysroot = (if $c.platform.cross and $o.toolchain == null {
+  # cross: the toolchain carries std for the build machine only, the target's is <toolchain>-std
+  # (cargo.tools): one sysroot of symlinks over both
+  let sysroot = (if $c.platform.cross {
     let s = $"($c.build)/rust-sysroot"
-    let std = (tool-root rust-std)
+    let std = (tool-root $"((exports-of (tool rustc | path dirname -n 2)).name)-std")
     mkdir $"($s)/lib/rustlib"
     for d in (ls $"(tool rustc | path dirname -n 2)/lib/rustlib" | get name) { ^ln -s $d $"($s)/lib/rustlib/" }
     ^ln -s $"($std)/lib/rustlib/($target)" $"($s)/lib/rustlib/"

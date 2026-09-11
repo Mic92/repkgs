@@ -158,11 +158,13 @@ builtins.mapAttrs
     cargo = {
       # `cargo.toolchain = buildPkgs.rust-bootstrap` for what must exist before llvm and rust are
       # built: formatelf, which every `prebuilt = true` package needs
-      # cross: std for the target is its own package, built by that rust
+      # cross: std for the target is its own package, <toolchain>-std, from the same release
       tools =
         args:
-        [ (args.cargo.toolchain or buildPkgs.rust) ]
-        ++ (if platform.cross && (args.cargo.toolchain or null) == null then [ pkgs.rust-std ] else [ ]);
+        let
+          toolchain = args.cargo.toolchain or buildPkgs.rust;
+        in
+        [ toolchain ] ++ (if platform.cross then [ pkgs."${toolchain.pname}-std" ] else [ ]);
       lock.deps = fetch.cargoVendor;
       options = {
         features = strs [ ] "--features";
