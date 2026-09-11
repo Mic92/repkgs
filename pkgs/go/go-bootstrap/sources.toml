@@ -11,5 +11,11 @@ key = "aarch64"
 url = "https://go.dev/dl/go{version}.linux-arm64.tar.gz"
 hash = "sha256-t7/ZChLoIl9Rkpln4mx0zaKKuO7v5wmk4AknLRjJzoQ="
 
+[[source]]
+key = "riscv64"
+url = "https://github.com/Mic92/repkgs/releases/download/bootstrap-go-{version}/go-{version}-riscv64-linux.nar.xz"
+hash = "sha256-gEtgX53Td46L1OGufuykhoSY6sMmHtqBkt9xB/y3ZLg="
+name = "go"
+
 [pin]
 version = "1.27.1"

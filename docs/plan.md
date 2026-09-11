@@ -16,8 +16,9 @@ source (go, rust, zig, jdk are done this way). Left:
 
 Until then these are build tools only, never linked into outputs, pinned per cpu for x86_64 and
 aarch64 (rust also riscv64). Where upstream has no binary their users are `supported = false`.
-Rather than wait for upstream, the non-x86_64 `<x>-bootstrap` (rust, ghc, go, jdk) get cross
-built from x86_64 by this set and published beside the seed.
+Where upstream has none, `repkgs bootstrap <x>` cross builds ours from x86_64 and uploads it as
+`<x>-bootstrap`'s source (go riscv64 done). jdk next: its output links zlib/freetype by store
+path, so it needs bundling into one self-contained tree first. ghc once it cross-builds.
 
 ## Platforms
 

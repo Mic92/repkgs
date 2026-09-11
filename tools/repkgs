@@ -193,6 +193,11 @@ def --wrapped "main seed" [...args: string]: nothing -> nothing {
   ^$"(root)/pkgs/se/seed/upload.nu" ...$args
 }
 
+# cross build <pkg> for cpus upstream has no binaries for and upload it as <pkg>-bootstrap's source (tools/upload-bootstrap.nu)
+def --wrapped "main bootstrap" [...args: string]: nothing -> nothing {
+  ^$"(root)/tools/upload-bootstrap.nu" ...$args
+}
+
 # format and lint the tree (treefmt)
 def --wrapped "main fmt" [...args: string]: nothing -> nothing {
   cd (root)
