@@ -15,35 +15,36 @@ source (go, rust, zig, jdk are done this way). Left:
 - **node**: swap the remaining bundled deps for ours where configure allows.
 
 Until then these are build tools only, never linked into outputs, pinned per cpu for x86_64 and
-aarch64. riscv64/loongarch64/ppc64le have no upstream binaries, so their users are
-build-platform-only there. From source lifts that.
+aarch64 (rust also riscv64). Where upstream has no binary their users are `supported = false`.
+Rather than wait for upstream, the non-x86_64 `<x>-bootstrap` (rust, ghc, go, jdk) get cross
+built from x86_64 by this set and published beside the seed.
 
 ## Platforms
 
-- **Seed 3**: LLVM 23 with LoongArch and PowerPC backends, then loongarch64 and powerpc64le
-  cross verified end to end and the aarch64 seed uploaded. Later the seed is built from this
-  set's own static packages instead of nixpkgs, as a fixed point in CI.
-- **Windows** (`<cpu>-windows`, MSVC ABI): the toolchain links hello.exe. Next are the build
-  systems (cmake/meson/cargo target settings, `.exe`/`.dll` install names), wine as the test
-  emulator, and which packages make sense there at all.
+- **Seed**: loongarch64 and powerpc64le cross verified end to end (backends are in LLVM 23,
+  seeds for x86_64, aarch64, riscv64 are up). Later the seed is built from this set's own
+  static packages instead of nixpkgs, as a fixed point in CI.
+- **Windows** (`<cpu>-windows`, MSVC ABI): toolchain, hardening and cmake/meson target names
+  are in, autotools is `unsupported` there. Next: the first C libraries green (zlib's version
+  script, MSVC STL wanting C++20), `.exe`/`.dll` install names, cargo target, wine as the test
+  emulator.
 - **FreeBSD / NetBSD**: ELF and clang upstream, so crt_interp, `$ORIGIN` and launchers carry
   over. libc from the release's `base.txz` first, from `src.txz` later. No user-mode emulator:
   tests need a VM job.
-- **macOS** (`aarch64-macos`): the toolchain links hello over Apple's SDK with `ld64.lld`.
-  Next: our own libc++ with `@rpath` install names, pruning the SDK of libraries this set builds
-  itself (zlib, curl, sqlite, libffi and friends, as nixpkgs does), the build systems' target
-  settings, and a darwin builder hop for tests since Linux has no user-mode emulator for it.
+- **macOS** (`aarch64-macos`): toolchain over Apple's SDK with `ld64.lld`, build systems name
+  the target, plain C libraries (expat gmp libffi ncurses pcre2 sqlite lua …) build. Next: our
+  own libc++ with `@rpath` install names, script launchers for Mach-O, pruning the SDK of
+  libraries this set builds itself (as nixpkgs does), and a darwin builder hop for tests.
 - **wasm32-wasi** as one more cross platform: wasi-libc instead of glibc, no launcher.
 
 ## Ecosystems
 
 Each is an interpreter package, a build system module, one lock-file producer, and a
-`locks/<registry>.toml` only where the upstream lock has no usable hash. In rough order of
-value per effort:
+`locks/<registry>.toml` only where the upstream lock has no usable hash (Erlang/Elixir done:
+mix, rebar3, `fetch.hexDeps`). In rough order of value per effort:
 
 | ecosystem | status / shape |
 |---|---|
-| Erlang, Elixir | erlang from C. `mix.lock` has hex sha256 → `fetch.mixDeps`. rebar3 alike |
 | Perl CPAN | perl is in. `cpanfile.snapshot` has no hashes → `locks/cpan.toml` |
 | JVM (gradle, maven) | jdk is in. gradle `verification-metadata.xml` / maven → offline `~/.m2`. gradle is the hard part |
 | .NET | prebuilt SDK → source-build later. `packages.lock.json` sha512 → NuGet offline feed |
@@ -64,6 +65,8 @@ npm/pnpm/bun, and `uptrack check` should warn when a lock names a library the se
 - **Reproducibility**: a CI job running `repkgs repro` (rebuild without the cache socket,
   report CA path mismatches, diffoscope those).
 - **CI**: nixbot on both build platforms plus riscv64 cross, harmonia cache with realisations.
+  The whole set builds natively and cross to aarch64/riscv64 on one machine today, unverified
+  by CI.
 - **uptrack**: reports, `sync-github`.
 
 ## jig follow-ups
