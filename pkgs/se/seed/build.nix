@@ -1,15 +1,25 @@
 # The seed: every build-machine binary needed before the set can build its own userland, static
-# musl, built once with nixpkgs pkgsStatic (later: by the package set itself).
+# musl, built once with nixpkgs (later: by the package set itself). `system` is where the seed
+# runs, `buildSystem` where it is built: static musl is a cross build to nixpkgs either way.
 #   ./upload.nu builds -A nar per system, uploads to the GitHub release and rewrites ./sources.toml
 {
   nixpkgs ? <nixpkgs>,
   system ? builtins.currentSystem,
+  buildSystem ? builtins.currentSystem,
 }:
 let
-  pkgs = import nixpkgs { inherit system; };
-  ps = pkgs.pkgsStatic;
-  # host compiler from nixpkgs, sources from our own pins so the seed and pkgs/ll/llvm agree.
-  # nixpkgs' nu and bsdtar unpack them: there is no previous seed on a new architecture
+  cross = system != buildSystem;
+  cpu = builtins.head (builtins.split "-" system);
+  ps = import nixpkgs {
+    localSystem = buildSystem;
+    crossSystem = {
+      config = "${cpu}-unknown-linux-musl";
+      isStatic = true;
+    };
+  };
+  pkgs = ps.buildPackages;
+  # host compiler from nixpkgs, sources from our own pins so the seed and pkgs/ll/llvm agree,
+  # unpacked by nixpkgs' nu and bsdtar (a new architecture has no previous seed)
   unpacker = pkgs.symlinkJoin {
     name = "unpacker";
     paths = [
@@ -19,9 +29,10 @@ let
   };
   source =
     name:
-    (import ../../../nix/sources.nix { inherit unpacker system; } (
-      ../.. + "/${builtins.substring 0 2 name}/${name}/sources.toml"
-    ));
+    (import ../../../nix/sources.nix {
+      inherit unpacker;
+      system = buildSystem;
+    } (../.. + "/${builtins.substring 0 2 name}/${name}/sources.toml"));
   llvmSource = source "llvm";
   targets = "X86;AArch64;RISCV;LoongArch;PowerPC;ARM;WebAssembly";
   triple = ps.stdenv.hostPlatform.config;
@@ -40,11 +51,13 @@ let
       ps.zstd
     ];
     dontUseCmakeConfigure = true;
-    # musl-static output runs on the build machine, so configure as a native build (no NATIVE tblgen sub-build)
+    # a musl-static binary for the build machine runs there: configured as a native build. For
+    # another cpu llvm builds its tblgen tools in a NATIVE sub-tree with the build machine's compiler
     configurePhase = ''
       cmake -S llvm -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$out \
         -DCMAKE_C_COMPILER=$CC -DCMAKE_CXX_COMPILER=$CXX -DCMAKE_AR=$(command -v $AR) -DCMAKE_RANLIB=$(command -v $RANLIB) \
+        ${pkgs.lib.optionalString cross "-DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=${cpu} -DCROSS_TOOLCHAIN_FLAGS_NATIVE='-DCMAKE_C_COMPILER=${pkgs.stdenv.cc}/bin/cc;-DCMAKE_CXX_COMPILER=${pkgs.stdenv.cc}/bin/c++'"} \
         -DLLVM_ENABLE_PROJECTS="clang;lld" \
         -DLLVM_TARGETS_TO_BUILD="${targets}" \
         -DLLVM_HOST_TRIPLE=${triple} -DLLVM_DEFAULT_TARGET_TRIPLE=${triple} \
@@ -139,12 +152,14 @@ let
       rm -rf test idlelib tkinter turtledemo ensurepip lib2to3 config-3* site-packages
       rm -rf $out/share $out/lib/pkgconfig $out/bin/idle* $out/bin/pydoc* $out/lib/libpython*.a $out/include
       find $out -name __pycache__ -prune -exec rm -rf {} +
-      $out/bin/python3 -c "import sys, os, re, json, subprocess, argparse"
+      ${pkgs.lib.optionalString (
+        !cross
+      ) ''$out/bin/python3 -c "import sys, os, re, json, subprocess, argparse"''}
     '';
     dontFixup = true;
   };
 
-  seed = pkgs.runCommand "seed-3-${ps.stdenv.hostPlatform.system}" { } ''
+  seed = pkgs.runCommand "seed-3-${system}" { } ''
     mkdir -p $out/bin $out/lib $out/share
     cp ${nu}/bin/nu ${bsdtar}/bin/bsdtar ${toybox}/bin/toybox ${dash}/bin/dash $out/bin/
     ln -s dash $out/bin/sh
@@ -155,12 +170,12 @@ let
     cp -r ${tools.bison}/share/bison $out/share/bison
     cp -L ${python}/bin/python3 $out/bin/python3
     cp -r ${python}/lib/python3.* $out/lib/
-    for a in $(${toybox}/bin/toybox); do [ -e $out/bin/$a ] || ln -s toybox $out/bin/$a; done
+    for a in $(${pkgs.toybox}/bin/toybox); do [ -e $out/bin/$a ] || ln -s toybox $out/bin/$a; done
     ln -s ld.lld $out/bin/ld  # configure scripts probe for plain `ld`
     cp -a ${llvm}/bin/. $out/bin/
     cp -a ${llvm}/lib/clang $out/lib/
     chmod -R u+w $out
-    ${llvm}/bin/llvm-strip $out/bin/nu $out/bin/bsdtar $out/bin/toybox $out/bin/dash $out/bin/python3 ${
+    ${pkgs.llvmPackages.llvm}/bin/llvm-strip $out/bin/nu $out/bin/bsdtar $out/bin/toybox $out/bin/dash $out/bin/python3 ${
       toString (map (n: "$out/bin/${n}") (builtins.attrNames tools))
     }
     ${pkgs.nukeReferences}/bin/nuke-refs $out/bin/*

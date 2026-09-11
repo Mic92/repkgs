@@ -44,5 +44,11 @@ prefixed "pkg-" (supported (setFor buildCpu))
           name = "source";
         }
       } src && chmod -R u+w src && cd src && treefmt --ci && touch $out";
-  inherit (import ../pkgs/se/seed/build.nix { inherit nixpkgs system; }) seed;
+  inherit
+    (import ../pkgs/se/seed/build.nix {
+      inherit nixpkgs system;
+      buildSystem = system;
+    })
+    seed
+    ;
 }
