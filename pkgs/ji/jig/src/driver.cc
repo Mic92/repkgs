@@ -318,17 +318,18 @@ auto BuildDriverArgs(const DriverConf& conf, Language lang, std::span<const std:
     out.insert(out.end(), conf.cxxflags.begin(), conf.cxxflags.end());
     out.insert(out.end(), conf.package.cxxflags.begin(), conf.package.cxxflags.end());
   }
-  out.emplace_back("--end-no-unused-arguments");
-  out.insert(out.end(), user.args.begin(), user.args.end());
-  // dependency -L dirs after the build tree's own, like a system lib dir would be
-  if (user.linking && user.have_input) {
-    out.insert(out.end(), conf.package.ldflags.begin(), conf.package.ldflags.end());
-  }
+  // before the user's args: those may end in `--` (cmake_llvm_rc), after which everything is a file
   for (const std::string& mapping : conf.prefix_map) {
     out.push_back("-ffile-prefix-map=" + mapping);
   }
   for (const std::string& mapping : Split(Env("PKGS_PREFIX_MAP"), ':')) {
     out.push_back("-ffile-prefix-map=" + mapping);
+  }
+  out.emplace_back("--end-no-unused-arguments");
+  out.insert(out.end(), user.args.begin(), user.args.end());
+  // dependency -L dirs after the build tree's own, like a system lib dir would be
+  if (user.linking && user.have_input) {
+    out.insert(out.end(), conf.package.ldflags.begin(), conf.package.ldflags.end());
   }
   if (!user.linking || !user.have_input || user.no_policy || conf.binfmt != BinFmt::kElf) {
     return out;
