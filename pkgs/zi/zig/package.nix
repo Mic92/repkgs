@@ -24,7 +24,6 @@ package {
   prebuilt = true;
   # zig's own cache, else it writes to $HOME/.cache. build.nu round-trips it through jigd
   env.ZIG_GLOBAL_CACHE_DIR = "/build/zig-cache";
-  modules.zig = ./build.nu;
   phases = [
     "cmake.configure"
     "zig.restore"

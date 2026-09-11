@@ -57,7 +57,6 @@ let
     "prebuilt"
     "install"
     "links"
-    "modules"
   ];
 
   # the part of every derivation that is the same across the set: built once
@@ -94,13 +93,6 @@ let
       enabled = hardening.forPlatform platform;
     };
   };
-  preludeBase = [
-    "use ${tree}/core.nu *"
-    "use ${tree}/prepare.nu"
-    "use ${tree}/finish.nu"
-    "use ${tree}/implant.nu"
-  ];
-
   phaseRe = "([a-z][a-z0-9]*)\\.([a-zA-Z]+)";
   # "<bs>.test" or an inline phase named "test"
   isTest =
@@ -115,7 +107,8 @@ let
 in
 # sources: the package's sources.toml (nix/sources.nix) or null. It supplies version and source
 # unless package.nix sets them (local trees, demos)
-sources0: args0:
+# dir: the package's directory, where a phase prefix that is no build system finds <prefix>.nu
+sources0: dir: args0:
 let
   edited = if edit == null then args0 else edit args0.name args0;
   # an override may repin the package: `pin.merge = { version = "…"; }` plus
@@ -325,8 +318,9 @@ let
         call =
           if elem bs uses then "do {\ncd (${bs} workdir)\n${bs} ${elemAt p 1}\n}" else "${bs} ${elemAt p 1}";
       in
-      if p == null || !(elem bs (uses ++ attrNames modules)) then
-        fail "phase '${s}' is not <one of ${toString (uses ++ attrNames modules)}>.<phase>"
+      # a prefix that is neither: nix reports "path …/<bs>.nu does not exist"
+      if p == null then
+        fail "phase '${s}' is not <build system or module>.<phase>"
       else
         "note phase ${s}\n${call}";
   # in the build script: test phases drop out when disabled or separate, and otherwise ask prepare
@@ -339,19 +333,45 @@ let
       ""
     else
       "if (ctx).testsRun {\n${phaseBody s}\n}";
-  # `modules.zig = ./build.nu`: the package's own phases as one more nu module, for phases too long
-  # to read inline ("zig.restore"). It imports the builder by bare name (`use core.nu *`)
-  modules = args.modules or { };
+  # a phase "zig.restore" whose prefix is no `uses` entry is the package's own module zig.nu next
+  # to package.nix, for phases too long to read inline. It imports the builder by bare name
+  modules = foldl' (acc: m: if m == null || elem m (uses ++ acc) then acc else acc ++ [ m ]) [ ] (
+    map (
+      s:
+      let
+        p = if isAttrs s then null else match phaseRe s;
+      in
+      if p == null then null else head p
+    ) phases
+  );
+  # <store dir>/<m>.nu: nu names a module after its file, a bare store path would be <hash>-<m>
+  storeModule =
+    m:
+    "${
+      builtins.path {
+        path = dir;
+        name = "module";
+        filter = p: _: baseNameOf p == "${m}.nu";
+      }
+    }/${m}.nu";
   prelude =
-    preludeBase
-    ++ map (u: "use ${tree}/${buildSystems.${u}.module}") uses
-    ++ map (m: "module ${m} { export use ${modules.${m}} * }\nuse ${m}") (attrNames modules);
+    map (f: "use ${tree}/${f}") (
+      [
+        "core.nu *"
+        "prepare.nu"
+        "finish.nu"
+        "implant.nu"
+      ]
+      ++ map (u: buildSystems.${u}.module) uses
+    )
+    ++ map (m: "use ${storeModule m}") modules;
   # every phase starts in a known directory: `<bs> workdir` for a build system's phases, the first
   # build system's for inline phases and package modules. setup exports env, hence --env
   workdir = if uses == [ ] then "(ctx).src" else "${builtins.head uses} workdir";
   setups = map (
     u: "note setup ${u}\ndo --env {\nmkdir (${u} workdir)\ncd (${u} workdir)\n${u} setup\n}"
   ) uses;
+  # also `pkg.script`: lints/package-scripts.nu has nu parse it before anything builds
   script = concatStringsSep "\n" (
     prelude
     ++ [ "prepare" ]
@@ -426,7 +446,8 @@ drv
   # what package.nix wrote and read, for `variant`
   args = args0;
   sources = sources0;
-  inherit supported unsupportedReason;
+  inherit dir;
+  inherit supported unsupportedReason script;
 }
 // (if separate then { tests = testsDrv; } else { })
 // (

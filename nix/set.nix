@@ -147,12 +147,12 @@ let
         scope
         // {
           inherit sources;
-          package = package sources;
+          package = package sources dir;
           # another package's spec under this name, edited with override verbs. Own sources.toml
           # when the directory has one (llvm22: another pin), else the base's (rust-std: same tarball)
           variant =
             base: tree:
-            package (if sources == null then base.sources else sources) (
+            package (if sources == null then base.sources else sources) base.dir (
               ov.applyOne self name tree (base.args // { inherit name; })
             );
         }

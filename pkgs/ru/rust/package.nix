@@ -21,7 +21,6 @@ package {
     buildPkgs.ninja
     buildPkgs.pkgconf
   ];
-  modules.rust = ./build.nu;
   phases = [
     "rust.configure"
     "rust.build"

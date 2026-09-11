@@ -1,6 +1,7 @@
 use core.nu *
 
-# Configure is not autoconf (perl-cross adds --host support). userelocatableinc: @INC relative to $^X
+# perl's Configure is its own script, perl-cross adds cross support on top.
+# -Duserelocatableinc: @INC is found relative to the perl binary, so the tree relocates
 export def configure []: nothing -> nothing {
   let c = (ctx)
   cd $c.src
@@ -11,21 +12,23 @@ export def configure []: nothing -> nothing {
     -Dman1dir=none -Dman3dir=none "-Accflags=-D_GNU_SOURCE -fno-strict-aliasing"]
   if $c.platform.cross {
     x cp -r $"($env.PERL_CROSS)/." .
-    # a maintenance release perl-cross has no patchset for yet takes the previous one's
+    # perl-cross ships one patchset per perl release. A point release it does not know yet
+    # gets the previous one's
     let want = $"cnf/diffs/perl5-($c.spec.version)"
     if not ($want | path exists) {
       let have = (ls cnf/diffs | get name | where $it =~ ($c.spec.version | str replace -r '\.\d+$' "" | str replace -a "." '\.') | sort --natural | last)
       cp -r $have $want
     }
-    # --sysroot: Errno_pm.PL and h2ph read target headers from $Config{sysroot}
+    # --sysroot: Errno_pm.PL and h2ph parse the target's C headers from there
     x env AR=llvm-ar RANLIB=llvm-ranlib READELF=llvm-readelf OBJDUMP=llvm-objdump NM=llvm-nm $env.CONFIG_SHELL ./configure $"--target=($c.platform.triple)" --host-cc=cc-build $"--sysroot=($env.PERL_SYSROOT)" ...$common
   } else {
     x $env.CONFIG_SHELL ./Configure -des ...$common
   }
 }
 
-# the installed Config records seed tools, sysroot and dependency dirs: store references to
-# things absent at run time. Tools become bare names, other foreign paths go
+# Config.pm and friends record how perl was built: full paths to the seed's tools, the sysroot,
+# dependency dirs. Installed, those are store references to things not there at run time.
+# Tool paths become bare names, other foreign store paths are dropped
 export def scrub []: nothing -> nothing {
   let c = (ctx)
   let arch = (glob $"($c.out)/lib/perl5/5.*/*/Config_heavy.pl" | first | path dirname)

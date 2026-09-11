@@ -11,7 +11,6 @@ package {
   uses = [ "autotools" ];
   bootstrapTools = true;
   autotools.outOfTree = false;
-  modules.perl = ./build.nu;
   phases = [
     "perl.configure"
     "autotools.build"

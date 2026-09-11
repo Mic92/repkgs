@@ -119,7 +119,7 @@ modules exporting `setup configure build test install`. A package names them:
 uses = [ "cmake" ];                                   # phases default to the build system's
 cmake.defs = { WITH_FOO = true; };                    # typed options, checked at eval
 phases = [ "cmake.configure" { name = "x"; run = "<nu>"; } ];   # only when the default does not fit
-modules.foo = ./build.nu;                             # longer phases as "foo.<phase>"
+phases = [ "foo.gen" "cmake.build" ];                 # foo.<phase> lives in foo.nu beside package.nix
 ```
 
 - **Dependencies contribute data, never behaviour.** Each output has an `exports.json`

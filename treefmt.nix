@@ -113,6 +113,17 @@ pkgs.treefmt.withConfig {
         command = "${nu-typecheck}";
         includes = nuFiles;
       };
+      # the nu that package.nix assembles from package.nix, its modules and the build systems
+      package-scripts = {
+        command = "${pkgs.nushell}/bin/nu";
+        options = [
+          "--no-config-file"
+          "lints/package-scripts.nu"
+        ];
+        includes = [
+          "pkgs/*/*/package.nix"
+        ];
+      };
       nu-ast-grep = {
         command = "${pkgs.ast-grep}/bin/ast-grep";
         options = [
