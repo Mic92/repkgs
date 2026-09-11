@@ -17,10 +17,7 @@ package {
     pkgs.perl
     pkgs.bash
   ];
-  phases = [
-    "autotools.configure"
-    "autotools.build"
-    "autotools.install"
+  phases.after."autotools.install" = [
     {
       name = "retarget";
       run = ''

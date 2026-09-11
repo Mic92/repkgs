@@ -16,13 +16,40 @@ let
     stringLength
     ;
   hasPrefix = p: s: substring 0 (stringLength p) s == p;
-  # the url itself, then the same path on every mirror of its prefix (nix/mirrors.nix)
+  # the url itself, then the same path on every mirror of its prefix (nix/mirrors.nix). Mirrors
+  # are indexed by host so most urls cost one lookup, not a scan
+  byHost = builtins.groupBy (p: builtins.elemAt (builtins.match "https://([^/]*)/.*" p) 0) (
+    attrNames mirrors
+  );
   withMirrors =
     url:
+    let
+      host = builtins.match "https://([^/]*)/.*" url;
+      prefixes = if host == null then [ ] else byHost.${builtins.elemAt host 0} or [ ];
+    in
     [ url ]
     ++ concatMap (p: map (m: m + substring (stringLength p) (-1) url) mirrors.${p}) (
-      filter (p: hasPrefix p url) (attrNames mirrors)
+      filter (p: hasPrefix p url) prefixes
     );
+  # what every fetch-and-unpack derivation shares
+  fetchCommon = {
+    inherit system unpacker;
+    builder = "${unpacker}/bin/nu";
+    args = [
+      "--no-config-file"
+      ../pkgs/up/uptrack/src/unpack.nu
+      "--fetch"
+    ];
+    outputHashMode = "recursive";
+    preferLocalBuild = true;
+    impureEnvVars = [
+      "http_proxy"
+      "https_proxy"
+      "ftp_proxy"
+      "all_proxy"
+      "no_proxy"
+    ];
+  };
   # "llvm-project-21.1.8.src" from …/llvm-project-21.1.8.src.tar.xz, "fd-v10.5.0" for github tag archives
   # strip one extension, and a ".tar" before it
   stripExt =
@@ -51,24 +78,47 @@ let
       pinned = if pin == { } then t.pin or { } else (t.pin or { }) // pin;
       version = pinned.version or "";
       tag = pinned.tag or version;
-      mm = builtins.match "([^.]*)\\.?([^.]*).*" version;
-      # every [pin] key is a {key} placeholder, plus three spellings derived from the version
-      vars = {
-        tag = version;
-        version_ = builtins.replaceStrings [ "." ] [ "_" ] version;
-        major = builtins.elemAt mm 0;
-        minor = builtins.elemAt mm 1;
-      }
-      // pinned;
-      expand = builtins.replaceStrings (map (k: "{${k}}") (builtins.attrNames vars)) (
-        map toString (builtins.attrValues vars)
-      );
-      byKey = builtins.listToAttrs (
-        map (s: {
-          name = s.key;
-          value = if hashes ? ${s.key} then s // { hash = hashes.${s.key}; } else s;
-        }) (t.source or [ ])
-      );
+      # every [pin] key is a {key} placeholder, plus three spellings derived from the version.
+      # Nearly every url uses {version} and {tag} only: the full table is built for the rest
+      expandAll =
+        let
+          mm = builtins.match "([^.]*)\\.?([^.]*).*" version;
+          vars = {
+            tag = version;
+            version_ = builtins.replaceStrings [ "." ] [ "_" ] version;
+            major = builtins.elemAt mm 0;
+            minor = builtins.elemAt mm 1;
+          }
+          // pinned;
+        in
+        builtins.replaceStrings (map (k: "{${k}}") (builtins.attrNames vars)) (
+          map toString (builtins.attrValues vars)
+        );
+      expand =
+        u:
+        let
+          quick = builtins.replaceStrings [ "{version}" "{tag}" ] [ version tag ] u;
+        in
+        if builtins.match ".*[{].*" quick == null then quick else expandAll quick;
+      sources = t.source or [ ];
+      # one `default` source is the common case: no table
+      byKey =
+        let
+          plain =
+            if builtins.length sources == 1 && (builtins.head sources).key == "default" then
+              { default = builtins.head sources; }
+            else
+              builtins.listToAttrs (
+                map (s: {
+                  name = s.key;
+                  value = s;
+                }) sources
+              );
+        in
+        if hashes == { } then
+          plain
+        else
+          builtins.mapAttrs (k: s: if hashes ? ${k} then s // { hash = hashes.${k}; } else s) plain;
       fetch =
         key:
         let
@@ -92,27 +142,14 @@ let
             unpack = isNar;
           }
         else
-          derivation {
-            inherit name system;
-            urls = withMirrors url;
-            builder = "${unpacker}/bin/nu";
-            args = [
-              "--no-config-file"
-              ../pkgs/up/uptrack/src/unpack.nu
-              "--fetch"
-            ];
-            inherit unpacker;
-            outputHashMode = "recursive";
-            outputHash = s.hash;
-            preferLocalBuild = true;
-            impureEnvVars = [
-              "http_proxy"
-              "https_proxy"
-              "ftp_proxy"
-              "all_proxy"
-              "no_proxy"
-            ];
-          };
+          derivation (
+            fetchCommon
+            // {
+              inherit name;
+              urls = withMirrors url;
+              outputHash = s.hash;
+            }
+          );
     in
     {
       inherit version tag fetch;

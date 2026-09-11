@@ -28,11 +28,14 @@ let
     foldl'
     head
     isAttrs
+    isList
     length
     listToAttrs
     match
     ;
 
+  # the builder modules every script imports: one string for the set
+  preludeCommon = "use ${tree}/core.nu *\nuse ${tree}/prepare.nu\nuse ${tree}/finish.nu\nuse ${tree}/implant.nu";
   tree = builtins.path {
     path = ../builder;
     name = "build";
@@ -100,16 +103,6 @@ let
     };
   };
   phaseRe = "([a-z][a-z0-9]*)\\.([a-zA-Z]+)";
-  # "<bs>.test" or an inline phase named "test"
-  isTest =
-    s:
-    if isAttrs s then
-      s.name == "test"
-    else
-      let
-        p = match phaseRe s;
-      in
-      p != null && elemAt p 1 == "test";
 in
 # sources: the package's sources.toml (nix/sources.nix) or null. It supplies version and source
 # unless package.nix sets them (local trees, demos)
@@ -182,9 +175,9 @@ let
     else
       [ ];
   unknownFields =
-    filter (f: !(elem f (reserved ++ uses))) (attrNames args)
-    ++ subKeys "tests" (args.tests or { })
-    ++ subKeys "cc" (args.cc or { });
+    attrNames (removeAttrs args (reserved ++ uses))
+    ++ (if args ? tests then subKeys "tests" args.tests else [ ])
+    ++ (if args ? cc then subKeys "cc" args.cc else [ ]);
   # one message per option the package sets that its build system does not declare, or declares
   # with another type. Shallow (`typeOf`) on set options only, so it costs nothing per default.
   badOptions = concatMap (
@@ -260,16 +253,52 @@ let
     else
       true;
 
-  # `install`/`links` alone (prebuilt binaries, data): the one phase is copying them into $out
+  # `install`/`links` alone (prebuilt binaries, data): the one phase is copying them into $out.
+  # `phases` is the whole list, or edits to the first build system's list (README):
+  # { before.<phase> = [..]; after.<phase> = [..]; replace.<phase> = phase | [..]; remove = [..]; }
   phases =
-    args.phases or (
+    if !(args ? phases) then
       if length uses == 1 then
         buildSystems.${head uses}.phases
       else if uses == [ ] && (args ? install || args ? links) then
         [ ]
       else
-        fail "'phases' is required with more than one build system"
-    );
+        fail "'phases' is required with more than one build system (a list, or edits to the first one's)"
+    else if isList args.phases then
+      args.phases
+    else
+      let
+        e = args.phases;
+        known = buildSystems.${head uses}.phases;
+        named =
+          attrNames (e.before or { })
+          ++ attrNames (e.after or { })
+          ++ attrNames (e.replace or { })
+          ++ (e.remove or [ ]);
+        unknown = filter (n: !elem n known) named;
+        bad = filter (
+          n:
+          !elem n [
+            "before"
+            "after"
+            "replace"
+            "remove"
+          ]
+        ) (attrNames e);
+        asList = x: if isList x then x else [ x ];
+      in
+      if bad != [ ] then
+        fail "phases: unknown edit ${head bad} (before, after, replace, remove)"
+      else if unknown != [ ] then
+        fail "phases: ${head unknown} is not a phase of ${head uses} (${concatStringsSep " " known})"
+      else
+        concatMap (
+          p:
+          if elem p (e.remove or [ ]) then
+            [ ]
+          else
+            (e.before.${p} or [ ]) ++ asList (e.replace.${p} or p) ++ (e.after.${p} or [ ])
+        ) known;
   testsRun = args.tests.run or true;
   # a build system's `stack` (tools that are themselves built with it): a member sees only the
   # members before it, everyone else sees all of it
@@ -298,44 +327,68 @@ let
     "--experimental-options=[cell-path-types]"
     "-c"
   ];
-  # a phase's nu text, ungated
-  phaseBody =
+  # a phase as { test, body }: inline ones and package-module ones built here, a build system's
+  # come ready from nix/build-systems.nix. A prefix that is neither: nix reports "path …/<bs>.nu
+  # does not exist"
+  phase =
     s:
     if isAttrs s then
-      "note phase ${s.name}\ndo {\ncd (${workdir})\nlet c = (ctx)\n${s.run}\n}"
+      {
+        test = s.name == "test";
+        body = "note phase ${s.name}\ndo {\ncd (${workdir})\nlet c = (ctx)\n${s.run}\n}";
+      }
     else
-      let
-        p = match phaseRe s;
-        bs = elemAt p 0;
-        call =
-          if elem bs uses then "do {\ncd (${bs} workdir)\n${bs} ${elemAt p 1}\n}" else "${bs} ${elemAt p 1}";
-      in
-      # a prefix that is neither: nix reports "path …/<bs>.nu does not exist"
-      if p == null then
-        fail "phase '${s}' is not <build system or module>.<phase>"
-      else
-        "note phase ${s}\n${call}";
+      bsPhases.${s} or (
+        let
+          p = match phaseRe s;
+        in
+        if p == null then
+          fail "phase '${s}' is not <build system or module>.<phase>"
+        else if elem (elemAt p 0) uses then
+          {
+            test = false;
+            body = "note phase ${s}\ndo {\ncd (${elemAt p 0} workdir)\n${elemAt p 0} ${elemAt p 1}\n}";
+          }
+        else
+          {
+            test = elemAt p 1 == "test";
+            body = "note phase ${s}\n${elemAt p 0} ${elemAt p 1}";
+          }
+      );
+  # "<bs>.<verb>" -> { test, body } for the build systems in use, ready made in build-systems.nix
+  bsPhases =
+    if length uses == 1 then
+      buildSystems.${head uses}.phase
+    else
+      foldl' (a: u: a // buildSystems.${u}.phase) { } uses;
   # in the build script: test phases drop out when disabled or separate, and otherwise ask prepare
   # (cross without binfmt decides at build time that tests cannot run)
   phaseLine =
     s:
-    if !isTest s then
-      phaseBody s
+    let
+      p = phase s;
+    in
+    if !p.test then
+      p.body
     else if !testsRun || separate then
       ""
     else
-      "if (ctx).testsRun {\n${phaseBody s}\n}";
+      "if (ctx).testsRun {\n${p.body}\n}";
   # a phase "zig.restore" whose prefix is no `uses` entry is the package's own module zig.nu next
   # to package.nix, for phases too long to read inline. It imports the builder by bare name
-  modules = foldl' (acc: m: if m == null || elem m (uses ++ acc) then acc else acc ++ [ m ]) [ ] (
-    map (
-      s:
-      let
-        p = if isAttrs s then null else match phaseRe s;
-      in
-      if p == null then null else head p
-    ) phases
-  );
+  modules =
+    if !(args ? phases) then
+      [ ]
+    else
+      foldl' (acc: m: if m == null || elem m (uses ++ acc) then acc else acc ++ [ m ]) [ ] (
+        map (
+          s:
+          let
+            p = if isAttrs s then null else match phaseRe s;
+          in
+          if p == null then null else head p
+        ) phases
+      );
   # <store dir>/<m>.nu: nu names a module after its file, a bare store path would be <hash>-<m>
   storeModule =
     m:
@@ -346,23 +399,15 @@ let
         filter = p: _: baseNameOf p == "${m}.nu";
       }
     }/${m}.nu";
-  prelude =
-    map (f: "use ${tree}/${f}") (
-      [
-        "core.nu *"
-        "prepare.nu"
-        "finish.nu"
-        "implant.nu"
-      ]
-      ++ map (u: buildSystems.${u}.module) uses
-    )
-    ++ map (m: "use ${storeModule m}") modules;
+  prelude = [
+    preludeCommon
+  ]
+  ++ map (u: "use ${tree}/${buildSystems.${u}.module}") uses
+  ++ map (m: "use ${storeModule m}") modules;
   # every phase starts in a known directory: `<bs> workdir` for a build system's phases, the first
   # build system's for inline phases and package modules. setup exports env, hence --env
   workdir = if uses == [ ] then "(ctx).src" else "${builtins.head uses} workdir";
-  setups = map (
-    u: "note setup ${u}\ndo --env {\nmkdir (${u} workdir)\ncd (${u} workdir)\n${u} setup\n}"
-  ) uses;
+  setups = map (u: buildSystems.${u}.setup) uses;
   # also `pkg.script`: lints/package-scripts.nu has nu parse it before anything builds
   script = concatStringsSep "\n" (
     prelude
@@ -375,7 +420,7 @@ let
     prelude
     ++ [ "prepare --from-tree ${drv.tree}" ]
     ++ setups
-    ++ map phaseBody (filter isTest phases)
+    ++ map (p: p.body) (filter (p: p.test) (map phase phases))
     ++ [ "finish tests" ]
   );
 
