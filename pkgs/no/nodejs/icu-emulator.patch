@@ -1,0 +1,72 @@
+icu tools (icupkg, genccode, icutrim.py's genrb/iculslocs) are target binaries like mksnapshot,
+but node's --emulator only wraps the V8 ones. Run them under it too.
+
+diff -ru a/tools/icu/icu-generic.gyp b/tools/icu/icu-generic.gyp
+--- a/tools/icu/icu-generic.gyp	2026-09-11 10:47:55.612732676 +0200
++++ b/tools/icu/icu-generic.gyp	2026-09-11 10:48:01.265796265 +0200
+@@ -149,7 +149,7 @@
+                       'outputs': [ '<(SHARED_INTERMEDIATE_DIR)/icudt<(icu_ver_major)<(icu_endianness)_dat.<(icu_asm_ext)' ],
+                       # on Windows, we can go directly to .obj file (-o) option.
+                       # for Clang use "-c <(target_arch)" option
+-                      'action': [ '<(PRODUCT_DIR)/genccode<(EXECUTABLE_SUFFIX)',
++                      'action': [ '<@(emulator)', '<(PRODUCT_DIR)/genccode<(EXECUTABLE_SUFFIX)',
+                                   '<@(icu_asm_opts)', # -o
+                                   '-c', '<(target_arch)',
+                                   '-d', '<(SHARED_INTERMEDIATE_DIR)',
+@@ -167,7 +167,7 @@
+                       'outputs': [ '<(SHARED_INTERMEDIATE_DIR)/icudt<(icu_ver_major)<(icu_endianness)_dat.<(icu_asm_ext)' ],
+                       # on Windows, we can go directly to .obj file (-o) option.
+                       # for MSVC do not use "-c <(target_arch)" option
+-                      'action': [ '<(PRODUCT_DIR)/genccode<(EXECUTABLE_SUFFIX)',
++                      'action': [ '<@(emulator)', '<(PRODUCT_DIR)/genccode<(EXECUTABLE_SUFFIX)',
+                                   '<@(icu_asm_opts)', # -o
+                                   '-d', '<(SHARED_INTERMEDIATE_DIR)',
+                                   '-n', 'icudata',
+@@ -206,7 +206,7 @@
+                   'msvs_quote_cmd': 0,
+                   'inputs': [ '<(SHARED_INTERMEDIATE_DIR)/icutmp/icudt<(icu_ver_major)<(icu_endianness).dat' ],
+                   'outputs': [ '<(SHARED_INTERMEDIATE_DIR)/icudt<(icu_ver_major)<(icu_endianness)_dat.<(icu_asm_ext)' ],
+-                  'action': [ '<(PRODUCT_DIR)/genccode<(EXECUTABLE_SUFFIX)',
++                  'action': [ '<@(emulator)', '<(PRODUCT_DIR)/genccode<(EXECUTABLE_SUFFIX)',
+                               '<@(icu_asm_opts)', # -o
+                               '-c', '<(target_arch)',
+                               '-d', '<(SHARED_INTERMEDIATE_DIR)/',
+@@ -233,7 +233,7 @@
+                    'action_name': 'icupkg',
+                    'inputs': [ '<(icu_data_in)' ],
+                    'outputs':[ '<(SHARED_INTERMEDIATE_DIR)/icudt<(icu_ver_major)<(icu_endianness).dat' ],
+-                   'action': [ '<(PRODUCT_DIR)/icupkg<(EXECUTABLE_SUFFIX)',
++                   'action': [ '<@(emulator)', '<(PRODUCT_DIR)/icupkg<(EXECUTABLE_SUFFIX)',
+                                '-t<(icu_endianness)',
+                                '<@(_inputs)',
+                                '<@(_outputs)',
+@@ -254,7 +254,7 @@
+                   'action_name': 'icudata',
+                   'inputs': [ '<(SHARED_INTERMEDIATE_DIR)/icudt<(icu_ver_major).dat' ],
+                   'outputs':[ '<(SHARED_INTERMEDIATE_DIR)/icudt<(icu_ver_major)_dat.<(icu_asm_ext)' ],
+-                  'action': [ '<(PRODUCT_DIR)/genccode<(EXECUTABLE_SUFFIX)',
++                  'action': [ '<@(emulator)', '<(PRODUCT_DIR)/genccode<(EXECUTABLE_SUFFIX)',
+                               '-e', 'icudt<(icu_ver_major)',
+                               '-d', '<(SHARED_INTERMEDIATE_DIR)',
+                               '<@(icu_asm_opts)',
+@@ -299,7 +299,7 @@
+                   'action_name': 'genccode',
+                   'inputs': [ '<(SHARED_INTERMEDIATE_DIR)/icutmp/icusmdt<(icu_ver_major).dat' ],
+                   'outputs': [ '<(SHARED_INTERMEDIATE_DIR)/icusmdt<(icu_ver_major)_dat.<(icu_asm_ext)' ],
+-                  'action': [ '<(PRODUCT_DIR)/genccode<(EXECUTABLE_SUFFIX)',
++                  'action': [ '<@(emulator)', '<(PRODUCT_DIR)/genccode<(EXECUTABLE_SUFFIX)',
+                               '<@(icu_asm_opts)',
+                               '-d', '<(SHARED_INTERMEDIATE_DIR)',
+                               '<@(_inputs)' ],
+diff -ru a/tools/icu/icutrim.py b/tools/icu/icutrim.py
+--- a/tools/icu/icutrim.py	2026-09-11 10:47:55.612732676 +0200
++++ b/tools/icu/icutrim.py	2026-09-11 10:47:55.648733080 +0200
+@@ -149,6 +149,8 @@
+         cmd = os.path.join(options.toolpath, tool) + " " + cmd
+     else:
+         cmd = tool + " " + cmd
++    # cross: the tools are target binaries (repkgs sets PKGS_EMULATOR when binfmt cannot run them)
++    cmd = (os.environ.get("PKGS_EMULATOR", "") + " " + cmd).strip()
+ 
+     if(options.verbose>4):
+         print("# " + cmd)

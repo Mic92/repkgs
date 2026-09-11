@@ -14,16 +14,19 @@ package {
     buildPkgs.cpython
     buildPkgs.ninja
   ];
-  patches = [ ./libcxx-includes.patch ];
+  patches = [
+    ./libcxx-includes.patch
+    ./icu-emulator.patch
+  ];
   phases = [
     {
       name = "configure";
       run = ''
-        # a python script, not autoconf. gyp's host toolset (icupkg, mksnapshot) takes CC_host
-        let cross = (if $c.platform.cross {
-          load-env {CC_host: "cc-build", CXX_host: "c++-build", AR_host: "llvm-ar"}
-          [--cross-compiling $"--dest-cpu=($c.platform.names.gyp)" --dest-os=linux]
-        } else { [] })
+        # configure.py, not autoconf. Cross: code generators like mksnapshot are built for the
+        # target and run under qemu (--emulator). The alternative, gyp's host toolset, generates
+        # a broken ninja file (two rules for js_protocol.stamp)
+        let emulator = (if ($c.platform.emulator | is-empty) { [] } else { [$"--emulator=($c.platform.emulator | str join ' ')"] })
+        let cross = (if $c.platform.cross { [$"--dest-cpu=($c.platform.names.gyp)" --dest-os=linux ...$emulator] } else { [] })
         x python3 configure.py $"--prefix=($c.out)" --ninja --shared-zlib --shared-openssl --with-intl=small-icu --without-corepack ...$cross
       '';
     }
