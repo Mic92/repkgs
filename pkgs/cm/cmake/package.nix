@@ -1,13 +1,13 @@
 {
-  package,
+  variant,
   pkgs,
   buildPkgs,
   platform,
 }:
-package {
-  name = "cmake";
-  uses = [ "cmake" ];
-  cmake = {
+variant pkgs.cmake-bootstrap {
+  uses.set = [ "cmake" ];
+  autotools.remove = true;
+  cmake.set = {
     tool = buildPkgs.cmake-bootstrap;
     defs =
       if platform.libc == "msvc" then
@@ -35,7 +35,7 @@ package {
           CMAKE_USE_SYSTEM_LIBRARY_NGHTTP2 = false;
         };
   };
-  dependencies =
+  dependencies.set =
     if platform.libc == "msvc" then
       [ ]
     else
@@ -48,11 +48,4 @@ package {
         pkgs.zlib
         pkgs.zstd
       ];
-  tests.run = false; # ≈1 h
-  tests.relocated = true;
-  bin = [
-    "cmake"
-    "ctest"
-    "cpack"
-  ];
 }
