@@ -71,6 +71,20 @@ auto RunSlotMode(std::span<const std::string> args, const std::string& socket_pa
   return jig::Run(args.front(), args.subspan(1), jig::StderrMode::kInherit).status;
 }
 
+constexpr const char* kUsage =
+    "usage: jig <mode> [args...]   or via a symlink named after the mode\n"
+    "\n"
+    "  cc c++ <args>         compiler driver + compile cache (any other name too)\n"
+    "  rustcwrap <args>      rustc through the cache\n"
+    "  gocacheprog           GOCACHEPROG server on stdin/stdout\n"
+    "  reloc-fixup <dir>     rewrite store references in an output tree\n"
+    "  nix-store <args>      realise paths over the builder RPC socket\n"
+    "  cache get|put <key> <file>, get-dir|put-dir <key> <dir>\n"
+    "  slot <program> <args> run holding a jigd job slot\n"
+    "\n"
+    "  JIG_SOCK  jigd socket (default <store>/../var/nix/jigd/socket)\n"
+    "  JIG_LOG, JIG_LOG_ARGS  per-invocation log files\n";
+
 }  // namespace
 
 auto main(int argc, char** argv) -> int {
@@ -79,7 +93,11 @@ auto main(int argc, char** argv) -> int {
   const std::string socket_path = jig::Env("JIG_SOCK", jig::Store::Get().StateDir() + "/jigd/socket");
   std::string mode = all.empty() ? "" : std::filesystem::path(all.at(0)).filename().string();
   std::span<const std::string> args = std::span(all).subspan(all.empty() ? 0 : 1);
-  if (mode == "jig" && !args.empty()) {
+  if (mode == "jig") {
+    if (args.empty() || args.front() == "--help" || args.front() == "-h") {
+      std::fputs(kUsage, args.empty() ? stderr : stdout);
+      return args.empty() ? 2 : 0;
+    }
     mode = args.front();
     args = args.subspan(1);
   }

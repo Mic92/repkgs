@@ -144,9 +144,24 @@ func serve(conn *net.UnixConn) {
 	}
 }
 
+const usage = `usage: jigd <socket>
+
+The compile cache and job-slot daemon jig talks to. Nix builds reach it through
+sandbox-paths /nix/var/nix/jigd/socket=<socket>.
+
+  XDG_CACHE_HOME  packs live in $XDG_CACHE_HOME/jigd/packs (default ~/.cache)
+  JIGD_SIZE       cache budget in GiB (default 50)
+  JIGD_SLOTS      concurrent compile slots (default: number of CPUs)
+`
+
 func main() {
+	if len(os.Args) == 2 && (os.Args[1] == "--help" || os.Args[1] == "-h") {
+		fmt.Print(usage)
+		return
+	}
 	if len(os.Args) != 2 {
-		log.Fatal("usage: jigd <socket>")
+		fmt.Fprint(os.Stderr, usage)
+		os.Exit(2)
 	}
 	sock := os.Args[1]
 	cache := os.Getenv("XDG_CACHE_HOME")
