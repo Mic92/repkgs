@@ -16,12 +16,7 @@ package {
   ];
   cargo.tool = buildPkgs.rust-bootstrap;
   cargo.deps = null;
-  phases = [
-    "autotools.configure"
-    "autotools.build"
-    "autotools.test"
-    "autotools.install"
-  ];
+  phases = { }; # autotools', cargo only sets up
   autotools.outOfTree = false;
   autotools.flags = [
     "--with-curl"

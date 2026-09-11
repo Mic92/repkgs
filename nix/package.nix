@@ -28,6 +28,7 @@ let
     foldl'
     head
     isAttrs
+    isList
     length
     listToAttrs
     match
@@ -260,16 +261,52 @@ let
     else
       true;
 
-  # `install`/`links` alone (prebuilt binaries, data): the one phase is copying them into $out
+  # `install`/`links` alone (prebuilt binaries, data): the one phase is copying them into $out.
+  # `phases` is the whole list, or edits to the first build system's list (README):
+  # { before.<phase> = [..]; after.<phase> = [..]; replace.<phase> = phase | [..]; remove = [..]; }
   phases =
-    args.phases or (
+    if !(args ? phases) then
       if length uses == 1 then
         buildSystems.${head uses}.phases
       else if uses == [ ] && (args ? install || args ? links) then
         [ ]
       else
-        fail "'phases' is required with more than one build system"
-    );
+        fail "'phases' is required with more than one build system (a list, or edits to the first one's)"
+    else if isList args.phases then
+      args.phases
+    else
+      let
+        e = args.phases;
+        known = buildSystems.${head uses}.phases;
+        named =
+          attrNames (e.before or { })
+          ++ attrNames (e.after or { })
+          ++ attrNames (e.replace or { })
+          ++ (e.remove or [ ]);
+        unknown = filter (n: !elem n known) named;
+        bad = filter (
+          n:
+          !elem n [
+            "before"
+            "after"
+            "replace"
+            "remove"
+          ]
+        ) (attrNames e);
+        asList = x: if isList x then x else [ x ];
+      in
+      if bad != [ ] then
+        fail "phases: unknown edit ${head bad} (before, after, replace, remove)"
+      else if unknown != [ ] then
+        fail "phases: ${head unknown} is not a phase of ${head uses} (${concatStringsSep " " known})"
+      else
+        concatMap (
+          p:
+          if elem p (e.remove or [ ]) then
+            [ ]
+          else
+            (e.before.${p} or [ ]) ++ asList (e.replace.${p} or p) ++ (e.after.${p} or [ ])
+        ) known;
   testsRun = args.tests.run or true;
   # a build system's `stack` (tools that are themselves built with it): a member sees only the
   # members before it, everyone else sees all of it

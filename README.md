@@ -117,18 +117,19 @@ LuaRocks, the lock file in the source is turned into fixed-output fetches at bui
 dynamic derivation, with the hashes the lock file already has. Where it has none (Go, Hackage,
 LuaRocks) they are kept in `locks/*.toml`.
 
-If a package needs something between or instead of those, it writes `phases` out. Each entry
-is either a phase of the build system or a piece of nu with a name. Inside the nu, `$c` holds the
-paths and facts of the build (`$c.out`, `$c.src`, `$c.build`, `$c.njobs`, `$c.platform`):
+If a package needs something between or instead of those, `phases` edits the build system's
+list: `before.<phase>`, `after.<phase>`, `replace.<phase>` take a phase or a list, `remove` a
+list. A phase is one of a build system's or a piece of nu with a name. Inside the nu, `$c` holds
+the paths and facts of the build (`$c.out`, `$c.src`, `$c.build`, `$c.njobs`, `$c.platform`):
 
 ```nix
-phases = [
-  "autotools.configure"
-  "autotools.build"
-  { name = "trim"; run = ''rm $"($c.out)/bin/unwanted"''; }
-  "autotools.install"
+phases.before."autotools.install" = [
+  { name = "trim"; run = ''rm $"($c.build)/unwanted"''; }
 ];
+phases.remove = [ "autotools.test" ];
 ```
+
+`phases = [ … ]` spells the whole list out instead, needed with more than one build system.
 
 Phases too long to keep inline can live in their own file: `modules.rust = ./build.nu;` makes it
 a module, and `phases` refers to them as `"rust.configure"`. pkgs/ru/rust does this.

@@ -118,7 +118,7 @@ modules exporting `setup configure build test install`. A package names them:
 ```nix
 uses = [ "cmake" ];                                   # phases default to the build system's
 cmake.defs = { WITH_FOO = true; };                    # typed options, checked at eval
-phases = [ "cmake.configure" { name = "x"; run = "<nu>"; } ];   # only when the default does not fit
+phases.after."cmake.install" = [ { name = "x"; run = "<nu>"; } ]; # edits, or the whole list
 phases = [ "foo.gen" "cmake.build" ];                 # foo.<phase> lives in foo.nu beside package.nix
 ```
 
