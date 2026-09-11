@@ -8,5 +8,19 @@ hash = "sha256-vdBeJq/0WB0QBwNe1GY00VJviN8eiay0o9v4L/Mr1C8="
 unpack = true
 name = "seed"
 
+[[source]]
+key = "aarch64-linux"
+url = "https://github.com/Mic92/repkgs/releases/download/seed-{version}/seed-{version}-aarch64-linux.nar.xz"
+hash = "sha256-xrzeHkMfrCqJgKPW2f7+qaLGUg33ZGfmBtyHwSFQ7ls="
+unpack = true
+name = "seed"
+
+[[source]]
+key = "riscv64-linux"
+url = "https://github.com/Mic92/repkgs/releases/download/seed-{version}/seed-{version}-riscv64-linux.nar.xz"
+hash = "sha256-1Rau4KwWur06mI7oquN/Z7vSHx5lUgUj7/C0ssDpzRE="
+unpack = true
+name = "seed"
+
 [pin]
 version = "3"
