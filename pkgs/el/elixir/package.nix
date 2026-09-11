@@ -18,6 +18,8 @@ package {
     pkgs.sed
   ];
   exports = false;
+  # yecc wrote the build erlang's include path into the parser beams
+  env.ERL_COMPILER_OPTIONS = "deterministic";
   bin = [
     "elixir"
     "elixirc"

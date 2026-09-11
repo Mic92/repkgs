@@ -12,6 +12,7 @@ export def --env setup []: nothing -> nothing {
     MIX_ENV: "prod", MIX_HOME: $"($c.build)/mix-home", MIX_ARCHIVES: $"(tool-root hex)/lib/archives"
     MIX_REBAR3: (which rebar3 | get -o path.0 | default ""), MIX_OS_DEPS_COMPILE_PARTITION_COUNT: $"($c.njobs)"
     HEX_HOME: $"($c.build)/hex-home", HEX_OFFLINE: "1", ERL_AFLAGS: "+B", LANG: "C.UTF-8"
+    ERL_COMPILER_OPTIONS: "deterministic" # no absolute paths or times in .beam files
   }
   # "app": {:hex, :package, "version", "inner", …}
   let lock = (open --raw mix.lock | parse -r '"(?<app>\w+)": \{:hex, :(?<name>\w+), "(?<version>[^"]+)", "(?<inner>[0-9a-f]{64})"')

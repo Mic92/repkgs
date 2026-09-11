@@ -7,7 +7,8 @@ use ../probe-cache.nu
 export def --env setup []: nothing -> nothing {
   let c = (ctx)
   let o = (options rebar3)
-  load-env {HOME: $c.build, REBAR_CACHE_DIR: $"($c.build)/rebar3-cache", REBAR_OFFLINE: "1", ERL_AFLAGS: "+B", LANG: "C.UTF-8"}
+  load-env {HOME: $c.build, REBAR_CACHE_DIR: $"($c.build)/rebar3-cache", REBAR_OFFLINE: "1", ERL_AFLAGS: "+B", LANG: "C.UTF-8"
+    ERL_COMPILER_OPTIONS: "deterministic"}
   for tar in (glob $"($o.deps)/packages/hexpm/*.tar") {
     beam unpack $tar $"_checkouts/($tar | path basename | str replace -r '-[^-]+$' "")"
   }
