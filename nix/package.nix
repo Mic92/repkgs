@@ -63,6 +63,9 @@ let
   setCommon = {
     inherit (platform) system;
     __structuredAttrs = true;
+    __contentAddressed = true;
+    outputHashMode = "recursive";
+    outputHashAlgo = "sha256";
     builder = "${nu}/bin/nu";
     # platform facts autoconf would otherwise probe (or guess, when cross): nix/config.site
     CONFIG_SITE = "${../nix/config.site}";
