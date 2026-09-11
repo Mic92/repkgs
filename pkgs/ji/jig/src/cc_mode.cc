@@ -186,6 +186,17 @@ void ForwardStdout(const Invocation& inv, const std::optional<std::string>& text
   }
 }
 
+// The entry may come from a run whose -MT/-o differed only in a masked random name (cmake's
+// cmTC_xxxxx): the rule's target has to be this run's or ninja ignores the depfile
+auto RetargetDepfile(std::string text, const Invocation& inv) -> std::string {
+  const std::string target = inv.depfile_target.empty() ? inv.output.string() : inv.depfile_target;
+  const size_t colon = text.find(": ");
+  if (colon != std::string::npos && text.find('\n') > colon) {
+    text.replace(0, colon, target);
+  }
+  return text;
+}
+
 auto Replay(const CachedResult& result, const Invocation& inv) -> int {
   if (inv.to_stdout) {
     ForwardStdout(inv, result.object);
@@ -198,7 +209,7 @@ auto Replay(const CachedResult& result, const Invocation& inv) -> int {
     }
   }
   if (result.depfile) {
-    WriteFile(inv.depfile, Store::Get().ResolveAll(*result.depfile));
+    WriteFile(inv.depfile, RetargetDepfile(Store::Get().ResolveAll(*result.depfile), inv));
   }
   std::print(stderr, "{}", result.stderr_text);
   return result.status;
@@ -325,7 +336,7 @@ auto TakeDepfileOption(std::span<const std::string> args, size_t& idx, Invocatio
   if (arg == "-MF" && has_next) {
     inv.depfile = args.at(++idx);
   } else if ((arg == "-MT" || arg == "-MQ") && has_next) {
-    ++idx;
+    inv.depfile_target = args.at(++idx);
   } else if (arg.starts_with("-Wp,-MD,") || arg.starts_with("-Wp,-MMD,")) {
     // kbuild's spelling. A driver-level -MD next to it confuses clang, so it counts as ours
     inv.depfile = arg.substr(arg.find(',', std::string_view("-Wp,-").size()) + 1);

@@ -1,6 +1,7 @@
 #include "store.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstddef>
 #include <filesystem>
 #include <optional>
@@ -55,6 +56,24 @@ auto Store::MaskHashes(std::string text) const -> std::string {
 
 namespace {
 
+// cmake names every try_compile scratch dir and target at random (mkdtemp TryCompile-XXXXXX,
+// cmTC_<5 hex>): the same probe never repeats its cwd, -o or source path. One fixed spelling each
+void MaskRandomNames(std::string& text) {
+  constexpr std::pair<std::string_view, size_t> kPatterns[] = {{"TryCompile-", 6}, {"cmTC_", 5}};
+  for (const auto& [prefix, width] : kPatterns) {
+    for (size_t pos = 0; (pos = text.find(prefix, pos)) != std::string::npos; pos += prefix.size()) {
+      const size_t start = pos + prefix.size();
+      if (text.size() < start + width) {
+        break;
+      }
+      const std::string_view tail = std::string_view(text).substr(start, width);
+      if (std::ranges::all_of(tail, [](unsigned char ch) { return std::isalnum(ch) != 0; })) {
+        text.replace(start, width, width, '#');
+      }
+    }
+  }
+}
+
 // -Ipath, -I path (already split), --flag=path, plain path. Anything containing a '/' after the
 // option prefix is treated as a path and normalised. Other text passes through untouched.
 auto NormalizePathArg(std::string_view arg) -> std::string {
@@ -96,6 +115,7 @@ auto NormalizePathArg(std::string_view arg) -> std::string {
 
 auto Store::Key(std::string_view arg) const -> std::string {
   std::string key = NormalizePathArg(arg);
+  MaskRandomNames(key);
   return by_content_ ? MaskHashes(std::move(key)) : key;
 }
 

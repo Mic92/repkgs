@@ -79,6 +79,10 @@ void TestStore() {
   assert(store.Key("-I" + dir + "/h-x/include/.") == store.MaskHashes("-I" + dir + "/h-x/include"));
   assert(store.Key("./src/../src/a.c") == "src/a.c");
   assert(store.Key("--sysroot=/a/b/../c/") == "--sysroot=/a/c");
+  // cmake's random probe names collapse to one key
+  assert(store.Key("/b/CMakeFiles/CMakeScratch/TryCompile-teSZ4z/src.c") ==
+         store.Key("/b/CMakeFiles/CMakeScratch/TryCompile-EaIIUC/src.c"));
+  assert(store.Key("CMakeFiles/cmTC_7c7e5.dir/x.c.o") == "CMakeFiles/cmTC_#####.dir/x.c.o");
   assert(store.Key("-O2") == "-O2");
   assert(store.Key("-DFOO=./a//b") == "-DFOO=./a//b");
   assert(store.ToolId("/no/such/tool") == "/no/such/tool");

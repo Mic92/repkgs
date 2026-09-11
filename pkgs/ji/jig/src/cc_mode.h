@@ -33,6 +33,7 @@ struct Invocation {
   // cached as an extra artifact so a hit reproduces it
   bool wants_depfile = false;
   std::filesystem::path depfile;
+  std::string depfile_target;  // -MT/-MQ value, written into a replayed depfile
 };
 
 auto ParseInvocation(std::span<const std::string> args) -> Invocation;
