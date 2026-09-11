@@ -1,0 +1,59 @@
+`__` is a macro for `masm->`, so `__ FLOAT_TYPE::x` reads `masm->FLOAT_TYPE::x`: gcc accepts
+that, clang does not. Spelled out as C2_MacroAssembler::FLOAT_TYPE::x, like mainline openjdk.
+
+--- a/src/hotspot/cpu/riscv/riscv.ad	2026-09-11 09:52:30.588079637 +0200
++++ b/src/hotspot/cpu/riscv/riscv.ad	2026-09-11 09:52:30.593079708 +0200
+@@ -7578,7 +7578,7 @@
+   ins_encode %{
+     __ minmax_fp(as_FloatRegister($dst$$reg),
+                  as_FloatRegister($src1$$reg), as_FloatRegister($src2$$reg),
+-                 __ FLOAT_TYPE::single_precision, false /* is_min */);
++                 C2_MacroAssembler::FLOAT_TYPE::single_precision, false /* is_min */);
+   %}
+ 
+   ins_pipe(pipe_class_default);
+@@ -7609,7 +7609,7 @@
+   ins_encode %{
+     __ minmax_fp(as_FloatRegister($dst$$reg),
+                  as_FloatRegister($src1$$reg), as_FloatRegister($src2$$reg),
+-                 __ FLOAT_TYPE::single_precision, true /* is_min */);
++                 C2_MacroAssembler::FLOAT_TYPE::single_precision, true /* is_min */);
+   %}
+ 
+   ins_pipe(pipe_class_default);
+@@ -7640,7 +7640,7 @@
+   ins_encode %{
+     __ minmax_fp(as_FloatRegister($dst$$reg),
+                  as_FloatRegister($src1$$reg), as_FloatRegister($src2$$reg),
+-                 __ FLOAT_TYPE::double_precision, false /* is_min */);
++                 C2_MacroAssembler::FLOAT_TYPE::double_precision, false /* is_min */);
+   %}
+ 
+   ins_pipe(pipe_class_default);
+@@ -7671,7 +7671,7 @@
+   ins_encode %{
+     __ minmax_fp(as_FloatRegister($dst$$reg),
+                  as_FloatRegister($src1$$reg), as_FloatRegister($src2$$reg),
+-                 __ FLOAT_TYPE::double_precision, true /* is_min */);
++                 C2_MacroAssembler::FLOAT_TYPE::double_precision, true /* is_min */);
+   %}
+ 
+   ins_pipe(pipe_class_default);
+@@ -8661,7 +8661,7 @@
+ 
+   ins_encode %{
+     __ minmax_fp($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister,
+-                 __ FLOAT_TYPE::half_precision, true /* is_min */);
++                 C2_MacroAssembler::FLOAT_TYPE::half_precision, true /* is_min */);
+   %}
+   ins_pipe(pipe_class_default);
+ %}
+@@ -8691,7 +8691,7 @@
+ 
+   ins_encode %{
+     __ minmax_fp($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister,
+-                 __ FLOAT_TYPE::half_precision, false /* is_min */);
++                 C2_MacroAssembler::FLOAT_TYPE::half_precision, false /* is_min */);
+   %}
+   ins_pipe(pipe_class_default);
+ %}

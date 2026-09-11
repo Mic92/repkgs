@@ -24,6 +24,7 @@ package {
     buildPkgs.unzip
   ]
   ++ (if platform.cross then [ buildPkgs.jdk ] else [ ]);
+  patches = [ ./riscv-float-type.patch ];
   phases = [
     {
       name = "configure";
