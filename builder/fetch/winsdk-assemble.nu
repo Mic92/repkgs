@@ -2,7 +2,8 @@
 # Submitted by fetch/winsdk.nu: the CRT .vsix are zips with Contents/VC/Tools/MSVC/<v>/{include,lib},
 # the SDK .msi install below "Windows Kits/10/{Include,Lib}/<v>/" out of cabinets whose members
 # are named by File-table id (msi.nu maps them). Result: crt/{include,lib} and sdk/{include,lib}/<v>/,
-# plus a lowercase symlink for every name with capitals so includes and -l resolve case-sensitively.
+# plus a clang VFS overlay that makes the header dirs case-insensitive (SDK headers include each
+# other in spellings that match no file) and lowercase symlinks for lld-link, which has no VFS.
 use msi.nu
 
 def main []: nothing -> nothing {
@@ -40,10 +41,26 @@ def main []: nothing -> nothing {
   mkdir $"($out)/etc/cc"
   [crt/include ...([ucrt um shared] | each {|d| $"sdk/include/($v)/($d)" })] | str join "\n" | $in + "\n" | save $"($out)/etc/cc/include-dirs"
   [-resource-dir=SYSROOT/lib/clang -rtlib=compiler-rt -fuse-ld=lld -Xmicrosoft-visualc-tools-root SYSROOT/crt
-    -Xmicrosoft-windows-sdk-root SYSROOT/sdk -Xmicrosoft-windows-sdk-version $v] | str join "\n" | $in + "\n" | save $"($out)/etc/cc/flags"
+    -Xmicrosoft-windows-sdk-root SYSROOT/sdk -Xmicrosoft-windows-sdk-version $v -ivfsoverlay SYSROOT/etc/cc/vfs.yaml] | str join "\n" | $in + "\n" | save $"($out)/etc/cc/flags"
+  vfs-overlay $out [crt/include $"sdk/include/($v)"] | save $"($out)/etc/cc/vfs.yaml"
   "\n" | save $"($out)/etc/cc/cxxflags"
-  for f in (glob $"($out)/**/*") {
+  for f in (glob $"($out)/{crt,sdk}/lib/**/*") {
     let dir = ($f | path dirname); let b = ($f | path basename); let l = ($b | str lowercase)
     if $b != $l and not ($"($dir)/($l)" | path exists) { ^ln -s $b $"($dir)/($l)" }
   }
+}
+
+# every header dir as a case-insensitive VFS directory listing its own files, paths relative to
+# the overlay file so the sysroot's symlink merge keeps it valid
+def vfs-overlay [out: string, dirs: list<string>]: nothing -> string {
+  let roots = ($dirs | each {|d|
+    glob $"($out)/($d)/**" --no-file | each {|dir|
+      let rel = $"../../($dir | path relative-to $out)"
+      let files = (ls $dir | where type == file | get name | path basename)
+      if ($files | is-empty) { null } else {
+        {name: $rel, type: directory, contents: ($files | each {|f| {name: $f, type: file, external-contents: $"($rel)/($f)"} })}
+      }
+    } | compact
+  } | flatten)
+  {version: 0, case-sensitive: "false", overlay-relative: "true", root-relative: overlay-dir, roots: $roots} | to json
 }
