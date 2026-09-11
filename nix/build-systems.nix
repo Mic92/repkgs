@@ -59,6 +59,8 @@ builtins.mapAttrs
       // (if bs ? tool then { tool = opt "set" bs.tool "the package that provides ${name}"; } else { })
       // bs.options;
       extra = if builtins.isFunction (bs.tools or [ ]) then bs.tools else _: bs.tools or [ ];
+      # one set per build system, only `lock` options depend on the package
+      optionDefaults = builtins.mapAttrs (_: o: o.default) options;
     in
     {
       inherit options;
@@ -70,11 +72,31 @@ builtins.mapAttrs
           "install"
         ]
       );
+      # script text nix/package.nix would otherwise assemble per package: the setup block and,
+      # for any "<name>.<verb>" a package may list, its body and whether it is a test phase
+      setup = "note setup ${name}\ndo --env {\nmkdir (${name} workdir)\ncd (${name} workdir)\n${name} setup\n}";
+      phase = builtins.listToAttrs (
+        map
+          (verb: {
+            name = "${name}.${verb}";
+            value = {
+              test = verb == "test";
+              body = "note phase ${name}.${verb}\ndo {\ncd (${name} workdir)\n${name} ${verb}\n}";
+            };
+          })
+          [
+            "configure"
+            "build"
+            "test"
+            "install"
+          ]
+      );
       # what the package's `<name>` record starts from: every option's default, `lock` ones fetched
       defaults =
-        args:
-        builtins.mapAttrs (_: o: o.default) options
-        // builtins.mapAttrs (_: f: f { inherit (args) source; }) (bs.lock or { });
+        if bs ? lock then
+          args: optionDefaults // builtins.mapAttrs (_: f: f { inherit (args) source; }) bs.lock
+        else
+          _: optionDefaults;
       # `tool`: the build system's own program, a package may swap it (`cmake.tool = …`)
       tools = spec: (if bs ? tool then [ spec.${name}.tool ] else [ ]) ++ extra spec;
       dependencies = bs.dependencies or [ ];
