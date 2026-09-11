@@ -131,8 +131,8 @@ phases.remove = [ "cargo.test" ];
 `phases = [ … ]` spells the whole list out instead. With several build systems the edits apply
 to the first one's list.
 
-Phases too long to keep inline can live in their own file: `modules.rust = ./build.nu;` makes it
-a module, and `phases` refers to them as `"rust.configure"`. pkgs/ru/rust does this.
+Phases too long to keep inline can live in their own file: a phase `"rust.configure"` whose
+prefix is no build system is `rust.nu` next to package.nix. pkgs/ru/rust does this.
 
 Every build ends the same way. ELF outputs are made relocatable. `bin/<name> --version` runs in
 an empty environment and has to print the pinned version. A `dlopen` that finds nothing during
