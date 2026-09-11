@@ -38,7 +38,9 @@ auto V(std::initializer_list<const char*> items) -> std::vector<std::string> { r
 
 #define VENDOR_ROOT \
   JIG_STORE_DIR "/0123456789abcdfghijklmnpqrsvwxyz-cargo-vendor"  // NOLINT(cppcoreguidelines-macro-usage): setenv
-                                                                  // before statics
+#define OUT_ROOT \
+  JIG_STORE_DIR "/9123456789abcdfghijklmnpqrsvwxyz-openssl"  // NOLINT(cppcoreguidelines-macro-usage): setenv
+                                                             // before statics
 constexpr std::string_view kVendor = VENDOR_ROOT;
 
 void TestBase() {
@@ -74,6 +76,12 @@ void TestStore() {
   assert(store.MaskHashes("-I" + header + " -I" + header) ==
          "-I" + store.MaskHashes(header) + " -I" + store.MaskHashes(header));
   assert(store.MaskHashes(dir + "/short-name") == dir + "/short-name");
+  // the own output's hash is a fixed placeholder in what is keyed and stored, and comes back
+  const std::string define = "-DENGINESDIR=\"" OUT_ROOT "/lib/engines\"";
+  const std::string masked = store.MaskOut(define);
+  assert(masked == "-DENGINESDIR=\"" JIG_STORE_DIR "/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee-openssl/lib/engines\"");
+  assert(store.UnmaskOut(masked) == define);
+  assert(store.MaskOut(header) == header);
   // Key(): lexical path normalisation for path-valued args, other text untouched
   assert(store.Key("-I./include//sub/../") == "-Iinclude");
   assert(store.Key("-I" + dir + "/h-x/include/.") == store.MaskHashes("-I" + dir + "/h-x/include"));
@@ -435,6 +443,7 @@ void TestNixStore() {
 auto main() -> int {
   setenv("JIG_STORE_IDENTITY", "content", 1);  // NOLINT(concurrency-mt-unsafe): before any Store::Get
   setenv("JIG_STORE_ROOTS", VENDOR_ROOT, 1);   // NOLINT(concurrency-mt-unsafe)
+  setenv("out", OUT_ROOT, 1);                  // NOLINT(concurrency-mt-unsafe)
   TestBase();
   TestStore();
   TestParseInvocation();

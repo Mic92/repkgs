@@ -28,6 +28,10 @@ Store::Store() : by_content_(Env("JIG_STORE_IDENTITY", "path") == "content"), ou
   if (!by_content_) {
     return;
   }
+  if (IsStorePath(out_) && out_.size() > dir_.size() + 1 + kStoreHashLength &&
+      out_.at(dir_.size() + 1 + kStoreHashLength) == '-') {
+    out_hash_ = out_.substr(dir_.size() + 1, kStoreHashLength);
+  }
   std::vector<std::string> roots = Split(Env("JIG_STORE_ROOTS"), ' ');
   roots.push_back(out_);
   for (std::string& root : roots) {
@@ -52,6 +56,22 @@ auto Store::MaskHashes(std::string text) const -> std::string {
     pos = hash_start + 1;
   }
   return text;
+}
+
+// nix store hashes never contain e, o, u or t: no real path collides with the placeholder
+constexpr std::string_view kOutPlaceholder = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+static_assert(kOutPlaceholder.size() == kStoreHashLength);
+
+auto Store::SwapOutHash(std::string bytes, bool back) const -> std::string {
+  if (out_hash_.empty()) {
+    return bytes;
+  }
+  const std::string_view from = back ? kOutPlaceholder : std::string_view(out_hash_);
+  const std::string_view to = back ? std::string_view(out_hash_) : kOutPlaceholder;
+  for (size_t pos = 0; (pos = bytes.find(from, pos)) != std::string::npos; pos += from.size()) {
+    bytes.replace(pos, from.size(), to);
+  }
+  return bytes;
 }
 
 namespace {
@@ -170,11 +190,12 @@ auto Store::InputId(const std::string& path) const -> std::optional<std::string>
   if (const auto known = known_ids_.find(path); known != known_ids_.end()) {
     return known->second;
   }
-  const std::optional<std::string> content = ReadFile(path);
+  std::optional<std::string> content = ReadFile(path);
   if (!content) {
     return std::nullopt;
   }
-  return "C:" + HashOf(*content).hex();
+  // build tree files (config.h) are where the own prefix gets written down
+  return "C:" + HashOf(IsStorePath(path) ? *content : MaskOut(std::move(*content))).hex();
 }
 
 }  // namespace jig

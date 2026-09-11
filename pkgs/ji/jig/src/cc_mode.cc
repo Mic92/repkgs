@@ -91,15 +91,13 @@ auto ComputeRequestKey(const std::string& compiler, const Invocation& inv, std::
   if (links) {
     hasher.Field("LIBRARY_PATH=" + store.MaskForReplay(Env("LIBRARY_PATH")));
   }
-  // never masked: paths the binary embeds verbatim (PT_INTERP, RUNPATH), and anything naming our
-  // own output prefix (-DENGINESDIR="$out/lib/..."), which ends up in .rodata
-  const std::string out = Env("out");
+  // never masked: dependency paths a link embeds verbatim (PT_INTERP, RUNPATH). Our own prefix is
+  // a placeholder in keys and stored bytes alike (Store::MaskOut), so it may appear anywhere
   for (const std::string& arg : inv.key_args) {
-    const bool embedded =
-        (links && (arg.contains("dynamic-linker") || arg.contains("rpath"))) || (!out.empty() && arg.contains(out));
-    hasher.Field(embedded ? arg : store.Key(arg));
+    const bool embedded = links && (arg.contains("dynamic-linker") || arg.contains("rpath"));
+    hasher.Field(embedded ? store.MaskOut(arg) : store.Key(store.MaskOut(arg)));
   }
-  hasher.Field(primary);
+  hasher.Field(store.MaskOut(std::string(primary)));
   return {Tool::kCc, hasher.Finish()};
 }
 
@@ -166,10 +164,11 @@ auto Lookup(CacheClient& cache, const RequestKey& request_key, const Invocation&
     if (!object || (inv.wants_depfile && !depfile)) {
       return std::unexpected("object-gone");
     }
-    result.object = std::move(object);
-    result.depfile = inv.wants_depfile ? std::move(depfile) : std::nullopt;
+    const Store& store = Store::Get();
+    result.object = store.UnmaskOut(std::move(*object));
+    result.depfile = inv.wants_depfile ? std::optional(store.UnmaskOut(std::move(*depfile))) : std::nullopt;
   }
-  result.stderr_text = std::move(stderr_text).value_or("");
+  result.stderr_text = Store::Get().UnmaskOut(std::move(stderr_text).value_or(""));
   return result;
 }
 
@@ -288,7 +287,7 @@ auto CompileAndStore(CacheClient& cache, const std::string& compiler, const Requ
     const Manifest manifest = BuildManifest(cache, request_key, inputs, inv.source);
     cache.Put(slot::Manifest(request_key), manifest.text);
     cache.Put(slot::ExitStatus(manifest.result_key), std::to_string(run.status));
-    cache.Put(slot::Stderr(manifest.result_key), run.stderr_text);
+    cache.Put(slot::Stderr(manifest.result_key), store.MaskOut(run.stderr_text));
     LogOutcome("cc", Outcome::kMissStoredFail, subject, clock);
     return run.status;
   }
@@ -301,11 +300,11 @@ auto CompileAndStore(CacheClient& cache, const std::string& compiler, const Requ
   }
   const Manifest manifest = BuildManifest(cache, request_key, inputs, inv.source);
   cache.Put(slot::Manifest(request_key), manifest.text);
-  cache.Put(slot::Object(manifest.result_key), *object);
-  cache.Put(slot::Stderr(manifest.result_key), run.stderr_text);
+  cache.Put(slot::Object(manifest.result_key), store.MaskOut(*object));
+  cache.Put(slot::Stderr(manifest.result_key), store.MaskOut(run.stderr_text));
   // content mode: the depfile names this build's store paths. The next build must see its own
   if (inv.wants_depfile) {
-    cache.Put(slot::Depfile(manifest.result_key), store.MaskForReplay(*dep_text));
+    cache.Put(slot::Depfile(manifest.result_key), store.MaskOut(store.MaskForReplay(*dep_text)));
   }
   LogOutcome("cc", Outcome::kMissStored, subject, clock);
   return 0;

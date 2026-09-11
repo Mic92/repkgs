@@ -146,7 +146,7 @@ cache, so outputs are identical either way, verifiable with CA outputs.
 
 | cached | key |
 |---|---|
-| `cc -c` objects, probe links, real links (ELF) | compiler identity + normalised args + source, then the headers/libs actually read (`-MD`, lld `--dependency-file`) as a manifest. Store paths are masked to content identity, so a rebuilt-identical toolchain still hits |
+| `cc -c` objects, probe links, real links (ELF) | compiler identity + normalised args + source, then the headers/libs actually read (`-MD`, lld `--dependency-file`) as a manifest. Store paths are masked to content identity, so a rebuilt-identical toolchain still hits. The package's own `$out` hash is a placeholder in keys and stored objects and put back on replay, so a dependency bump alone does not recompile `-DPREFIX="$out"` code |
 | compile failures | replayed when all inputs are known (most of configure) |
 | rustc crates, Go actions, Haskell units | dep-info + `--extern` identities, Go's action IDs, cabal's unit id |
 | `config.cache`, cmake probe results, tool cache dirs | configure scripts + toolchain + deps + flags |

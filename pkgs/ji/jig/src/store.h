@@ -44,6 +44,11 @@ class Store {
   [[nodiscard]] auto MaskForReplay(std::string text) const -> std::string {
     return by_content_ ? MaskHashes(std::move(text)) : text;
   }
+  // Our own output's store hash swapped for a fixed placeholder of the same width, and back. A
+  // package embeds its prefix (-DOPENSSLDIR="$out/…", config.h's STARTPERL) and that hash moves
+  // whenever any dependency does. Same width, so objects, .rodata and DWARF stay valid either way
+  [[nodiscard]] auto MaskOut(std::string bytes) const -> std::string { return SwapOutHash(std::move(bytes), false); }
+  [[nodiscard]] auto UnmaskOut(std::string bytes) const -> std::string { return SwapOutHash(std::move(bytes), true); }
 
   // a masked store path back to this build's file via $JIG_STORE_ROOTS and $out, nullopt for a
   // root the build lacks
@@ -67,7 +72,9 @@ class Store {
   Store();
   std::string dir_ = JIG_STORE_DIR;
   bool by_content_ = false;
-  std::string out_;  // $NIX_BUILD_TOP's sibling: our own, still mutable, output
+  [[nodiscard]] auto SwapOutHash(std::string bytes, bool back) const -> std::string;
+  std::string out_;       // our own, still mutable, output
+  std::string out_hash_;  // its 32 hash characters, "" outside a build
   std::unordered_map<std::string, std::string> masked_to_real_;
   std::unordered_map<std::string, std::string> known_ids_;
 };
