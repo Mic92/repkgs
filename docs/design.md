@@ -109,6 +109,12 @@ reference scanner work unchanged.
 Ambient data (CA bundle, zoneinfo, fonts) is an environment variable or system path, never a
 store path. Debug info is always built and split with a relative debuglink.
 
+Because no output names itself, every derivation (bootstrap stages included) is floating
+content-addressed: a change to jig, a builder script or the toolchain that leaves a package's
+bytes alone resolves its dependents to what is already in the store instead of rebuilding them.
+Cross builds pass `--deny <build dep>` to reloc-fixup, so a build-machine path in a target
+output is an error, not a silent reference.
+
 ## Builders
 
 One nu process per build: `prepare` (env, unpack, patch), the package's phases, `finish`

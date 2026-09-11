@@ -25,17 +25,18 @@ path, so it needs bundling into one self-contained tree first. ghc once it cross
 - **Seed**: loongarch64 and powerpc64le cross verified end to end (backends are in LLVM 23,
   seeds for x86_64, aarch64, riscv64 are up). Later the seed is built from this set's own
   static packages instead of nixpkgs, as a fixed point in CI.
-- **Windows** (`<cpu>-windows`, MSVC ABI): toolchain, hardening and cmake/meson target names
-  are in, autotools is `unsupported` there. Next: the first C libraries green (zlib's version
-  script, MSVC STL wanting C++20), `.exe`/`.dll` install names, cargo target, wine as the test
-  emulator.
+- **Windows** (`<cpu>-windows`, MSVC ABI): toolchain, hardening, cmake/meson target names, a
+  case-insensitive SDK header overlay and the cmake/meson C libraries are in (zlib, libpng,
+  expat, pcre2, sqlite, inih, freetype …), autotools is `unsupported` there. Next: `.exe`/`.dll`
+  install names, the cargo target, go (`GOOS` is wired), wine as the test emulator.
 - **FreeBSD / NetBSD**: ELF and clang upstream, so crt_interp, `$ORIGIN` and launchers carry
   over. libc from the release's `base.txz` first, from `src.txz` later. No user-mode emulator:
   tests need a VM job.
-- **macOS** (`aarch64-macos`): toolchain over Apple's SDK with `ld64.lld`, build systems name
-  the target, plain C libraries (expat gmp libffi ncurses pcre2 sqlite lua …) build. Next: our
-  own libc++ with `@rpath` install names, script launchers for Mach-O, pruning the SDK of
-  libraries this set builds itself (as nixpkgs does), and a darwin builder hop for tests.
+- **macOS** (`aarch64-macos`): toolchain over Apple's SDK with `ld64.lld`, `bin/ld` is the
+  Mach-O lld so libtool sees no GNU ld, build systems name the target, the autotools and cmake
+  C libraries build (gmp, libffi, libyaml, xz, oniguruma, ncurses, sqlite, lua …). Next: our own
+  libc++ with `@rpath` install names, script launchers for Mach-O, pruning the SDK of libraries
+  this set builds itself (as nixpkgs does), and a darwin builder hop for tests.
 - **wasm32-wasi** as one more cross platform: wasi-libc instead of glibc, no launcher.
 
 ## Ecosystems
@@ -63,8 +64,9 @@ npm/pnpm/bun, and `uptrack check` should warn when a lock names a library the se
 
 ## Infrastructure
 
-- **Reproducibility**: a CI job running `repkgs repro` (rebuild without the cache socket,
-  report CA path mismatches, diffoscope those).
+- **Reproducibility**: with every derivation content-addressed, a rebuild that yields a
+  different store path is the signal. A CI job running `repkgs repro` (rebuild without the
+  cache socket, report path mismatches, diffoscope those).
 - **CI**: nixbot on both build platforms plus riscv64 cross, harmonia cache with realisations.
   The whole set builds natively and cross to aarch64/riscv64 on one machine today, unverified
   by CI.
