@@ -1,6 +1,8 @@
 # CPU facts, the only place they live. `glibc.<cpu>` / `musl.<cpu>` / `forSystem` add the libc-
 # dependent fields (triple, dynamic linker name) and `binfmt` (elf | macho | coff), which is what
-# decides linker flavour, PIC, crt objects, interp/RUNPATH and whether launchers apply. `flags` end up in every cc invocation via jig.conf.
+# decides linker flavour, PIC, crt objects, interp/RUNPATH and whether launchers apply.
+# `march` ends up in every cc invocation via jig.conf. `hardening` is the cpu's verdict on
+# nix/hardening.nix names: what it adds (cfprotection, branchprotection) or cannot take.
 # `names`: what other ecosystems call the cpu (kernel ARCH=, GOARCH, rust triple prefix, meson
 # cpu_family, qemu-user binary, gyp/V8 dest-cpu, apple's clang arch) where it differs from ours.
 let
@@ -12,7 +14,7 @@ let
         gyp = "x64";
       };
       march = [ "-march=x86-64-v3" ];
-      hardening = [ "-fcf-protection=full" ];
+      hardening.cfprotection = true;
       interp.glibc = "ld-linux-x86-64.so.2";
     };
     aarch64 = {
@@ -23,7 +25,7 @@ let
         clang = "arm64";
       };
       march = [ "-march=armv8.2-a+lse" ];
-      hardening = [ "-mbranch-protection=standard" ];
+      hardening.branchprotection = true;
       interp.glibc = "ld-linux-aarch64.so.1";
     };
     riscv64 = {
@@ -38,7 +40,6 @@ let
         "-mabi=lp64d"
         "-mno-relax"
       ];
-      hardening = [ ];
       interp.glibc = "ld-linux-riscv64-lp64d.so.1";
     };
     # Loongson 3A5000+ (LA464): the LA64 v1.0 baseline every shipped core has
@@ -52,7 +53,6 @@ let
         "-march=loongarch64"
         "-mabi=lp64d"
       ];
-      hardening = [ ];
       interp.glibc = "ld-linux-loongarch-lp64d.so.1";
     };
     # POWER9 and later, little endian, ELFv2, IEEE long double (what current distros ship)
@@ -65,7 +65,6 @@ let
         qemu = "ppc64le";
       };
       march = [ "-mcpu=power9" ];
-      hardening = [ ];
       interp.glibc = "ld64.so.2";
 
     };
@@ -99,7 +98,6 @@ let
       }";
       rustTriple = "${names.rust}-unknown-linux-${if libc == "musl" then "musl" else "gnu"}";
       interp = if libc == "musl" then "ld-musl-${cpu}.so.1" else c.interp.glibc;
-      flags = c.march ++ c.hardening;
     };
   # The non-Linux targets take libc, C++ library and SDK as given (pkgs/wi/windows-sdk,
   # pkgs/ap/apple-sdk). PE and Mach-O find libraries beside the binary / by install name, so there
@@ -116,8 +114,7 @@ let
       name = "${cpu}-${o.os}";
       interp = "";
       march = o.march or c.march;
-      hardening = [ ];
-      flags = march;
+      hardening = { };
     }
     // o;
   msvc =

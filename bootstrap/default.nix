@@ -10,6 +10,7 @@
 }:
 let
   platforms = import ../nix/platforms.nix;
+  hardening = import ../nix/hardening.nix;
   pkg = name: ../pkgs + "/${builtins.substring 0 2 name}/${name}";
 
   seedPath =
@@ -149,7 +150,11 @@ let
           interp
           ;
         karch = platform.names.kernel;
-        flags = toString platform.flags;
+        # -march plus the cpu's own hardening (cf-protection, BTI): baked into jig.conf and used by
+        # every bootstrap compile. The rest of nix/hardening.nix is per package (builder/env.nu)
+        flags = toString (
+          platform.march ++ hardening.enabledFlags (hardening.forPlatform platform) hardening.cpuOnly
+        );
         seed = seedPath;
         builder = "${seedPath}/bin/nu";
         args = [
