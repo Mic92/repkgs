@@ -1,0 +1,9 @@
+# `let x = a\n  ++ b`: the second line is a new command named `++`, found out at run time.
+# Wrap the expression in ( ) or [ ...a ...b ].
+id: operator-continuation
+language: nu
+severity: error
+message: a line starting with an operator is a separate command, parenthesise the expression
+rule:
+  kind: command
+  regex: '^(\+\+|\||and |or |\+ |- |\* |/ |== |!= )'
