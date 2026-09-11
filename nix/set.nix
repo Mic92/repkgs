@@ -12,21 +12,26 @@ let
   overrideTree = ov.merge overrides;
   bootstrap = import ../bootstrap { inherit seed system; };
 
-  cpu = builtins.head (builtins.split "-" platform);
-  os = builtins.elemAt (builtins.split "-" platform) 2;
+  parts = builtins.match "([^-]+)-([^-]+)" platform;
+  cpu = builtins.head parts;
+  os = builtins.elemAt parts 1;
+  unknown = throw "no platform ${platform}";
   # <cpu>-windows: the msvc toolchain over the SDK the build machine's set fetches
   stage =
-    {
-      windows = bootstrap.msvc cpu (
-        fetch.windowsSdk {
-          manifest = (readSources ../pkgs/wi/windows-sdk/sources.toml).fetch "default";
-          arch = cpu;
-        }
-      );
-      macos = bootstrap.macos cpu;
-      linux = bootstrap.stage1.${cpu};
-    }
-    .${os};
+    if parts == null then
+      unknown
+    else
+      {
+        windows = bootstrap.msvc cpu (
+          fetch.windowsSdk {
+            manifest = (readSources ../pkgs/wi/windows-sdk/sources.toml).fetch "default";
+            arch = cpu;
+          }
+        );
+        macos = bootstrap.macos cpu;
+        linux = bootstrap.stage1.${cpu} or unknown;
+      }
+      .${os} or unknown;
   plat = stage.platform // rec {
     inherit system;
     cross = platform != system;
@@ -192,10 +197,12 @@ let
   ) (builtins.fromTOML (builtins.readFile ../pkgs/aliases.toml));
 in
 {
-  pkgs =
+  # attrNames alone would not force the platform: `list --for typo` showed this machine's set
+  pkgs = builtins.seq stage (
     if unknownOverrides != [ ] then
       throw "overrides: no packages named ${toString unknownOverrides}"
     else
-      self;
+      self
+  );
   inherit bootstrap buildSystems toolchain;
 }
