@@ -94,7 +94,7 @@ export def stdConfigure []: nothing -> nothing {
     rust: {channel: "stable", remap-debuginfo: true, frame-pointers: true, lld: false, llvm-tools: false}
     llvm: {download-ci-llvm: false}
     target: ({$triple: {cc: (tool cc), cxx: (tool c++), linker: (tool cc), ar: (tool llvm-ar), ranlib: (tool llvm-ranlib), crt-static: false}}
-      | merge {$host: {cc: (tool cc-build), cxx: (tool c++-build), linker: (tool cc-build), ar: (tool llvm-ar)}})
+      | merge (if $c.platform.cross { {$host: {cc: (tool cc-build), cxx: (tool c++-build), linker: (tool cc-build), ar: (tool llvm-ar)}} } else { {} }))
     dist: {compression-formats: [gz], src-tarball: false}
   } | to toml | save -f bootstrap.toml
 }
@@ -103,9 +103,15 @@ export def stdBuild []: nothing -> nothing { x python3 x.py build --stage 0 libr
 
 export def stdInstall []: nothing -> nothing {
   let c = (ctx)
-  # x.py install has no stage 0 path: take the target rustlib out of the stage0 sysroot
+  # x.py install has no stage 0 path. bootstrap only recognises cargo's old target/deps layout,
+  # so with the current one the stage0 sysroot gets self-contained/ and nothing else: take that,
+  # and the hashed rlibs from where cargo now puts them
   let host = (^rustc -vV | lines | parse "host: {t}" | get t.0)
-  let lib = $"lib/rustlib/($c.platform.rustTriple)/lib"
+  let triple = $c.platform.rustTriple
+  let lib = $"lib/rustlib/($triple)/lib"
   mkdir $"($c.out)/($lib | path dirname)"
   cp -r $"($c.build)/($host)/stage0-sysroot/($lib)" $"($c.out)/($lib)"
+  let built = (glob $"($c.build)/($host)/stage0-std/($triple)/dist/build/*/*/out/*.{rlib,so}")
+  if ($built | is-empty) { error make {msg: "rust.stdInstall: no target rlibs under stage0-std"} }
+  for f in $built { cp $f $"($c.out)/($lib)/" }
 }
