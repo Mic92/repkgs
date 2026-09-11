@@ -297,7 +297,7 @@ let
           if elem p (e.remove or [ ]) then
             [ ]
           else
-            (e.before.${p} or [ ]) ++ asList (e.replace.${p} or p) ++ (e.after.${p} or [ ])
+            asList (e.before.${p} or [ ]) ++ asList (e.replace.${p} or p) ++ asList (e.after.${p} or [ ])
         ) known;
   testsRun = args.tests.run or true;
   # a build system's `stack` (tools that are themselves built with it): a member sees only the

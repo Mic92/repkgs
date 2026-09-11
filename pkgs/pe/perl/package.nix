@@ -11,13 +11,8 @@ package {
   uses = [ "autotools" ];
   bootstrapTools = true;
   autotools.outOfTree = false;
-  phases = [
-    "perl.configure"
-    "autotools.build"
-    "autotools.test"
-    "autotools.install"
-    "perl.scrub"
-  ];
+  phases.replace."autotools.configure" = "perl.configure";
+  phases.after."autotools.install" = "perl.scrub";
   env =
     if platform.cross then
       {

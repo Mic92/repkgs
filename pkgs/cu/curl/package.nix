@@ -18,10 +18,7 @@ package {
     CURL_CA_SEARCH_SAFE = true;
   };
   tests.run = false; # needs perl + python impacket + minutes
-  phases = [
-    "cmake.configure"
-    "cmake.build"
-    "cmake.install"
+  phases.after."cmake.install" = [
     {
       # `curl-config --cc` would echo the build compiler's store path
       name = "curl-config";

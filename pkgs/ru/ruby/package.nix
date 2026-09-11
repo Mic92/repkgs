@@ -26,10 +26,7 @@ package {
     pkgs.libyaml
     pkgs.libffi
   ];
-  phases = [
-    "autotools.configure"
-    "autotools.build"
-    "autotools.install"
+  phases.after."autotools.install" = [
     {
       # rbconfig.rb describes the build machine: configure's bash and clang's InstalledDir line
       name = "rbconfig";
