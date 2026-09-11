@@ -40,6 +40,8 @@ let
         "-mabi=lp64d"
         "-mno-relax"
       ];
+      # clang 23.1 SIGSEGVs in prologue/epilogue insertion on frames over 4 KiB with it
+      hardening.zerocallusedregs = false;
       interp.glibc = "ld-linux-riscv64-lp64d.so.1";
     };
     # Loongson 3A5000+ (LA464): the LA64 v1.0 baseline every shipped core has
