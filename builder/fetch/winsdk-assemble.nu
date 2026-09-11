@@ -25,7 +25,7 @@ def main []: nothing -> nothing {
     for e in (msi install-paths $t | transpose id rel) {
       let rel = ($e.rel | parse -r '^Windows Kits/10/(Include|Lib)/(.*)$')
       if ($rel | is-empty) or not ($"($x)/($e.id)" | path exists) { continue }
-      let dst = $"($out)/sdk/($rel.0.capture0 | str downcase)/($rel.0.capture1)"
+      let dst = $"($out)/sdk/($rel.0.capture0 | str lowercase)/($rel.0.capture1)"
       mkdir ($dst | path dirname)
       ^mv $"($x)/($e.id)" $dst
     }
@@ -35,7 +35,7 @@ def main []: nothing -> nothing {
   ^ln -s include $"($out)/sdk/Include"
   ^ln -s lib $"($out)/sdk/Lib"
   for f in (glob $"($out)/**/*") {
-    let dir = ($f | path dirname); let b = ($f | path basename); let l = ($b | str downcase)
+    let dir = ($f | path dirname); let b = ($f | path basename); let l = ($b | str lowercase)
     if $b != $l and not ($"($dir)/($l)" | path exists) { ^ln -s $b $"($dir)/($l)" }
   }
 }

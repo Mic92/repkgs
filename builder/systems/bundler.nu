@@ -62,7 +62,7 @@ export def install []: nothing -> nothing {
 def gem-build-env [deps: list<record<name: string, root: string>>]: nothing -> record {
   let flags = (sys-libs gem-build-flags $deps)
   if ($flags | is-not-empty) { note sys-libs ($flags | columns | str join " ") }
-  $flags | items {|gem, value| [$"BUNDLE_BUILD__($gem | str upcase | str replace -a "-" "___")" $value] } | into record
+  $flags | items {|gem, value| [$"BUNDLE_BUILD__($gem | str uppercase | str replace -a "-" "___")" $value] } | into record
 }
 
 # a ruby script that activates the bundle and loads the application's own executable

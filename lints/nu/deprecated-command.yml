@@ -1,0 +1,9 @@
+# Commands nu still runs but warns about on every use. The warning lands in build logs.
+id: deprecated-command
+language: nu
+severity: error
+message: deprecated in nu 0.114, use the replacement
+note: str downcase is `str lowercase`, str upcase is `str uppercase`
+rule:
+  kind: command
+  regex: '^str (downcase|upcase)\b'

@@ -20,7 +20,7 @@ export def fetchurls []: table -> table {
   let rows = $in
   if ($rows | is-empty) { return [] }
   let req = ($rows | each {|r|
-    let h = (if $r.integrity? != null { $r.integrity | parse-sri } else { {algo: sha256, hex: ($r.sha256 | str downcase), sri: $r.sha256} })
+    let h = (if $r.integrity? != null { $r.integrity | parse-sri } else { {algo: sha256, hex: ($r.sha256 | str lowercase), sri: $r.sha256} })
     {name: ($r.file | str replace -ar '^\.|[^A-Za-z0-9+._?=-]' '_'), url: $r.url} | merge $h
   })
   let made = ($req | to json --raw | ^jig nix-store fetchurls | from json)

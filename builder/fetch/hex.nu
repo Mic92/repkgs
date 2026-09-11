@@ -28,7 +28,7 @@ def mix-lock [text: string]: nothing -> table<name: string, version: string, sha
 def rebar-lock [text: string]: nothing -> table<name: string, version: string, sha256: string> {
   let pkgs = ($text | parse -r '\{pkg,<<"(?<name>[^"]+)">>,<<"(?<version>[^"]+)">>' )
   let ext = ($text | parse -r '(?s)\{pkg_hash_ext,\[(?<body>.*?)\]\}' | get -o body.0 | default "")
-  let hashes = ($ext | parse -r '\{<<"(?<name>[^"]+)">>, <<"(?<sha256>[0-9A-F]{64})">>\}' | update sha256 { str downcase })
+  let hashes = ($ext | parse -r '\{<<"(?<name>[^"]+)">>, <<"(?<sha256>[0-9A-F]{64})">>\}' | update sha256 { str lowercase })
   let foreign = ($text | parse -r '\{<<"(?<name>[^"]+)">>,\{(?<scm>git|hg|path)\b')
   if ($foreign | is-not-empty) { error make {msg: $"hexDeps: rebar.lock has non-hex entries: ($foreign | get name | str join ', ')"} }
   $pkgs | join $hashes name | select name version sha256
