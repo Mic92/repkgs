@@ -43,7 +43,8 @@ export def copy-tree [from: path, to: path, pattern: string = "**/*"]: nothing -
   glob $"($from)/($pattern)" | where { ($in | path type) == "file" } | par-each --threads (cores) {|f|
     let dest = $"($to)/($f | path relative-to $from)"
     mkdir ($dest | path dirname)
-    cp -f $f $dest
+    # Nushell's in-process `cp` can corrupt concurrent copies; each external cp has isolated state.
+    ^cp -f $f $dest
   } | ignore
 }
 
