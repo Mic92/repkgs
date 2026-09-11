@@ -1,0 +1,17 @@
+highway: RVV is in the baseline only when the V extension is enabled
+
+clang 18+ defines __riscv_v_intrinsic whatever -march says, so rv64gc builds took RVV for the
+baseline and fed V builtins to a compiler without V. Upstream checks __riscv_v too
+(google/highway hwy/detect_targets.h).
+
+--- a/deps/v8/third_party/highway/src/hwy/detect_targets.h
++++ b/deps/v8/third_party/highway/src/hwy/detect_targets.h
+@@ -548,7 +548,7 @@
+ #endif
+ 
+ // RVV requires intrinsics 0.11 or later, see #1156.
+-#if HWY_ARCH_RISCV && defined(__riscv_v_intrinsic) && \
++#if HWY_ARCH_RISCV && defined(__riscv_v) && defined(__riscv_v_intrinsic) && \
+     __riscv_v_intrinsic >= 11000
+ #define HWY_BASELINE_RVV HWY_RVV
+ #else
