@@ -13,23 +13,28 @@ let
   bootstrap = import ../bootstrap { inherit seed system; };
 
   cpu = builtins.head (builtins.split "-" platform);
-  windows = builtins.match ".*-windows" platform != null;
+  os = builtins.elemAt (builtins.split "-" platform) 2;
   # <cpu>-windows: the msvc toolchain over the SDK the build machine's set fetches
   stage =
-    if windows then
-      bootstrap.msvc cpu (
+    {
+      windows = bootstrap.msvc cpu (
         fetch.windowsSdk {
           manifest = (readSources ../pkgs/wi/windows-sdk/sources.toml).fetch "default";
           arch = cpu;
         }
-      )
-    else
-      bootstrap.stage1.${cpu};
+      );
+      macos = bootstrap.macos cpu;
+      linux = bootstrap.stage1.${cpu};
+    }
+    .${os};
   plat = stage.platform // rec {
     inherit system;
     cross = platform != system;
     emulator =
-      if cross && !windows then [ "${buildPkgs.qemu}/bin/qemu-${stage.platform.names.qemu}" ] else [ ];
+      if cross && os == "linux" then
+        [ "${buildPkgs.qemu}/bin/qemu-${stage.platform.names.qemu}" ]
+      else
+        [ ];
   };
   toolchain = stage.cc;
   launch = stage.launch or null;

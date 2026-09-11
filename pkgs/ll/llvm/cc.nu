@@ -6,7 +6,7 @@ use ../../../bootstrap/lib.nu *
 # absolute seed paths: `cc` must work with an empty PATH, and `clang` on PATH is the cache shim
 def seed-bin [name: string]: nothing -> string { $"($env.seed)/bin/($name)" }
 
-def lld []: nothing -> string { seed-bin ({elf: "ld.lld", coff: "lld-link"} | get $env.binfmt) }
+def lld []: nothing -> string { seed-bin ({elf: "ld.lld", macho: "ld64.lld", coff: "lld-link"} | get $env.binfmt) }
 
 # What jig prepends for `cc` (flags) and additionally for `c++` (cxxflags). An SDK states its
 # own in etc/cc/{flags,cxxflags} (bootstrap/lib.nu cc-facts, merged into the sysroot), SYSROOT
@@ -49,7 +49,7 @@ def elf-policy [out: string, sysroot: string]: nothing -> record {
 
 # hello.c and hello.cc through the finished wrapper. Run only when the target is the build machine
 def smoke-test [out: string]: nothing -> nothing {
-  let exe = ({elf: "", coff: ".exe"} | get $env.binfmt)
+  let exe = ({elf: "", macho: "", coff: ".exe"} | get $env.binfmt)
   "#include <stdio.h>\nint main(void) { puts(\"cc ok\"); }\n" | save -f hello.c
   "#include <print>\nint main() { std::println(\"c++ ok\"); }\n" | save -f hello.cc
   x $"($out)/bin/cc" hello.c -o $"hello($exe)"

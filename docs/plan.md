@@ -29,9 +29,10 @@ build-platform-only there. From source lifts that.
 - **FreeBSD / NetBSD**: ELF and clang upstream, so crt_interp, `$ORIGIN` and launchers carry
   over. libc from the release's `base.txz` first, from `src.txz` later. No user-mode emulator:
   tests need a VM job.
-- **macOS**: no Xcode. An `apple-sdk` recipe from Apple's open-source drops plus committed
-  `.tbd` stubs, CoreFoundation from swift-corelibs. clang, `ld64.lld`, libc++ ours.
-  `@executable_path` install names instead of RUNPATH. Untested cross builds.
+- **macOS** (`aarch64-macos`): the toolchain links hello over Apple's SDK with `ld64.lld`.
+  Next: our own libc++ with `@rpath` install names, pruning the SDK of libraries this set builds
+  itself (zlib, curl, sqlite, libffi and friends, as nixpkgs does), the build systems' target
+  settings, and a darwin builder hop for tests since Linux has no user-mode emulator for it.
 - **wasm32-wasi** as one more cross platform: wasi-libc instead of glibc, no launcher.
 
 ## Ecosystems

@@ -26,15 +26,16 @@ def builtin-item [b: string, obj: string, f: string]: nothing -> record {
 }
 
 # Where each driver looks for the builtins: the per-target runtime dir with lib<name>.a (ELF) or
-# <name>.lib (lld-link)
+# <name>.lib (lld-link), and for darwin only ever lib/darwin/libclang_rt.osx.a (fat in Xcode, one arch here)
 def builtins-lib [out: string]: nothing -> string {
   match $env.binfmt {
     "elf" => $"($out)/lib/($env.triple)/libclang_rt.builtins.a"
     "coff" => $"($out)/lib/($env.triple)/clang_rt.builtins.lib"
+    "macho" => $"($out)/lib/darwin/libclang_rt.osx.a"
   }
 }
 
-# ELF only: crtbegin/crtend (vcruntime brings its own), the profile runtime, and
+# ELF only: crtbegin/crtend (vcruntime and libSystem bring their own), the profile runtime, and
 # GCC's crt names for glibc's Makeconfig, which links them even when configure saw compiler-rt
 def elf-extras [src: string, out: string, common: list<string>]: nothing -> nothing {
   let b = $"($src)/compiler-rt/lib/builtins"
@@ -67,7 +68,7 @@ def main []: nothing -> nothing {
   let b = $"($src)/compiler-rt/lib/builtins"
   let obj = $"($env.NIX_BUILD_TOP)/obj"
 
-  let pic = ({elf: [-fPIC], coff: []} | get $env.binfmt)
+  let pic = ({elf: [-fPIC], macho: [-fPIC], coff: []} | get $env.binfmt)
   # no -DCOMPILER_RT_HAS_FLOAT16 on ppc: clang has no _Float16 there (cmake probes the same)
   let percpu = (match $env.cpu {
     "powerpc64le" => []

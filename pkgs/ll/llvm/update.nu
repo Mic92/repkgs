@@ -13,6 +13,25 @@ const TARGETS = {
   aarch64-windows: {triple: aarch64-pc-windows-msvc, system: Windows}
 }
 
+# compiler-rt's Apple path shells out to xcrun and PlistBuddy, so it cannot be configured here.
+# What it does to the ELF selection is short (lib/builtins/CMakeLists.txt `if(APPLE)` blocks and
+# Darwin-excludes/osx.txt): derive the list instead.
+const APPLE = {
+  aarch64-macos: {
+    from: aarch64
+    add: [atomic_flag_clear.c atomic_flag_clear_explicit.c atomic_flag_test_and_set.c
+      atomic_flag_test_and_set_explicit.c atomic_signal_fence.c atomic_thread_fence.c]
+  }
+}
+
+def apple-sources [src: path, linux: list<string>, t: record]: nothing -> list<string> {
+  let excludes = (open --raw $"($src)/compiler-rt/lib/builtins/Darwin-excludes/osx.txt" | lines | compact -e)
+  $linux ++ $t.add
+  | where {|f| ($f | path parse | get stem) not-in $excludes and $f != "enable_execute_stack.c" }
+  | sort
+  | uniq
+}
+
 def --wrapped in-shell [...cmd: string]: nothing -> string {
   let pkgs = [cmake ninja llvmPackages.clang-unwrapped llvmPackages.lld llvmPackages.llvm]
   ^nix-shell -p ...$pkgs --run ($cmd | str join ' ')
@@ -61,8 +80,9 @@ export def files [entry: record]: nothing -> record {
   let tarball = (^nix store prefetch-file --json $url | from json | get storePath)
   let src = (mktemp -d -t llvm-update.XXXX)
   ^tar -xf $tarball -C $src --strip-components 1 --wildcards "*/compiler-rt" "*/cmake"
-  let out = ($TARGETS | items {|key, t|
-    let files = (builtins-sources $src $key $t)
+  let elf = ($TARGETS | items {|key, t| {k: $key, v: (builtins-sources $src $key $t)} } | transpose -r -d)
+  let apple = ($APPLE | items {|key, t| {k: $key, v: (apple-sources $src ($elf | get $t.from) $t)} } | transpose -r -d)
+  let out = ($elf | merge $apple | items {|key, files|
     print -e $"  ($key): ($files | length) builtins sources"
     {k: $"builtins-($key).txt", v: (($files | str join "\n") + "\n")}
   } | transpose -r -d)

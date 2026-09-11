@@ -178,53 +178,48 @@ let
       run, # mkStage for this platform with its tools
       libcRecipe ? null, # "musl" | "glibc"; run twice, headersOnly first
       libcArgs ? { },
-      libcGiven ? null, # instead of libcRecipe: headers and libraries already there (windows-sdk)
-      linuxHeaders ? null, # in compiler-rt's include path and the sysroot; null on windows and in stage0 (added later)
+      libcGiven ? null, # instead of libcRecipe: headers, libc and C++ library already there (an SDK)
+      linuxHeaders ? null, # in compiler-rt's include path and the sysroot; null off Linux and in stage0 (added later)
       extraParts ? [ ], # sysroot members after libc that are not compiler-rt inputs (stage0's linux headers)
-      builtins' ? "builtins-${platform.cpu}.txt",
       ccArgs ? { },
     }:
     let
+      given = libcGiven != null;
+      libcStep = args: if given then libcGiven else run libcRecipe (libcArgs // args);
       sysroot =
         parts:
         run "sysroot" {
           parts = builtins.filter (p: p != null) parts;
           resource = compiler-rt;
         };
-      libc-headers =
-        if libcGiven != null then libcGiven else run libcRecipe (libcArgs // { headersOnly = "1"; });
+      # builtins-<cpu>.txt for Linux, builtins-<cpu>-<os>.txt otherwise (pkgs/ll/llvm/update.nu)
+      list =
+        pkg "llvm"
+        + "/builtins-${platform.cpu}${if platform.os == "linux" then "" else "-${platform.os}"}.txt";
       compiler-rt = run "compiler-rt" (
         {
           src = source "llvm";
-          libcHeaders = libc-headers;
-          list = pkg "llvm" + "/${builtins'}";
+          libcHeaders = libcStep { headersOnly = "1"; };
+          inherit list;
         }
         // (if linuxHeaders == null then { } else { inherit linuxHeaders; })
       );
-      libc =
-        if libcGiven != null then libcGiven else run libcRecipe (libcArgs // { inherit compiler-rt; });
+      libc = libcStep { inherit compiler-rt; };
+      base = [
+        libc
+        linuxHeaders
+      ]
+      ++ extraParts;
+      # libc++, libc++abi, libunwind. An SDK brings its own C++ library
       runtimes =
-        if platform.libc == "msvc" then
+        if given then
           null
         else
           run "runtimes" {
             src = source "llvm";
-            sysroot = sysroot (
-              [
-                libc
-                linuxHeaders
-              ]
-              ++ extraParts
-            );
+            sysroot = sysroot base;
           };
-      full = sysroot (
-        [
-          libc
-          linuxHeaders
-        ]
-        ++ extraParts
-        ++ [ runtimes ]
-      );
+      full = sysroot (base ++ [ runtimes ]);
       cc = run "cc" ({ sysroot = full; } // ccArgs);
     in
     {
@@ -313,23 +308,32 @@ let
       dlaudit = mkStage platform (cached stage0.jig) [ c.cc ] "dlaudit" { };
     };
 
-  # Windows: the CRT, STL and SDK import libraries are Microsoft's (fetch.windowsSdk, which needs
-  # the native set's 7zip, hence `sdk` is passed in by nix/set.nix). compiler-rt builtins are ours.
-  msvc =
-    cpu: sdk:
-    let
-      platform = platforms.msvc.${cpu};
-    in
+  # The non-Linux chains: libc, C++ library and SDK stubs come fetched (`sdk`), compiler-rt
+  # builtins are ours, no runtimes step. windows-sdk needs the native set's 7zip, so nix/set.nix
+  # passes it in. apple-sdk unpacks with the seed alone.
+  sdkChain =
+    platform: sdk:
     chain {
       inherit platform;
       run = cross platform;
       libcGiven = sdk;
-      builtins' = "builtins-${cpu}-windows.txt";
       ccArgs = crossCc platform;
     };
+  msvc = cpu: sdkChain platforms.msvc.${cpu};
+  macos =
+    cpu:
+    let
+      platform = platforms.macos.${cpu};
+    in
+    sdkChain platform (cross platform "apple-sdk" { src = source "apple-sdk"; });
 in
 {
   seed = seedPath;
-  inherit stage0 source msvc;
+  inherit
+    stage0
+    source
+    msvc
+    macos
+    ;
   stage1 = builtins.mapAttrs (cpu: _: stage1 cpu) platforms.glibc;
 }

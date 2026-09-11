@@ -38,9 +38,13 @@ the normal daemon and `/nix/store`, no import-from-derivation, nothing fetched a
 glibc is the libc. musl appears only in the static seed and stage0.
 
 Build machines for now are x86_64-linux and aarch64-linux.
-Further targets (riscv64, loongarch64, ppc64le, Windows) are cross only. Windows means the MSVC
-ABI: clang with Microsoft's CRT, STL and SDK import libraries, which `fetch.windowsSdk` takes
-payload by payload from the Visual Studio release manifest, and our compiler-rt.
+Further targets (riscv64, loongarch64, ppc64le, Windows, macOS) are cross only. For the two
+non-Linux ones libc, C++ library and SDK come as given and only compiler-rt is ours: Windows is
+the MSVC ABI with Microsoft's CRT, STL and SDK import libraries, which `fetch.windowsSdk` takes
+payload by payload from the Visual Studio release manifest. macOS is Apple's MacOSX.sdk out of
+the Command Line Tools package, linked by `ld64.lld`. What differs per target in the toolchain
+recipes is keyed on the object format (`platform.binfmt`: elf, macho, coff), and an SDK tells
+compiler-rt and cc its header dirs and driver flags through files in its `etc/cc/`.
 
 The CPU baseline is part of the platform definition (x86-64-v3, armv8.2-a+lse, rv64gc) and
 injected by the compiler driver, so no package carries `-march` flags.
