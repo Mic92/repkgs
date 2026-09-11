@@ -16,13 +16,40 @@ let
     stringLength
     ;
   hasPrefix = p: s: substring 0 (stringLength p) s == p;
-  # the url itself, then the same path on every mirror of its prefix (nix/mirrors.nix)
+  # the url itself, then the same path on every mirror of its prefix (nix/mirrors.nix). Mirrors
+  # are indexed by host so most urls cost one lookup, not a scan
+  byHost = builtins.groupBy (p: builtins.elemAt (builtins.match "https://([^/]*)/.*" p) 0) (
+    attrNames mirrors
+  );
   withMirrors =
     url:
+    let
+      host = builtins.match "https://([^/]*)/.*" url;
+      prefixes = if host == null then [ ] else byHost.${builtins.elemAt host 0} or [ ];
+    in
     [ url ]
     ++ concatMap (p: map (m: m + substring (stringLength p) (-1) url) mirrors.${p}) (
-      filter (p: hasPrefix p url) (attrNames mirrors)
+      filter (p: hasPrefix p url) prefixes
     );
+  # what every fetch-and-unpack derivation shares
+  fetchCommon = {
+    inherit system unpacker;
+    builder = "${unpacker}/bin/nu";
+    args = [
+      "--no-config-file"
+      ../pkgs/up/uptrack/src/unpack.nu
+      "--fetch"
+    ];
+    outputHashMode = "recursive";
+    preferLocalBuild = true;
+    impureEnvVars = [
+      "http_proxy"
+      "https_proxy"
+      "ftp_proxy"
+      "all_proxy"
+      "no_proxy"
+    ];
+  };
   # "llvm-project-21.1.8.src" from …/llvm-project-21.1.8.src.tar.xz, "fd-v10.5.0" for github tag archives
   # strip one extension, and a ".tar" before it
   stripExt =
@@ -63,12 +90,19 @@ let
       expand = builtins.replaceStrings (map (k: "{${k}}") (builtins.attrNames vars)) (
         map toString (builtins.attrValues vars)
       );
-      byKey = builtins.listToAttrs (
-        map (s: {
-          name = s.key;
-          value = if hashes ? ${s.key} then s // { hash = hashes.${s.key}; } else s;
-        }) (t.source or [ ])
-      );
+      byKey =
+        let
+          plain = builtins.listToAttrs (
+            map (s: {
+              name = s.key;
+              value = s;
+            }) (t.source or [ ])
+          );
+        in
+        if hashes == { } then
+          plain
+        else
+          builtins.mapAttrs (k: s: if hashes ? ${k} then s // { hash = hashes.${k}; } else s) plain;
       fetch =
         key:
         let
@@ -92,27 +126,14 @@ let
             unpack = isNar;
           }
         else
-          derivation {
-            inherit name system;
-            urls = withMirrors url;
-            builder = "${unpacker}/bin/nu";
-            args = [
-              "--no-config-file"
-              ../pkgs/up/uptrack/src/unpack.nu
-              "--fetch"
-            ];
-            inherit unpacker;
-            outputHashMode = "recursive";
-            outputHash = s.hash;
-            preferLocalBuild = true;
-            impureEnvVars = [
-              "http_proxy"
-              "https_proxy"
-              "ftp_proxy"
-              "all_proxy"
-              "no_proxy"
-            ];
-          };
+          derivation (
+            fetchCommon
+            // {
+              inherit name;
+              urls = withMirrors url;
+              outputHash = s.hash;
+            }
+          );
     in
     {
       inherit version tag fetch;
