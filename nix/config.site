@@ -16,6 +16,7 @@ case "${host:-$(uname -m)}" in
 esac
 case "${host:-linux}" in
   *windows*) site_os=windows ;;
+  *darwin*) site_os=macos ;;
   *) site_os=linux ;;
 esac
 
@@ -196,6 +197,12 @@ lt_cv_deplibs_check_method=pass_all
 lt_cv_sys_max_cmd_len=1572864
 lt_cv_shlibpath_overrides_runpath=yes
 fi # linux
+
+if test "$site_os" = macos; then
+# libtool greps stderr for this probe and ld64.lld prints a deprecation note: "no" would take the
+# ld -r -keep_private_externs path, which lld does not implement
+lt_cv_apple_cc_single_mod=yes
+fi
 
 # per cpu: long double format, unaligned access, what -march in nix/platforms.nix guarantees
 case "$site_cpu" in
