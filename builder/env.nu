@@ -63,7 +63,7 @@ def package-cc [a: record, deps: list<record>]: nothing -> record {
       ++ ["-O2" "-g" "-fno-omit-frame-pointer" "-mno-omit-leaf-frame-pointer"] ++ (do $harden $compile) ++ ($cc.cflags? | default []))
     cxxflags: ((do $harden $h.cxx) ++ ($cc.cxxflags? | default []))
     ldflags: ((dep-dirs $deps libDirs | each { $"-L($in)" })
-      ++ (do $harden $h.link) ++ ["-Wl,-z,noexecstack" "-Wl,--as-needed"] ++ ($cc.ldflags? | default []))
+      ++ (do $harden $h.link) ++ ($cc.ldflags? | default []))
   }
   let root = (which cc | get 0.path | path expand | path dirname -n 2)
   {PKGS_CC: ({$root: $flags} | to json -r)}

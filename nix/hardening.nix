@@ -23,6 +23,8 @@ rec {
     relro = [ "-Wl,-z,relro" ];
     bindnow = [ "-Wl,-z,now" ];
     relr = [ "-Wl,-z,pack-relative-relocs" ];
+    noexecstack = [ "-Wl,-z,noexecstack" ];
+    asneeded = [ "-Wl,--as-needed" ];
   };
   # which go on the c++ line only, which on the link line. The rest are compile flags
   cxx = [ "libcxxhardening" ];
@@ -30,15 +32,27 @@ rec {
     "relro"
     "bindnow"
     "relr"
+    "noexecstack"
+    "asneeded"
   ];
   # off unless the cpu turns them on, and then part of the toolchain's fixed flags
   cpuOnly = [
     "cfprotection"
     "branchprotection"
   ];
-  default = builtins.mapAttrs (_: _: true) (removeAttrs flags cpuOnly);
-  # name -> bool for one platform: the defaults with the cpu's verdicts merged over
-  forPlatform = platform: default // (platform.hardening or { });
+  # ELF linker and loader features: lld-link and ld64 have no -z, PE and Mach-O no PLT or RELRO
+  elfOnly = link ++ [
+    "noplt"
+    "stackclashprotection"
+  ];
+  # name -> bool for one platform, before the cpu's own verdicts (platforms.nix `hardening`)
+  forPlatform =
+    platform:
+    builtins.mapAttrs (
+      name: _:
+      !(builtins.elem name cpuOnly) && (platform.binfmt == "elf" || !(builtins.elem name elfOnly))
+    ) flags
+    // (platform.hardening or { });
   enabledFlags =
     enabled: names: builtins.concatMap (n: if enabled.${n} or false then flags.${n} else [ ]) names;
 }

@@ -4,8 +4,26 @@
 # `march` ends up in every cc invocation via jig.conf. `hardening` is the cpu's verdict on
 # nix/hardening.nix names: what it adds (cfprotection, branchprotection) or cannot take.
 # `names`: what other ecosystems call the cpu (kernel ARCH=, GOARCH, rust triple prefix, meson
-# cpu_family, qemu-user binary, gyp/V8 dest-cpu, apple's clang arch) where it differs from ours.
+# cpu_family, qemu-user binary, gyp/V8 dest-cpu, apple's clang arch) where it differs from ours,
+# and `osNames` the same for the os (cmake CMAKE_SYSTEM_NAME, meson system and kernel).
 let
+  oses = {
+    linux.osNames = {
+      cmake = "Linux";
+      meson = "linux";
+      mesonKernel = "linux";
+    };
+    windows.osNames = {
+      cmake = "Windows";
+      meson = "windows";
+      mesonKernel = "nt";
+    };
+    macos.osNames = {
+      cmake = "Darwin";
+      meson = "darwin";
+      mesonKernel = "xnu";
+    };
+  };
   cpus = {
     x86_64 = {
       names = {
@@ -79,6 +97,7 @@ let
     (removeAttrs c [ "names" ])
     // rec {
       inherit cpu libc;
+      inherit (oses.linux) osNames;
       os = "linux";
       binfmt = "elf";
       names = builtins.mapAttrs (n: _: c.names.${n} or cpu) {
@@ -113,6 +132,7 @@ let
     rec {
       inherit cpu;
       inherit (mk cpu "glibc") names;
+      inherit (oses.${o.os}) osNames;
       name = "${cpu}-${o.os}";
       interp = "";
       march = o.march or c.march;

@@ -131,6 +131,14 @@ def install-map [c: record]: nothing -> nothing {
 # debug split, launchers, then RUNPATH/PT_INTERP -> $ORIGIN-relative (jig reloc-fixup). prebuilt:
 # `true` implants interp + stub, "ldso" stays byte-identical behind an ld.so launcher. A cross
 # output must not mention build-machine packages (--deny)
+def relocate [c: record]: nothing -> nothing {
+  match $c.platform.binfmt {
+    "elf" => { relocate-elf $c }
+    # PE finds DLLs beside the exe, Mach-O by install name: nothing to rewrite, no launchers yet
+    _ => { }
+  }
+}
+
 def relocate-elf [c: record]: nothing -> nothing {
   let prebuilt = ($c.spec.prebuilt? | default false)
   if $prebuilt == false { split-debug $c }
@@ -168,7 +176,7 @@ export def main [
   if ($gz | is-not-empty) { x gzip -d ...$gz }
   # installed copies of source scripts carry the build env's path from prepare: not a dependency
   fix-env-shebangs $c.out $c.njobs --undo
-  if $c.platform.binfmt == "elf" { relocate-elf $c }
+  relocate $c
   version-check $c
   # exports = false: a toolchain or application whose lib/ is its own business, nothing to link
   let own = (if $c.spec.exports? == false { {includeDirs: [], libDirs: [], libs: [], pkgconfigDirs: [], aclocalDirs: []} } else { $c.spec.exports? | default {} })

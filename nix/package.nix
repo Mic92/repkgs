@@ -73,6 +73,7 @@ let
         os
         binfmt
         names
+        osNames
         triple
         rustTriple
         cross
@@ -157,21 +158,7 @@ let
       "ldflags"
       "hardening"
     ];
-    "cc.hardening" = [
-      "fortify"
-      "stackprotector"
-      "stackclashprotection"
-      "trivialautovarinit"
-      "format"
-      "strictoverflow"
-      "strictflexarrays"
-      "zerocallusedregs"
-      "noplt"
-      "libcxxhardening"
-      "relro"
-      "bindnow"
-      "relr"
-    ];
+    "cc.hardening" = attrNames hardening.flags;
   };
   subKeys =
     prefix: set:

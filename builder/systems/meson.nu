@@ -31,7 +31,7 @@ def cross-files [c: record]: nothing -> list<string> {
       | merge (if ($p.emulator | is-empty) { {} } else { {exe_wrapper: $p.emulator} }))
     properties: {needs_exe_wrapper: true, sizeof_void_p: 8, sizeof_long: 8, sizeof_size_t: 8, alignment_void_p: 8, alignment_double: 8
       sys_root: ($env.PKGS_SYSROOT? | default ""), pkg_config_libdir: ($env.PKG_CONFIG_PATH? | default "")}
-    host_machine: {system: ({linux: linux, windows: windows, macos: darwin} | get $p.os), kernel: ({linux: linux, windows: nt, macos: xnu} | get $p.os), cpu_family: $p.names.meson, cpu: $p.cpu, endian: "little"}
+    host_machine: {system: $p.osNames.meson, kernel: $p.osNames.mesonKernel, cpu_family: $p.names.meson, cpu: $p.cpu, endian: "little"}
   })
   # an empty, existing dir: pkg-config with PKG_CONFIG_LIBDIR pointing there finds nothing
   mkdir $"($c.build)/no-pc"
