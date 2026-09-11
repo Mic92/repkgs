@@ -13,10 +13,7 @@ package {
   ];
   tests.relocated = true;
   tests.run = false; # interactive/tty
-  phases = [
-    "autotools.configure"
-    "autotools.build"
-    "autotools.install"
+  phases.after."autotools.install" = [
     {
       name = "sh-alias";
       run = "^ln -s bash $\"($c.out)/bin/sh\"";

@@ -6,10 +6,7 @@ package {
   autotools.flags = [ "--disable-perl-regexp" ];
   tests.relocated = true;
   tests.run = false; # perl
-  phases = [
-    "autotools.configure"
-    "autotools.build"
-    "autotools.install"
+  phases.after."autotools.install" = [
     {
       # deprecated sh wrappers whose #! would be the build shell
       name = "drop-egrep";

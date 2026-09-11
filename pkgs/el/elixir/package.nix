@@ -10,11 +10,7 @@ package {
   uses = [ "autotools" ];
   autotools.outOfTree = false;
   autotools.testTarget = [ "test_stdlib" ]; # test_mix wants git and network
-  phases = [
-    "autotools.build"
-    "autotools.test"
-    "autotools.install"
-  ];
+  phases.remove = [ "autotools.configure" ];
   buildDependencies = [ buildPkgs.erlang ];
   dependencies = [
     pkgs.erlang

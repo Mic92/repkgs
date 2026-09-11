@@ -27,13 +27,8 @@ package {
   prebuilt = true;
   # zig's own cache (default $HOME/.cache). zig.nu saves and restores it through jigd
   env.ZIG_GLOBAL_CACHE_DIR = "/build/zig-cache";
-  phases = [
-    "cmake.configure"
-    "zig.restore"
-    "cmake.build"
-    "zig.store"
-    "cmake.install"
-  ];
+  phases.after."cmake.configure" = "zig.restore";
+  phases.after."cmake.build" = "zig.store";
   tests.run = false; # `zig build test` is the multi-hour compiler suite
   tests.version = "version";
 }
