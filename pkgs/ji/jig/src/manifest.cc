@@ -78,7 +78,8 @@ auto ParseManifest(std::string_view text) -> std::vector<Entry> {
   return entries;
 }
 
-// one IDS round trip for the store files among `paths`. InputId then finds them without hashing
+}  // namespace
+
 void PrefetchIdentities(CacheClient& cache, std::span<const std::string> paths) {
   Store& store = Store::Get();
   std::vector<std::string> ask;
@@ -94,8 +95,6 @@ void PrefetchIdentities(CacheClient& cache, std::span<const std::string> paths) 
     }
   }
 }
-
-}  // namespace
 
 auto BuildManifest(CacheClient& cache, const RequestKey& request_key, std::span<const std::string> inputs,
                    std::string_view primary_source) -> Manifest {

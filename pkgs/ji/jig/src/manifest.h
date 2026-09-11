@@ -28,6 +28,9 @@ struct Manifest {
 // Both ask the daemon (one round trip) for the identities of store files first, so only build-tree
 // inputs are hashed here. An unconnected client just means everything is hashed locally.
 
+// one IDS round trip for the store files among `paths`. InputId then finds them without hashing
+void PrefetchIdentities(CacheClient& cache, std::span<const std::string> paths);
+
 // `inputs` minus `primary_source` (already in k1) and minus unreadable paths.
 auto BuildManifest(CacheClient& cache, const RequestKey& request_key, std::span<const std::string> inputs,
                    std::string_view primary_source) -> Manifest;

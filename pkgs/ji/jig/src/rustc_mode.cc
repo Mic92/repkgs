@@ -246,6 +246,34 @@ auto ParseRustInvocation(std::span<const std::string> args) -> RustInvocation {
   return inv;
 }
 
+// The libstd/libcore rlibs under this rustc's lib/rustlib. Store hashes are masked in keys, so
+// two builds of one rust release share a ToolId, yet an rlib compiled against one build's libstd
+// is "can't find crate" (E0463) to the other. Their content identity keeps the keys apart
+auto StdlibIds(CacheClient& cache, const std::string& rustc) -> std::string {
+  std::error_code error;
+  const fs::path real = fs::canonical(OnPath(rustc), error);
+  if (error) {
+    return "?";
+  }
+  std::vector<std::string> libs;
+  for (const auto& triple : fs::directory_iterator(real.parent_path().parent_path() / "lib" / "rustlib", error)) {
+    std::error_code inner;
+    for (const auto& entry : fs::directory_iterator(triple.path() / "lib", inner)) {
+      const std::string name = entry.path().filename().string();
+      if ((name.starts_with("libstd-") || name.starts_with("libcore-")) && name.ends_with(".rlib")) {
+        libs.push_back(entry.path().string());
+      }
+    }
+  }
+  std::ranges::sort(libs);
+  PrefetchIdentities(cache, libs);
+  std::string ids;
+  for (const std::string& lib : libs) {
+    ids += Store::Get().InputId(lib).value_or("?") + ",";
+  }
+  return ids;
+}
+
 // cargo's RUSTC_WRAPPER: args = [rustc, rustc args...]
 auto RunRustcMode(std::span<const std::string> args, const std::string& socket_path) -> int {
   const Stopwatch clock;
@@ -270,9 +298,10 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
   const Store& store = Store::Get();
   Hasher hasher;
   // bumped when what a key covers changes, so entries made under the old rules are not asked for
-  hasher.Field("rs-schema=5");
+  hasher.Field("rs-schema=6");
   // cargo may hand us a bare `rustc`: resolve on PATH first, or two toolchains share a key
   hasher.Field("rustc=" + store.ToolId(OnPath(rustc)));
+  hasher.Field("stdlib=" + StdlibIds(cache, rustc));
   hasher.Field("cwd=" + store.Key(fs::current_path().string()));
   for (const std::string& arg : inv.key_args) {
     hasher.Field(store.Key(arg));
