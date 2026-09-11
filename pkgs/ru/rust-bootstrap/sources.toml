@@ -12,6 +12,11 @@ url = "https://static.rust-lang.org/dist/rustc-{version}-aarch64-unknown-linux-g
 hash = "sha256-UZDe+SYazkFsVBN2z6gganvM15naN99rv4a4tAmnFC0="
 
 [[source]]
+key = "rustc-riscv64"
+url = "https://static.rust-lang.org/dist/rustc-{version}-riscv64gc-unknown-linux-gnu.tar.xz"
+hash = "sha256-taDpEhs0JEIR7oMdSYIaNFY4c872luttqZloksElXc0="
+
+[[source]]
 key = "cargo-x86_64"
 url = "https://static.rust-lang.org/dist/cargo-{version}-x86_64-unknown-linux-gnu.tar.xz"
 hash = "sha256-Vffa+XWyypMgboAAeb9qTzjCPhSt4fwKAeiCkiRmOBY="
@@ -20,6 +25,11 @@ hash = "sha256-Vffa+XWyypMgboAAeb9qTzjCPhSt4fwKAeiCkiRmOBY="
 key = "cargo-aarch64"
 url = "https://static.rust-lang.org/dist/cargo-{version}-aarch64-unknown-linux-gnu.tar.xz"
 hash = "sha256-aNGyznzAFzGJO7GxW5QQuTd0955OUTlxFvPpAMBE6+8="
+
+[[source]]
+key = "cargo-riscv64"
+url = "https://static.rust-lang.org/dist/cargo-{version}-riscv64gc-unknown-linux-gnu.tar.xz"
+hash = "sha256-fwg0o0g7gLC0pf1aYSvDZviBuTgw4So27ryEG7NlBYM="
 
 [[source]]
 key = "rust-std-x86_64"
