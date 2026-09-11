@@ -23,10 +23,6 @@ export def --env setup []: nothing -> nothing {
   let sys = (sys-libs env-for cargo $c.deps)
   load-env ({PKG_CONFIG_ALLOW_CROSS: "1"} | merge $sys)
   if ($sys | is-not-empty) { note sys-libs ($sys | columns | str join " ") }
-  # rustflags per target in config (RUSTFLAGS from the environment would replace them): panic
-  # strings embed source paths, map build tree, cargo home and vendor dir away. Frame pointers
-  # like the C side, rustc omits them on x86_64 otherwise
-  let rustflags = [$"--remap-path-prefix=($c.src)=/src" $"--remap-path-prefix=($env.CARGO_HOME)=/cargo" $"--remap-path-prefix=($o.deps)=/vendor" "-Cforce-frame-pointers=yes"]
   # cross: the toolchain carries std for the build machine only, the target's is <toolchain>-std
   # (cargo.tools): one sysroot of symlinks over both
   let sysroot = (if $c.platform.cross {
@@ -37,12 +33,16 @@ export def --env setup []: nothing -> nothing {
     ^ln -s $"($std)/lib/rustlib/($target)" $"($s)/lib/rustlib/"
     [$"--sysroot=($s)"]
   } else { [] })
-  {
-    source: {crates-io: {replace-with: vendored}, vendored: {directory: $o.deps}}
+  # rustflags in config (RUSTFLAGS from the environment would replace them): panic strings embed
+  # source paths, map build tree, cargo home and vendor dir away. Frame pointers like the C side
+  let rustflags = ([$"--remap-path-prefix=($c.src)=/src" $"--remap-path-prefix=($env.CARGO_HOME)=/cargo" $"--remap-path-prefix=($o.deps)=/vendor" "-Cforce-frame-pointers=yes"] ++ $sysroot)
+  # `deps` null: the source vendors (or has no) dependencies
+  let source = (if $o.deps == null { {} } else { {source: {crates-io: {replace-with: vendored}, vendored: {directory: $o.deps}}} })
+  $source | merge {
     net: {offline: true}
     build: {jobs: $c.njobs}
-    target: ({$target: {linker: cc, rustflags: ($rustflags ++ $sysroot)}}
-      | merge (if $c.platform.cross { {$host: {linker: cc-build, rustflags: ($rustflags ++ $sysroot)}} } else { {} }))
+    # host first: natively it is the target and cc wins
+    target: ({} | upsert $host {linker: $env.CC_FOR_BUILD, rustflags: $rustflags} | upsert $target {linker: cc, rustflags: $rustflags})
   } | to toml | save -f $"($env.CARGO_HOME)/config.toml"
   hide-env -i RUSTFLAGS
 }

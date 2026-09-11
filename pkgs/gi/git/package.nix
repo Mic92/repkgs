@@ -1,15 +1,27 @@
 # git without the perl, python and tcl parts (send-email, svn, p4, gitk, git-gui) and without
 # gettext. `configure` only records prefix, compiler and library locations into config.mak.autogen.
 # Its Rust part (libgitcore, no crate dependencies) builds with the upstream toolchain so git does
-# not wait for llvm and rust.
+# not wait for llvm and rust. make runs cargo, "cargo" in uses only sets up its environment
 {
   package,
   pkgs,
   buildPkgs,
+  platform,
 }:
 package {
   name = "git";
-  uses = [ "autotools" ];
+  uses = [
+    "autotools"
+    "cargo"
+  ];
+  cargo.toolchain = buildPkgs.rust-bootstrap;
+  cargo.deps = null;
+  phases = [
+    "autotools.configure"
+    "autotools.build"
+    "autotools.test"
+    "autotools.install"
+  ];
   autotools.outOfTree = false;
   autotools.flags = [
     "--with-curl"
@@ -18,6 +30,7 @@ package {
     "--without-tcltk"
   ];
   autotools.makeFlags = [
+    "RUST_TARGET_DIR=$(CARGO_TARGET_DIR)/${platform.rustTriple}/release"
     "CURL_LDFLAGS=-lcurl" # asked of curl-config, which curl built with cmake does not install
     "NO_PERL=1"
     "PERL_PATH=" # NO_PERL still leaves /usr/bin/perl for t/Makefile's lints
@@ -26,7 +39,6 @@ package {
     "NO_INSTALL_HARDLINKS=1"
     "INSTALL_SYMLINKS=1"
   ];
-  buildDependencies = [ buildPkgs.rust-bootstrap ];
   autotools.testTarget = [
     "-C"
     "t"
