@@ -67,6 +67,13 @@ export def tool [name: string]: nothing -> path {
 # the derivation's structured attrs (nix/package.nix `common`)
 export def attrs []: nothing -> record { open $env.NIX_ATTRS_JSON_FILE }
 
+# rewrite a text file in place, even one installed read-only: `edit $f { str replace a b }`
+export def edit [f: path, change: closure]: nothing -> nothing {
+  let text = (open --raw $f | do $change)
+  chmod u+w $f
+  $text | save -f $f
+}
+
 # starts with \x7fELF
 export def is-elf [f: path]: nothing -> bool { (open --raw $f | into binary | bytes at 0..<4) == 0x[7f 45 4c 46] }
 

@@ -34,9 +34,7 @@ export def scrub []: nothing -> nothing {
   let arch = (glob $"($c.out)/lib/perl5/5.*/*/Config_heavy.pl" | first | path dirname)
   let foreign = $"\(?:-I|-L|--sysroot=\)?/nix/store/\(?!($c.out | path basename)\)[^'\" ]+ ?"
   for f in [$"($arch)/Config.pm" $"($arch)/Config_heavy.pl" $"($arch)/CORE/config.h"] {
-    let text = (open --raw $f | str replace -ar '/nix/store/[a-z0-9]{32}-seed[^/]*/bin/' "" | str replace -ar $foreign "")
-    chmod u+w $f
-    $text | save -f $f
+    edit $f { str replace -ar '/nix/store/[a-z0-9]{32}-seed[^/]*/bin/' "" | str replace -ar $foreign "" }
   }
   let left = (open --raw $"($arch)/Config_heavy.pl" | lines | where { $in =~ '/nix/store/' and $in !~ $c.out })
   if ($left | is-not-empty) { error make {msg: $"Config_heavy.pl still names foreign store paths: ($left | first)"} }
