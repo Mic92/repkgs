@@ -1,7 +1,7 @@
 # PUC Lua, the interpreter luarocks packages run on. 5.4 while most rocks still cap `lua < 5.5`.
 # Plain Makefile. The linux target links the binary -Wl,-E so C modules luarocks builds resolve
 # the Lua API against it, and LUA_ROOT (package.path's default prefix) becomes $out.
-{ package }:
+{ package, platform }:
 package {
   name = "lua";
   uses = [ "autotools" ];
@@ -15,7 +15,15 @@ package {
     "autotools.test"
     "autotools.install"
   ];
-  autotools.buildTarget = [ "linux" ];
+  autotools.buildTarget = [
+    (
+      {
+        linux = "linux";
+        macos = "macosx";
+      }
+      .${platform.os}
+    )
+  ];
   autotools.makeFlags = [
     "MYCFLAGS=-fPIC"
     "INSTALL_TOP=$(prefix)"

@@ -136,6 +136,7 @@ let
       libc = "apple";
       minos = "14.0";
       triple = "${cpus.${cpu}.names.clang or cpu}-apple-macos${minos}";
+      configTriple = "${cpu}-apple-darwin"; # the GNU spelling, for configure --host
       rustTriple = "${cpu}-apple-darwin";
       march = [ "-mcpu=apple-m1" ];
     };

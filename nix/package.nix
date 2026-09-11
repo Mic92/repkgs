@@ -79,6 +79,7 @@ let
         emulator
         ;
       inherit (toolchain) sysroot;
+      configTriple = platform.configTriple or platform.triple;
       probe = if platform.cross then "${toolchain.sysroot}/lib/${platform.interp}" else "";
       # `prebuilt`: upstream ELFs get our dynamic linker implanted (true) or via launch ("ldso")
       interp = "${toolchain.sysroot}/lib/${platform.interp}";

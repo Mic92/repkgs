@@ -128,6 +128,19 @@ def install-map [c: record]: nothing -> nothing {
   }
 }
 
+# debug split, launchers, then RUNPATH/PT_INTERP -> $ORIGIN-relative (jig reloc-fixup). prebuilt:
+# `true` implants interp + stub, "ldso" stays byte-identical behind an ld.so launcher. A cross
+# output must not mention build-machine packages (--deny)
+def relocate-elf [c: record]: nothing -> nothing {
+  let prebuilt = ($c.spec.prebuilt? | default false)
+  if $prebuilt == false { split-debug $c }
+  if $prebuilt == true { implant $c }
+  launchers $c
+  let a = (attrs)
+  let deny = (if $c.platform.cross { $a.buildDependencies | where { $in not-in $a.dependencies } | each { [--deny $in] } | flatten } else { [] })
+  if $prebuilt != "ldso" { x reloc-fixup $c.out ...$deny }
+}
+
 export def main [
   --keep-tree  # tests.separate: save source+build tree for the tests derivation
 ]: nothing -> nothing {
@@ -155,17 +168,7 @@ export def main [
   if ($gz | is-not-empty) { x gzip -d ...$gz }
   # installed copies of source scripts carry the build env's path from prepare: not a dependency
   fix-env-shebangs $c.out $c.njobs --undo
-  let prebuilt = ($c.spec.prebuilt? | default false)
-  # upstream binaries: no debug split. `true` implants interp + stub so they relocate like ours,
-  # "ldso" leaves them byte-identical behind an ld.so launcher (builder/launchers.nu)
-  if $prebuilt == false { split-debug $c }
-  if $prebuilt == true { implant $c }
-  launchers $c
-  # RUNPATH/PT_INTERP -> $ORIGIN-relative, in place (pkgs/ji/jig/src/fixup_mode.cc). A cross
-  # output must not mention build-machine packages
-  let a = (attrs)
-  let deny = (if $c.platform.cross { $a.buildDependencies | where { $in not-in $a.dependencies } | each { [--deny $in] } | flatten } else { [] })
-  if $prebuilt != "ldso" { x reloc-fixup $c.out ...$deny }
+  if $c.platform.binfmt == "elf" { relocate-elf $c }
   version-check $c
   # exports = false: a toolchain or application whose lib/ is its own business, nothing to link
   let own = (if $c.spec.exports? == false { {includeDirs: [], libDirs: [], libs: [], pkgconfigDirs: [], aclocalDirs: []} } else { $c.spec.exports? | default {} })

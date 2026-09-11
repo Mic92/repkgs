@@ -25,7 +25,7 @@ export def configure []: nothing -> nothing {
     BUILD_SHARED_LIBS: true
     BUILD_TESTING: $c.testsRun
   } | merge (if $c.platform.cross { {
-    CMAKE_SYSTEM_NAME: "Linux"
+    CMAKE_SYSTEM_NAME: ({linux: "Linux", windows: "Windows", macos: "Darwin"} | get $c.platform.os)
     CMAKE_SYSTEM_PROCESSOR: $c.platform.cpu
   } } else { {} }) | merge (if ($c.platform.emulator | is-empty) { {} } else { {CMAKE_CROSSCOMPILING_EMULATOR: ($c.platform.emulator | str join ";")} }) | merge $o.defs)
   let srcdir = (project-dir cmake)
