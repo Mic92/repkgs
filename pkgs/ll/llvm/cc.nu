@@ -8,24 +8,22 @@ def seed-bin [name: string]: nothing -> string { $"($env.seed)/bin/($name)" }
 
 def lld []: nothing -> string { seed-bin ({elf: "ld.lld", coff: "lld-link"} | get $env.binfmt) }
 
-# What jig prepends for `cc` (flags) and additionally for `c++` (cxxflags), per libc.
+# What jig prepends for `cc` (flags) and additionally for `c++` (cxxflags). An SDK states its
+# own in etc/cc/{flags,cxxflags} (bootstrap/lib.nu cc-facts, merged into the sysroot), SYSROOT
+# and LLD standing for the final paths. A libc we built gets the ELF default: --sysroot, our
+# compiler-rt, libunwind and libc++
 def driver-flags [sysroot: string]: nothing -> record<flags: list<string>, cxxflags: string> {
-  match $env.libc {
-    "musl" | "glibc" => {
+  let given = (cc-fact $sysroot flags)
+  if $given == null {
+    return {
       flags: ((ccflags | where { $in != "-unwindlib=none" }) ++ [-unwindlib=libunwind $"--ld-path=(lld)"])
       cxxflags: "-stdlib=libc++"
     }
-    # clang's msvc driver derives include and lib paths for the arch from the CRT and SDK roots,
-    # for lld-link too. The STL is part of the CRT, so c++ needs nothing extra
-    "msvc" => {
-      let v = (ls $"($sysroot)/sdk/include" | get name | path basename | first)
-      {
-        flags: ((target) ++ [$"-resource-dir=($sysroot)/lib/clang" -rtlib=compiler-rt -fuse-ld=lld
-          -Xmicrosoft-visualc-tools-root $"($sysroot)/crt"
-          -Xmicrosoft-windows-sdk-root $"($sysroot)/sdk" -Xmicrosoft-windows-sdk-version $v])
-        cxxflags: ""
-      }
-    }
+  }
+  let fill = {|w| $w | str replace -a SYSROOT $sysroot | str replace -a LLD (lld) }
+  {
+    flags: ((target) ++ ($given | each $fill))
+    cxxflags: (cc-fact $sysroot cxxflags | default [] | each $fill | str join " ")
   }
 }
 

@@ -34,6 +34,14 @@ def main []: nothing -> nothing {
   # clang's msvc driver appends the installer's spelling
   ^ln -s include $"($out)/sdk/Include"
   ^ln -s lib $"($out)/sdk/Lib"
+  # etc/cc/: the libc facts bootstrap/lib.nu documents. clang's msvc driver derives include and lib
+  # paths for the arch from the two roots, for lld-link too. The STL is part of the CRT
+  let v = (ls $"($out)/sdk/include" | get name | path basename | first)
+  mkdir $"($out)/etc/cc"
+  [crt/include ...([ucrt um shared] | each {|d| $"sdk/include/($v)/($d)" })] | str join "\n" | $in + "\n" | save $"($out)/etc/cc/include-dirs"
+  [-resource-dir=SYSROOT/lib/clang -rtlib=compiler-rt -fuse-ld=lld -Xmicrosoft-visualc-tools-root SYSROOT/crt
+    -Xmicrosoft-windows-sdk-root SYSROOT/sdk -Xmicrosoft-windows-sdk-version $v] | str join "\n" | $in + "\n" | save $"($out)/etc/cc/flags"
+  "\n" | save $"($out)/etc/cc/cxxflags"
   for f in (glob $"($out)/**/*") {
     let dir = ($f | path dirname); let b = ($f | path basename); let l = ($b | str lowercase)
     if $b != $l and not ($"($dir)/($l)" | path exists) { ^ln -s $b $"($dir)/($l)" }

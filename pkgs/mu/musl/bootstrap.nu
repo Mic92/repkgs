@@ -58,6 +58,7 @@ def main []: nothing -> nothing {
   let src = (unpack musl)
   let obj = $"($env.NIX_BUILD_TOP)/obj"
   headers $src $"($out)/include"
+  cc-facts $out {include-dirs: [include]}
   if "headersOnly" in $env { return }
   mkdir $"($obj)/src/internal"
   $"#define VERSION \"(open --raw $'($src)/VERSION' | str trim)\"\n" | save -f $"($obj)/src/internal/version.h"

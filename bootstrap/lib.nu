@@ -59,6 +59,22 @@ export-env {
 # Lines of a vendored list file.
 export def read-list [file: path]: nothing -> list<string> { open --raw $file | lines | where { $in != "" } }
 
+# What a libc (musl, glibc headers stage, or a fetched SDK) tells the toolchain steps after it,
+# as files under etc/cc/ so compiler-rt.nu and cc.nu carry no per-libc layout knowledge:
+#   include-dirs   header dirs relative to the libc output, one per line (compiler-rt.nu)
+#   flags          driver flags with the literal word SYSROOT for the final sysroot (cc.nu).
+#                  Absent: the ELF default (--sysroot, our libunwind/libc++)
+#   cxxflags       what c++ adds on top. Absent: -stdlib=libc++
+export def cc-facts [out: path, facts: record]: nothing -> nothing {
+  mkdir $"($out)/etc/cc"
+  $facts | items {|k, v| $v | str join "\n" | $in + "\n" | save -f $"($out)/etc/cc/($k)" }
+}
+
+export def cc-fact [libc: path, name: string]: nothing -> oneof<list<string>, nothing> {
+  let f = $"($libc)/etc/cc/($name)"
+  if ($f | path exists) { read-list $f }
+}
+
 # --target plus the platform's -march/hardening flags (nix/platforms.nix).
 export def target []: nothing -> list<string> { [$"--target=($env.triple)"] ++ ($env.flags | split row " ") }
 

@@ -4,14 +4,10 @@
 # -resource-dir= works.
 use ../../../bootstrap/lib.nu *
 
-# Only libc *headers* exist at this point (libc itself links against what is built here).
-# msvc: the CRT's own headers plus the SDK's ucrt/um/shared, where windows-sdk keeps them
+# Only libc *headers* exist at this point (libc itself links against what is built here). The
+# libc names its header dirs in etc/cc/include-dirs (bootstrap/lib.nu cc-facts)
 def libc-includes []: nothing -> list<string> {
-  let h = $env.libcHeaders
-  let libc = (match $env.libc {
-    "msvc" => ([$"($h)/crt/include"] ++ (glob $"($h)/sdk/include/*/{ucrt,um,shared}"))
-    _ => [$"($h)/include"]
-  })
+  let libc = (cc-fact $env.libcHeaders include-dirs | each {|d| $"($env.libcHeaders)/($d)" })
   let linux = (if "linuxHeaders" in $env { [$"($env.linuxHeaders)/include"] } else { [] })
   let dirs = $libc ++ $linux
   [-nostdlibinc] ++ ($dirs | each {|d| [-isystem $d] } | flatten)

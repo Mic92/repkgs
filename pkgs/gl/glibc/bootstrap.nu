@@ -60,6 +60,7 @@ def main []: nothing -> nothing {
       error make {msg: $"glibc: make ($args | last) failed"}
     }
   }
+  cc-facts $out {include-dirs: [include]}
   if "headersOnly" in $env {
     make-logged ...$make install-headers
     touch $"($out)/include/gnu/stubs.h"
