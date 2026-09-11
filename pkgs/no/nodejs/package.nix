@@ -3,9 +3,20 @@
   package,
   pkgs,
   buildPkgs,
+  platform,
 }:
 package {
   name = "nodejs";
+  # highway compiles its RVV code path with per-function target attributes that our clang rejects
+  # without V in -march (rv64gc): leave the vector path out
+  cc.cxxflags =
+    if platform.cpu == "riscv64" then
+      [
+        "-DHWY_DISABLED_TARGETS=HWY_RVV"
+        "-DHWY_COMPILE_ONLY_STATIC"
+      ]
+    else
+      [ ];
   dependencies = [
     pkgs.zlib
     pkgs.openssl
