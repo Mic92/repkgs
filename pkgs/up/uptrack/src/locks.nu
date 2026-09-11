@@ -43,13 +43,17 @@ export def normalize [file: path]: nothing -> nothing {
 export def add [pkg: record]: nothing -> table<eco: string, keys: list<string>> {
   if ($pkg.locks | is-empty) { return [] }
   # fetched sources are derivations (nix-build), in-tree ones (source = ./src) plain paths
-  let src = (^nix-build (pipeline root) -A $"($pkg.name).src" --no-out-link | complete)
-  let src = (if $src.exit_code == 0 { $src.stdout } else { ^nix eval --raw -f (pipeline root) $"($pkg.name).src" } | str trim)
+  let r = (^nix-build (pipeline root) -A $"($pkg.name).src" --no-out-link | complete)
+  let src = (if $r.exit_code == 0 { $r.stdout | str trim } else {
+    let p = (^nix eval --raw -f (pipeline root) $"($pkg.name).src" | str trim)
+    if not ($p | path exists) { error make {msg: $"($pkg.name).src: ($r.stderr | lines | last 3 | str join "\n")"} }
+    $p
+  })
   $pkg.locks | items {|eco, sub|
     let old = (read (dir) $eco)
     let mine = (match $eco {
       "go" => (lock-go lock ($src | path join $sub) $old)
-      "hackage" => (lock-hackage lock ($src | path join $sub) $old)
+      "hackage" => (lock-hackage lock $src $sub (^nix eval --json -f (pipeline root) $"($pkg.name).spec.cabal" | from json) $old)
       "luarocks" => (lock-luarocks lock ($src | path join $sub) $old)
     })
     let new = ($old | merge $mine)
