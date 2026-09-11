@@ -96,9 +96,12 @@ builtins.mapAttrs
       tools = [ sh ];
       options = {
         flags = flags "configure";
+        configure = attrs {
+          script = "configure";
+          parallel = true;
+        } "configure script and whether its make processes use all build cores";
         makeFlags = strs [ ] "arguments for every make invocation (build, test, install)";
         installFlags = strs [ ] "arguments for `make install` only";
-        configureScript = str "configure" "configure script relative to the project";
         outOfTree = bool true "configure from a separate build directory";
         buildTarget = strs [ ] "make goals for build (empty: the makefile's default goal)";
         testTarget = strs [ "check" ] "make goals for test";
