@@ -15,18 +15,17 @@ package {
     pkgs.unzip
   ];
   buildDependencies = [ buildPkgs.unzip ];
-  phases = [
-    {
-      name = "configure";
-      run = "cd $c.src; x ./configure $\"--prefix=($c.out)\" $\"--with-lua=(dep-root lua 'luarocks runs on it')\"";
-    }
-    "autotools.build"
-    "autotools.install"
+  phases.replace."autotools.configure" = {
+    name = "configure";
+    run = "cd $c.src; x ./configure $\"--prefix=($c.out)\" $\"--with-lua=(dep-root lua 'luarocks runs on it')\"";
+  };
+  phases.after."autotools.install" = [
     {
       name = "cc";
       run = "for f in (glob $\"($c.out)/etc/luarocks/config-*.lua\") { \"\\nvariables.CC = \\\"cc\\\"\\nvariables.LD = \\\"cc\\\"\\n\" | save -a $f }";
     }
   ];
+  phases.remove = [ "autotools.test" ];
   bin = [
     "luarocks"
     "luarocks-admin"

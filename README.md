@@ -123,13 +123,13 @@ list. A phase is one of a build system's or a piece of nu with a name. Inside th
 the paths and facts of the build (`$c.out`, `$c.src`, `$c.build`, `$c.njobs`, `$c.platform`):
 
 ```nix
-phases.before."autotools.install" = [
-  { name = "trim"; run = ''rm $"($c.build)/unwanted"''; }
-];
-phases.remove = [ "autotools.test" ];
+phases.after."autotools.install" = { name = "sh-alias"; run = ''^ln -s bash $"($c.out)/bin/sh"''; };
+phases.replace."autotools.configure" = "perl.configure";
+phases.remove = [ "cargo.test" ];
 ```
 
-`phases = [ … ]` spells the whole list out instead, needed with more than one build system.
+`phases = [ … ]` spells the whole list out instead. With several build systems the edits apply
+to the first one's list.
 
 Phases too long to keep inline can live in their own file: `modules.rust = ./build.nu;` makes it
 a module, and `phases` refers to them as `"rust.configure"`. pkgs/ru/rust does this.

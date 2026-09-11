@@ -6,8 +6,5 @@ package {
   name = "maturin";
   uses = [ "cargo" ];
   cargo.noDefaultFeatures = true;
-  phases = [
-    "cargo.build"
-    "cargo.install"
-  ];
+  phases.remove = [ "cargo.test" ];
 }

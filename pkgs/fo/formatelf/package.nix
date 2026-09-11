@@ -9,10 +9,7 @@ package {
   uses = [ "cargo" ];
   # tree infrastructure (finish.nu implants prebuilt ELFs with it): must not wait for llvm + rust
   cargo.tool = buildPkgs.rust-bootstrap;
-  phases = [
-    "cargo.build"
-    "cargo.test"
-    "cargo.install"
+  phases.after."cargo.install" = [
     {
       name = "personalities";
       run = "for n in [auto-formatelf patchelf] { ^ln -s formatelf $\"($c.out)/bin/($n)\" }";

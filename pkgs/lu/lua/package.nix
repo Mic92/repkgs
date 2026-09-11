@@ -6,15 +6,13 @@ package {
   name = "lua";
   uses = [ "autotools" ];
   autotools.outOfTree = false;
-  phases = [
+  phases.before."autotools.build" = [
     {
       name = "lua-root";
       run = "cd $c.src; open --raw src/luaconf.h | str replace /usr/local/ $'($c.out)/' | save -f src/luaconf.h";
     }
-    "autotools.build"
-    "autotools.test"
-    "autotools.install"
   ];
+  phases.remove = [ "autotools.configure" ];
   autotools.buildTarget = [
     {
       linux = "linux";
