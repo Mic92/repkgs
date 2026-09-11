@@ -67,7 +67,11 @@ def main []: nothing -> nothing {
   # the raw seed compiler, which bootstrap recipes drive themselves
   cp $"($env.prebuilt)/bin/jig" $"($out)/bin/jig"
   for n in [cc c++ gcc g++ reloc-fixup gocacheprog rustcwrap] { x ln -s jig $"($out)/bin/($n)" }
-  x ln -s (lld) $"($out)/bin/ld"
+  # lld picks its personality from argv[0], and "ld" means ELF: spell the flavour out elsewhere
+  if $env.binfmt == "elf" { x ln -s (lld) $"($out)/bin/ld" } else {
+    $"#!/bin/sh\nexec (seed-bin lld) -flavor ({macho: darwin, coff: link} | get $env.binfmt) \"$@\"\n" | save $"($out)/bin/ld"
+    chmod +x $"($out)/bin/ld"
+  }
   # CC_FOR_BUILD when cross: jig locates its conf via /proc/self/exe, so symlinks to the native cc suffice
   if "native" in $env { for n in [cc c++] { x ln -s $"($env.native)/bin/($n)" $"($out)/bin/($n)-build" } }
 
@@ -78,10 +82,12 @@ def main []: nothing -> nothing {
 
   # etc/jig.conf
   let d = (driver-flags $sysroot)
+  # -B: `cc -print-prog-name=ld` (libtool's with_gnu_ld probe) answers bin/ld, the target's lld
+  # flavour, not the ELF ld.lld beside the seed clang
   let conf = {
     cc: (seed-bin clang)
     binfmt: $env.binfmt
-    flags: ($d.flags | str join " ")
+    flags: ([$"-B($out)/bin"] ++ $d.flags | str join " ")
     cxxflags: $d.cxxflags
     prefix-map: $"($sysroot)=/sysroot:($out)=/cc"
   }
