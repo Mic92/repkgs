@@ -8,14 +8,20 @@
 let
   pkgs = import nixpkgs { inherit system; };
   ps = pkgs.pkgsStatic;
-  # host compiler from nixpkgs, sources from our own pins (unpacked by the previous seed, like
-  # everywhere else in the tree) so the seed and pkgs/ll/llvm agree
+  # host compiler from nixpkgs, sources from our own pins so the seed and pkgs/ll/llvm agree.
+  # nixpkgs' nu and bsdtar unpack them: there is no previous seed on a new architecture
+  unpacker = pkgs.symlinkJoin {
+    name = "unpacker";
+    paths = [
+      pkgs.nushell
+      pkgs.libarchive
+    ];
+  };
   source =
     name:
-    (import ../../../nix/sources.nix {
-      unpacker = (import ../../../nix/sources.nix { unpacker = null; } ./sources.toml).fetch system;
-      inherit system;
-    } (../.. + "/${builtins.substring 0 2 name}/${name}/sources.toml"));
+    (import ../../../nix/sources.nix { inherit unpacker system; } (
+      ../.. + "/${builtins.substring 0 2 name}/${name}/sources.toml"
+    ));
   llvmSource = source "llvm";
   targets = "X86;AArch64;RISCV;LoongArch;PowerPC;ARM;WebAssembly";
   triple = ps.stdenv.hostPlatform.config;
