@@ -110,7 +110,7 @@ let
     inherit system;
     inherit (plat) cpu;
     # what the lock-file producers may hand to -sys crates, cgo modules, gems…: every `pkg:` that
-    # builder/sys-libs.nu names and the set has
+    # builder/sys-libs.nu names and the set has for this platform
     sysLibs =
       let
         words = builtins.filter builtins.isList (
@@ -122,7 +122,7 @@ let
         map (n: {
           name = n;
           value = self.${n};
-        }) (builtins.filter (n: self ? ${n}) names)
+        }) (builtins.filter (n: self ? ${n} && self.${n}.supported) names)
       );
   };
 
