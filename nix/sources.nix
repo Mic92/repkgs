@@ -78,26 +78,42 @@ let
       pinned = if pin == { } then t.pin or { } else (t.pin or { }) // pin;
       version = pinned.version or "";
       tag = pinned.tag or version;
-      mm = builtins.match "([^.]*)\\.?([^.]*).*" version;
-      # every [pin] key is a {key} placeholder, plus three spellings derived from the version
-      vars = {
-        tag = version;
-        version_ = builtins.replaceStrings [ "." ] [ "_" ] version;
-        major = builtins.elemAt mm 0;
-        minor = builtins.elemAt mm 1;
-      }
-      // pinned;
-      expand = builtins.replaceStrings (map (k: "{${k}}") (builtins.attrNames vars)) (
-        map toString (builtins.attrValues vars)
-      );
+      # every [pin] key is a {key} placeholder, plus three spellings derived from the version.
+      # Nearly every url uses {version} and {tag} only: the full table is built for the rest
+      expandAll =
+        let
+          mm = builtins.match "([^.]*)\\.?([^.]*).*" version;
+          vars = {
+            tag = version;
+            version_ = builtins.replaceStrings [ "." ] [ "_" ] version;
+            major = builtins.elemAt mm 0;
+            minor = builtins.elemAt mm 1;
+          }
+          // pinned;
+        in
+        builtins.replaceStrings (map (k: "{${k}}") (builtins.attrNames vars)) (
+          map toString (builtins.attrValues vars)
+        );
+      expand =
+        u:
+        let
+          quick = builtins.replaceStrings [ "{version}" "{tag}" ] [ version tag ] u;
+        in
+        if builtins.match ".*[{].*" quick == null then quick else expandAll quick;
+      sources = t.source or [ ];
+      # one `default` source is the common case: no table
       byKey =
         let
-          plain = builtins.listToAttrs (
-            map (s: {
-              name = s.key;
-              value = s;
-            }) (t.source or [ ])
-          );
+          plain =
+            if builtins.length sources == 1 && (builtins.head sources).key == "default" then
+              { default = builtins.head sources; }
+            else
+              builtins.listToAttrs (
+                map (s: {
+                  name = s.key;
+                  value = s;
+                }) sources
+              );
         in
         if hashes == { } then
           plain
