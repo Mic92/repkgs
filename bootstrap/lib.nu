@@ -37,14 +37,14 @@ export def unpack [name: string, ...only: string]: nothing -> path {
   $dest
 }
 
-# Copy the files under `from` matching `pattern` to `to`, keeping relative paths.
+# Copy the files under `from` matching `pattern` to `to`, keeping relative paths. open|save, not
+# cp: 4x faster in nu for many small files, and modes from the store are not wanted anyway
 export def copy-tree [from: path, to: path, pattern: string = "**/*"]: nothing -> nothing {
   let from = ($from | path expand)
-  glob $"($from)/($pattern)" | where { ($in | path type) == "file" } | par-each --threads (cores) {|f|
-    let dest = $"($to)/($f | path relative-to $from)"
-    mkdir ($dest | path dirname)
-    cp -f $f $dest
-  } | ignore
+  let files = (glob --no-dir --no-symlink $"($from)/($pattern)" | each {|f| {src: $f, dest: $"($to)/($f | path relative-to $from)"} })
+  # directories first and once each: concurrent mkdir and cp of one dir raced (repkgs#2)
+  mkdir ...($files | get dest | path dirname | uniq)
+  $files | par-each --threads 4 {|f| open --raw $f.src | save -f $f.dest } | ignore
 }
 
 # content-identity compile cache (default.nix `cached`): every store path handed to the recipe, and
