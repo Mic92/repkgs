@@ -1,9 +1,11 @@
-# bin/erl finds its root from $0, so the tree relocates as installed. Cross wants a bootstrap
-# system from buildPkgs first (not done). No wx, odbc, jinterface: toolkits not packaged
+# bin/erl finds its root from $0, so the tree relocates as installed. A cross build needs a
+# native erlang of the same release to compile the .erl files. No wx, odbc, jinterface
 {
   package,
   pkgs,
   buildPkgs,
+  platform,
+  toolchain,
 }:
 package {
   name = "erlang";
@@ -16,13 +18,14 @@ package {
     "--without-odbc"
     "--without-wx"
     "--disable-parallel-configure"
-  ];
+  ]
+  ++ (if platform.cross then [ "erl_xcomp_sysroot=${toolchain.sysroot}" ] else [ ]);
   tests.run = false; # the suites run under ts for hours, tests.version and elixir exercise the install
   patches = [
     ./cstdlib.patch
     ./erl-dirname.patch
   ];
-  buildDependencies = [ buildPkgs.perl ]; # erts generates opcode tables with it
+  buildDependencies = [ buildPkgs.perl ] ++ (if platform.cross then [ buildPkgs.erlang ] else [ ]);
   dependencies = [
     pkgs.ncurses
     pkgs.openssl
