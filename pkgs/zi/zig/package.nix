@@ -4,6 +4,7 @@
 {
   package,
   pkgs,
+  platform,
 }:
 package {
   name = "zig";
@@ -13,7 +14,9 @@ package {
     # a generic binary, not one tuned to (and hashed by) the build machine
     ZIG_TARGET_MCPU = "baseline";
     ZIG_PIE = true;
-  };
+  }
+  # cross: zig2 targets the other cpu, and cmake no longer tries to run the target's llvm-config
+  // (if platform.cross then { ZIG_TARGET_TRIPLE = "${platform.cpu}-linux-gnu"; } else { });
   dependencies = [
     pkgs.zig-llvm
     pkgs.zlib
@@ -22,7 +25,7 @@ package {
   # stage3 is linked by zig itself, not through cc: no padded RUNPATH, no crt_interp. Treated like
   # an upstream binary, formatelf implants both
   prebuilt = true;
-  # zig's own cache, else it writes to $HOME/.cache. build.nu round-trips it through jigd
+  # zig's own cache (default $HOME/.cache). zig.nu saves and restores it through jigd
   env.ZIG_GLOBAL_CACHE_DIR = "/build/zig-cache";
   phases = [
     "cmake.configure"
