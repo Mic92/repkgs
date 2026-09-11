@@ -9,6 +9,11 @@
 }:
 package {
   name = "windows-sdk";
+  # Microsoft ships the SDK and CRT libs for x64 and arm64 only
+  platforms.cpu = [
+    "x86_64"
+    "aarch64"
+  ];
   source = fetch.windowsSdk {
     manifest = sources.fetch "default";
     arch = platform.cpu;

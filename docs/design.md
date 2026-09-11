@@ -77,6 +77,15 @@ lazy, so `nix-build -A jq` imports one package file. `buildPkgs` is the set for 
 (the same set when not cross compiling). There are no nested package sets. Another platform is
 `import ./. { platform = … }`.
 
+Every package is an attribute on every platform. Whether it is *for* that platform is a boolean
+beside the derivation, `pkg.supported`, decided without forcing it: a prebuilt with per-cpu tarballs
+is for the cpus `sources.toml` has a key for, a recipe can narrow with `platforms.cpu = [ … ]`
+(windows-sdk: Microsoft ships x64 and arm64), and a package whose dependencies or build tools are
+unsupported is not either. The value stays a normal attrset (`version`, `unsupportedReason`), only
+its store paths throw, so `nix-build -A bun` on riscv64 says `bun: sources.toml has no 'riscv64'
+source` and CI filters with `filterAttrs (_: p: p.supported)` instead of `tryEval` over every
+derivation, which would also swallow genuine evaluation errors.
+
 `nix/package.nix` validates the spec (unknown field or option, option of the wrong type →
 evaluation error, not a silently ignored attribute) and emits a derivation whose builder is `nu -c "<script>"`. Everything that
 does not depend on other derivations (options, phases, env) travels as one JSON attribute, and each

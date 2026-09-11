@@ -39,6 +39,7 @@ let
   };
   reserved = [
     "name"
+    "platforms"
     "version"
     "source"
     "patches"
@@ -229,11 +230,36 @@ let
     ++ map (d: "buildDependencies: ${d.pname} is built for ${d.platform}") (
       filter (d: (d.platform or platform.system) != platform.system) (args.buildDependencies or [ ])
     );
+  # Whether this package is for `platform`, decided without forcing the derivation so the set can
+  # be filtered by reading booleans. A recipe narrows with `platforms.cpu = [ … ]` (no codegen
+  # backend, vendor ships nothing); a prebuilt with per-cpu tarballs is for the cpus sources.toml
+  # has a key for; anything whose dependencies or build tools are not supported is not either.
+  # The value stays an attrset (version, args, unsupportedReason readable), only its store paths throw
+  badCpu = args ? platforms.cpu && !(elem platform.cpu args.platforms.cpu);
+  noTarball =
+    sources0 != null && !(args0 ? source) && !(sources0.has "default") && !(sources0.has platform.cpu);
+  unsupportedDeps = filter (d: !(d.supported or true)) (
+    common.dependencies
+    ++ (args.buildDependencies or [ ])
+    ++ concatMap (u: buildSystems.${u}.tools args) uses
+  );
+  unsupportedReason =
+    if badCpu then
+      "${name}: not for ${platform.cpu} (platforms.cpu)"
+    else if noTarball then
+      "${name}: sources.toml has no '${platform.cpu}' source"
+    else if unsupportedDeps != [ ] then
+      "${name} -> ${(head unsupportedDeps).unsupportedReason}"
+    else
+      null;
+  supported = unsupportedReason == null;
+  unknownPlatformKeys = attrNames (removeAttrs (args.platforms or { }) [ "cpu" ]);
+
   checks =
     if unknownUses != [ ] then
       fail "unknown build systems ${toString unknownUses} (have: ${toString (attrNames buildSystems)})"
-    else if unknownFields != [ ] then
-      fail "unknown fields ${toString unknownFields}"
+    else if unknownFields != [ ] || unknownPlatformKeys != [ ] then
+      fail "unknown fields ${toString (unknownFields ++ map (k: "platforms.${k}") unknownPlatformKeys)}"
     else if badOptions != [ ] then
       fail (builtins.concatStringsSep "; " badOptions)
     else if wrongPlatform != [ ] then
@@ -392,5 +418,26 @@ drv
   # what package.nix wrote and read, for `variant`
   args = args0;
   sources = sources0;
+  inherit supported unsupportedReason;
 }
 // (if separate then { tests = testsDrv; } else { })
+// (
+  if supported then
+    { }
+  else
+    listToAttrs (
+      map
+        (n: {
+          name = n;
+          value = throw unsupportedReason;
+        })
+        (
+          [
+            "drvPath"
+            "outPath"
+            "tests"
+          ]
+          ++ drv.outputs
+        )
+    )
+)

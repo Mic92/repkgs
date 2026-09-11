@@ -25,12 +25,12 @@ let
       inherit system;
       platform = "${cpu}-linux";
     };
-  # prebuilt sources exist only for the cpus upstream ships
-  evaluates = _: p: (builtins.tryEval p.drvPath).success;
+  # nix/package.nix decides `supported` per platform without forcing the derivation
+  supported = set: lib.filterAttrs (_: p: p.supported) set;
   prefixed = prefix: lib.mapAttrs' (n: v: lib.nameValuePair "${prefix}${n}" v);
-  crossSet = cpu: prefixed "cross-${cpu}-" (lib.filterAttrs evaluates (setFor cpu));
+  crossSet = cpu: prefixed "cross-${cpu}-" (supported (setFor cpu));
 in
-prefixed "pkg-" (setFor buildCpu)
+prefixed "pkg-" (supported (setFor buildCpu))
 // lib.mergeAttrsList (map crossSet (lib.filter (cpu: cpu != buildCpu) crossCpus))
 // {
   treefmt =
