@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/Kitware/CMake"
+
+[[source]]
+key = "default"
+url = "https://github.com/Kitware/CMake/releases/download/{tag}/cmake-{version}.tar.gz"
+hash = "sha256-y532uuIRpP13Uodi+jsVPxn8bFL45n7gBvJRERQtgdA="
+
+[pin]
+version = "4.1.2"
+tag = "v4.1.2"
