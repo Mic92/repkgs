@@ -1,5 +1,6 @@
 # What `uses = [ "<name>" ]` means: builder/systems/<name>.nu implements the phases, `phases` is the default
-# order (build test install unless said otherwise), `tools` go on PATH, `dependencies` add to
+# order (build test install unless said otherwise), `tool` (swappable per package as `<name>.tool`)
+# and `tools` (a list, or spec -> list) go on PATH, `dependencies` add to
 # the package's, `prebuilt` is the package's default for that field, `unsupported` is a reason
 # (or null) why no user of it can build on this platform, and `options` are what a
 # package may set under `<name>.*`: `{ type; default; doc; }` each, `type` the `builtins.typeOf`
@@ -55,7 +56,9 @@ builtins.mapAttrs
       options = {
         root = str "." "directory below the source the project lives in (monorepos, build/cmake)";
       }
+      // (if bs ? tool then { tool = opt "set" bs.tool "the package that provides ${name}"; } else { })
       // bs.options;
+      extra = if builtins.isFunction (bs.tools or [ ]) then bs.tools else _: bs.tools or [ ];
     in
     {
       inherit options;
@@ -72,7 +75,8 @@ builtins.mapAttrs
         args:
         builtins.mapAttrs (_: o: o.default) options
         // builtins.mapAttrs (_: f: f { inherit (args) source; }) (bs.lock or { });
-      tools = if builtins.isFunction bs.tools then bs.tools else _: bs.tools;
+      # `tool`: the build system's own program, a package may swap it (`cmake.tool = …`)
+      tools = spec: (if bs ? tool then [ spec.${name}.tool ] else [ ]) ++ extra spec;
       dependencies = bs.dependencies or [ ];
       prebuilt = bs.prebuilt or false;
       unsupported = bs.unsupported or null;
@@ -111,8 +115,8 @@ builtins.mapAttrs
         "test"
         "install"
       ];
+      tool = buildPkgs.cmake;
       tools = [
-        buildPkgs.cmake
         buildPkgs.ninja
         sh
       ];
@@ -130,8 +134,8 @@ builtins.mapAttrs
         "test"
         "install"
       ];
+      tool = buildPkgs.meson;
       tools = [
-        buildPkgs.meson
         buildPkgs.ninja
         sh
       ];
@@ -148,7 +152,7 @@ builtins.mapAttrs
         "test"
       ]; # tests import the installed module
       # the PEP 517 front end and its deps. Members of the stack itself get only what exists before them
-      tools = [ buildPkgs.cpython ];
+      tool = buildPkgs.cpython;
       stack = with buildPkgs; [
         python-flit-core
         python-packaging
@@ -163,15 +167,10 @@ builtins.mapAttrs
       };
     };
     cargo = {
-      # `cargo.toolchain = buildPkgs.rust-bootstrap` for what must exist before llvm and rust are
-      # built: formatelf, which every `prebuilt = true` package needs
-      # cross: std for the target is its own package, <toolchain>-std, from the same release
-      tools =
-        args:
-        let
-          toolchain = args.cargo.toolchain or buildPkgs.rust;
-        in
-        [ toolchain ] ++ (if platform.cross then [ pkgs."${toolchain.pname}-std" ] else [ ]);
+      # `cargo.tool = buildPkgs.rust-bootstrap` for what must exist before llvm and rust are
+      # built (formatelf, git). Cross: std for the target is its own package, <tool>-std
+      tool = buildPkgs.rust;
+      tools = spec: if platform.cross then [ pkgs."${spec.cargo.tool.pname}-std" ] else [ ];
       lock.deps = fetch.cargoVendor;
       options = {
         features = strs [ ] "--features";
@@ -179,10 +178,6 @@ builtins.mapAttrs
         flags = flags "cargo build and cargo test";
         skipTests = strs [ ] "cargo test --skip filters (substring of the test path)";
         deps = deps true "fetch.cargoVendor";
-        toolchain = opt [
-          "set"
-          "null"
-        ] null "the rust to build with (null: buildPkgs.rust, rust-bootstrap before that exists)";
       };
     };
     cabal = {
@@ -211,10 +206,8 @@ builtins.mapAttrs
     };
     luarocks = {
       phases = [ "install" ]; # luarocks make builds into --tree
-      tools = [
-        buildPkgs.luarocks
-        sh
-      ];
+      tool = buildPkgs.luarocks;
+      tools = [ sh ];
       options = {
         deps = deps false "fetch.luaRocksSet" // {
           default = fetch.luaRocksSet { inherit (buildPkgs) lua; };
@@ -225,7 +218,7 @@ builtins.mapAttrs
       };
     };
     go = {
-      tools = [ buildPkgs.go ];
+      tool = buildPkgs.go;
       lock.deps = fetch.goModules;
       options = {
         tags = strs [ ] "-tags";
@@ -241,8 +234,8 @@ builtins.mapAttrs
       };
     };
     pnpm = {
+      tool = buildPkgs.pnpm;
       tools = [
-        buildPkgs.pnpm
         buildPkgs.nodejs
         sh
       ];
@@ -275,10 +268,8 @@ builtins.mapAttrs
       };
     };
     bundler = {
-      tools = [
-        buildPkgs.ruby
-        sh
-      ];
+      tool = buildPkgs.ruby;
+      tools = [ sh ];
       lock.deps = fetch.gems;
       options = {
         deps = deps false "fetch.gems";
@@ -290,7 +281,7 @@ builtins.mapAttrs
       };
     };
     deno = {
-      tools = [ buildPkgs.deno ];
+      tool = buildPkgs.deno;
       lock.deps = fetch.denoDeps;
       options = {
         deps = deps false "fetch.denoDeps";
@@ -301,10 +292,8 @@ builtins.mapAttrs
       };
     };
     bun = {
-      tools = [
-        buildPkgs.bun
-        sh
-      ];
+      tool = buildPkgs.bun;
+      tools = [ sh ];
       lock.deps = fetch.bunDeps;
       dependencies = nodeDeps;
       options = {
@@ -317,8 +306,8 @@ builtins.mapAttrs
       };
     };
     yarn = {
+      tool = buildPkgs.yarn;
       tools = [
-        buildPkgs.yarn
         buildPkgs.nodejs
         sh
       ];
@@ -336,8 +325,8 @@ builtins.mapAttrs
         "build"
         "install"
       ];
+      tool = buildPkgs.elixir;
       tools = [
-        buildPkgs.elixir
         buildPkgs.erlang
         buildPkgs.hex
         buildPkgs.rebar3
@@ -368,10 +357,8 @@ builtins.mapAttrs
       };
     };
     npm = {
-      tools = [
-        buildPkgs.nodejs
-        sh
-      ];
+      tool = buildPkgs.nodejs;
+      tools = [ sh ];
       lock.deps = fetch.npmDeps;
       dependencies = nodeDeps;
       options = {

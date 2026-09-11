@@ -89,8 +89,9 @@ package {
 
 `sources.toml` supplies version and tarball. `uses` names the build system, and the build system
 brings its tools, its phases (configure, build, test, install) and its options. Options
-are things like `cmake.defs` above, `cargo.features` or `go.tags`. `repkgs options cmake` lists
-them. Their names and types are checked at evaluation time, so a typo is an error instead of an
+are things like `cmake.defs` above, `cargo.features` or `go.tags`, and every build system has
+`<name>.tool` to swap the program itself (`cargo.tool = buildPkgs.rust-bootstrap`).
+`repkgs options cmake` lists them. Their names and types are checked at evaluation time, so a typo is an error instead of an
 attribute nobody reads.
 
 A package with build-time tools and its tests turned off, curl:
