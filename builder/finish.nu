@@ -8,7 +8,7 @@ use launchers.nu
 # upstream .so files out of binary wheels have none, and llvm-objcopy crashes on those that
 # auto-formatelf relaid (program headers moved to the end)
 def split-debug [c: record]: nothing -> nothing {
-  let elfs = (glob $"($c.out)/{bin,lib,libexec}/**/*" --exclude [**/lib/debug/**]
+  let elfs = (files $"($c.out)/{bin,lib,libexec}/**/*" --exclude [**/lib/debug/**]
     | where { ($in | path type) == "file" and (is-elf $in) and (^llvm-readelf -S $in | str contains ".debug_info") })
   if ($elfs | is-empty) { return }
   mkdir $"($c.out)/lib/debug"
@@ -112,7 +112,7 @@ def cache-summary []: nothing -> nothing {
 def install-map [c: record]: nothing -> nothing {
   for e in ($c.spec.install? | default {} | transpose dest from) {
     let to = $"($c.out)/($e.dest)"
-    let from = ($e.from | each {|g| glob $g } | flatten)
+    let from = ($e.from | each {|g| files --any $g } | flatten)
     if ($from | is-empty) { error make {msg: $"install ($e.dest): nothing matches ($e.from)"} }
     if ($e.dest | str ends-with "/") or ($from | length) > 1 {
       mkdir $to
@@ -165,14 +165,14 @@ export def main [
   for b in (bins $c) {
     if not ($"($c.out)/bin/($b)" | path exists) { error make {msg: $"bin/($b) missing in output"} }
   }
-  for f in (glob $"($c.out)/**/*.la") { rm $f }
+  for f in (files $"($c.out)/**/*.la") { rm $f }
   # no separate doc outputs (yet): HTML/info docs are never read from a store path, man pages stay
   for d in [share/doc share/info share/gtk-doc] { rm -rf $"($c.out)/($d)" }
   # precompiled headers pin absolute header paths: fine in a build tree, broken once installed
-  let pch = (glob $"($c.out)/**/*.{pch,gch}")
+  let pch = (files $"($c.out)/**/*.{pch,gch}")
   if ($pch | is-not-empty) { error make {msg: $"precompiled headers in output do not relocate: ($pch | first 3 | str join ' ')"} }
   # gzip headers carry an mtime and file name: ship man and info pages uncompressed (the store compresses)
-  let gz = (glob $"($c.out)/share/{man,info}/**/*.gz")
+  let gz = (files $"($c.out)/share/{man,info}/**/*.gz")
   if ($gz | is-not-empty) { x gzip -d ...$gz }
   # installed copies of source scripts carry the build env's path from prepare: not a dependency
   fix-env-shebangs $c.out $c.njobs --undo

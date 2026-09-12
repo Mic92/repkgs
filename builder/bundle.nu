@@ -4,6 +4,8 @@
 # programs. Nix supplies the closure (exportReferencesGraph) and refuses any reference left over
 # (allowedReferences = []). For `repkgs bootstrap`, where upstream ships no binary for a cpu.
 
+use glob.nu *
+
 const LIBC = [libc.so.6 libm.so.6 libdl.so.2 libpthread.so.0 librt.so.1 libresolv.so.2 libutil.so.1]
 
 def elves [dir: path]: nothing -> list<string> {
@@ -36,7 +38,7 @@ def main []: nothing -> nothing {
   rm -rf $"($out)/lib/debug"
 
   # launchers: bin/x -> launch, bin/.x the program, bin/.x.launch the record
-  for l in (glob $"($out)/bin/.*.launch") {
+  for l in (files $"($out)/bin/.*.launch") {
     let name = ($l | path basename | str replace -r '^\.(.*)\.launch$' "$1")
     rm -f $"($out)/bin/($name)" $l
     mv $"($out)/bin/.($name)" $"($out)/bin/($name)"

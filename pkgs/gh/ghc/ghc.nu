@@ -34,6 +34,6 @@ export def build []: nothing -> nothing {
 }
 
 export def install []: nothing -> nothing {
-  cd (glob $"((ctx).src)/_build/bindist/ghc-*" | where ($it | path type) == dir | first)
+  cd (files --dirs $"((ctx).src)/_build/bindist/ghc-*" | first)
   ghc-bindist install
 }

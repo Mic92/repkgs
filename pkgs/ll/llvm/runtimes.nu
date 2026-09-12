@@ -90,7 +90,7 @@ def main []: nothing -> nothing {
   # LIBCXX{,ABI}_STATICALLY_LINK_UNWINDER_IN_STATIC_LIBRARY), so `-static -lc++` needs no -lc++abi -lunwind
   $LIBS | reduce -f {} {|l, built|
     let std = {|f| if ($f | str ends-with ".cpp") { [$"-std=($l.std)"] } else if ($f | str ends-with ".c") { [-std=c11] } else { [] } }
-    let items = (glob $"($l.dir)/($l.glob)" | each { path relative-to $env.PWD } | sort
+    let items = (files $"($l.dir)/($l.glob)" | each { path relative-to $env.PWD }
       | where {|f| ($f | path relative-to $l.dir) not-in $l.skip } | append ($l.extra? | default [])
       | each {|f| {src: $f, obj: $"($obj)/($l.name)/($f).o", flags: (do $std $f)} })
     say $"lib($l.name): ($items | length) files"

@@ -31,7 +31,7 @@ export def configure []: nothing -> nothing {
 # Tool paths become bare names, other foreign store paths are dropped
 export def scrub []: nothing -> nothing {
   let c = (ctx)
-  let arch = (glob $"($c.out)/lib/perl5/5.*/*/Config_heavy.pl" | first | path dirname)
+  let arch = (files $"($c.out)/lib/perl5/5.*/*/Config_heavy.pl" | first | path dirname)
   let foreign = $"\(?:-I|-L|--sysroot=\)?/nix/store/\(?!($c.out | path basename)\)[^'\" ]+ ?"
   for f in [$"($arch)/Config.pm" $"($arch)/Config_heavy.pl" $"($arch)/CORE/config.h"] {
     edit $f { str replace -ar '/nix/store/[a-z0-9]{32}-seed[^/]*/bin/' "" | str replace -ar $foreign "" }

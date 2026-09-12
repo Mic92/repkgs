@@ -14,7 +14,7 @@ def app-dir []: nothing -> string { let c = (ctx); $"($c.out)/lib/($c.spec.name)
 def --env cross-rbconfig []: nothing -> nothing {
   let c = (ctx)
   if not $c.platform.cross { return }
-  let target = (glob $"(dep-root ruby "extensions compile against the target ruby")/lib/ruby/*/*/rbconfig.rb" | first)
+  let target = (files $"(dep-root ruby "extensions compile against the target ruby")/lib/ruby/*/*/rbconfig.rb" | first)
   let dir = $"($c.build)/cross-rbconfig"
   mkdir $dir
   cp $target $dir
@@ -49,7 +49,7 @@ export def workdir []: nothing -> string { app-dir }
 export def build []: nothing -> nothing {
   x bundle install --local --no-cache ...((options bundler).flags)
   # the .gem archives, bundler's download cache and extension build logs (which embed the build dir)
-  rm -rf vendor/cache ...(glob vendor/bundle/ruby/*/cache) ...(glob vendor/bundle/ruby/*/extensions/**/{gem_make.out,mkmf.log})
+  rm -rf vendor/cache ...(files --dirs vendor/bundle/ruby/*/cache) ...(files vendor/bundle/ruby/*/extensions/**/{gem_make.out,mkmf.log})
   fix-env-shebangs vendor/bundle (ctx).njobs
 }
 

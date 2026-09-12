@@ -1,7 +1,7 @@
 use ../core.nu *
 
 # PEP 517 wheel build + install (setuptools/flit/hatch via `build`, maturin directly), import check, optional pytest.
-def site-packages [roots: list<string>]: nothing -> list<string> { $roots | each {|r| glob $"($r)/lib/python3*/site-packages" } | flatten }
+def site-packages [roots: list<string>]: nothing -> list<string> { $roots | each {|r| files --dirs $"($r)/lib/python3*/site-packages" } | flatten }
 
 # those of the python build tools on PATH (PEP 517 backends and friends) and of what they
 # propagate: a backend imports its own dependencies. pyapp.nu uses this too
@@ -41,7 +41,7 @@ export def build []: nothing -> nothing {
 # install the wheel into $out with `installer`, or unzip it when installer is not packaged yet
 export def install []: nothing -> nothing {
   let c = (ctx)
-  let whl = (glob $"($c.build)/dist/*.whl" | first)
+  let whl = (files $"($c.build)/dist/*.whl" | first)
   if (^python3 -c "import installer" | complete).exit_code == 0 {
     x python3 -m installer --prefix $c.out $whl
   } else {
@@ -56,7 +56,7 @@ export def install []: nothing -> nothing {
   let rels = (site-packages ([$c.out] ++ ($c.deps | get root))
     | each {|p| if ($p | str starts-with $c.out) { $"..($p | str substring ($c.out | str length)..)" } else { $"../../($p | path relative-to $env.NIX_STORE)" } })
   let boot = ('import os, sys; sys.path[0:0] = [os.path.join(os.path.dirname(os.path.realpath(__file__)), p) for p in RELS]' | str replace RELS ($rels | to json -r))
-  for f in (glob $"($c.out)/bin/*" --no-dir --no-symlink) {
+  for f in (files --no-symlink $"($c.out)/bin/*") {
     let text = (open --raw $f | into binary)
     if not ($text | bytes starts-with ("#!" | into binary)) { continue }
     let lines = ($text | decode utf-8 | lines)

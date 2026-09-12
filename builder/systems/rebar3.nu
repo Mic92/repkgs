@@ -9,7 +9,7 @@ export def --env setup []: nothing -> nothing {
   let o = (options rebar3)
   load-env {HOME: $c.build, REBAR_CACHE_DIR: $"($c.build)/rebar3-cache", REBAR_OFFLINE: "1", ERL_AFLAGS: "+B", LANG: "C.UTF-8"
     ERL_COMPILER_OPTIONS: "deterministic"}
-  for tar in (glob $"($o.deps)/packages/hexpm/*.tar") {
+  for tar in (files $"($o.deps)/packages/hexpm/*.tar") {
     beam unpack $tar $"_checkouts/($tar | path basename | str replace -r '-[^-]+$' "")"
   }
   let key = (probe-cache key $"rebar3-deps/($o.deps | path basename)" [])
@@ -28,5 +28,5 @@ export def test []: nothing -> nothing { x rebar3 eunit }
 
 export def install []: nothing -> nothing {
   x rebar3 escriptize
-  for f in (glob _build/default/bin/*) { beam install-escript $f }
+  for f in (files _build/default/bin/*) { beam install-escript $f }
 }

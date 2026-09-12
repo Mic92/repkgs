@@ -21,7 +21,7 @@ export def --env setup []: nothing -> nothing {
   # cabal writes its index cache into a noindex repository's directory: a writable one of symlinks
   let repo = $"($c.build)/repo"
   mkdir $repo
-  for f in (glob $"($o.deps)/*.{tar.gz,cabal}") { ^ln -s $f $repo }
+  for f in (files $"($o.deps)/*.{tar.gz,cabal}") { ^ln -s $f $repo }
   let unit_id = (^ghc --info | parse --regex '"Project Unit Id","([^"]+)"' | get capture0.0)
   load-env {CABAL_DIR: $"($c.build)/cabal", CABAL_UNITS: $"($STORE)/($unit_id)"}
   mkdir $env.CABAL_DIR $"(unit-dir)/package.db"
@@ -49,7 +49,7 @@ def targets [o: record]: nothing -> list<string> { $o.flags ++ ($o.exes | each {
 
 # dependency units of the build plan
 def plan-units []: nothing -> list<string> {
-  open (glob dist-newstyle/cache/plan.json | first) | get install-plan | where type == "configured" and style? == "global" | get id
+  open (files dist-newstyle/cache/plan.json | first) | get install-plan | where type == "configured" and style? == "global" | get id
 }
 
 # cached units -> the store, before cabal builds
@@ -94,7 +94,7 @@ export def build []: nothing -> nothing {
 export def test []: nothing -> nothing {
   let o = (options cabal)
   # cabal test errors out (Cabal-7043) when the package declares no test-suite, executable-only packages often do not
-  let cabals = (glob **/*.cabal --exclude [dist-newstyle/**])
+  let cabals = (files **/*.cabal --exclude [dist-newstyle/**])
   if ($cabals | is-not-empty) and ($cabals | all {|f| (open --raw $f) !~ '(?im)^\s*test-suite\s' }) { note cabal "no test suites"; return }
   # the package's own test suites (`all:tests` in the project's package, flags still apply)
   cabal test --enable-tests ...$o.flags all:tests

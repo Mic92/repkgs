@@ -16,6 +16,7 @@ derivation {
   builder = "${nu}/bin/nu";
   args = [
     "--no-config-file"
+    "--include-path=${tree}"
     (builtins.path {
       path = tree + "/bundle.nu";
       name = "bundle.nu";

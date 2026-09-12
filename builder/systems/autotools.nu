@@ -14,7 +14,7 @@ export def workdir []: nothing -> string { if (options autotools).outOfTree { (c
 # literal behind the comma operator and -Werror=format-security rejects every _("...")
 def gnulib-gettext-literal [src: string]: nothing -> nothing {
   const FALLBACK = "((void) (Domainname), gettext (Msgid))"
-  for f in (glob $"($src)/**/gettext.h" | where { open --raw $in | str contains $FALLBACK }) {
+  for f in (files $"($src)/**/gettext.h" | where { open --raw $in | str contains $FALLBACK }) {
     edit $f { str replace -a $FALLBACK "gettext (Msgid)" | str replace -a "((void) (Category), dgettext (Domainname, Msgid))" "dgettext (Domainname, Msgid)" }
   }
 }

@@ -30,7 +30,7 @@ export def configure []: nothing -> nothing {
   } } else { {} }) | merge (if ($c.platform.emulator | is-empty) { {} } else { {CMAKE_CROSSCOMPILING_EMULATOR: ($c.platform.emulator | str join ";")} }) | merge $o.defs)
   let srcdir = (project-dir cmake)
   # results of check_*/try_compile (the project's INTERNAL cache entries) carried across builds
-  let key = (probe-cache key cmake (glob $"($srcdir)/**/{CMakeLists.txt,*.cmake}"))
+  let key = (probe-cache key cmake (files $"($srcdir)/**/{CMakeLists.txt,*.cmake}"))
   let init = $"($c.build)/probe-init.cmake"
   let had = (probe-cache restore $key $init)
   note cmake-probes (if $had { "restored" } else { "cold" })

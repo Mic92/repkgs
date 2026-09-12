@@ -9,18 +9,17 @@ export def install []: nothing -> nothing {
   x sh ./configure $"--prefix=($c.out)" ...$TOOLCHAIN
   x make install
   # bin/ wrappers spell out $out: derive it from the script's location (sh builtins, PATH may be empty)
-  for f in (ls $"($c.out)/bin" | where type == file | get name) {
-    open --raw $f
-    | str replace '#!/bin/sh' "#!/bin/sh\ntop=$(cd \"${0%/*}/..\" && pwd)"
-    | str replace -a $c.out '$top'
-    | save -f $f
+  for f in (files --no-symlink $"($c.out)/bin/*") {
+    let s = (open --raw $f | str replace '#!/bin/sh' "#!/bin/sh\ntop=$(cd \"${0%/*}/..\" && pwd)" | str replace -a $c.out '$top')
+    $s | save -f $f
   }
   # the bindist leaves gmp, libffi and curses to an ambient search path: record where they are
-  let db = (glob $"($c.out)/lib/ghc-*/lib/package.conf.d" | first)
+  let db = (files --dirs $"($c.out)/lib/ghc-*/lib/package.conf.d" | first)
   for l in [[conf dep]; [ghc-bignum gmp] [rts libffi] [terminfo ncurses]] {
     let lib = $"(dep-root $l.dep $'($l.conf) links it')/lib"
-    for f in (glob $"($db)/($l.conf)-*.conf") {
-      open --raw $f | str replace -ar '(?m)^(dynamic-)?library-dirs:' $"${1}library-dirs: ($lib)" | save -f $f
+    for f in (files $"($db)/($l.conf)-*.conf") {
+      let s = (open --raw $f | str replace -ar '(?m)^(dynamic-)?library-dirs:' $"${1}library-dirs: ($lib)")
+      $s | save -f $f
     }
   }
   x $"($c.out)/bin/ghc-pkg" recache

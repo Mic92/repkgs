@@ -3,7 +3,7 @@ use core.nu *
 
 # fix-env-shebangs edited vendored scripts: keep the crate checksums, drop the per-file ones
 def vendor-checksums []: nothing -> nothing {
-  for f in (glob vendor/*/.cargo-checksum.json) {
+  for f in (files vendor/*/.cargo-checksum.json) {
     let j = (open $f | update files {{}} | to json -r)
     $j | save -f $f
   }
@@ -63,7 +63,7 @@ export def install []: nothing -> nothing {
   let c = (ctx)
   x python3 x.py install
   # rust-installer bookkeeping, install.log carries a timestamp
-  rm -f ...(glob $"($c.out)/lib/rustlib/{install.log,uninstall.sh,manifest-*,components,rust-installer-version}")
+  rm -f ...(files $"($c.out)/lib/rustlib/{install.log,uninstall.sh,manifest-*,components,rust-installer-version}")
 }
 
 # rust-std: the installed rust as stage0, std for the target only, linked with the target cc
@@ -111,7 +111,7 @@ export def stdInstall []: nothing -> nothing {
   let lib = $"lib/rustlib/($triple)/lib"
   mkdir $"($c.out)/($lib | path dirname)"
   cp -r $"($c.build)/($host)/stage0-sysroot/($lib)" $"($c.out)/($lib)"
-  for f in (glob $"($c.build)/($host)/stage0-std/($triple)/dist/build/*/*/out/*.{rlib,rmeta,so}") { cp $f $"($c.out)/($lib)/" }
+  for f in (files $"($c.build)/($host)/stage0-std/($triple)/dist/build/*/*/out/*.{rlib,rmeta,so}") { cp $f $"($c.out)/($lib)/" }
   # natively x.py builds nothing and the sysroot copy above is already the whole std
-  if (glob $"($c.out)/($lib)/*.rlib" | is-empty) { error make {msg: $"rust.stdInstall: no ($triple) rlibs"} }
+  if (files $"($c.out)/($lib)/*.rlib" | is-empty) { error make {msg: $"rust.stdInstall: no ($triple) rlibs"} }
 }

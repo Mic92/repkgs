@@ -27,7 +27,8 @@ let
     name = "producers";
     # fetch/ plus the helpers it imports from its parent. Build systems and the build pipeline stay
     # out, so editing them does not refetch every lock
-    filter = p: _: builtins.match ".*/builder/(fetch(/.*)?|sys-libs\\.nu|pep508\\.nu)" p != null;
+    filter =
+      p: _: builtins.match ".*/builder/(fetch(/.*)?|sys-libs\\.nu|pep508\\.nu|glob\\.nu)" p != null;
   };
 
   # {name: {drv, out}} as a file in the store; the default one is built once per set

@@ -15,7 +15,7 @@ use core.nu *
 # and RUNPATH but no stub, since the stub only works after reloc-fixup, which runs over $out.
 export def main [c: record, dir?: path]: nothing -> nothing {
   let dir = ($dir | default $c.out)
-  let elves = (glob $"($dir)/{bin,lib,libexec}/**/*" | where {|f| ($f | path type) == "file" and (is-elf $f) })
+  let elves = (files $"($dir)/{bin,lib,libexec}/**/*" | where {|f| is-elf $f })
   let interp = $"($c.platform.interp | path dirname)/(1..12 | each { './' } | str join)($c.platform.interp | path basename)"
   let libdirs = [($c.platform.interp | path dirname)] ++ (dep-dirs $c.deps libDirs)
   for f in $elves {

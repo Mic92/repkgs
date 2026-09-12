@@ -9,5 +9,5 @@ def main []: nothing -> nothing {
   let sh = (tool sh)
   x make -j (cores | into string) headers $"ARCH=($env.karch)" $"HOSTCC=($hostcc)" $"SHELL=($sh)" $"CONFIG_SHELL=($sh)"
   copy-tree usr/include $"($out)/include" "**/*.h"   # = `make headers_install` without rsync
-  say $"linux-headers: (glob $'($out)/include/**/*.h' | length) headers"
+  say $"linux-headers: (files $'($out)/include/**/*.h' | length) headers"
 }

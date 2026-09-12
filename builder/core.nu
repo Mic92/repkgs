@@ -3,6 +3,8 @@
 # which runs in one nu process, so `def --env` phases hand cwd and environment on to later ones.
 # This module is what build systems and inline phases import: ctx, options, x, tool, note, exports-of.
 
+export use glob.nu *
+
 # One log line per event, in Nix's own structured-log form ("@nix {json}", libutil/logging.cc) so
 # `nix build`/nom show the current phase and `nix log` keeps the text. `phase` events become the
 # derivation's phase, everything else an info-level message. nix/package.nix emits one per phase
@@ -88,7 +90,7 @@ export def exports-of [p: path]: nothing -> record<name: string, includeDirs: li
     name: ($e.name? | default { $p | path basename | str substring 33.. | str replace -r '-(x86_64|aarch64|riscv64|loongarch64|powerpc64le)-\w+$' '' })
     includeDirs: ($e.includeDirs? | default { existing $p ["include"] })
     libDirs: ($e.libDirs? | default { existing $p ["lib"] })
-    libs: ($e.libs? | default { glob $"($p)/lib/lib*.so" | each { path parse | get stem | str substring 3.. } | sort })
+    libs: ($e.libs? | default { files $"($p)/lib/lib*.so" | each { path parse | get stem | str substring 3.. } })
     pkgconfigDirs: ($e.pkgconfigDirs? | default { existing $p ["lib/pkgconfig" "share/pkgconfig"] })
     aclocalDirs: ($e.aclocalDirs? | default { existing $p ["share/aclocal"] })
     # `{root}` in values: this package's own store path (kept relative in exports.json so the output stays relocatable)

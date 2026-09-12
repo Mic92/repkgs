@@ -34,11 +34,11 @@ export def build []: nothing -> nothing {
   mkdir $built
 
   for sdist in ($plan | where kind == sdist) { build-sdist $"($deps)/dist/($sdist.file)" $sdist.name $built }
-  let wheels = ($plan | where kind == wheel | each { $"($deps)/dist/($in.file)" }) ++ (glob $"($built)/*.whl")
+  let wheels = ($plan | where kind == wheel | each { $"($deps)/dist/($in.file)" }) ++ (files $"($built)/*.whl")
   for wheel in $wheels { install-wheel $wheel }
 
   x python3 -m build --wheel --no-isolation --skip-dependency-check --outdir $"($c.build)/project" .
-  install-wheel (glob $"($c.build)/project/*.whl" | first) --scripts
+  install-wheel (files $"($c.build)/project/*.whl" | first) --scripts
   # the test phase imports them before finish would get to it
   implant $c
 }
@@ -56,7 +56,7 @@ export def install []: nothing -> nothing {
   let c = (ctx)
   let python = ($c.deps | where name =~ '^cpython' | first | get root)
   let prelude = $"import os, sys; sys.path.insert\(0, os.path.join\(os.path.dirname\(os.path.realpath\(__file__)), '../lib/($c.spec.name)/site-packages'))"
-  for script in (glob $"($c.out)/bin/*" --no-dir --no-symlink) {
+  for script in (files --no-symlink $"($c.out)/bin/*") {
     let lines = (open --raw $script | lines)
     if ($lines | first) !~ '^#!.*python' { continue }
     [$"#!($python)/bin/python3" $prelude] ++ ($lines | skip 1) | str join "\n" | save -f $script
@@ -82,10 +82,10 @@ def install-wheel [wheel: string, --scripts]: nothing -> nothing {
   let stage = $"($c.build)/stage"
   rm -rf $stage
   ^python3 -m installer --prefix $stage --no-compile-bytecode $wheel
-  for entry in (glob $"($stage)/lib/python3*/site-packages/*") { mv $entry (site-packages) }
+  for entry in (ls ...(files --dirs $"($stage)/lib/python3*/site-packages") | get name) { mv $entry (site-packages) }
   if $scripts and ($"($stage)/bin" | path exists) {
     mkdir $"($c.out)/bin"
-    for f in (glob $"($stage)/bin/*") { mv $f $"($c.out)/bin/" }
+    for f in (files $"($stage)/bin/*") { mv $f $"($c.out)/bin/" }
   }
 }
 
