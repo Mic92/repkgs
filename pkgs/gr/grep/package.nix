@@ -10,7 +10,7 @@ package {
     {
       # deprecated sh wrappers whose #! would be the build shell
       name = "drop-egrep";
-      run = "rm $\"($c.out)/bin/egrep\" $\"($c.out)/bin/fgrep\"";
+      run = "cd $c.out; rm bin/egrep bin/fgrep";
     }
   ];
 }

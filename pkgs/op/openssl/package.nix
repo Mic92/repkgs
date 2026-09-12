@@ -24,7 +24,7 @@ package {
   phases.after."make.install" = [
     {
       name = "no-c_rehash";
-      run = "rm $\"($c.out)/bin/c_rehash\"";
+      run = "rm ($c.out)/bin/c_rehash";
     }
   ];
   tests.run = false;

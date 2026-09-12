@@ -11,12 +11,7 @@ package {
     "--with-system-includedir=/nonexistent"
   ];
   tests.run = false; # kyua
-  phases.after."autotools.install" = [
-    {
-      name = "pkg-config-alias";
-      run = "^ln -s pkgconf $\"($c.out)/bin/pkg-config\"";
-    }
-  ];
+  links."bin/pkg-config" = "pkgconf";
   bin = [
     "pkgconf"
     "pkg-config"

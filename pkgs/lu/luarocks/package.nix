@@ -18,7 +18,11 @@ package {
   phases.after."make.install" = [
     {
       name = "cc";
-      run = "for f in (glob $\"($c.out)/etc/luarocks/config-*.lua\") { \"\\nvariables.CC = \\\"cc\\\"\\nvariables.LD = \\\"cc\\\"\\n\" | save -a $f }";
+      run = ''
+        for f in (files $"($c.out)/etc/luarocks/config-*.lua") {
+          "\nvariables.CC = \"cc\"\nvariables.LD = \"cc\"\n" | save -a $f
+        }
+      '';
     }
   ];
   tests.run = false;
