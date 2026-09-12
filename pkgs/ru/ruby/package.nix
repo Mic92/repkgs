@@ -6,6 +6,7 @@
   pkgs,
   buildPkgs,
   platform,
+  on,
 }:
 package {
   name = "ruby";
@@ -17,8 +18,8 @@ package {
     "--without-git"
     "--without-baseruby"
   ]
-  ++ (if platform.cross then [ "--with-baseruby=ruby" ] else [ ]);
-  buildDependencies = if platform.cross then [ buildPkgs.ruby ] else [ ];
+  ++ on platform.cross [ "--with-baseruby=ruby" ];
+  buildDependencies = on platform.cross [ buildPkgs.ruby ];
   dependencies = [
     pkgs.bash # rbconfig's CONFIG["SHELL"], mkmf runs commands through it
     pkgs.zlib

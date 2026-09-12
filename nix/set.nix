@@ -59,8 +59,17 @@ let
       self;
 
   # build systems that spawn `sh` by name get the seed's dash
+  # `++ on platform.cross [ buildPkgs.x ]`, `// on cond { … }`
+  on =
+    cond: v:
+    if cond then
+      v
+    else if builtins.isList v then
+      [ ]
+    else
+      { };
   buildSystems = import ./build-systems.nix {
-    inherit buildPkgs fetch;
+    inherit buildPkgs fetch on;
     platform = plat;
     pkgs = self;
     sh = bootstrap.seed;
@@ -135,6 +144,7 @@ let
       ;
     platform = plat;
     pkgs = self;
+    inherit on;
   };
   readSources = import ./sources.nix {
     unpacker = bootstrap.seed;

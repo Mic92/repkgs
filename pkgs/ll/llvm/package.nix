@@ -5,6 +5,7 @@
   pkgs,
   buildPkgs,
   platform,
+  on,
 }:
 package {
   name = "llvm";
@@ -13,12 +14,9 @@ package {
   cmake.defs =
     import ./defs.nix
     # the nested NATIVE configure (tblgen) would pick the target cc
-    // (
-      if platform.cross then
-        { CROSS_TOOLCHAIN_FLAGS_NATIVE = "-DCMAKE_C_COMPILER=cc-build;-DCMAKE_CXX_COMPILER=c++-build"; }
-      else
-        { }
-    );
+    // on platform.cross {
+      CROSS_TOOLCHAIN_FLAGS_NATIVE = "-DCMAKE_C_COMPILER=cc-build;-DCMAKE_CXX_COMPILER=c++-build";
+    };
   dependencies = [
     pkgs.zlib
     pkgs.zstd

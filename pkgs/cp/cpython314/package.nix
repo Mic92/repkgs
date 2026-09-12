@@ -4,6 +4,7 @@
   pkgs,
   platform,
   buildPkgs,
+  on,
 }:
 package {
   name = "cpython314";
@@ -34,6 +35,6 @@ package {
     pkgs.expat
     pkgs.sqlite
   ];
-  buildDependencies = if platform.cross then [ buildPkgs.cpython ] else [ ];
+  buildDependencies = on platform.cross [ buildPkgs.cpython ];
   bin = [ "python3" ];
 }

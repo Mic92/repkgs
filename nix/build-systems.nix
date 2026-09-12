@@ -15,6 +15,7 @@
   platform,
   fetch,
   sh,
+  on,
 }:
 let
   opt = type: default: doc: {
@@ -193,7 +194,7 @@ builtins.mapAttrs
       # `cargo.tool = buildPkgs.rust-bootstrap` for what must exist before llvm and rust are
       # built (formatelf, git). Cross: std for the target is its own package, <tool>-std
       tool = buildPkgs.rust;
-      tools = spec: if platform.cross then [ pkgs."${spec.cargo.tool.pname}-std" ] else [ ];
+      tools = spec: on platform.cross [ pkgs."${spec.cargo.tool.pname}-std" ];
       lock.deps = fetch.cargoVendor;
       options = {
         features = strs [ ] "--features";
