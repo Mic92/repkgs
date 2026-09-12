@@ -25,6 +25,12 @@ def unpack [archive: path, dest: path]: nothing -> nothing {
   let stage = $"($dest).unpack"
   mkdir $stage
   ^bsdtar -xf $archive -C $stage --no-same-owner --no-same-permissions
+  # a .deb: the tree is the data.tar member
+  let data = (ls $stage | where name =~ '/data\.tar\.[a-z0-9]+$')
+  if ($data | length) == 1 and ($"($stage)/debian-binary" | path exists) {
+    ^bsdtar -xf $data.0.name -C $stage --no-same-owner --no-same-permissions
+    rm -f $data.0.name $"($stage)/debian-binary" ...(ls $stage | where name =~ '/control\.tar' | get name)
+  }
   ^chmod -R u+w,a-st $stage
   let top = (ls -a $stage)
   if ($top | length) == 1 and $top.0.type == dir {
