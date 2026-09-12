@@ -147,7 +147,8 @@ def with-hashes [t: record<source: list<any>>, pin: record, known: record = {}]:
     let p = (if $hash != null { {hash: $hash, sys: []} } else { prefetch $url ($s.unpack? | default true) })
     {source: ($s | upsert hash $p.hash), sys: $p.sys}
   })
-  let sys = ($fetched.sys | flatten | uniq | sort)
+  # [locks] hackage: no lock file in the tree, sys is the lock step's (set-sys) and kept here
+  let sys = (if $t.locks?.hackage? != null { $t.pin?.sys? | default [] } else { $fetched.sys | flatten | uniq | sort })
   if ($sys | is-not-empty) { print -e $"  sys: ($sys | str join ' ')" }
   let pin = ($pin | reject -o sys | if ($sys | is-empty) { $in } else { $in | insert sys $sys })
   $t | update source $fetched.source | upsert pin $pin
@@ -157,6 +158,14 @@ def with-hashes [t: record<source: list<any>>, pin: record, known: record = {}]:
 def save-toml [file: path]: record -> nothing {
   $in | save -f $file
   if (which taplo | is-not-empty) { ^taplo format $file o+e>| ignore }
+}
+
+# [pin] sys = `sys` for ecosystems whose lock lives outside the source (locks.nu add)
+export def set-sys [pkg: record<file: string>, sys: list<string>]: nothing -> nothing {
+  let t = (open $pkg.file)
+  if ($t.pin?.sys? | default []) == $sys { return }
+  print -e $"  sys: ($sys | str join ' ')"
+  $t | update pin { reject -o sys | if ($sys | is-empty) { $in } else { $in | insert sys $sys } } | save-toml $pkg.file
 }
 
 # re-prefetch every source at the current pin (after editing a url, or for sys), no version change

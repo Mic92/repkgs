@@ -85,6 +85,17 @@ export const TABLES = {
     "charlock_holmes": {pkg: icu, env: {}, flags: ["--with-icu-dir={root}"]}
     gpgme: {pkg: gpgme, env: {RUBY_GPGME_USE_SYSTEM_LIBRARIES: "1"}, flags: ["--use-system-libraries"]}
   }
+  # hackage package names (extra-libraries / pkgconfig-depends). No lock file in the source: the
+  # names come from the solved plan, uptrack `lock` writes sys and cabal.nu checks plan.json
+  hackage: {
+    zlib: {pkg: zlib, env: {}}
+    digest: {pkg: zlib, env: {}}
+    lzma: {pkg: xz, env: {}}
+    "pcre-light": {pkg: pcre2, env: {}}
+    HsOpenSSL: {pkg: openssl, env: {}}
+    "text-icu": {pkg: icu, env: {}}
+    libsodium: {pkg: libsodium, env: {}}
+  }
 }
 
 # --- lock side: uptrack writes [pin] sys, the build checks it --------------------------------------
@@ -100,24 +111,29 @@ def locked [ecosystem: string, f: path]: nothing -> list<string> {
   }
 }
 
+# our packages the locked `names` of one ecosystem can link, sorted
+export def wanted-for [ecosystem: string, names: list<string>]: nothing -> list<string> {
+  $TABLES | get $ecosystem | transpose locked entry | where locked in $names | get entry.pkg | uniq | sort
+}
+
 # our packages the lock files in `dir` can link, sorted: what [pin] sys should say
 export def wanted [dir: path]: nothing -> list<string> {
   $LOCKS | items {|eco, file|
     let f = ($dir | path join $file)
-    if not ($f | path exists) { return [] }
-    let names = (locked $eco $f)
-    $TABLES | get $eco | transpose locked entry | where locked in $names | get entry.pkg
+    if ($f | path exists) { wanted-for $eco (locked $eco $f) } else { [] }
   } | flatten | uniq | sort
 }
 
 # build time: the lock can link libraries [pin] sys does not name -> the pin is stale. null: no
 # sources.toml, dependencies are by hand. (Names the set lacks on this platform are fine:
 # nix/package.nix drops those and the locked package vendors)
-export def check [dir: path, sys: any]: nothing -> nothing {
+export def check [dir: path, sys: any]: nothing -> nothing { check-names (wanted $dir) $sys rehash }
+
+export def check-names [wanted: list<string>, sys: any, cmd: string]: nothing -> nothing {
   if $sys == null { return }
-  let missing = (wanted $dir | where $it not-in $sys)
+  let missing = ($wanted | where $it not-in $sys)
   if ($missing | is-not-empty) {
-    error make {msg: $"sys-libs: the lock can link ($missing | str join ', '), missing from [pin] sys in sources.toml. `repkgs update rehash <pkg>` rewrites it"}
+    error make {msg: $"sys-libs: the lock can link ($missing | str join ', '), missing from [pin] sys in sources.toml. `repkgs update ($cmd) <pkg>` rewrites it"}
   }
 }
 

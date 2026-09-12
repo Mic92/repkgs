@@ -6,6 +6,7 @@ use lock-go.nu
 use lock-hackage.nu
 use lock-luarocks.nu
 use pipeline.nu
+use ../../../../builder/sys-libs.nu
 
 # entries of <dir>/<eco>.toml, {} when absent
 export def read [dir: path, eco: string]: nothing -> record {
@@ -59,6 +60,8 @@ export def add [pkg: record]: nothing -> table<eco: string, keys: list<string>> 
     let new = ($old | merge $mine)
     print -e $"  ($eco): ($mine | columns | length) entries, (($new | columns | length) - ($old | columns | length)) new"
     write (dir) $eco $new
+    # no lock file in the source for prefetch to read: sys comes from the solved names
+    if $eco == "hackage" { pipeline set-sys $pkg (sys-libs wanted-for hackage ($mine | columns)) }
     {eco: $eco, keys: ($mine | columns)}
   }
 }

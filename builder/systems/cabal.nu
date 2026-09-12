@@ -1,4 +1,5 @@
 use ../core.nu *
+use ../sys-libs.nu
 
 # cabal v2-build against the set's shared hackage repository (locks/hackage.toml), with
 # ghc-bootstrap. Dependencies are cached per unit: cabal's unit-id already hashes source, flags,
@@ -50,13 +51,13 @@ export def workdir []: nothing -> string { project-dir cabal }
 def targets [o: record]: nothing -> list<string> { $o.flags ++ ($o.exes | each {|e| $"exe:($e)" }) }
 
 # dependency units of the build plan
-def plan-units []: nothing -> list<string> {
-  open (files dist-newstyle/cache/plan.json | first) | get install-plan | where type == "configured" and style? == "global" | get id
+def plan []: nothing -> table {
+  open (files dist-newstyle/cache/plan.json | first) | get install-plan | where type == "configured" and style? == "global"
 }
 
 # cached units -> the store, before cabal builds
 def restore [c: record]: nothing -> nothing {
-  let units = (plan-units)
+  let units = (plan | get id)
   let got = ($units | par-each --threads $c.njobs {|id|
     let tar = $"($c.build)/($id).tar.zst"
     if (^jig cache get $"hs:($id)" $tar | complete).exit_code == 0 {
@@ -87,6 +88,8 @@ def save-units [c: record, before: list<string>]: nothing -> nothing {
 export def build []: nothing -> nothing {
   let c = (ctx); let o = (options cabal)
   cabal build --dry-run ...(targets $o)
+  # hackage packages that bind a C library need it among dependencies ([pin] sys, sys-libs.nu)
+  sys-libs check-names (sys-libs wanted-for hackage (plan | get pkg-name)) $c.spec.sys lock
   if $c.cache { restore $c }
   let before = (ls -s (unit-dir) | get name)
   cabal build ...(targets $o)
