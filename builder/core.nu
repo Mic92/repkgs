@@ -146,8 +146,8 @@ export def write-launcher [name: string, program: string, args: list<string>, va
 export def fix-env-shebangs [dir: path, njobs: int = 4, --undo]: nothing -> nothing {
   let ours = $"#!(tool env)"
   let pair = (if $undo { [$ours "#!/usr/bin/env"] } else { ["#!/usr/bin/env" $ours] } | each { into binary })
-  # find does the walk and the executable/size filter in one process: nu stat-ing 180k llvm files
-  # on all cores took 20s, this 1.5s. More than 16 threads only contend on the page cache
+  # find walks and filters in one process (nu stat-ing llvm's 180k files takes 20s, this 1.5s);
+  # above 16 threads only the page cache contends
   # installers drop the x bit (wheels into site-packages), the line stays
   ^find $dir -type f ...(if $undo { [] } else { [-perm -u+x] }) -size -1024k -printf '%T@ %p\n' | lines
   | par-each --threads ([$njobs 16] | math min) {|l|

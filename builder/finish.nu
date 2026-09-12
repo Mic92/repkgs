@@ -41,10 +41,9 @@ def version-check [c: record]: nothing -> nothing {
   let cmd = (if $words.0 in $bins { $words } else { $bins | first 1 | append $words })
   let want = ($c.spec.version | str replace -r '-r[0-9]+$' "")
   let audit_out = $"($env.NIX_BUILD_TOP)/dlaudit.txt"
-  # for the target's loader only: through qemu-user's -E, not the emulator's own environment
-  # the audit namespace's own libc takes static TLS from the surplus: librustc_driver no longer
-  # fit the default. The surplus is reserved on every thread's stack, so not much more (deno's
-  # tokio workers overflowed at 2M)
+  # for the target's loader only: through qemu-user's -E, not the emulator's own environment.
+  # The audit namespace's libc takes static TLS from the surplus (librustc_driver needs more than
+  # the default); it comes off every thread's stack, so 64K not more (tokio workers have 2M)
   let audit = ([$"LD_AUDIT=($c.platform.dlaudit)" $"DLAUDIT_OUT=($audit_out)" "GLIBC_TUNABLES=glibc.rtld.optional_static_tls=0x10000"]
     | where { $c.platform.dlaudit != "" }
     | each {|e| if ($c.platform.emulator | is-empty) { [$e] } else { [-E $e] } } | flatten)
@@ -166,7 +165,7 @@ export def main [
     if not ($"($c.out)/bin/($b)" | path exists) { error make {msg: $"bin/($b) missing in output"} }
   }
   for f in (files $"($c.out)/**/*.la") { rm $f }
-  # no separate doc outputs (yet): HTML/info docs are never read from a store path, man pages stay
+  # HTML/info docs are never read from a store path, man pages stay
   for d in [share/doc share/info share/gtk-doc] { rm -rf $"($c.out)/($d)" }
   # precompiled headers pin absolute header paths: fine in a build tree, broken once installed
   let pch = (files $"($c.out)/**/*.{pch,gch}")

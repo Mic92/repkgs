@@ -10,8 +10,8 @@ export def --env setup []: nothing -> nothing {
 
 export def workdir []: nothing -> string { if (options autotools).outOfTree { (ctx).build } else { project-dir autotools } }
 
-# gnulib's gettext.h without NLS: `((void) d, gettext (s))`. clang no longer sees a string
-# literal behind the comma operator and -Werror=format-security rejects every _("...")
+# gnulib's gettext.h without NLS: `((void) d, gettext (s))`. clang sees no string literal
+# behind the comma operator and -Werror=format-security rejects every _("...")
 def gnulib-gettext-literal [src: string]: nothing -> nothing {
   const FALLBACK = "((void) (Domainname), gettext (Msgid))"
   for f in (files $"($src)/**/gettext.h" | where { open --raw $in | str contains $FALLBACK }) {

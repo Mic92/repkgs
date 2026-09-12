@@ -3,8 +3,8 @@
 # Used for every script (the record names its interpreter), and for programs too when a
 # dependency contributes PATH entries or env defaults.
 #
-# `prebuilt = "ldso"` packages (rust-bootstrap, which formatelf itself is built with) also go
-# through here: the upstream ELF stays untouched and its launcher runs it as
+# `prebuilt = "ldso"` packages (rust-bootstrap: formatelf is built with it) also go through
+# here: the upstream ELF stays untouched and its launcher runs it as
 #   <sysroot>/lib/ld.so --argv0 bin/foo --library-path <libc and deps> bin/.foo
 # argv[0] still says bin/foo, which rustc needs to find its sysroot.
 
