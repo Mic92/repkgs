@@ -105,13 +105,13 @@ export def stdInstall []: nothing -> nothing {
   let c = (ctx)
   # x.py install has no stage 0 path. bootstrap only recognises cargo's old target/deps layout,
   # so with the current one the stage0 sysroot gets self-contained/ and nothing else: take that,
-  # and the hashed rlibs from where cargo now puts them
+  # and the hashed rlibs (metadata split into .rmeta) from where cargo now puts them
   let host = (^rustc -vV | lines | parse "host: {t}" | get t.0)
   let triple = $c.platform.rustTriple
   let lib = $"lib/rustlib/($triple)/lib"
   mkdir $"($c.out)/($lib | path dirname)"
   cp -r $"($c.build)/($host)/stage0-sysroot/($lib)" $"($c.out)/($lib)"
-  let built = (glob $"($c.build)/($host)/stage0-std/($triple)/dist/build/*/*/out/*.{rlib,so}")
-  if ($built | is-empty) { error make {msg: "rust.stdInstall: no target rlibs under stage0-std"} }
-  for f in $built { cp $f $"($c.out)/($lib)/" }
+  for f in (glob $"($c.build)/($host)/stage0-std/($triple)/dist/build/*/*/out/*.{rlib,rmeta,so}") { cp $f $"($c.out)/($lib)/" }
+  # natively x.py builds nothing and the sysroot copy above is already the whole std
+  if (glob $"($c.out)/($lib)/*.rlib" | is-empty) { error make {msg: $"rust.stdInstall: no ($triple) rlibs"} }
 }
