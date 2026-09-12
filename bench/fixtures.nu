@@ -101,3 +101,39 @@ export def jig-log [file: path, lines: int = 20000]: nothing -> path {
     | str join "\n" | save -f $file
   $file
 }
+
+# an installed prefix like a library package with tools: DWARF ELFs (build-id) in bin/ and lib/,
+# archives, headers, python files, man pages (some gzipped), .la files, absolute self symlinks
+export def output [out: path, seed: path, elfs: int = 120, data: int = 3000]: nothing -> path {
+  rm -rf $out
+  for d in [bin lib/pkgconfig lib/python3/site-packages/pkg include/pkg share/man/man1 share/doc/pkg] { mkdir $"($out)/($d)" }
+  let src = $"($out)/../fixture.c"
+  # some DWARF bulk so objcopy has work
+  (0..<200 | each {|i| $"struct s($i) { int a[($i + 1)]; double b; }; int f($i)\(struct s($i) *p) { return p->a[0] + ($i); }" } | str join "\n") + "\nint entry(void) { return 0; }\n" | save -f $src
+  let so = $"($out)/lib/libfix.so"
+  ^$"($seed)/bin/clang" -g -O0 -shared -fPIC -nostdlib -Wl,--build-id=sha1 $src -o $so
+  ^$"($seed)/bin/clang" -g -O0 -c $src -o $"($out)/lib/fix.o"
+  ^$"($seed)/bin/llvm-ar" rc $"($out)/lib/libfix.a" $"($out)/lib/fix.o"
+  rm $"($out)/lib/fix.o"
+  # distinct build-ids: relink with a different symbol each
+  for i in 0..<$elfs {
+    let dir = (if $i mod 3 == 0 { "bin" } else { "lib" })
+    ^$"($seed)/bin/clang" -g -O0 -shared -fPIC -nostdlib -Wl,--build-id=sha1 $"-Wl,--defsym=id($i)=entry" $src -o $"($out)/($dir)/elf($i).so"
+  }
+  for i in 0..<$data {
+    match ($i mod 6) {
+      0 => { $"#!(which env | get 0.path) python3\nprint\(($i))\n" | save -f $"($out)/lib/python3/site-packages/pkg/m($i).py" }
+      1 => { $"#define X($i) ($i)\n" | save -f $"($out)/include/pkg/h($i).h" }
+      2 => { $".TH t($i) 1\n" | save -f $"($out)/share/man/man1/t($i).1" }
+      3 => { $"doc ($i)\n" | save -f $"($out)/share/doc/pkg/d($i).txt" }
+      4 => { $"data ($i)\n" | save -f $"($out)/lib/python3/site-packages/pkg/d($i).dat" }
+      _ => { $"# libtool\n" | save -f $"($out)/lib/l($i).la" }
+    }
+  }
+  for i in 0..<20 { ^gzip -n $"($out)/share/man/man1/t(2 + 6 * $i).1" }
+  # absolute into the prefix as the benches see it (a copy at <out>.run)
+  for i in 0..<60 { ^ln -s $"($out).run/lib/elf(1 + 3 * ($i mod 30)).so" $"($out)/lib/link($i).so" }
+  "Name: fix\n" | save -f $"($out)/lib/pkgconfig/fix.pc"
+  ^chmod -R u+w $out
+  $out
+}

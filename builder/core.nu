@@ -77,7 +77,7 @@ export def edit [f: path, change: closure]: nothing -> nothing {
 }
 
 # starts with \x7fELF
-export def is-elf [f: path]: nothing -> bool { (open --raw $f | into binary | bytes at 0..<4) == 0x[7f 45 4c 46] }
+export def is-elf [f: path]: nothing -> bool { (open --raw $f | first 4) == 0x[7f 45 4c 46] }
 
 def existing [root: path, rels: list<string>]: nothing -> list<string> { $rels | where {|d| $"($root)/($d)" | path exists } }
 
@@ -140,23 +140,23 @@ export def write-launcher [name: string, program: string, args: list<string>, va
 }
 
 # no /usr/bin/env in the sandbox: point such scripts at the build PATH's env (build tree only;
-# finish turns installed copies back with --undo and bin/ scripts get launchers). mtimes are kept:
-# a generator script newer than its shipped output makes make regenerate it (coreutils'
-# cu-progs.m4 -> aclocal, ruby's prism templates -> baseruby)
+# finish turns installed copies back with --undo and bin/ scripts get launchers). mtimes are kept
+# in the build tree: a generator script newer than its shipped output makes make regenerate it
+# (coreutils' cu-progs.m4 -> aclocal, ruby's prism templates -> baseruby)
 export def fix-env-shebangs [dir: path, njobs: int = 4, --undo]: nothing -> nothing {
   let ours = $"#!(tool env)"
-  let pair = (if $undo { [$ours "#!/usr/bin/env"] } else { ["#!/usr/bin/env" $ours] } | each { into binary })
-  # find walks and filters in one process (nu stat-ing llvm's 180k files takes 20s, this 1.5s);
-  # above 16 threads only the page cache contends
-  # installers drop the x bit (wheels into site-packages), the line stays
-  ^find $dir -type f ...(if $undo { [] } else { [-perm -u+x] }) -size -1024k -printf '%T@ %p\n' | lines
-  | par-each --threads ([$njobs 16] | math min) {|l|
-    let p = ($l | parse '{mtime} {f}' | first)
-    let bytes = (open --raw $p.f | into binary)
-    if ($bytes | bytes starts-with $pair.0) {
-      ^chmod u+w $p.f
-      $pair.1 ++ ($bytes | bytes at ($pair.0 | bytes length)..) | save -f --raw $p.f
-      ^touch -d $"@($p.mtime)" $p.f
+  let pair = (if $undo { [$ours "#!/usr/bin/env"] } else { ["#!/usr/bin/env" $ours] })
+  # grep narrows to candidates in one process, installers drop the x bit so --undo looks at all
+  let hits = (^find $dir -type f ...(if $undo { [] } else { [-perm -u+x] }) -size -1024k -exec grep -l $"^($pair.0)" '{}' + | complete | get stdout | lines)
+  if ($hits | is-empty) { return }
+  let hits = (^find ...$hits -printf '%T@\t%p\n' | lines | split column "\t" mtime f)
+  ^chmod u+w ...$hits.f
+  let done = ($hits | par-each --threads ([$njobs 16] | math min) {|h|
+    let bytes = (open --raw $h.f | into binary)
+    if ($bytes | bytes starts-with ($pair.0 | into binary)) {
+      ($pair.1 | into binary) ++ ($bytes | bytes at ($pair.0 | str length)..) | save -f --raw $h.f
+      $h
     }
-  } | ignore
+  })
+  if not $undo { for g in ($done | group-by mtime --to-table) { ^touch -d $"@($g.mtime)" ...$g.items.f } }
 }
