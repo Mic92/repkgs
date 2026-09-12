@@ -10,3 +10,4 @@ hash = "sha256-dZc06dujrnUAlfZrwFOBas9EnBMo1qtrYQwLhWctyHg="
 version = "0.26.11"
 tag = "v0.26.11"
 date = "2026-08-20"
+sys = ["libyaml"]

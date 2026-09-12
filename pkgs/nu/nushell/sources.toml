@@ -10,3 +10,13 @@ hash = "sha256-qndvtW1yD4n++LpGp+ucQVNqIm8jgcrM3M4O5q5WDgk="
 version = "0.115.1"
 tag = "0.115.1"
 date = "2026-08-23"
+sys = [
+  "curl",
+  "libclang",
+  "libgit2",
+  "lz4",
+  "openssl",
+  "sqlite",
+  "zlib",
+  "zstd",
+]

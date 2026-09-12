@@ -5,8 +5,8 @@ use ../sys-libs.nu
 #   $out/lib/<name>/                the application tree, gems under vendor/bundle (deployment layout)
 #   $out/bin/<exe>                  stubs that start our ruby with that bundle and load exe/<exe>
 # Native extensions compile with the cc on PATH (mkmf takes CC from rbconfig, which says "cc").
-# Gems that can link one of our libraries get it via the lock: fetch.gems propagates the library,
-# sys-libs.nu supplies `bundle config build.<gem>` flags and env.
+# Gems that can link one of our libraries (a dependency, from [pin] sys) get `bundle config
+# build.<gem>` flags and env from sys-libs.nu.
 def app-dir []: nothing -> string { let c = (ctx); $"($c.out)/lib/($c.spec.name)" }
 
 # mkmf runs on the host ruby but must describe the target: its rbconfig.rb first on RUBYLIB,
@@ -38,6 +38,7 @@ export def --env setup []: nothing -> nothing {
     BUNDLE_USER_HOME: $"($c.build)/bundle-home", GEM_HOME: $"($c.build)/gem-home"
     MAKEFLAGS: $"-j($c.njobs)"
   }
+  sys-libs check $app $c.spec.sys
   load-env (sys-libs env-for gems $c.deps)
   load-env (gem-build-env $c.deps)
   cross-rbconfig

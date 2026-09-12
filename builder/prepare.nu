@@ -56,9 +56,7 @@ export def --env main [
   let out = (if $from_tree == "" { $a.outputs.out } else { $a.package })
   $env.PKGS_RESULT = $a.outputs.out
   let njobs = ($env.NIX_BUILD_CORES? | default "4" | into int)
-  # the fetched trees of locked dependencies (`<bs>.deps`) are dependencies too: they propagate
-  # the libraries their locked packages link (sys-libs.nu)
-  let deps = (dep-closure ($a.dependencies ++ ($spec.uses? | default [] | each {|u| $spec | get -o $u | get -o deps } | compact)))
+  let deps = (dep-closure $a.dependencies)
   env $a $deps $out
   let plat = (resolve-platform $a.platform)
   let cache = ($"($env.NIX_STORE | path dirname)/var/nix/jigd/socket" | path exists)

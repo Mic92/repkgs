@@ -5,7 +5,7 @@
 # and python) and picks one artefact per package the way uv2nix does with sourcePreference =
 # "wheel": a compatible wheel when the lock has one, else the sdist. Packages that must link one of
 # our libraries (sys-libs.nu) and pyproject's `tool.uv.no-binary-package` are built from sdist.
-# Output: { dist/<file>…, plan.json [{name, version, file, kind}], exports.json }, installed by
+# Output: { dist/<file>…, plan.json [{name, version, file, kind}] }, installed by
 # builder/pyapp.nu.
 use dyn-drv.nu
 use ../pep508.nu
@@ -22,7 +22,6 @@ def main []: nothing -> nothing {
   let packages = ($lock.package | group-by name)
   let names = (runtime-closure $lock $pyproject ($env.extras | split row "," | where $it != ""))
   let force_sdist = (($pyproject.tool?.uv?.no-binary-package? | default []) ++ (sys-libs sdist-packages))
-  let libs = (sys-libs pick python $names $env.sysLibs)
 
   let plan = ($names | par-each --keep-order {|name|
     let package = ($packages | get $name | first)
@@ -35,9 +34,8 @@ def main []: nothing -> nothing {
   let layout = [
     ...($plan | each {|p| {link: $p.out, to: $"dist/($p.file)"} })
     (dyn-drv json-file plan.json ($plan | select name version file kind))
-    (dyn-drv json-file exports.json (sys-libs exports python-deps $libs))
   ]
-  dyn-drv collect python-deps $layout (($plan | get drv) ++ ($libs | get -o drv | default []))
+  dyn-drv collect python-deps $layout ($plan | get drv)
 }
 
 # names of every package the project needs at run time: breadth-first from the project's own

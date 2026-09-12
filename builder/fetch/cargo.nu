@@ -1,13 +1,8 @@
 #!/usr/bin/env nu
 # Producer for fetch.cargoVendor { source }: reads Cargo.lock from the source and emits one
 # builtin:fetchurl per registry crate (hash = the lock's checksum, so no hash of ours) plus a
-# cargo-vendor derivation unpacking them into the layout [source.vendored] wants. `sysLibs` is a
-# JSON map name -> {drv, out} of library packages (only their .drv files are inputs of this
-# producer, nothing is built for it); those that a -sys crate in the lock wants (sys-libs.nu)
-# become inputs of cargo-vendor and are listed in its exports.json `propagate`, so the package
-# build sees exactly them as dependencies without naming them in package.nix.
+# cargo-vendor derivation unpacking them into the layout [source.vendored] wants.
 use dyn-drv.nu
-use ../sys-libs.nu
 
 const CRATES_IO = "registry+https://github.com/rust-lang/crates.io-index"
 
@@ -22,11 +17,6 @@ def main []: nothing -> nothing {
     {dir: $"($c.name)-($c.version)", checksum: $c.checksum, file: $"($c.name)-($c.version).tar.gz"
       url: $"https://static.crates.io/crates/($c.name)/($c.name)-($c.version).crate", sha256: $c.checksum}
   } | dyn-drv fetchurls)
-  let picked = (sys-libs pick cargo ($packages | get name) $env.sysLibs)
-  let layout = [
-    ...($crates | each {|c| [{unpack: $c.out, to: $c.dir} (dyn-drv json-file $"($c.dir)/.cargo-checksum.json" {files: {}, package: $c.checksum})] } | flatten)
-    # a dependency record for prepare.nu: nothing to link here, the libraries ride along as propagated
-    (dyn-drv json-file exports.json (sys-libs exports cargo-vendor $picked))
-  ]
-  dyn-drv collect cargo-vendor $layout (($crates | get drv) ++ ($picked | get -o drv | default []))
+  let layout = ($crates | each {|c| [{unpack: $c.out, to: $c.dir} (dyn-drv json-file $"($c.dir)/.cargo-checksum.json" {files: {}, package: $c.checksum})] } | flatten)
+  dyn-drv collect cargo-vendor $layout ($crates | get drv)
 }

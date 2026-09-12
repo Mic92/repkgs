@@ -4,11 +4,10 @@
 # Gemfile.lock's CHECKSUMS section (Bundler >= 2.6, `bundle lock --add-checksums`) lists
 #   name (version[-platform]) sha256=<hex>
 # per gem. Pure-ruby gems and those prebuilt for our platform become builtin:fetchurl derivations
-# from rubygems.org. Output: { vendor/cache/*.gem, Gemfile.lock, exports.json }, which is what
-# `bundle install --local` reads (builder/bundler.nu); exports.json propagates the libraries the
-# locked gems link (sys-libs.nu). `lockFile` is for upstreams that commit no Gemfile.lock.
+# from rubygems.org. Output: { vendor/cache/*.gem, Gemfile.lock }, which is what
+# `bundle install --local` reads (builder/bundler.nu). `lockFile` is for upstreams that commit
+# no Gemfile.lock.
 use dyn-drv.nu
-use ../sys-libs.nu
 
 const RUBYGEMS = "https://rubygems.org/gems"
 
@@ -18,7 +17,6 @@ def main []: nothing -> nothing {
   let gems = (checksums $lock)
   # bundler installs the platform gem when both it and the ruby one are cached, so ship both
   let ours = ($gems | where platform in ["" $env.gemPlatform $"($env.gemPlatform)-gnu"])
-  let libs = (sys-libs pick gems ($gems | get name | uniq) $env.sysLibs)
 
   let fetched = ($ours | each {|gem|
     let file = $"($gem.name)-($gem.version)(if $gem.platform != "" { $"-($gem.platform)" }).gem"
@@ -27,9 +25,8 @@ def main []: nothing -> nothing {
   let layout = [
     ...($fetched | each {|g| {link: $g.out, to: $"vendor/cache/($g.file)"} })
     {write: $lock, to: "Gemfile.lock"}
-    (dyn-drv json-file exports.json (sys-libs exports gems $libs))
   ]
-  dyn-drv collect gems $layout (($fetched | get drv) ++ ($libs | get -o drv | default []))
+  dyn-drv collect gems $layout ($fetched | get drv)
 }
 
 # [{name, version, platform, sha256}] from the CHECKSUMS section; the application's own PATH gem

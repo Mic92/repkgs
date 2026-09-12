@@ -15,12 +15,13 @@ export def --env setup []: nothing -> nothing {
     # cross: cc already targets the platform, go needs GOARCH; build-machine helpers use CC_FOR_BUILD
     GOOS: $c.platform.osNames.go, GOARCH: $c.platform.names.go
   }
+  sys-libs check (project-dir go) $c.spec.sys
 }
 
 export def workdir []: nothing -> string { project-dir go }
 
 # cgo builds link through cc so RUNPATH/interp policy and fixup apply (cgo=false: static, internal linker).
-# cgo modules whose library the modules tree propagated get their "use the system one" tags (sys-libs.nu).
+# cgo modules whose library is among the dependencies get their "use the system one" tags (sys-libs.nu).
 # -B gobuildid: a GNU build-id for finish.nu's debug split
 def common-args [o: record<tags: list<string>, ldflags: list<string>, cgo: bool, flags: list<string>>]: nothing -> list<string> {
   let c = (ctx)

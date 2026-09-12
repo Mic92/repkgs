@@ -20,6 +20,7 @@ export def --env setup []: nothing -> nothing {
     PYTHONPATH: ([(site-packages)] ++ (tool-site-packages) | str join ":")
     PYTHONDONTWRITEBYTECODE: "1", PYTHONNOUSERSITE: "1", PIP_NO_INDEX: "1"
   }
+  sys-libs check (project-dir pyapp) $c.spec.sys
   load-env (sys-libs env-for python $c.deps)
 }
 

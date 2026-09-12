@@ -58,7 +58,7 @@ export def stage [name: string, script: string, attrs: record, inputs: list<stri
 # the seed's nu that lays out `layout`, a list of
 #   {link: <store file>, to: <rel path>}                         symlink
 #   {unpack: <tarball>, to: <rel dir>}                            bsdtar --strip-components 1
-#   {write: <text>, to: <rel path>}                               literal file (index.json, exports.json, …)
+#   {write: <text>, to: <rel path>}                               literal file (index.json, plan.json, …)
 #   {copy: <store file>, append: <text>, to: <rel path>}           the file's bytes with a text trailer (deno's cache format)
 # `inputs` are the .drv paths whose outputs `layout` refers to (plus propagated libraries).
 # `--script`: a sibling of this file to run instead, with `attrs` as structured attrs, for

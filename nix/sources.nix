@@ -153,6 +153,8 @@ let
     in
     {
       inherit version tag fetch;
+      # our libraries the lock file links (builder/sys-libs.nu), written by uptrack
+      sys = pinned.sys or [ ];
       has = key: byKey ? ${key};
       default = fetch "default";
       # the same file under another pin (nix/package.nix, for overrides)

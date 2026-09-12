@@ -10,3 +10,4 @@ hash = "sha256-lBWYklstPu8ltF3JEPmr+FbMRoD+ax8ji9oTSlYhamM="
 version = "1.98.1"
 date = "2026-09-03"
 tag = "1.98.1"
+sys = ["curl", "jemalloc", "libffi", "libgit2", "openssl", "xz", "zlib"]

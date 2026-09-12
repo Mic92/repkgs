@@ -2,10 +2,10 @@
 # it (`pkg`) and how the build is told to use it instead of a bundled copy (`env`, plus `tags` for
 # go and `flags` for bundler; `{root}` stands for the library's store path).
 #
-# default.nix offers the producers every `pkg:` below that exists as a package; a producer `pick`s the
-# ones its lock file names and propagates them through its output's exports.json, so the package
-# build has them as dependencies without package.nix listing them. The build-system module then
-# applies `env-for`/`go-tags`/`gem-build-flags` for whatever libraries are present.
+# Decided when the package is pinned: uptrack looks the lock files of the tree it just hashed up
+# here (`wanted`) and writes `sys = [..]` into [pin] of sources.toml, nix/package.nix makes those
+# dependencies. At build time the build-system module applies `env-for`/`go-tags`/
+# `gem-build-flags` for the libraries present and `check`s the lock still agrees with sys.
 #
 # Explicit on purpose: linking a system library is a decision. Packages that only ever vendor
 # (ring, aws-lc-sys, modernc.org/sqlite) or are plain OS bindings have no entry.
@@ -87,28 +87,41 @@ export const TABLES = {
   }
 }
 
-# --- producer side (fetch/*.nu): which of the offered libraries does this lock want ----------------
+# --- lock side: uptrack writes [pin] sys, the build checks it --------------------------------------
 
-# `sys_libs_file` is nix/fetch.nix's {name: {drv, out}}; `locked` the package names in the lock.
-# Returns [{name, drv, out}] for every library some locked package maps to; names the set does
-# not provide are reported (that dependency will then vendor its copy or fail to build)
-export def pick [ecosystem: string, locked: list<string>, sys_libs_file: path]: nothing -> table {
-  let offered = (open $sys_libs_file)
-  let table = ($TABLES | get $ecosystem)
-  let wanted = ($table | transpose locked entry | where locked in $locked | get entry.pkg | uniq | sort)
-  let missing = ($wanted | where $it not-in $offered)
-  if ($missing | is-not-empty) { print -e $"sys-libs: ($missing | str join ', ') wanted by the lock but not in sysLibs" }
-  let picked = ($wanted | where $it in $offered | each {|name| {name: $name} | merge ($offered | get $name) })
-  if ($picked | is-not-empty) { print -e $"sys-libs: ($picked | get name | str join ' ')" }
-  $picked
+const LOCKS = {cargo: Cargo.lock, go: go.sum, python: uv.lock, gems: Gemfile.lock}
+
+# package names in a lock file
+def locked [ecosystem: string, f: path]: nothing -> list<string> {
+  match $ecosystem {
+    "cargo" | "python" => { open --raw $f | from toml | get -o package | default [] | get name }
+    "go" => { open --raw $f | lines | where $it != "" | split column " " path | get path }
+    "gems" => { open --raw $f | lines | parse -r '^    (?<name>[A-Za-z0-9_.-]+) \(' | get name }
+  }
 }
 
-# the exports.json of a producer output: nothing to link itself, the picked libraries propagate
-export def exports [name: string, picked: list<record<name: string, drv: string, out: string>>]: nothing -> record {
-  {name: $name, includeDirs: [], libDirs: [], libs: [], pkgconfigDirs: [], aclocalDirs: [], propagate: ($picked | get -o out | default [])}
+# our packages the lock files in `dir` can link, sorted: what [pin] sys should say
+export def wanted [dir: path]: nothing -> list<string> {
+  $LOCKS | items {|eco, file|
+    let f = ($dir | path join $file)
+    if not ($f | path exists) { return [] }
+    let names = (locked $eco $f)
+    $TABLES | get $eco | transpose locked entry | where locked in $names | get entry.pkg
+  } | flatten | uniq | sort
 }
 
-# python packages that build from sdist whenever they appear (fetch-pypi.nu)
+# build time: the lock can link libraries [pin] sys does not name -> the pin is stale. null: no
+# sources.toml, dependencies are by hand. (Names the set lacks on this platform are fine:
+# nix/package.nix drops those and the locked package vendors)
+export def check [dir: path, sys: any]: nothing -> nothing {
+  if $sys == null { return }
+  let missing = (wanted $dir | where $it not-in $sys)
+  if ($missing | is-not-empty) {
+    error make {msg: $"sys-libs: the lock can link ($missing | str join ', '), missing from [pin] sys in sources.toml. `repkgs update rehash <pkg>` rewrites it"}
+  }
+}
+
+# python packages that build from sdist whenever they appear (fetch/pypi.nu)
 export def sdist-packages []: nothing -> list<string> { $TABLES.python | columns }
 
 # --- builder side (cargo.nu, go.nu, bundler.nu, pyapp.nu): configure for the libraries present ----

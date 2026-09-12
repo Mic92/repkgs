@@ -4,7 +4,6 @@
 # files plus the manifest-<lua major.minor> naming exactly those. One version per rock, so `luarocks make` against it
 # resolves every range to the locked version or fails loudly.
 use dyn-drv.nu
-use ../sys-libs.nu
 
 const LUAROCKS = "https://luarocks.org"
 
@@ -26,7 +25,6 @@ def main []: nothing -> nothing {
   let layout = [
     ...($files | each {|f| {link: $f.out, to: $f.to} })
     {write: $manifest, to: $"manifest-($env.luaVersion | split row "." | take 2 | str join ".")"}
-    (dyn-drv json-file exports.json (sys-libs exports luarocks-set []))
   ]
   dyn-drv collect luarocks-set $layout ($files | get drv)
 }

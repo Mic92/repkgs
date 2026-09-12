@@ -106,6 +106,8 @@ let
       ;
     # identity when there are none, so the common case allocates nothing per package
     edit = if overrideTree == { } then null else ov.apply self overrideTree;
+    # [pin] sys names resolve here
+    pkgs = self;
   };
 
   fetch = import ./fetch.nix {
@@ -114,21 +116,6 @@ let
     nu = bootstrap.seed;
     inherit system;
     inherit (plat) cpu;
-    # what the lock-file producers may hand to -sys crates, cgo modules, gems…: every `pkg:` that
-    # builder/sys-libs.nu names and the set has for this platform
-    sysLibs =
-      let
-        words = builtins.filter builtins.isList (
-          builtins.split "pkg: ([a-z0-9-]+)" (builtins.readFile ../builder/sys-libs.nu)
-        );
-        names = map builtins.head words;
-      in
-      builtins.listToAttrs (
-        map (n: {
-          name = n;
-          value = self.${n};
-        }) (builtins.filter (n: self ? ${n} && self.${n}.supported) names)
-      );
   };
 
   scope = {

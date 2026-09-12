@@ -18,8 +18,9 @@ export def --env setup []: nothing -> nothing {
   let host = (^rustc -vV | lines | parse "host: {t}" | get t.0)
   let target = $c.platform.rustTriple
   $env.CARGO_BUILD_TARGET = $target
-  # -sys crates: link our libraries (builder/sys-libs.nu); the vendor dir propagates the ones
-  # Cargo.lock asks for. pkg-config, their usual probe, refuses to answer under --target without ALLOW_CROSS
+  # -sys crates: link our libraries (builder/sys-libs.nu). pkg-config, their usual probe,
+  # refuses to answer under --target without ALLOW_CROSS
+  sys-libs check (project-dir cargo) $c.spec.sys
   let sys = (sys-libs env-for cargo $c.deps)
   load-env ({PKG_CONFIG_ALLOW_CROSS: "1"} | merge $sys)
   if ($sys | is-not-empty) { note sys-libs ($sys | columns | str join " ") }

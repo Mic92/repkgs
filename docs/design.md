@@ -115,8 +115,13 @@ is an error, not the old tarball. Archives are unpacked once into the store.
   (in jig), so no `nix` in the sandbox and no recursive Nix.
 - **Hashes a lock file lacks** (Go, Hackage, LuaRocks) live in one sorted `locks/<eco>.toml`,
   `merge=union`, filled by `uptrack lock`. A package's vendor derivation mentions only its subset.
-- **Native libraries behind locked deps** are matched at build time from a fixed menu
-  (`sysLibs`, `builder/sys-libs.nu`) and become real inputs. ripgrep never lists pcre2.
+- **Native libraries behind locked deps** are decided when the package is pinned: uptrack reads
+  the lock files in the source it just hashed, looks the names up in `builder/sys-libs.nu`
+  (openssl-sys -> openssl, mattn/go-sqlite3 -> sqlite) and writes `sys = [..]` into `[pin]`.
+  package.nix adds those the set has on the platform as ordinary dependencies, so eval, `info`,
+  `supported` and overrides see them, and ripgrep's package.nix still never lists pcre2. The
+  build system checks the lock against `sys`, so a lock that gained a -sys crate since is an
+  error naming `repkgs update`, not a vendored copy.
 - **Autoconf** probe results that are platform facts are pinned in `nix/config.site`.
 
 ## Relocatable outputs

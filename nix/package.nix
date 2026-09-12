@@ -13,6 +13,8 @@
   nu,
   # overrides applied to a spec before validation: name -> spec -> spec (nix/overrides.nix)
   edit,
+  # [pin] sys in sources.toml names packages of the set
+  pkgs,
   lib,
 }:
 let
@@ -470,6 +472,8 @@ let
   prebuilt = args.prebuilt or (any (u: buildSystems.${u}.prebuilt == true) uses);
   # DWARF goes to the `debug` output (finish.nu). false when the build cannot be made to keep it
   debug = args.debug or (prebuilt == false);
+  # [pin] sys of sources.toml. null: no sources.toml, dependencies are all by hand
+  sys = if sources == null then null else sources.sys;
   spec =
     removeAttrs args [
       "source"
@@ -485,7 +489,13 @@ let
       }) uses
     )
     // {
-      inherit phases prebuilt debug;
+      # sys for sys-libs.nu `check`
+      inherit
+        phases
+        prebuilt
+        debug
+        sys
+        ;
     }
     # resolved values, for phases: `(ctx).spec.features.tls`
     // (if features == { } then { } else { inherit features; });
@@ -501,7 +511,12 @@ let
     ++ (if prebuilt == true then relocTools else [ ])
     ++ concatMap (u: buildSystems.${u}.tools spec ++ stackBefore buildSystems.${u}.stack) uses
     ++ (if args.bootstrapTools or false then baseTools.bootstrap else baseTools.full);
-    dependencies = (args.dependencies or [ ]) ++ concatMap (u: buildSystems.${u}.dependencies) uses;
+    # [pin] sys: libraries the lock files can link (builder/sys-libs.nu). Those the set lacks
+    # here are left to the locked package (vendored copy or feature off)
+    dependencies =
+      (args.dependencies or [ ])
+      ++ map (n: pkgs.${n}) (filter (n: pkgs.${n}.supported or false) (if sys == null then [ ] else sys))
+      ++ concatMap (u: buildSystems.${u}.dependencies) uses;
   };
   drv = derivation (
     common
