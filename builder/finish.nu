@@ -104,10 +104,10 @@ def cache-summary []: nothing -> nothing {
     [$t.tool $"cached=($cached)/($total) \(($cached * 100 // $total)%)" ...$rest] | str join " "
   })
   if ($parts | is-not-empty) { note jig ($parts | str join ", ") }
-  # a miss's subject is "<source> new-key|inputs-changed:<path>|object-gone": tally the reasons
-  # and name the files that invalidated manifests most often
+  # cc names why it missed ("<source> new-key|inputs-changed:<path>|object-gone"): tally that and
+  # the files that invalidated manifests most often. go and rustc subjects are bare ids
   for t in $tools {
-    let reasons = ($t.items | where outcome starts-with compiled | get subject | each { split row " " | last })
+    let reasons = ($t.items | where outcome starts-with compiled and subject =~ " " | get subject | each { split row " " | last })
     if ($reasons | is-empty) { continue }
     note $"($t.tool)-misses" ($reasons | each { split row ":" | first } | uniq -c | each { $"($in.value)=($in.count)" } | str join " ")
     let stale = ($reasons | where $it starts-with "inputs-changed:" | str substring 15.. | uniq -c | sort-by -r count | first 5 | each { $"($in.value) ×($in.count)" })
