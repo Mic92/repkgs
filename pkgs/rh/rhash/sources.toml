@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/rhash/RHash"
+
+[[source]]
+key = "default"
+url = "https://github.com/rhash/RHash/archive/refs/tags/v{version}.tar.gz"
+hash = "sha256-9/kFI38PG3AKsdDqEV/wEzSel9IlQQ/pvOyhU/N/aV0="
+
+[pin]
+version = "1.4.6"
+date = "2025-05-13"
+tag = "v1.4.6"
