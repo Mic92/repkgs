@@ -11,6 +11,8 @@ let
     pkgs.curl
     pkgs.expat
     pkgs.libarchive
+    pkgs.libuv
+    pkgs.nghttp2
     pkgs.xz
     pkgs.zlib
     pkgs.zstd
@@ -33,9 +35,11 @@ variant pkgs.cmake-bootstrap {
       CMAKE_USE_SYSTEM_LIBRARY_EXPAT = has pkgs.expat;
       CMAKE_USE_SYSTEM_LIBRARY_LIBARCHIVE = has pkgs.libarchive;
       CMAKE_USE_SYSTEM_LIBRARY_LIBLZMA = has pkgs.xz;
+      CMAKE_USE_SYSTEM_LIBRARY_LIBUV = has pkgs.libuv;
+      CMAKE_USE_SYSTEM_LIBRARY_NGHTTP2 = has pkgs.nghttp2;
       CMAKE_USE_SYSTEM_LIBRARY_ZLIB = has pkgs.zlib;
       CMAKE_USE_SYSTEM_LIBRARY_ZSTD = has pkgs.zstd;
-      # not packaged: cppdap, form, jsoncpp, librhash, libuv, nghttp2 stay bundled
+      # not packaged: cppdap, form, jsoncpp, librhash stay bundled
     };
   };
   dependencies.set = system;
