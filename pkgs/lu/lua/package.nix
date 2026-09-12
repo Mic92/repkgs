@@ -4,27 +4,25 @@
 { package, platform }:
 package {
   name = "lua";
-  uses = [ "autotools" ];
-  autotools.outOfTree = false;
-  phases.before."autotools.build" = [
+  uses = [ "make" ];
+  phases.before."make.build" = [
     {
       name = "lua-root";
       run = "cd $c.src; open --raw src/luaconf.h | str replace /usr/local/ $'($c.out)/' | save -f src/luaconf.h";
     }
   ];
-  phases.remove = [ "autotools.configure" ];
-  autotools.buildTarget = [
+  make.buildTarget = [
     {
       linux = "linux";
       macos = "macosx";
     }
     .${platform.os}
   ];
-  autotools.makeFlags = [
+  make.flags = [
     "MYCFLAGS=-fPIC"
     "INSTALL_TOP=$(prefix)"
   ];
-  autotools.testTarget = [ "test" ];
+  make.testTarget = [ "test" ];
   bin = [
     "lua"
     "luac"

@@ -1,21 +1,18 @@
+# plain Makefile. `all` also runs the fresh binary as its test
 { package }:
 package {
   name = "bzip2";
-  uses = [ "autotools" ];
-  phases = [
-    "autotools.build"
-    "autotools.install"
-  ]; # plain Makefile
-  autotools.outOfTree = false;
-  autotools.buildTarget = [
+  uses = [ "make" ];
+  make.buildTarget = [
     "libbz2.a"
     "bzip2"
     "bzip2recover"
-  ]; # `all` also runs the fresh binary as its test
-  autotools.makeFlags = [
+  ];
+  make.flags = [
     "CC=cc"
     "AR=llvm-ar"
     "RANLIB=llvm-ranlib"
     "CFLAGS=-O2 -fPIC"
   ];
+  tests.run = false;
 }

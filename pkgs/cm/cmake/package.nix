@@ -26,7 +26,6 @@ in
 variant pkgs.cmake-bootstrap {
   name.set = "cmake";
   uses.set = [ "cmake" ];
-  autotools.remove = true;
   phases.remove = true;
   platforms.remove = true;
   cmake.set = {

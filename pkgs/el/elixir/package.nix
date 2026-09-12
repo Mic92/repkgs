@@ -7,10 +7,8 @@
 }:
 package {
   name = "elixir";
-  uses = [ "autotools" ];
-  autotools.outOfTree = false;
-  autotools.testTarget = [ "test_stdlib" ]; # test_mix wants git and network
-  phases.remove = [ "autotools.configure" ];
+  uses = [ "make" ];
+  make.testTarget = [ "test_stdlib" ]; # test_mix wants git and network
   buildDependencies = [ buildPkgs.erlang ];
   dependencies = [
     pkgs.erlang

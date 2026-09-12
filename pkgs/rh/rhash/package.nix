@@ -1,22 +1,20 @@
-# librhash only. Hand-written configure, not autoconf: own option names, exits on unknown ones
-{ package }:
+# librhash only. Hand-written configure with its own option names
+{ package, platform }:
 package {
   name = "rhash";
-  phases = [
-    {
-      name = "configure";
-      run = ''
-        let cross = (if $c.platform.cross { [$"--target=($c.platform.triple)"] } else { [] })
-        x (tool sh) ./configure $"--prefix=($c.out)" $"--cc=($env.CC)" --enable-lib-shared --disable-gettext ...$cross
-      '';
-    }
-    {
-      name = "build";
-      run = ''x make $"-j($c.njobs)" lib-shared'';
-    }
-    {
-      name = "install";
-      run = "x make -C librhash install-lib-shared install-lib-headers install-so-link";
-    }
+  uses = [ "make" ];
+  make.configureFlags = [
+    "--enable-lib-shared"
+    "--disable-gettext"
+  ]
+  ++ (if platform.cross then [ "--target=${platform.triple}" ] else [ ]);
+  make.buildTarget = [ "lib-shared" ];
+  make.installTarget = [
+    "-C"
+    "librhash"
+    "install-lib-shared"
+    "install-lib-headers"
+    "install-so-link"
   ];
+  tests.run = false;
 }
