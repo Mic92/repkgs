@@ -68,8 +68,9 @@ import ./. {
 }
 ```
 
-A list of trees is merged first, so ten layers cost what one does. Every path is checked
-(unknown package or field, `append` on a non-list, a dependency naming nothing) and the result is
+A list of trees is merged first, so ten layers cost what one does, and a later tree's `remove`
+also takes back what an earlier one appended. Every path is checked (unknown package, `remove`
+of a missing field, `append` on a non-list, a dependency naming nothing) and the result is
 validated like a written spec. There is no `.override`, overlay or module system besides this.
 In-tree variants use the same verbs: `llvm22` is `variant pkgs.llvm { }` with its own
 `sources.toml`.
