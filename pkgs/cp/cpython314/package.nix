@@ -12,6 +12,7 @@ package {
   autotools.flags = [
     "--without-ensurepip"
     "--with-openssl=${pkgs.openssl}"
+    "--with-system-libmpdec"
     "ac_cv_file__dev_ptmx=yes"
     "ac_cv_file__dev_ptc=no"
   ]
@@ -34,6 +35,7 @@ package {
     pkgs.openssl
     pkgs.expat
     pkgs.sqlite
+    pkgs.mpdecimal
   ];
   buildDependencies = on platform.cross [ buildPkgs.cpython ];
   bin = [ "python3" ];
