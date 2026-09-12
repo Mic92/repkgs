@@ -144,6 +144,28 @@ Hardening and `-O2 -g` are compiler defaults, injected by the driver and not thr
 `cc.hardening.fortify = false` turns one off, `cc.cflags = [ "-DFOO" ]` (and `cxxflags`,
 `ldflags`) adds to every compile regardless of build system.
 
+Choices a user may want to make differently are `features`. The package declares them with a
+default and reads the chosen values back:
+
+```nix
+{ package, pkgs, features, on }:
+package {
+  name = "curl";
+  features = {
+    tls = { values = [ "openssl" "gnutls" "none" ]; default = "openssl"; doc = "TLS backend"; };
+    http3 = { default = false; };
+  };
+  dependencies = on (features.tls != "none") [ pkgs.${features.tls} ] ++ on features.http3 [ pkgs.ngtcp2 ];
+  cmake.defs.USE_NGTCP2 = features.http3;
+}
+```
+
+A feature has the type of its default. `values` lists what a string, or each element of a list,
+may be. To choose:
+`import ./. { features.tls = "gnutls"; }` sets it for every package that declares `tls`,
+`overrides.curl.features.http3 = true` for curl alone. `repkgs info curl` lists a package's
+features and their current values.
+
 A few fields are rarer. `prebuilt = true` takes an upstream binary and only makes it
 relocatable. `install."bin/deno" = "deno"` copies files with no phases at all.
 `exports.propagate = [ pkgs.pcre2 ]` is for a library whose users must also see another, a

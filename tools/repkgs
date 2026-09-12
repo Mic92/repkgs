@@ -96,13 +96,18 @@ def "main list" [
   }
 }
 
-# version, platform support and store path facts of one package without building it
+# version, platform support, build systems and features of one package without building it
 def "main info" [
   --for: string # platform
   attr: string
-]: nothing -> record {
+]: nothing -> nothing {
   let set = (set-expr $for)
-  ^nix-instantiate --eval --strict --json --expr $"let p = ($set).(sel $attr); in { name = p.pname; version = p.version or null; platform = p.platform; supported = p.supported; reason = p.unsupportedReason; uses = p.args.uses or []; }" | from json
+  let p = (^nix-instantiate --eval --strict --json --expr $"let p = ($set).(sel $attr); in { name = p.pname; version = p.version or null; platform = p.platform; supported = p.supported; reason = p.unsupportedReason; uses = p.args.uses or []; features = builtins.mapAttrs \(n: d: \(removeAttrs d [\"default\"]\) // { value = p.features.${n}; }\) \(p.args.features or {}\); }" | from json)
+  print ({name: $p.name, version: $p.version, platform: $p.platform, uses: ($p.uses | str join " ")}
+    | merge (if $p.supported { {} } else { {unsupported: $p.reason} }))
+  if ($p.features | is-not-empty) {
+    print ($p.features | transpose feature f | each {|r| {feature: $r.feature, value: ($r.f.value | to nuon), values: ($r.f.values? | default [] | str join " | "), doc: ($r.f.doc? | default "")} } | table -i false)
+  }
 }
 
 # the options every build system accepts (<name>.* in a package.nix)

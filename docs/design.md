@@ -74,6 +74,34 @@ validated like a written spec. There is no `.override`, overlay or module system
 In-tree variants use the same verbs: `llvm22` is `variant pkgs.llvm { }` with its own
 `sources.toml`.
 
+`features` are the other direction: choices a package offers, named by the package.
+
+```nix
+{ package, pkgs, features, on }:
+package {
+  name = "curl";
+  features = {
+    tls = { values = [ "openssl" "gnutls" "none" ]; default = "openssl"; };
+    docs = { default = false; };
+  };
+  dependencies = on (features.tls != "none") [ pkgs.${features.tls} ];
+}
+```
+
+```nix
+import ./. {
+  features = { docs = false; };                   # every package that declares `docs`
+  overrides.curl.features = { tls = "gnutls"; };  # this one
+}
+```
+
+The package reads values back, so a dependency and the configure flag that goes with it stay
+together in package.nix. A feature's type is its default's type, `values` limits a string or a
+list's elements. Prefer those over booleans when a choice has more than two answers. Resolution is default,
+then the set-wide `features` argument, then `overrides.<pkg>.features`. A wrong type, a value
+outside `values` or an undeclared name is an eval error. The resolved set is part of the
+derivation and readable as `pkgs.curl.features`. Packages without `features` pay nothing.
+
 ## Sources and lock files
 
 `sources.toml` → a fixed-output fetch named after the URL, so a bumped version with a stale hash

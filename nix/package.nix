@@ -24,6 +24,7 @@ let
     lines
     ;
   inherit (builtins)
+    all
     any
     attrNames
     concatMap
@@ -47,6 +48,7 @@ let
   };
   reserved = [
     "name"
+    "features"
     "platforms"
     "version"
     "source"
@@ -112,7 +114,7 @@ in
 # sources: the package's sources.toml (nix/sources.nix) or null. It supplies version and source
 # unless package.nix sets them (local trees, demos)
 # dir: the package's directory, where a phase prefix that is no build system finds <prefix>.nu
-sources0: dir: args0:
+sources0: dir: features: fn: args0:
 let
   edited = if edit == null then args0 else edit args0.name args0;
   # an override may repin the package: `pin.merge = { version = "…"; }` plus
@@ -246,8 +248,42 @@ let
     ]
   );
 
+  # the declaration's shape. Values from outside are checked where they are resolved (nix/features.nix)
+  badFeatures =
+    if args ? features then
+      filter (
+        n:
+        let
+          d = args.features.${n};
+          t = builtins.typeOf d.default;
+        in
+        !(
+          isAttrs d
+          && d ? default
+          &&
+            removeAttrs d [
+              "default"
+              "values"
+              "doc"
+            ] == { }
+          && elem t [
+            "bool"
+            "string"
+            "list"
+            "int"
+          ]
+          && (
+            !(d ? values)
+            || isList d.values && all (v: elem v d.values) (if t == "list" then d.default else [ d.default ])
+          )
+        )
+      ) (attrNames args.features)
+    else
+      [ ];
   checks =
-    if unknownUses != [ ] then
+    if badFeatures != [ ] then
+      fail "features ${toString badFeatures}: want { default (bool, string, list or int), values? (a list the default is from), doc? }"
+    else if unknownUses != [ ] then
       fail "unknown build systems ${toString unknownUses} (have: ${toString (attrNames buildSystems)})"
     else if unknownFields != [ ] || unknownPlatformKeys != [ ] then
       fail "unknown fields ${toString (unknownFields ++ map (k: "platforms.${k}") unknownPlatformKeys)}"
@@ -447,7 +483,9 @@ let
     )
     // {
       inherit phases prebuilt;
-    };
+    }
+    # resolved values, for phases: `(ctx).spec.features.tls`
+    // (if features == { } then { } else { inherit features; });
   common = setCommon // {
     src = args.source;
     inherit (args) version;
@@ -488,7 +526,8 @@ drv
   # what package.nix wrote and read, for `variant`
   args = args0;
   sources = sources0;
-  inherit dir;
+  decl = args0.features or { };
+  inherit dir features fn;
   inherit supported unsupportedReason script;
 }
 // (if separate then { tests = testsDrv; } else { })

@@ -8,6 +8,7 @@
 #   append   add to the end of a list        prepend  add to the front
 #   merge    // into an attrset               remove   drop list elements / attr names, or `true`: the field
 #   edit     on a package only: a function spec -> spec, applied after the other verbs
+#   features on a package only: { <feature> = value; }, no verbs (nix/features.nix)
 # In dependencies/buildDependencies a string names a package of the final set, and remove
 # matches by package name. `overrides` may be a list of trees: they are merged first (set: last
 # wins, list verbs concatenate), then applied once per package. Unknown package, missing field
@@ -43,6 +44,8 @@ let
       name: vals:
       if name == "set" || name == "edit" then
         builtins.elemAt vals (builtins.length vals - 1)
+      else if name == "features" then
+        foldl' (a: b: a // b) { } vals
       else if name == "append" || name == "prepend" || name == "remove" then
         builtins.concatLists vals
       else if name == "merge" then
@@ -136,9 +139,11 @@ let
         inherit pkgs;
       } [ ] (removeAttrs node [ "edit" ]) true spec
     );
+  # from the user's tree, where `<pkg>.features` is plain values that nix/set.nix resolved
+  # before the spec existed
   apply =
     pkgs: tree: name: spec:
-    if tree ? ${name} then applyOne pkgs name tree.${name} spec else spec;
+    if tree ? ${name} then applyOne pkgs name (removeAttrs tree.${name} [ "features" ]) spec else spec;
 
   # packages the tree names that the set lacks
   unknown = pkgs: tree: filter (n: !(pkgs ? ${n})) (attrNames tree);
