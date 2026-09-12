@@ -59,17 +59,10 @@ let
       self;
 
   # build systems that spawn `sh` by name get the seed's dash
-  # `++ on platform.cross [ buildPkgs.x ]`, `// on cond { … }`
-  on =
-    cond: v:
-    if cond then
-      v
-    else if builtins.isList v then
-      [ ]
-    else
-      { };
+  lib = import ./lib.nix;
+  inherit (lib) on;
   buildSystems = import ./build-systems.nix {
-    inherit buildPkgs fetch on;
+    inherit buildPkgs fetch lib;
     platform = plat;
     pkgs = self;
     sh = bootstrap.seed;
@@ -99,6 +92,7 @@ let
   package = import ./package.nix {
     platform = plat;
     nu = bootstrap.seed;
+    inherit lib;
     # `prebuilt = true` patches upstream ELFs with it (builder/implant.nu)
     relocTools = [ buildPkgs.formatelf ];
     inherit
@@ -144,7 +138,7 @@ let
       ;
     platform = plat;
     pkgs = self;
-    inherit on;
+    inherit lib on;
   };
   readSources = import ./sources.nix {
     unpacker = bootstrap.seed;

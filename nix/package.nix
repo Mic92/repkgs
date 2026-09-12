@@ -13,15 +13,20 @@
   nu,
   # overrides applied to a spec before validation: name -> spec -> spec (nix/overrides.nix)
   edit,
+  lib,
 }:
 let
   elf = platform.binfmt == "elf";
   hardening = import ./hardening.nix;
+  inherit (lib)
+    on
+    join
+    lines
+    ;
   inherit (builtins)
     any
     attrNames
     concatMap
-    concatStringsSep
     elem
     elemAt
     filter
@@ -88,12 +93,12 @@ let
         ;
       inherit (toolchain) sysroot;
       configTriple = platform.configTriple or platform.triple;
-      probe = if platform.cross then "${toolchain.sysroot}/lib/${platform.interp}" else "";
+      probe = on platform.cross "${toolchain.sysroot}/lib/${platform.interp}";
       # `prebuilt`: upstream ELFs get our dynamic linker implanted (true) or via launch ("ldso")
       interp = "${toolchain.sysroot}/lib/${platform.interp}";
-      launch = if elf then "${launch}/bin/launch" else "";
+      launch = on elf "${launch}/bin/launch";
       # finish.nu runs the version check under it: a failed dlopen fails the build
-      dlaudit = if elf then "${dlaudit}/lib/dlaudit.so" else "";
+      dlaudit = on elf "${dlaudit}/lib/dlaudit.so";
       relocStub = "${toolchain}/lib/reloc_stub.bin";
     };
     # nix/hardening.nix as data for builder/env.nu: the flag table and what is on for this platform
@@ -194,7 +199,7 @@ let
       if !(declared ? ${k}) then
         [ "unknown option ${u}.${k} (have: ${toString (attrNames declared)})" ]
       else if !(elem got want) then
-        [ "option ${u}.${k} is a ${got}, expected ${builtins.concatStringsSep " or " want}" ]
+        [ "option ${u}.${k} is a ${got}, expected ${join " or " want}" ]
       else
         [ ]
     ) (attrNames (args.${u} or { }))
@@ -247,9 +252,9 @@ let
     else if unknownFields != [ ] || unknownPlatformKeys != [ ] then
       fail "unknown fields ${toString (unknownFields ++ map (k: "platforms.${k}") unknownPlatformKeys)}"
     else if badOptions != [ ] then
-      fail (builtins.concatStringsSep "; " badOptions)
+      fail (join "; " badOptions)
     else if wrongPlatform != [ ] then
-      fail (builtins.concatStringsSep "; " wrongPlatform)
+      fail (join "; " wrongPlatform)
     else
       true;
 
@@ -290,7 +295,7 @@ let
       if bad != [ ] then
         fail "phases: unknown edit ${head bad} (before, after, replace, remove)"
       else if unknown != [ ] then
-        fail "phases: ${head unknown} is not a phase of ${head uses} (${concatStringsSep " " known})"
+        fail "phases: ${head unknown} is not a phase of ${head uses} (${toString known})"
       else
         concatMap (
           p:
@@ -409,14 +414,14 @@ let
   workdir = if uses == [ ] then "(ctx).src" else "${builtins.head uses} workdir";
   setups = map (u: buildSystems.${u}.setup) uses;
   # also `pkg.script`: lints/package-scripts.nu has nu parse it before anything builds
-  script = concatStringsSep "\n" (
+  script = lines (
     prelude
     ++ [ "prepare" ]
     ++ setups
     ++ map phaseLine phases
     ++ [ (if separate then "finish --keep-tree" else "finish") ]
   );
-  testScript = concatStringsSep "\n" (
+  testScript = lines (
     prelude
     ++ [ "prepare --from-tree ${drv.tree}" ]
     ++ setups
