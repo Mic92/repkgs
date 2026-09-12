@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tpy"
+version = "0.3"
+
+[project.scripts]
+tpy-hello = "tpy:main"
+
+[tool.setuptools]
+packages = ["tpy"]
+ext-modules = [{ name = "tpy._speed", sources = ["tpy/_speed.c"] }]
