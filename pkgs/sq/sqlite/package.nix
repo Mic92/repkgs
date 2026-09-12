@@ -4,10 +4,12 @@
 }:
 package {
   name = "sqlite";
-  uses = [ "autotools" ];
-  autotools.outOfTree = false;
-  # what distributions ship and dependents (dbmate) test for
-  autotools.flags = [ "--enable-fts5" ];
+  uses = [ "make" ]; # autosetup, not autoconf
+  # what distributions ship and dependents test for (dbmate: fts5, nodejs: session, column-metadata)
+  make.configureFlags = [
+    "--enable-all"
+    "--enable-column-metadata"
+  ];
   tests.run = false; # needs tcl
   dependencies = [ pkgs.zlib ];
 }
