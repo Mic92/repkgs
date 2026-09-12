@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/c-ares/c-ares"
+
+[[source]]
+key = "default"
+url = "https://github.com/c-ares/c-ares/releases/download/v{version}/c-ares-{version}.tar.gz"
+hash = "sha256-0042drR6xcZW/RLlu+YH5FPM0q/zu3V14qbZh1I5Meg="
+
+[pin]
+version = "1.34.8"
+date = "2026-07-07"
+tag = "v1.34.8"
