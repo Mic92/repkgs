@@ -57,16 +57,18 @@ def package-cc [a: record, deps: list<record>]: nothing -> record {
   let enabled = (if $cc.hardening? == false { {} } else { $h.enabled | merge ($cc.hardening? | default {}) })
   let harden = {|names: list<string>| $names | where {|n| ($enabled | get -o $n) == true } | each {|n| $h.flags | get $n } | flatten }
   let compile = ($h.flags | columns | where {|n| $n not-in ($h.cxx ++ $h.link) })
+  # spec.debug for cc and for cargo's release profile
+  let g = (if $a.spec.debug { [-g full] } else { [-g0 none] })
   # dependency dirs as -isystem and trailing -L: searched after the project's own, like /usr would be
   let flags = {
     cflags: ((dep-dirs $deps includeDirs | each { $"-isystem($in)" })
-      ++ ["-O2" "-g" "-fno-omit-frame-pointer" "-mno-omit-leaf-frame-pointer"] ++ (do $harden $compile) ++ ($cc.cflags? | default []))
+      ++ ["-O2" $g.0 "-fno-omit-frame-pointer" "-mno-omit-leaf-frame-pointer"] ++ (do $harden $compile) ++ ($cc.cflags? | default []))
     cxxflags: ((do $harden $h.cxx) ++ ($cc.cxxflags? | default []))
     ldflags: ((dep-dirs $deps libDirs | each { $"-L($in)" })
       ++ (do $harden $h.link) ++ ($cc.ldflags? | default []))
   }
   let root = (which cc | get 0.path | path expand | path dirname -n 2)
-  {PKGS_CC: ({$root: $flags} | to json -r)}
+  {PKGS_CC: ({$root: $flags} | to json -r), CARGO_PROFILE_RELEASE_DEBUG: $g.1, CARGO_PROFILE_RELEASE_STRIP: none}
 }
 
 # rustc and go go through jig only when the environment says so, and more than their own build

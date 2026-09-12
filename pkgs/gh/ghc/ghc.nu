@@ -6,7 +6,7 @@ def --wrapped hadrian [...args: string]: nothing -> nothing {
   let c = (ctx)
   cd $c.src
   let bin = (^cabal list-bin $"--project-dir=($c.src)/hadrian" ...(options cabal).flags exe:hadrian | str trim)
-  x $bin --directory $c.src $"-j($c.njobs)" --docs=none "--flavour=release+no_profiled_libs+split_sections" ...$args
+  x $bin --directory $c.src $"-j($c.njobs)" --docs=none $"--flavour=release+no_profiled_libs+split_sections(if $c.spec.debug { '+debug_info' })" ...$args
 }
 
 export def configure []: nothing -> nothing {

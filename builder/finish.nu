@@ -4,20 +4,34 @@ use core.nu *
 use implant.nu
 use launchers.nu
 
-# split DWARF to lib/debug, keep .symtab (§4 profiling-friendly). Only files with debug info:
-# upstream .so files out of binary wheels have none, and llvm-objcopy crashes on those that
-# auto-formatelf relaid (program headers moved to the end)
+# DWARF -> the `debug` output under lib/debug/.build-id/, .symtab stays in `out`. A build-id
+# means our linker made the file, so no DWARF there means the build stripped it: an error.
+# No build-id is an upstream binary (wheels, NIFs, bindists): left alone
 def split-debug [c: record]: nothing -> nothing {
-  let elfs = (files $"($c.out)/{bin,lib,libexec}/**/*" --exclude [**/lib/debug/**]
-    | where { ($in | path type) == "file" and (is-elf $in) and (^llvm-readelf -S $in | str contains ".debug_info") })
-  if ($elfs | is-empty) { return }
-  mkdir $"($c.out)/lib/debug"
-  $elfs | par-each --threads $c.njobs {|f|
-    let dbg = $"($c.out)/lib/debug/($f | path basename).debug"
+  let debug = (attrs).outputs.debug
+  for f in (files $"($c.out)/**/*.{a,o}") {
     ^chmod u+w $f
-    x llvm-objcopy --only-keep-debug $f $dbg
-    x llvm-objcopy --strip-debug $"--add-gnu-debuglink=($dbg)" $f
+    if (^llvm-objcopy --strip-debug $f | complete).exit_code != 0 { note debug $"DWARF left in ($f | path relative-to $c.out)" }
+  }
+  let elfs = (files $"($c.out)/**/*" | where { ($in | path type) == "file" and ($in | path parse).extension not-in [o rlib] and (is-elf $in) }
+    | par-each --threads $c.njobs {|f|
+      let h = (^llvm-readelf -S -n $f)
+      {file: $f, id: ($h | parse -r 'Build ID: ([0-9a-f]+)' | get -o capture0.0), dwarf: ($h | str contains ".debug_info")}
+    })
+  let stripped = ($elfs | where id != null and dwarf == false)
+  if ($stripped | is-not-empty) {
+    error make {msg: $"debug: linked here but no DWARF: ($stripped.file | first 3 | path relative-to $c.out | str join ' '). The build strips or drops -g. Fix that, or debug = false"}
+  }
+  let foreign = ($elfs | where id == null)
+  if ($foreign | is-not-empty) { note debug $"($foreign | length) ELF files without build-id left as they are \(($foreign.file | first 2 | path basename | str join ' ')…)" }
+  let with = ($elfs | where id != null)
+  $with | group-by id --to-table | par-each --threads $c.njobs {|g|
+    let dbg = $"($debug)/lib/debug/.build-id/($g.id | str substring 0..<2)/($g.id | str substring 2..).debug"
+    mkdir ($dbg | path dirname)
+    x llvm-objcopy --only-keep-debug $g.items.0.file $dbg
+    for f in $g.items.file { ^chmod u+w $f; x llvm-objcopy --strip-debug $f }
   } | ignore
+  if ($with | is-not-empty) { note debug $"($with.id | uniq | length) files, (du $debug | get 0.apparent)" }
 }
 
 
@@ -133,14 +147,15 @@ def install-map [c: record]: nothing -> nothing {
 def relocate [c: record]: nothing -> nothing {
   match $c.platform.binfmt {
     "elf" => { relocate-elf $c }
-    # PE finds DLLs beside the exe, Mach-O by install name: nothing to rewrite, no launchers yet
+    # PE finds DLLs beside the exe, Mach-O by install name: nothing to rewrite, no launchers,
+    # PDB / dSYM not split yet
     _ => { }
   }
 }
 
 def relocate-elf [c: record]: nothing -> nothing {
   let prebuilt = ($c.spec.prebuilt? | default false)
-  if $prebuilt == false { split-debug $c }
+  if $c.spec.debug { split-debug $c }
   if $prebuilt == true { implant $c }
   launchers $c
   let a = (attrs)
@@ -175,6 +190,7 @@ export def main [
   if ($gz | is-not-empty) { x gzip -d ...$gz }
   # installed copies of source scripts carry the build env's path from prepare: not a dependency
   fix-env-shebangs $c.out $c.njobs --undo
+  mkdir (attrs).outputs.debug
   relocate $c
   version-check $c
   # exports = false: a toolchain or application whose lib/ is its own business, nothing to link

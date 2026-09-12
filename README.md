@@ -142,7 +142,9 @@ that run fails the build, unless `tests.dlopen = [ "libudev.so.1" ]` declares it
 
 Hardening and `-O2 -g` are compiler defaults, injected by the driver and not through `CFLAGS`.
 `cc.hardening.fortify = false` turns one off, `cc.cflags = [ "-DFOO" ]` (and `cxxflags`,
-`ldflags`) adds to every compile regardless of build system.
+`ldflags`) adds to every compile regardless of build system. Debug info lands in a separate
+`debug` output by build-id (`nix-build -A curl.debug`, then
+`gdb -iex "set debug-file-directory ./result-debug/lib/debug"`).
 
 Choices a user may want to make differently are `features`. The package declares them with a
 default and reads the chosen values back:

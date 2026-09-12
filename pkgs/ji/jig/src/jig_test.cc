@@ -269,7 +269,8 @@ void TestDriver() {
 
   // compile: conf flags, no link policy
   std::vector<std::string> out = jig::BuildDriverArgs(conf, jig::Language::kC, V({"-c", "a.c"}));
-  assert(out == V({"--start-no-unused-arguments", "--target=x", "-O2", "--end-no-unused-arguments", "-c", "a.c"}));
+  assert(out == V({"--start-no-unused-arguments", "--target=x", "-O2", "-Wl,--build-id=sha1",
+                   "--end-no-unused-arguments", "-c", "a.c"}));
 
   // C++ name adds driver mode + cxxflags
   out = jig::BuildDriverArgs(conf, jig::Language::kCxx, V({"-c", "a.cc"}));
@@ -280,9 +281,13 @@ void TestDriver() {
   pkg.package = {.cflags = V({"-O3"}), .cxxflags = V({"-fno-rtti"}), .ldflags = V({"-Wl,-z,x"})};
   out = jig::BuildDriverArgs(pkg, jig::Language::kCxx, V({"-c", "a.cc", "-O0"}));
   assert(out == V({"--start-no-unused-arguments", "--target=x", "-O2", "-O3", "--driver-mode=g++", "-stdlib=libc++",
-                   "-fno-rtti", "--end-no-unused-arguments", "-c", "a.cc", "-O0"}));
+                   "-fno-rtti", "-Wl,--build-id=sha1", "--end-no-unused-arguments", "-c", "a.cc", "-O0"}));
   out = jig::BuildDriverArgs(pkg, jig::Language::kC, V({"-shared", "-o", "x.so", "x.o", "-L."}));
   assert(jig::Join(out, " ").contains("x.o -L. -Wl,-z,x -Wl,"));
+  // the user's --build-id comes later and wins
+  out = jig::BuildDriverArgs(pkg, jig::Language::kC, V({"-Wl,--build-id=none", "x.o"}));
+  assert(jig::Join(out, " ").contains("-Wl,--build-id=sha1 --end-no-unused-arguments -Wl,--build-id=none x.o"));
+  assert(!jig::Join(jig::BuildDriverArgs(coff, jig::Language::kC, V({"-c", "a.c"})), " ").contains("build-id"));
   pkg.package.cflags = V({"-O2", "-D_FORTIFY_SOURCE=3"});
   assert(jig::Join(jig::BuildDriverArgs(pkg, jig::Language::kC, V({"-c", "a.c"})), " ").contains("FORTIFY"));
   assert(!jig::Join(jig::BuildDriverArgs(pkg, jig::Language::kC, V({"-c", "a.c", "-O0"})), " ").contains("FORTIFY"));

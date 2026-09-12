@@ -16,6 +16,9 @@ package {
     # a generic binary, not one tuned to (and hashed by) the build machine
     ZIG_TARGET_MCPU = "baseline";
     ZIG_PIE = true;
+    # Release would -Dstrip. stage3 is linked by zig's lld, not cc: ask for the build-id
+    CMAKE_BUILD_TYPE = "RelWithDebInfo";
+    ZIG_EXTRA_BUILD_ARGS = "--build-id=sha1";
   }
   # cross: zig2 would be a target binary, the build machine's zig builds stage3 instead. A target
   # triple turns llvm-config off (static LLVM by find_library): back on with the host's, by

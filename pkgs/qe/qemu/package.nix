@@ -38,7 +38,11 @@ package {
     {
       # through ninja: the meson that configured is qemu's vendored one, not ours
       name = "install";
-      run = "x ninja -C $c.build install";
+      run = ''
+        x ninja -C $c.build install
+        # firmware and keymaps are for system emulation (--disable-install-blobs also drops the vdso)
+        rm -rf $"($c.out)/share/qemu"
+      '';
     }
   ];
   tests.run = false;

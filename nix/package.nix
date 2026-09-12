@@ -65,6 +65,7 @@ let
     "cc"
     "bootstrapTools"
     "prebuilt"
+    "debug"
     "install"
     "links"
   ];
@@ -467,6 +468,8 @@ let
 
   # an upstream-binary package says `prebuilt`, or one of its build systems does (pyapp: wheels)
   prebuilt = args.prebuilt or (any (u: buildSystems.${u}.prebuilt == true) uses);
+  # DWARF goes to the `debug` output (finish.nu). false when the build cannot be made to keep it
+  debug = args.debug or (prebuilt == false);
   spec =
     removeAttrs args [
       "source"
@@ -482,7 +485,7 @@ let
       }) uses
     )
     // {
-      inherit phases prebuilt;
+      inherit phases prebuilt debug;
     }
     # resolved values, for phases: `(ctx).spec.features.tls`
     // (if features == { } then { } else { inherit features; });
@@ -504,7 +507,11 @@ let
     common
     // {
       name = if platform.cross then "${name}-${platform.name}" else name;
-      outputs = [ "out" ] ++ (if separate then [ "tree" ] else [ ]);
+      outputs = [
+        "out"
+        "debug"
+      ]
+      ++ (if separate then [ "tree" ] else [ ]);
       args = nuArgs ++ [ script ];
     }
   );

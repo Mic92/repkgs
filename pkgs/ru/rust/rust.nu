@@ -42,6 +42,9 @@ export def configure []: nothing -> nothing {
     install: {prefix: $c.out, sysconfdir: "etc"}
     rust: {
       channel: "stable"
+      # dist has line tables for std only. 1 = line tables for compiler and tools too, full
+      # DWARF (2) would be gigabytes
+      debuginfo-level: (if $c.spec.debug { 1 } else { 0 })
       remap-debuginfo: true
       frame-pointers: true
       lld: false

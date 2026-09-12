@@ -20,12 +20,15 @@ export def --env setup []: nothing -> nothing {
 export def workdir []: nothing -> string { project-dir go }
 
 # cgo builds link through cc so RUNPATH/interp policy and fixup apply (cgo=false: static, internal linker).
-# cgo modules whose library the modules tree propagated get their "use the system one" tags (sys-libs.nu)
+# cgo modules whose library the modules tree propagated get their "use the system one" tags (sys-libs.nu).
+# -B gobuildid: a GNU build-id for finish.nu's debug split
 def common-args [o: record<tags: list<string>, ldflags: list<string>, cgo: bool, flags: list<string>>]: nothing -> list<string> {
-  let tags = ($o.tags ++ (sys-libs go-tags (ctx).deps) | uniq)
+  let c = (ctx)
+  let tags = ($o.tags ++ (sys-libs go-tags $c.deps) | uniq)
+  let ld = ["-B gobuildid"] ++ (if $o.cgo { ["-linkmode=external"] } else { [] }) ++ (if $c.spec.debug { [] } else { ["-s" "-w"] }) ++ $o.ldflags
   [
     (if ($tags | is-not-empty) { $"-tags=($tags | str join ',')" })
-    $"-ldflags=((if $o.cgo { ['-linkmode=external'] } else { [] }) ++ $o.ldflags | str join ' ')"
+    $"-ldflags=($ld | str join ' ')"
   ] | compact | append $o.flags
 }
 

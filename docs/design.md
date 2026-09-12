@@ -136,7 +136,14 @@ reference scanner work unchanged.
 | compiled-in prefix | dirname-relative patch (openssl providers). fixup warns on any absolute self-reference, `tests.relocated` runs the output from a copy |
 
 Ambient data (CA bundle, zoneinfo, fonts) is an environment variable or system path, never a
-store path. Debug info is always built and split with a relative debuglink.
+store path.
+
+Debug info is built for every package and split into a second output, `debug`, filed by
+build-id (`lib/debug/.build-id/ab/cd….debug`) where gdb, lldb, perf, valgrind and
+systemd-coredump look. `out` keeps `.symtab`, so backtraces and profiles have names without
+it. `out` never references `debug` and `debug` is found by id, not path, so the split costs
+relocatability nothing. `debug = false` is for builds that cannot be taught to keep DWARF.
+An ELF package whose build produced none is an error. Sources are not shipped: DWARF names `/build/source/…`, and `pkg.src` is that tree.
 
 Because no output names itself, every derivation (bootstrap stages included) is floating
 content-addressed: a change to jig, a builder script or the toolchain that leaves a package's

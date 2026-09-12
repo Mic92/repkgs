@@ -38,7 +38,7 @@ semaphore: True
 with-compiler: ($ghc)
 with-hc-pkg: (tool ghc-pkg)
 " | save -f $"($env.CABAL_DIR)/config"
-  $"program-locations\n  gcc-location: (tool cc)\npackage *\n  split-sections: True\n($o.project)"
+  $"program-locations\n  gcc-location: (tool cc)\npackage *\n  split-sections: True\n(if $c.spec.debug { "  ghc-options: -g\n" })($o.project)"
   | save -f cabal.project.local
 }
 
