@@ -33,7 +33,7 @@ export def dep-root [name: string, why: string]: nothing -> string {
 
 # store path of the build dependency called `name`, for tools that are not a bin/ on PATH
 export def tool-root [name: string]: nothing -> string {
-  let r = ((ctx).roots | where { (exports-of $in).name == $name })
+  let r = ((attrs).buildDependencies | where { (exports-of $in).name == $name })
   if ($r | is-empty) { error make {msg: $"buildPkgs.($name) must be in buildDependencies"} }
   $r.0
 }
