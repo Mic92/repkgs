@@ -65,11 +65,16 @@ def "main build" [
   ^nix-build (root) --no-out-link --log-format bar-with-logs ...(cache-args) ...(platform-arg $for) ...($attrs | each {|a| [-A $a] } | flatten)
 }
 
-# build <pkg>.tests (tests.separate packages), or the package itself when it tests in-build
+# build <pkg>.tests (tests.separate packages), or the package itself when it tests in-build.
+# No attrs: the builder's own tests (tests/builder), run those after editing builder/
 def "main test" [
   --for: string # platform
   ...attrs: string
 ]: nothing -> nothing {
+  if ($attrs | is-empty) {
+    ^nix-build $"(root)/tests/builder" --no-out-link --log-format bar-with-logs ...(cache-args) ...(platform-arg $for)
+    return
+  }
   let targets = ($attrs | each {|a| if (eval $"(pkg-expr $a $for) ? tests") { $"($a).tests" } else { $a } })
   main build --for=$for ...$targets
 }

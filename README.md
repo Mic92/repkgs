@@ -197,6 +197,7 @@ nix/              evaluation. package.nix turns a spec into a derivation, build-
                   defines each `uses` entry, fetch.nix the lock-file fetchers
 builder/          build time. prepare, finish, and one nu module per build system
 locks/            hashes that lock files lack (go.sum, hackage, luarocks)
+tests/builder/    tiny packages per language that check what builder/ does to them (`repkgs test`)
 docs/             design.md (why), uptrack.md, plan.md
 tools/repkgs      the cli: build, test, log, list, info, options, new, update, repro, cache, seed, fmt
 ```
