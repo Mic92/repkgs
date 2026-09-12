@@ -18,10 +18,8 @@ variant pkgs.llvm {
     LIBCLANG_BUILD_STATIC = false;
     LLD_BUILD_TOOLS = false;
   };
-  phases.set = [
-    "cmake.configure"
-    "cmake.build"
-    "cmake.install"
+  phases.remove.set = [ "cmake.test" ];
+  phases.after."cmake.install".append = [
     {
       # python scripts clang installs regardless of CLANG_BUILD_TOOLS. zig needs the libraries
       name = "no-scripts";
