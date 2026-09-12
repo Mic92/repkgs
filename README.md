@@ -57,7 +57,7 @@ $ repkgs build --for aarch64-linux jq    # cross
 $ repkgs test jq                         # jq.tests
 $ repkgs log jq                          # the build log
 $ repkgs list --for riscv64-linux --unsupported   # what a platform lacks and why
-$ repkgs info deno                       # version, build systems, platform support
+$ repkgs info deno                       # version, build systems, platform support (--json too)
 $ repkgs options cmake                   # every cmake.* option with type and default
 $ repkgs new foo pkg:github/o/foo 'https://…/foo-{version}.tar.gz'
 $ repkgs update check                    # uptrack: what is outdated
