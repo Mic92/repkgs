@@ -4,7 +4,9 @@
 {
   package,
   pkgs,
+  buildPkgs,
   platform,
+  on,
 }:
 package {
   name = "zig";
@@ -15,8 +17,20 @@ package {
     ZIG_TARGET_MCPU = "baseline";
     ZIG_PIE = true;
   }
-  # cross: zig2 targets the other cpu, and cmake no longer tries to run the target's llvm-config
-  // (if platform.cross then { ZIG_TARGET_TRIPLE = "${platform.cpu}-linux-gnu"; } else { });
+  # cross: zig2 would be a target binary, the build machine's zig builds stage3 instead. A target
+  # triple turns llvm-config off (static LLVM by find_library): back on with the host's, by
+  # search path since Findllvm.cmake unsets a given LLVM_CONFIG_EXE. That one comes out of
+  # LLVM's NATIVE sub-configure, which probes no zlib/zstd, so --system-libs lacks them: zig's
+  # own find_library adds them back
+  // on platform.cross {
+    ZIG_EXECUTABLE = "${buildPkgs.zig}/bin/zig";
+    ZIG_TARGET_TRIPLE = "${platform.cpu}-linux-gnu";
+    ZIG_USE_LLVM_CONFIG = true;
+    CMAKE_PROGRAM_PATH = "${pkgs.zig-llvm}/host";
+    ZIG_STATIC_ZLIB = true;
+    ZIG_STATIC_ZSTD = true;
+  };
+  patches = [ ./cmake-zig-executable.patch ];
   dependencies = [
     pkgs.zig-llvm
     pkgs.zlib

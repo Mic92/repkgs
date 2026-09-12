@@ -1,0 +1,62 @@
+From 68f617a9fa85f85f9da505be6b975a930981dfba Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?J=C3=B6rg=20Thalheim?= <joerg@thalheim.io>
+Date: Sat, 12 Sep 2026 11:15:17 +0200
+Subject: [PATCH] cmake: add ZIG_EXECUTABLE option for cross compiling
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When cross compiling with CMake, zig2 is built for the target and cannot
+be executed on the build machine, so the stage3 step fails.
+
+Add a ZIG_EXECUTABLE cache option that points to an existing zig binary.
+If set, it is used to build and install stage3 instead of zig2, and
+zig1/zig2 are not built. CMakeLists.txt had an option with the same name
+and purpose before the switch to the zig1.wasm bootstrap.
+
+Signed-off-by: Jörg Thalheim <joerg@thalheim.io>
+---
+ CMakeLists.txt | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a7227de5..41f0c441 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -96,6 +96,7 @@ if (ZIG_SHARED_LLVM AND ZIG_STATIC_LLVM)
+     message(SEND_ERROR "-DZIG_SHARED_LLVM and -DZIG_STATIC_LLVM cannot both be enabled simultaneously")
+ endif()
+ 
++set(ZIG_EXECUTABLE "" CACHE FILEPATH "(when cross compiling) path to an already-built zig binary to build stage3 with")
+ set(ZIG_TARGET_TRIPLE "native" CACHE STRING "arch-os-abi to output binaries for")
+ set(ZIG_TARGET_MCPU "native" CACHE STRING "-mcpu parameter to output binaries for")
+ set(ZIG_TARGET_DYNAMIC_LINKER "" CACHE STRING
+@@ -805,15 +806,22 @@ add_custom_target(stage3 ALL
+ 
+ set(ZIG2_WORKING_DIR "${PROJECT_SOURCE_DIR}")
+ 
++if(ZIG_EXECUTABLE)
++  set(ZIG_STAGE3_DEPENDS zigcpp)
++  set_target_properties(zig-wasm2c zig1 zig2 PROPERTIES EXCLUDE_FROM_ALL TRUE)
++else()
++  set(ZIG_EXECUTABLE "$<TARGET_FILE:zig2>")
++  set(ZIG_STAGE3_DEPENDS zig2)
++endif()
++
+ add_custom_command(
+   OUTPUT "${PROJECT_BINARY_DIR}/stage3/bin/zig"
+-  COMMAND zig2 build --prefix "${PROJECT_BINARY_DIR}/stage3" ${ZIG_BUILD_ARGS}
++  COMMAND "${ZIG_EXECUTABLE}" build --prefix "${PROJECT_BINARY_DIR}/stage3" ${ZIG_BUILD_ARGS}
++  DEPENDS ${ZIG_STAGE3_DEPENDS}
+   COMMENT "Building stage3"
+   WORKING_DIRECTORY "${ZIG2_WORKING_DIR}"
+ )
+ 
+-set(ZIG_EXECUTABLE "$<TARGET_FILE:zig2>")
+-
+ install(CODE "set(ZIG_EXECUTABLE \"${ZIG_EXECUTABLE}\")")
+ install(CODE "set(ZIG_BUILD_ARGS \"${ZIG_BUILD_ARGS}\")")
+ install(CODE "set(ZIG2_WORKING_DIR \"${ZIG2_WORKING_DIR}\")")
+-- 
+2.55.0
+
