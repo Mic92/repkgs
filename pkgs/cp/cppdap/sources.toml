@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/google/cppdap"
+prerelease = true
+
+[[source]]
+key = "default"
+url = "https://github.com/google/cppdap/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-S1jJ1sUVVxYmVQyRmZBZI6gxbyHe2qA8L4sG7srgAjs="
+
+[pin]
+version = "1.58.0-a"
+tag = "dap-1.58.0-a"
