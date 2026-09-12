@@ -11,13 +11,12 @@ source (go, rust, zig, jdk are done this way). Left:
   parts through `fetch.bunDeps`. About an hour of build.
 - **deno**: cargo. The weight is `rusty_v8`: build v8 with gn/ninja and our clang rather than
   take the prebuilt static lib. `denort` comes out of the same build (`deno compile`).
-- **ghc**: from source, booted by `ghc-bootstrap`.
 - **node**: swap the remaining bundled deps for ours where configure allows.
 
-Until then these are build tools only, never linked into outputs, pinned per cpu. zig, bun, deno
-and node have no upstream riscv64 binary: `repkgs bootstrap <x>` cross builds and uploads ours
-once they cross-build. ghc neither, and hadrian (9.6 to 9.12) cannot produce a compiler that runs
-on another machine, only cross compilers: riscv64 Haskell waits for that or a native builder.
+Until then these are build tools only, never linked into outputs, pinned per cpu. riscv64: bun,
+deno and node have no upstream binary and do not cross-build yet (`repkgs bootstrap <x>`
+uploads ours once they do); `ghc-bootstrap` is Debian's package until upstream ships a bindist
+or hadrian can build a compiler for another machine.
 
 ## Platforms
 
@@ -58,9 +57,16 @@ npm/pnpm/bun, and `uptrack check` should warn when a lock names a library the se
 ## Infrastructure
 
 - **CI**: nixbot on both build platforms plus the cross targets, harmonia cache with
-  realisations. A `repkgs repro` job: rebuild without the cache socket, a different store path
-  is the signal, diffoscope those.
+  realisations, `repkgs repro` as a job.
 - **uptrack**: reports, `sync-github`.
+- **builder/ blast radius**: every package hashes the whole `builder/` tree, so an edit to a
+  helper two packages use (ghc-bindist.nu, node-common.nu, beam.nu) rebuilds llvm. Import
+  those per package through a filtered path like package modules, keep only the framework
+  (core, prepare, finish, implant, systems/) in the tree every script sees.
+- **llvm install size**: `install` copies the ~200 component archives libLLVM.so was linked
+  from (llvm 807 MB of .a next to a 57 MB .so, zig-llvm 1.6 GB). Nothing links them but zig's
+  lld (no dylib there). `LLVM_DISTRIBUTION_COMPONENTS` + `install-distribution` installs a
+  named list and writes LLVMExports.cmake to match. With the next world rebuild.
 
 ## jig follow-ups
 
