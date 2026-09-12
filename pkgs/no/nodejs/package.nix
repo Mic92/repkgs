@@ -9,6 +9,12 @@ package {
   dependencies = [
     pkgs.zlib
     pkgs.openssl
+    pkgs.zstd
+    pkgs.brotli
+    pkgs.libuv
+    pkgs.nghttp2
+    pkgs.c-ares
+    pkgs.sqlite
   ];
   buildDependencies = [
     buildPkgs.cpython
@@ -28,7 +34,7 @@ package {
         # a broken ninja file (two rules for js_protocol.stamp)
         let emulator = (if ($c.platform.emulator | is-empty) { [] } else { [$"--emulator=($c.platform.emulator | str join ' ')"] })
         let cross = (if $c.platform.cross { [$"--dest-cpu=($c.platform.names.gyp)" --dest-os=linux ...$emulator] } else { [] })
-        x python3 configure.py $"--prefix=($c.out)" --ninja --shared-zlib --shared-openssl --with-intl=small-icu --without-corepack ...$cross
+        x python3 configure.py $"--prefix=($c.out)" --ninja --shared-zlib --shared-openssl --shared-zstd --shared-brotli --shared-libuv --shared-nghttp2 --shared-cares --shared-sqlite --with-intl=small-icu --without-corepack ...$cross
       '';
     }
     {
