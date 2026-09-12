@@ -21,9 +21,12 @@ variant pkgs.llvm {
   phases.remove.set = [ "cmake.test" ];
   phases.after."cmake.install".append = [
     {
-      # python scripts clang installs regardless of CLANG_BUILD_TOOLS. zig needs the libraries
+      # python scripts, and links to drivers *_BUILD_TOOLS=OFF never built
       name = "no-scripts";
-      run = "glob $\"($c.out)/bin/{git-clang-format,hmaptool,scan-*,analyze-*,intercept-*}\" | each { rm $in }";
+      run = ''
+        files --any $"($c.out)/bin/{git-clang-format,hmaptool,scan-*,analyze-*,intercept-*}" | each { rm $in }
+        ls -l $"($c.out)/bin" | where type == symlink | where { ($in.name | path exists) == false } | each { rm $in.name }
+      '';
     }
   ];
 }

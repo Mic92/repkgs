@@ -75,6 +75,13 @@ npm/pnpm/bun, and `uptrack check` should warn when a lock names a library the se
   when only the vendor store path does. A recurring `compiled-error` on identical rebuilds means
   an unstable conftest key.
 - Hash link inputs in parallel if llvm-sized links show up in profiles.
+- **.pyc in python outputs**: see what pip/meson installs write (`__pycache__` with source
+  paths and mtimes) and pick one: delete, or recompile with `--invalidation-mode unchecked-hash`.
+- **config.sub refresh**: old autotools tarballs reject riscv64/loongarch64 triples. Copy a
+  current config.sub/config.guess in `autotools.configure` when cross, once a package needs it.
+- **toolchain references**: `reloc-fixup --deny` the `cc` wrapper for native builds too, after
+  checking which outputs record their compiler (python sysconfig, perl Config.pm) and how
+  those should read instead.
 - **Zig cache**: zig has no cache protocol, only `zig-cache` dirs with prefix-stripped paths,
   so they are portable between sandboxes. Round-trip `ZIG_GLOBAL_CACHE_DIR` through jigd as one
   tree (key: zig binary + source tree), first for zig's own stage3, then for a zig build system.

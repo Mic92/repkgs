@@ -141,6 +141,24 @@ def install-map [c: record]: nothing -> nothing {
   }
 }
 
+# bin/ and lib/ only, symlinks that survive a move of the prefix
+def layout-check [c: record]: nothing -> nothing {
+  for d in [lib64 sbin] {
+    if ($"($c.out)/($d)" | path exists) { error make {msg: $"($d)/ in output: configure with --libdir/--sbindir so it installs into lib/ and bin/"} }
+  }
+  for l in (^find $c.out -type l | lines) {
+    let target = (^readlink $l)
+    let rel = ($l | path relative-to $c.out)
+    if ($target | str starts-with $"($c.out)/") {
+      let up = ($rel | path split | skip 1 | each { ".." })
+      ^ln -sfn ($up | append ($target | path relative-to $c.out) | path join) $l
+    } else if ($target | str starts-with "/") {
+      error make {msg: $"symlink ($rel) -> ($target) is absolute: outputs relocate, link relative"}
+    }
+    if not ($l | path exists) { error make {msg: $"symlink ($rel) -> ($target) dangles"} }
+  }
+}
+
 # debug split, launchers, then RUNPATH/PT_INTERP -> $ORIGIN-relative (jig reloc-fixup). prebuilt:
 # `true` implants interp + stub, "ldso" stays byte-identical behind an ld.so launcher. A cross
 # output must not mention build-machine packages (--deny)
@@ -179,9 +197,10 @@ export def main [
   for b in (bins $c) {
     if not ($"($c.out)/bin/($b)" | path exists) { error make {msg: $"bin/($b) missing in output"} }
   }
-  for f in (files $"($c.out)/**/*.la") { rm $f }
+  for f in (files $"($c.out)/**/{*.la,perllocal.pod,.packlist}" | append (files $"($c.out)/lib/charset.alias")) { rm $f }
   # HTML/info docs are never read from a store path, man pages stay
   for d in [share/doc share/info share/gtk-doc] { rm -rf $"($c.out)/($d)" }
+  layout-check $c
   # precompiled headers pin absolute header paths: fine in a build tree, broken once installed
   let pch = (files $"($c.out)/**/*.{pch,gch}")
   if ($pch | is-not-empty) { error make {msg: $"precompiled headers in output do not relocate: ($pch | first 3 | str join ' ')"} }
