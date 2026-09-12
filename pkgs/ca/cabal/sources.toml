@@ -1,0 +1,14 @@
+[upstream]
+purl = "pkg:hackage/cabal-install"
+
+[locks]
+hackage = "."
+
+[[source]]
+key = "default"
+url = "https://hackage.haskell.org/package/cabal-install-{version}/cabal-install-{version}.tar.gz"
+hash = "sha256-ApkI072VfH0Id3Fvp3IobAMbYGckn5vCpQfgm0B9ELQ="
+
+[pin]
+version = "3.18.1.0"
+sys = ["zlib"]

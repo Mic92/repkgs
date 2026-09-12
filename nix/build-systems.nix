@@ -206,9 +206,10 @@ builtins.mapAttrs
     };
     cabal = {
       unsupported = if platform.cross then "ghc-bootstrap only targets the build machine" else null;
+      # `cabal.tool = buildPkgs.cabal-bootstrap` for cabal itself
+      tool = buildPkgs.cabal;
       tools = [
         buildPkgs.ghc-bootstrap
-        buildPkgs.cabal-bootstrap
         buildPkgs.jsem
       ];
       dependencies = [

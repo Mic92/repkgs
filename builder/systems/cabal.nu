@@ -25,6 +25,8 @@ export def --env setup []: nothing -> nothing {
   let unit_id = (^ghc --info | parse --regex '"Project Unit Id","([^"]+)"' | get capture0.0)
   load-env {CABAL_DIR: $"($c.build)/cabal", CABAL_UNITS: $"($STORE)/($unit_id)"}
   mkdir $env.CABAL_DIR $"(unit-dir)/package.db"
+  # ghc refuses a package.db directory without package.cache
+  ^ghc-pkg recache $"--package-db=(unit-dir)/package.db"
   # `semaphore`: cabal passes -jsem to ghc itself, outside the ghc-options that unit ids hash.
   # ghc runs under jsem (pkgs/js/jsem), which feeds that semaphore from jigd's slots
   let ghc = $"($c.build)/ghc"
