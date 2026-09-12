@@ -20,7 +20,8 @@ export def main [
   mkdir (attrs).outputs.debug
   if $c.platform.binfmt == "elf" { relocate-elf $c }
   version-check $c
-  write-exports $c
+  write-exports $c.out $c.spec $c.deps
+  note exports (open --raw $"($c.out)/exports.json" | from json | to json -r)
   cache-summary
 }
 
@@ -206,15 +207,6 @@ def version-check [c: record]: nothing -> nothing {
     rm -rf $root
   }
   note version $"($cmd | str join ' ') -> ($want)(if $relocated { ', relocated' })"
-}
-
-# exports.json for dependents (core.nu exports-of). exports = false: nothing to link against
-def write-exports [c: record]: nothing -> nothing {
-  let none = {includeDirs: [], libDirs: [], libs: [], pkgconfigDirs: [], aclocalDirs: []}
-  let own = (if $c.spec.exports? == false { $none } else { $c.spec.exports? | default {} })
-  let exports = (exports-of $c.out | merge $own | upsert name $c.spec.name)
-  $exports | to json | save -f $"($c.out)/exports.json"
-  note exports ($exports | to json -r)
 }
 
 # "jig: cc cached=812/855 (95%) compiled=40 …" from $JIG_LOG (tool, outcome, subject, ms per run)

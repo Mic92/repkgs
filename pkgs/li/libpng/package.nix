@@ -12,5 +12,4 @@ package {
     PNG_TOOLS = true;
   };
   dependencies = [ pkgs.zlib ];
-  exports.propagate = [ pkgs.zlib ];
 }

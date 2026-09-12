@@ -28,6 +28,8 @@ export def dep-store [store: path, n: int = 60, fanout: int = 2]: nothing -> lis
     let p = (do $name $i)
     mkdir $"($p)/include" $"($p)/lib/pkgconfig" $"($p)/share/aclocal"
     for l in [a b c] { "" | save -f $"($p)/lib/lib($l)($i).so" }
+    "" | save -f $"($p)/lib/pkgconfig/dep($i).pc"
+    mkdir $"($p)/lib/cmake/Dep($i)"; "" | save -f $"($p)/lib/cmake/Dep($i)/Dep($i)Config.cmake"
     let propagate = (1..$fanout | each {|k| $i + $k } | where $it < $n | each {|j| do $name $j })
     {env: {$"DEP($i)_HOME": "{root}/share"}, propagate: $propagate} | to json | save -f $"($p)/exports.json"
   }
@@ -133,7 +135,10 @@ export def output [out: path, seed: path, elfs: int = 120, data: int = 3000]: no
   for i in 0..<20 { ^gzip -n $"($out)/share/man/man1/t(2 + 6 * $i).1" }
   # absolute into the prefix as the benches see it (a copy at <out>.run)
   for i in 0..<60 { ^ln -s $"($out).run/lib/elf(1 + 3 * ($i mod 30)).so" $"($out)/lib/link($i).so" }
-  "Name: fix\n" | save -f $"($out)/lib/pkgconfig/fix.pc"
+  # 6 .pc files requiring each other and 10 deps, one cmake config with 8 find_dependency
+  for i in 0..<6 { $"Name: fix($i)\nRequires: fix(($i + 1) mod 6), dep($i) >= 1.0 dep(40 + $i)\nRequires.private: zlib\n" | save -f $"($out)/lib/pkgconfig/fix($i).pc" }
+  mkdir $"($out)/lib/cmake/Fix"
+  0..<8 | each {|i| $"find_dependency\(Dep($i * 5))" } | append "find_dependency(Threads)" | str join "\n" | save -f $"($out)/lib/cmake/Fix/FixConfig.cmake"
   ^chmod -R u+w $out
   $out
 }
