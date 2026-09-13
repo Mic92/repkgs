@@ -29,7 +29,7 @@ export def --env setup []: nothing -> nothing {
   # ghc refuses a package.db directory without package.cache
   ^ghc-pkg recache $"--package-db=(unit-dir)/package.db"
   # `semaphore`: cabal passes -jsem to ghc itself, outside the ghc-options that unit ids hash.
-  # ghc runs under jsem (pkgs/js/jsem), which feeds that semaphore from jigd's slots
+  # jsem (pkgs/js/jsem) feeds it from jigd's slots
   let ghc = $"($c.build)/ghc"
   $"#!(tool sh)\nexec (tool jsem) (tool ghc) \"$@\"\n" | save -f $ghc
   chmod +x $ghc

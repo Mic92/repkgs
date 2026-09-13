@@ -57,7 +57,7 @@ void TestNoDaemon() {
 }
 }  // namespace
 
-auto main() -> int {
+auto main() -> int {  // NOLINT(bugprone-exception-escape): a test, let it crash
   TestBroker();
   TestNoDaemon();
   std::puts("jsem_test: ok");
