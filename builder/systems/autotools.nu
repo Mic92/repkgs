@@ -27,8 +27,8 @@ def unrecord-install-tool [out: string]: nothing -> nothing {
   for f in $files { edit $f { str replace -a (install-tool) install } }
 }
 
-# ./configure --prefix=$out --enable-shared with cached probe results, no message catalogues,
-# no .deps files, --host/--build when cross, `autotools.flags` last
+# ./configure. Prefix, cache file and INSTALL through the environment (nix/config.site), so
+# configure's recorded argv has no build paths
 export def --env configure []: nothing -> nothing {
   let c = (ctx); let o = (options autotools)
   let script = $"($c.src)/($o.configureScript)"
@@ -39,8 +39,10 @@ export def --env configure []: nothing -> nothing {
   note config.cache (if (probe-cache restore $key $cache) { "restored" } else { "cold" })
   gnulib-gettext-literal $c.src
   cp (tool install) (install-tool)
-  (x $env.CONFIG_SHELL $script $"--prefix=($c.out)" $"--cache-file=($cache)" --disable-nls --disable-dependency-tracking
-    $"INSTALL=(install-tool) -c" --disable-static --enable-shared ...$host_flags ...$o.flags)
+  with-env {PKGS_PREFIX: $c.out, PKGS_CONFIG_CACHE: $cache, INSTALL: $"(install-tool) -c"} {
+    (x $env.CONFIG_SHELL $script --disable-nls --disable-dependency-tracking --disable-static --enable-shared
+      ...$host_flags ...$o.flags)
+  }
   probe-cache store $key $cache
 }
 
