@@ -1,0 +1,51 @@
+{
+  package,
+  pkgs,
+  buildPkgs,
+  platform,
+  on,
+}:
+package {
+  name = "nix";
+  uses = [ "meson" ];
+  meson.defs = {
+    unit-tests = false;
+    functional-tests = false;
+    json-schema-checks = false;
+    doc-gen = false;
+  }
+  // on (platform.cpu == "x86_64") { "libutil:cpuid" = "enabled"; }
+  // on (platform.os == "linux") { "libstore:seccomp-sandboxing" = "enabled"; };
+  dependencies = [
+    pkgs.bzip2
+    pkgs.curl
+    pkgs.libarchive
+    pkgs.openssl
+    pkgs.sqlite
+    pkgs.xz
+    pkgs.zlib
+    pkgs.zstd
+    pkgs.bdw-gc
+    pkgs.blake3
+    pkgs.boost
+    pkgs.libsodium
+    pkgs.lowdown
+    pkgs.brotli
+    pkgs.nlohmann-json
+    pkgs.libgit2
+    pkgs.toml11
+    pkgs.editline
+  ]
+  ++ on (platform.cpu == "x86_64") [ pkgs.libcpuid ]
+  ++ on (platform.os == "linux") [ pkgs.libseccomp ];
+  buildDependencies = [
+    buildPkgs.bison
+    buildPkgs.cmake
+    buildPkgs.flex
+  ];
+  patches = [
+    ./upstream-clang23-nodiscard.patch
+    ./relocatable.patch
+  ];
+  tests.run = false;
+}

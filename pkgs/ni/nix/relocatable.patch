@@ -1,0 +1,60 @@
+NIX_MAN_DIR relative to the binary, no compiled-in NIX_BIN_DIR fallback,
+nix-daemon.service by name for ExecSearchPath=.
+
+--- a/misc/systemd/nix-daemon.service.in
++++ b/misc/systemd/nix-daemon.service.in
+@@ -7,7 +7,8 @@ RequiresMountsFor=@localstatedir@/nix/db
+ ConditionPathIsReadWrite=@localstatedir@/nix/daemon-socket
+ 
+ [Service]
+-ExecStart=@@bindir@/nix-daemon nix-daemon --daemon
++# by name: systemd >= 250 looks on ExecSearchPath=, set it in a drop-in
++ExecStart=nix-daemon --daemon
+ KillMode=process
+ LimitNOFILE=1048576
+ TasksMax=1048576
+--- a/src/nix/man-pages.cc
++++ b/src/nix/man-pages.cc
+@@ -8,7 +8,10 @@ namespace nix {
+ 
+ std::filesystem::path getNixManDir()
+ {
+-    return canonPath(std::filesystem::path{NIX_MAN_DIR});
++    auto self = getSelfExe();
++    if (!self)
++        throw Error("cannot locate the nix binary to find its man pages");
++    return canonPath(self->parent_path() / NIX_MAN_DIR);
+ }
+ 
+ void showManPage(const std::string & name)
+--- a/src/nix/meson.build
++++ b/src/nix/meson.build
+@@ -60,11 +60,10 @@ prefix = get_option('prefix')
+ 
+ bindir = get_option('bindir')
+ bindir = fs.is_absolute(bindir) ? bindir : prefix / bindir
+-configdata.set_quoted('NIX_BIN_DIR', bindir)
+ 
+ mandir = get_option('mandir')
+ mandir = fs.is_absolute(mandir) ? mandir : prefix / mandir
+-configdata.set_quoted('NIX_MAN_DIR', mandir)
++configdata.set_quoted('NIX_MAN_DIR', fs.relative_to(mandir, bindir))
+ 
+ config_priv_h = configure_file(
+   configuration : configdata,
+--- a/src/nix/self-exe.cc
++++ b/src/nix/self-exe.cc
+@@ -24,13 +24,6 @@ std::filesystem::path getNixBin(std::optional<std::string_view> binaryNameOpt)
+             return path;
+     }
+ 
+-    // If `nix` exists at the hardcoded fallback path, use it.
+-    {
+-        auto path = std::filesystem::path{NIX_BIN_DIR} / std::string{getBinaryName()};
+-        if (std::filesystem::exists(path))
+-            return path;
+-    }
+-
+     // return just the name, hoping the exe is on the `PATH`
+     return getBinaryName();
+ }
