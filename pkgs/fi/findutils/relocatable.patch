@@ -1,0 +1,19 @@
+--- a/locate/updatedb.sh
++++ b/locate/updatedb.sh
+@@ -203,14 +203,14 @@
+ if test -n "$LIBEXECDIR" ; then
+     : LIBEXECDIR already set, do nothing
+ else
+-    : ${LIBEXECDIR=@libexecdir@}
++    : ${LIBEXECDIR=$(cd "$(dirname "$0")/../libexec" && pwd)}
+ fi
+ 
+ # The directory containing find.
+ if test -n "$BINDIR" ; then
+     : BINDIR already set, do nothing
+ else
+-    : ${BINDIR=@bindir@}
++    : ${BINDIR=$(cd "$(dirname "$0")" && pwd)}
+ fi
+ 
+ # The names of the utilities to run to build the database.
