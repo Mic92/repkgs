@@ -64,7 +64,7 @@ npm/pnpm/bun, and `uptrack check` should warn when a lock names a library the se
   those per package through a filtered path like package modules, keep only the framework
   (core, prepare, finish, implant, systems/) in the tree every script sees.
 - **llvm install size**: `install` copies the ~200 component archives libLLVM.so was linked
-  from (llvm 807 MB of .a next to a 57 MB .so, zig-llvm 1.6 GB). Nothing links them but zig's
+  from (llvm 807 MB of .a next to a 57 MB .so, llvm21 with all targets more). Nothing links them but zig's
   lld (no dylib there). `LLVM_DISTRIBUTION_COMPONENTS` + `install-distribution` installs a
   named list and writes LLVMExports.cmake to match. With the next world rebuild.
 

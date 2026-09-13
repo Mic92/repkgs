@@ -35,7 +35,7 @@ export const TABLES = {
   "libdbus-sys": {pkg: dbus, env: {DBUS_SYS_USE_PKG_CONFIG: "1"}}
   "libxml": {pkg: libxml2, env: {}}
   "tikv-jemalloc-sys": {pkg: jemalloc, env: {JEMALLOC_OVERRIDE: "{root}/lib/libjemalloc.so"}}
-  "clang-sys": {pkg: libclang, env: {LIBCLANG_PATH: "{root}/lib"}}
+  "clang-sys": {pkg: clang, env: {LIBCLANG_PATH: "{root}/lib"}}
   }
   # go.sum module paths (cgo packages)
   go: {

@@ -1,6 +1,6 @@
 # Zig from source. No prebuilt zig anywhere: the tarball's stage1/zig1.wasm is turned into C by
 # the bundled wasm2c, cc compiles that to zig1, zig1 emits zig2.c, cc builds zig2, zig2 builds
-# zig (stage3) against zig-llvm's libLLVM/libclang-cpp/lld.
+# zig (stage3) against llvm21's libLLVM with clang21 and lld21.
 {
   package,
   pkgs,
@@ -33,13 +33,15 @@ package {
     # our glibc's version: zig's default (2.28) stubs lack symbols our headers use (__isoc23_*)
     ZIG_TARGET_TRIPLE = "${platform.cpu}-linux-gnu.${glibc.pin.version}";
     ZIG_USE_LLVM_CONFIG = true;
-    CMAKE_PROGRAM_PATH = "${pkgs.zig-llvm}/host";
+    CMAKE_PROGRAM_PATH = "${pkgs.llvm21}/host";
     ZIG_STATIC_ZLIB = true;
     ZIG_STATIC_ZSTD = true;
   };
   patches = [ ./cmake-zig-executable.patch ];
   dependencies = [
-    pkgs.zig-llvm
+    pkgs.llvm21
+    pkgs.clang21
+    pkgs.lld21
     pkgs.zlib
     pkgs.zstd
   ];

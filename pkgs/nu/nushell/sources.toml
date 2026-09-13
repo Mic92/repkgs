@@ -12,7 +12,7 @@ tag = "0.115.1"
 date = "2026-08-23"
 sys = [
   "curl",
-  "libclang",
+  "clang",
   "libgit2",
   "lz4",
   "openssl",
