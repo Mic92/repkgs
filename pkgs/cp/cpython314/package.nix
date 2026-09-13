@@ -10,6 +10,7 @@ package {
   name = "cpython314";
   uses = [ "autotools" ];
   autotools.flags = [
+    "--disable-test-modules"
     "--without-ensurepip"
     "--with-openssl=${pkgs.openssl}"
     "--with-system-libmpdec"
@@ -30,7 +31,10 @@ package {
   # asks the OS) or libpython is, a build tree one uses the source dir. sysconfig data and .pyc
   # paths relative, python-config from $0. LIBPL gets no copy of the build Makefile and
   # python-config.py (records of the build, nothing reads them)
-  patches = [ ./relocatable.patch ];
+  patches = [
+    ./relocatable.patch
+    ./upstream-darwin-cross-xopen.patch
+  ];
   # build-details.json (PEP 739) records the paths of the python that ran the generator, under
   # cross the build machine's: ours by layout, relative as --relative-paths would write them
   phases.after."autotools.install" = [
