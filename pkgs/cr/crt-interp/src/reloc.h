@@ -1,22 +1,15 @@
 // A path relative to the executable or shared object this is compiled into, resolved at run
 // time: RELOC("../share/foo") in bin/foo or lib/libfoo.so is <prefix>/share/foo wherever the
 // package was copied. For compiled-in directories that would otherwise name the install prefix.
-// Only ISO C and /proc (dladdr on macOS, the module handle on Windows), so it compiles under any
-// feature-test macros the package sets.
+// reloc_self.h is the OS's way to name the file an address is mapped from (cc installs the one
+// for its target next to this).
 #ifndef RELOC_H
 #define RELOC_H
 #include <limits.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#if defined(__APPLE__)
-#include <dlfcn.h>
-#elif defined(_WIN32)
-#include <windows.h>
-#ifndef PATH_MAX
-#define PATH_MAX MAX_PATH
-#endif
-#endif
+
+#include "reloc_self.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,30 +20,7 @@ extern "C" {
 __attribute__((visibility("hidden"), noinline, used)) static const char* reloc_dir(void) {
   static char dir[PATH_MAX];
   if (dir[0]) return dir;
-#if defined(__APPLE__)
-  Dl_info info;
-  if (dladdr((const void*)&reloc_dir, &info) && info.dli_fname) strncpy(dir, info.dli_fname, sizeof dir - 1);
-#elif defined(_WIN32)
-  HMODULE module = 0;
-  if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                         (LPCSTR)(void*)&reloc_dir, &module))
-    GetModuleFileNameA(module, dir, sizeof dir);
-  for (char* p = dir; *p; p++)
-    if (*p == '\\') *p = '/';
-#else
-  unsigned long self = (unsigned long)(void*)&reloc_dir, lo, hi;
-  FILE* maps = fopen("/proc/self/maps", "re");
-  char line[PATH_MAX + 128];
-  while (maps && fgets(line, sizeof line, maps)) {
-    char* path = strchr(line, '/');
-    if (sscanf(line, "%lx-%lx", &lo, &hi) == 2 && lo <= self && self < hi && path) {
-      path[strcspn(path, "\n")] = 0;
-      strncpy(dir, path, sizeof dir - 1);
-      break;
-    }
-  }
-  if (maps) fclose(maps);
-#endif
+  reloc_self((const void*)&reloc_dir, dir, sizeof dir);
   char* slash = strrchr(dir, '/');
   if (slash) slash[1] = 0;
   return dir;

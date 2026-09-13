@@ -94,6 +94,7 @@ let
         osNames
         triple
         rustTriple
+        opensslTarget
         buildRustTriple
         cross
         emulator

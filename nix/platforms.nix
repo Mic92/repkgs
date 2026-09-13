@@ -33,6 +33,7 @@ let
         kernel = "x86";
         go = "amd64";
         gyp = "x64";
+        openssl = "linux-x86_64";
       };
       march = [ "-march=x86-64-v3" ];
       hardening.cfprotection = true;
@@ -44,6 +45,7 @@ let
         go = "arm64";
         gyp = "arm64";
         clang = "arm64";
+        openssl = "linux-aarch64";
       };
       march = [ "-march=armv8.2-a+lse" ];
       hardening.branchprotection = true;
@@ -86,6 +88,7 @@ let
         meson = "ppc64";
         gyp = "ppc64";
         qemu = "ppc64le";
+        openssl = "linux-ppc64le";
       };
       march = [ "-mcpu=power9" ];
       interp.glibc = "ld64.so.2";
@@ -112,6 +115,7 @@ let
         qemu = null;
         gyp = null;
         clang = null; # apple triples say arm64
+        openssl = null;
       };
       name = "${cpu}-linux";
       triple = "${cpu}-unknown-linux-${
@@ -122,6 +126,7 @@ let
         .${libc}
       }";
       rustTriple = "${names.rust}-unknown-linux-${if libc == "musl" then "musl" else "gnu"}";
+      opensslTarget = c.names.openssl or "linux64-${cpu}"; # its Configure's own table
       interp = if libc == "musl" then "ld-musl-${cpu}.so.1" else c.interp.glibc;
     };
   # The non-Linux targets take libc, C++ library and SDK as given (pkgs/wi/windows-sdk,
@@ -152,6 +157,7 @@ let
       libc = "msvc";
       triple = "${cpu}-pc-windows-msvc";
       rustTriple = "${cpu}-pc-windows-msvc";
+      opensslTarget = if cpu == "aarch64" then "VC-WIN64-CLANGASM-ARM" else "VC-WIN64A";
     };
   macos =
     cpu:
@@ -163,6 +169,7 @@ let
       triple = "${cpus.${cpu}.names.clang or cpu}-apple-macos${minos}";
       configTriple = "${cpu}-apple-darwin"; # the GNU spelling, for configure --host
       rustTriple = "${cpu}-apple-darwin";
+      opensslTarget = "darwin64-${cpus.${cpu}.names.clang or cpu}";
       march = [ "-mcpu=apple-m1" ];
     };
 in
