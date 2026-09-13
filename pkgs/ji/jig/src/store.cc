@@ -16,7 +16,8 @@
 namespace jig {
 
 namespace {
-constexpr std::string_view kDepfileDelimiters = " \t\n\\:";
+// what may follow a store root in a depfile, response file or config text
+constexpr std::string_view kPathEnds = " \t\n\\:\"';,)]}>";
 }  // namespace
 
 auto Store::Get() -> Store& {
@@ -153,15 +154,17 @@ auto Store::Resolve(const std::string& path) const -> std::optional<std::string>
 
 auto Store::ResolveAll(std::string text) const -> std::string {
   text = MaskHashes(std::move(text));
-  const std::string mark = dir_ + "/*-";
-  for (size_t pos = 0; (pos = text.find(mark, pos)) != std::string::npos;) {
-    size_t end = text.find_first_of(kDepfileDelimiters, pos);
-    if (end == std::string::npos) {
-      end = text.size();
+  for (const auto& [masked, real] : masked_to_real_) {
+    // whole root only: "*-zlib" must not eat "*-zlib-ng"
+    for (size_t pos = 0; (pos = text.find(masked, pos)) != std::string::npos;) {
+      const size_t end = pos + masked.size();
+      if (end < text.size() && text.at(end) != '/' && kPathEnds.find(text.at(end)) == std::string_view::npos) {
+        pos = end;
+        continue;
+      }
+      text.replace(pos, masked.size(), real);
+      pos += real.size();
     }
-    const std::string real = Resolve(text.substr(pos, end - pos)).value_or(text.substr(pos, end - pos));
-    text.replace(pos, end - pos, real);
-    pos += real.size();
   }
   return text;
 }

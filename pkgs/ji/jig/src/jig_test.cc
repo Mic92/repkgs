@@ -99,6 +99,11 @@ void TestStore() {
   assert(store.Resolve(store.MaskHashes(vendored)) == vendored);
   assert(!store.Resolve(dir + "/*-elsewhere/f.h"));
   assert(store.Resolve("/tmp/f.h") == "/tmp/f.h");
+  // a config text from another build: its root becomes ours, quoted or not, longer names untouched
+  const std::string kv(kVendor);
+  const std::string other = dir + "/" + std::string(32, 'a') + kv.substr(kv.find('-'));
+  assert(store.ResolveAll("p=\"" + other + "/x\" q=" + other + "-ng/y") ==
+         "p=\"" + kv + "/x\" q=" + store.MaskHashes(other) + "-ng/y");
   // two packages whose bin/rustc link to one launcher: distinct ids, the launcher not in them
   const fs::path tmp = fs::temp_directory_path() / ("jig-toolid-" + std::to_string(::getpid()));
   for (const char* pkg : {"rust-a", "rust-b"}) {
