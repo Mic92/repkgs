@@ -1,0 +1,60 @@
+--- a/src/files.c
++++ b/src/files.c
+@@ -31,7 +31,8 @@
+ #include <gl_xmap.h>
+ #include <quote.h>
+ #include <quotearg.h>
+-#include <relocatable.h> /* relocate2 */
++#include <reloc.h>
++#include <relocatable.h> /* relocate */
+ #include <stdio-safer.h>
+ #include <sys/stat.h>
+ #include <sys/types.h>
+@@ -553,7 +554,7 @@
+   else
+     {
+       char const *cp = getenv ("BISON_PKGDATADIR");
+-      return cp ? cp : relocate2 (PKGDATADIR, &relocate_buffer);
++      return cp ? cp : RELOC ("../share/bison");
+     }
+ }
+ 
+--- a/src/getargs.c
++++ b/src/getargs.c
+@@ -23,6 +23,8 @@
+ 
+ #include "system.h"
+ 
++#include <reloc.h>
++
+ #include <argmatch.h>
+ #include <c-strcase.h>
+ #include <configmake.h>
+@@ -875,7 +877,7 @@
+         break;
+ 
+       case PRINT_LOCALEDIR_OPTION:
+-        printf ("%s\n", LOCALEDIR);
++        printf ("%s\n", RELOC ("../share/locale"));
+         exit (EXIT_SUCCESS);
+ 
+       case PRINT_DATADIR_OPTION:
+--- a/src/main.c
++++ b/src/main.c
+@@ -28,6 +28,7 @@
+ #include <progname.h>
+ #include <quote.h>
+ #include <quotearg.h>
++#include <reloc.h>
+ #include <relocatable.h> /* relocate2 */
+ #include <timevar.h>
+ 
+@@ -74,7 +75,7 @@
+   setlocale (LC_ALL, "");
+   {
+     char *cp = NULL;
+-    char const *localedir = relocate2 (LOCALEDIR, &cp);
++    char const *localedir = RELOC ("../share/locale");
+     bindtextdomain ("bison", localedir);
+     bindtextdomain ("bison-gnulib", localedir);
+     bindtextdomain ("bison-runtime", localedir);
