@@ -34,7 +34,7 @@ def --env unpack [a: record, src: path, njobs: int]: nothing -> nothing {
   ^cp -rp $"($a.src)/." $src
   ^chmod -R u+w $src
   cd $src
-  for p in $a.patches { note patch $p; ^patch -p1 -i $p }
+  for p in $a.patches { note patch $p; ^patch -p1 -l -i $p }
   fix-env-shebangs . $njobs
 }
 
