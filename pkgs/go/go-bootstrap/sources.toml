@@ -14,7 +14,7 @@ hash = "sha256-t7/ZChLoIl9Rkpln4mx0zaKKuO7v5wmk4AknLRjJzoQ="
 [[source]]
 key = "riscv64"
 url = "https://go.dev/dl/go{version}.linux-riscv64.tar.gz"
-hash = "sha256-Yih2Z+5eX1QPMPubdSmif+WC8ixr/XJuzpsEX0xU7mE="
+hash = "sha256-PKM42XI+p2RS/iYvcr87TcfDJp+fuFPolCjVW82YiGs="
 
 [pin]
 version = "1.27.1"

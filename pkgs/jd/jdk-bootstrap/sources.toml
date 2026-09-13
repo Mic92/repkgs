@@ -14,7 +14,7 @@ hash = "sha256-dyESeembVdBD65bEp3TswedOR55jpgSmtFbg9OiC/TE="
 [[source]]
 key = "riscv64"
 url = "https://github.com/adoptium/temurin25-binaries/releases/download/{path}/OpenJDK25U-jdk_riscv64_linux_hotspot_{file}.tar.gz"
-hash = "sha256-jb7ysSzq7OybXwDX9Wgwm341JRN3d3Nqv8ZZAMBUzPk="
+hash = "sha256-j0YxRbvXEPicQowRpHoPrYiFLkDCj5ac2u0DAF0cVMI="
 
 [pin]
 version = "25.0.4.1+1"
