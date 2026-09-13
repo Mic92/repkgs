@@ -60,7 +60,11 @@ let
     };
     cc = {
       crt_interp = pkg "crt-interp" + "/src/crt_interp.c";
-      reloc_h = pkg "crt-interp" + "/src/reloc.h";
+      reloc = builtins.path {
+        name = "reloc";
+        path = pkg "crt-interp" + "/src";
+        filter = p: _: builtins.match "reloc.*" (baseNameOf p) != null;
+      };
     };
     dlaudit.dlaudit = pkg "dlaudit" + "/src/dlaudit.cc";
   };

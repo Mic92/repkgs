@@ -12,8 +12,8 @@ package {
   phases.replace."make.configure" = {
     name = "configure";
     run = ''
-      let target = ({x86_64: "linux-x86_64", aarch64: "linux-aarch64", riscv64: "linux64-riscv64"} | get $c.platform.cpu)
-      x perl ./Configure $target $"--prefix=($c.out)" "--libdir=lib" "--openssldir=/etc/ssl" shared no-docs no-tests enable-ktls
+      let ktls = (if $c.platform.os == "linux" { [enable-ktls] } else { [] })
+      x perl ./Configure $c.platform.opensslTarget $"--prefix=($c.out)" "--libdir=lib" "--openssldir=/etc/ssl" shared no-docs no-tests ...$ktls
     '';
   };
   make.installTarget = [

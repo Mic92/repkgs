@@ -91,9 +91,10 @@ def main []: nothing -> nothing {
     cxxflags: $d.cxxflags
     prefix-map: $"($sysroot)=/sysroot:($out)=/cc"
   }
-  # reloc.h: compiled-in dirs relative to the binary, for every binfmt
+  # reloc.h: compiled-in dirs relative to the binary, reloc_self.h its per-OS half
   mkdir $"($out)/include"
-  cp $env.reloc_h $"($out)/include/reloc.h"
+  cp $"($env.reloc)/reloc.h" $"($out)/include/reloc.h"
+  cp $"($env.reloc)/reloc_self_($env.os).h" $"($out)/include/reloc_self.h"
   let policy = (if $env.binfmt == "elf" { elf-policy $out $sysroot } else { {} })
   $conf | merge $policy | items {|k, v| $"($k) = ($v)" } | str join "\n" | $in + "\n" | save $"($out)/etc/jig.conf"
 
