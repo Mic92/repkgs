@@ -26,7 +26,8 @@ package {
         # --cross-prefix is what switches configure to a cross build
         $env.PKG_CONFIG = "pkg-config"
         let cross = (if $c.platform.cross { [$"--cross-prefix=($c.platform.triple)-" $"--host-cc=($env.CC_FOR_BUILD)"] } else { [] })
-        (x (tool sh) $"($c.src)/configure" $"--prefix=($c.out)" --disable-download --without-default-features
+        # --prefix paths are templates, get_relocated_path() rebases them on the binary
+        (x (tool sh) $"($c.src)/configure" --prefix=/usr --disable-download --without-default-features
           --enable-linux-user --disable-system --disable-tools --disable-docs --disable-werror
           --target-list=aarch64-linux-user,loongarch64-linux-user,ppc64le-linux-user,riscv64-linux-user,x86_64-linux-user $"--python=(which python3 | get 0.path)" ...$cross)
       '';
@@ -38,7 +39,12 @@ package {
     {
       # through ninja: the meson that configured is qemu's vendored one, not ours
       name = "install";
-      run = "x ninja -C $c.build install";
+      run = ''
+        with-env {DESTDIR: $"($c.build)/dest"} { x ninja -C $c.build install }
+        ^cp -r $"($c.build)/dest/usr/." $c.out
+        # firmware and keymaps are for system emulation (--disable-install-blobs also drops the vdso)
+        rm -rf $"($c.out)/share/qemu"
+      '';
     }
   ];
   tests.run = false;

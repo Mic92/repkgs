@@ -4,6 +4,7 @@
 #include <poll.h>
 #include <semaphore.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -24,7 +25,7 @@ constexpr mode_t kMode = 0600;
 
 class Conn {
  public:
-  explicit Conn(int fd) : fd_(fd) {}
+  explicit Conn(int sock) : fd_(sock) {}
   ~Conn() {
     if (fd_ >= 0) {
       ::close(fd_);
@@ -35,14 +36,14 @@ class Conn {
   Conn(Conn&&) = delete;
   auto operator=(Conn&&) -> Conn& = delete;
 
-  static auto Open(const std::string& socket_path) -> std::unique_ptr<Conn> {
+  static auto Open(const std::string& socket_path) -> std::shared_ptr<Conn> {
     sockaddr_un addr{};
     addr.sun_family = AF_UNIX;
     if (socket_path.empty() || socket_path.size() >= sizeof(addr.sun_path)) {
       return nullptr;
     }
     std::ranges::copy(socket_path, std::begin(addr.sun_path));
-    auto conn = std::make_unique<Conn>(::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0));
+    auto conn = std::make_shared<Conn>(::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0));
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): the sockets API is defined this way
     if (conn->fd_ < 0 || ::connect(conn->fd_, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) != 0) {
       return nullptr;
@@ -50,7 +51,7 @@ class Conn {
     return conn;
   }
 
-  auto Send(std::string_view line) const -> bool {
+  [[nodiscard]] auto Send(std::string_view line) const -> bool {
     while (!line.empty()) {
       const ssize_t sent = ::send(fd_, line.data(), line.size(), MSG_NOSIGNAL);
       if (sent <= 0) {
@@ -69,7 +70,8 @@ class Conn {
   // true when the daemon answered "OK\n"
   [[nodiscard]] auto Ok() const -> bool {
     std::string reply;
-    std::array<char, 64> buf{};
+    constexpr size_t kChunk = 64;
+    std::array<char, kChunk> buf{};
     while (!reply.ends_with('\n')) {
       const ssize_t got = ::read(fd_, buf.data(), buf.size());
       if (got <= 0) {
@@ -87,6 +89,7 @@ class Conn {
 
 auto Sem::Create(const std::string& name, unsigned tokens) -> std::unique_ptr<Sem> {
   ::sem_unlink(name.c_str());  // a stale one from a killed build
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg): sem_open(3)
   sem_t* raw = ::sem_open(name.c_str(), O_CREAT | O_EXCL, kMode, tokens);
   if (raw == SEM_FAILED) {
     return nullptr;
@@ -98,6 +101,7 @@ auto Sem::Create(const std::string& name, unsigned tokens) -> std::unique_ptr<Se
 }
 
 auto Sem::Open(const std::string& name) -> std::unique_ptr<Sem> {
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg): sem_open(3)
   sem_t* raw = ::sem_open(name.c_str(), 0);
   if (raw == SEM_FAILED) {
     return nullptr;
@@ -120,23 +124,26 @@ void Sem::Post() { ::sem_post(sem_); }
 auto DaemonUp(const std::string& socket_path) -> bool { return Conn::Open(socket_path) != nullptr; }
 
 auto DaemonSource(std::string socket_path, std::string build) -> TokenSource {
-  auto pending = std::make_shared<std::unique_ptr<Conn>>();
+  // the order in flight, shared between calls of the returned closure
+  auto pending = std::make_shared<std::shared_ptr<Conn>>();
   return [socket_path = std::move(socket_path), build = std::move(build), pending](bool want) -> Token {
+    std::shared_ptr<Conn>& order = *pending;
     if (!want) {
-      pending->reset();
+      order = nullptr;
       return nullptr;
     }
-    if (!*pending) {
-      *pending = Conn::Open(socket_path);
-      if (!*pending || !(*pending)->Send(std::format("SLOT {}\n", build))) {
-        pending->reset();
+    if (!order) {
+      order = Conn::Open(socket_path);
+      if (!order || !order->Send(std::format("SLOT {}\n", build))) {
+        order = nullptr;
         return nullptr;
       }
     }
-    if (!(*pending)->Readable()) {
+    if (!order->Readable()) {
       return nullptr;
     }
-    std::shared_ptr<Conn> conn = std::move(*pending);
+    const std::shared_ptr<Conn> conn = std::move(order);
+    order = nullptr;
     return conn->Ok() ? conn : nullptr;
   };
 }

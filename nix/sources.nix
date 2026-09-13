@@ -69,7 +69,9 @@ let
       base = stripExt url;
       gh = builtins.match "https://github.com/[^/]+/([^/]+)/archive/refs/tags/(.*)" base;
     in
-    if gh != null then "${builtins.elemAt gh 0}-${builtins.elemAt gh 1}" else builtins.baseNameOf base;
+    builtins.replaceStrings [ "~" ] [ "-" ] (
+      if gh != null then "${builtins.elemAt gh 0}-${builtins.elemAt gh 1}" else builtins.baseNameOf base
+    );
   # `pin`: [pin] keys over the file's, `hashes`: source key -> hash (nix/package.nix, overrides)
   read =
     pin: hashes: file:
@@ -153,6 +155,8 @@ let
     in
     {
       inherit version tag fetch;
+      # our libraries the lock file links (builder/sys-libs.nu), written by uptrack
+      sys = pinned.sys or [ ];
       has = key: byKey ? ${key};
       default = fetch "default";
       # the same file under another pin (nix/package.nix, for overrides)

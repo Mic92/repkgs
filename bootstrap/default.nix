@@ -58,10 +58,13 @@ let
       launch = pkg "launch" + "/src/launch.cc";
       inherit json_hpp;
     };
-    cc.crt_interp = pkg "crt-interp" + "/src/crt_interp.c";
+    cc = {
+      crt_interp = pkg "crt-interp" + "/src/crt_interp.c";
+      reloc_h = pkg "crt-interp" + "/src/reloc.h";
+    };
     dlaudit.dlaudit = pkg "dlaudit" + "/src/dlaudit.cc";
   };
-  # run.nu + lib.nu + the one recipe, laid out as in the tree (bootstrap/, pkgs/x/x/) so the recipe's
+  # run.nu + lib.nu + builder/glob.nu + the one recipe, laid out as in the tree (bootstrap/, pkgs/x/x/) so the recipe's
   # relative `use ../../bootstrap/lib.nu` resolves, and an edit to one recipe rebuilds only its step
   recipe' =
     name:
@@ -78,7 +81,7 @@ let
         args = [
           "--no-config-file"
           "-c"
-          "mkdir $\"($env.out)/bootstrap\" $\"($env.out)/pkgs/x/x\"; cp ${./run.nu} $\"($env.out)/bootstrap/run.nu\"; cp ${./lib.nu} $\"($env.out)/bootstrap/lib.nu\"; cp ${file} $\"($env.out)/${rel}\""
+          "mkdir $\"($env.out)/bootstrap\" $\"($env.out)/builder\" $\"($env.out)/pkgs/x/x\"; cp ${./run.nu} $\"($env.out)/bootstrap/run.nu\"; cp ${./lib.nu} $\"($env.out)/bootstrap/lib.nu\"; cp ${../builder/glob.nu} $\"($env.out)/builder/glob.nu\"; cp ${file} $\"($env.out)/${rel}\""
         ];
         preferLocalBuild = true;
       };
@@ -299,6 +302,7 @@ let
             (pkg "glibc" + "/glibc-ppc64le-clang.patch")
             (pkg "glibc" + "/glibc-debug-after-misc.patch")
             (pkg "glibc" + "/glibc-verneed-dst.patch")
+            (pkg "glibc" + "/glibc-unwind-origin.patch")
           ];
           linuxHeaders = linux-headers;
           # the C.UTF-8 locale is compiled by running the fresh localedef, so only where it can run

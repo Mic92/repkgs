@@ -1,7 +1,7 @@
 use ../core.nu *
 
 # PEP 517 wheel build + install (setuptools/flit/hatch via `build`, maturin directly), import check, optional pytest.
-def site-packages [roots: list<string>]: nothing -> list<string> { $roots | each {|r| glob $"($r)/lib/python3*/site-packages" } | flatten }
+def site-packages [roots: list<string>]: nothing -> list<string> { $roots | each {|r| files --dirs $"($r)/lib/python3*/site-packages" } | flatten }
 
 # those of the python build tools on PATH (PEP 517 backends and friends) and of what they
 # propagate: a backend imports its own dependencies. pyapp.nu uses this too
@@ -28,8 +28,10 @@ export def build []: nothing -> nothing {
   let dist = $"($c.build)/dist"
   if $o.backend == "maturin" {
     # maturin's PEP 517 backend only shells out to `maturin`. Call it directly. cargo setup came from `uses`.
-    # auditwheel=skip: the wheel is installed into this closure, not shipped to PyPI. Bundling our libunwind is wrong
-    x maturin build --release --offline $"-j($c.njobs)" --interpreter python3 --auditwheel skip -o $dist
+    # auditwheel=skip: the wheel is installed into this closure, not shipped to PyPI. Bundling our libunwind is wrong.
+    # pythonX.Y: cross, maturin does not run the interpreter and wants the version in the name
+    let py = $"python(^python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
+    x maturin build --release --offline $"-j($c.njobs)" --interpreter $py --auditwheel skip -o $dist
   } else if $o.backend == "flit_core" {
     # flit_core builds wheels stand-alone: no `build`/`pyproject_hooks` needed (bootstraps the stack)
     x python3 -m flit_core.wheel --outdir $dist .
@@ -38,25 +40,27 @@ export def build []: nothing -> nothing {
   }
 }
 
-# install the wheel into $out with `installer`, or unzip it when installer is not packaged yet
+# install the wheel into $out with `installer`, or unzip it when installer is not packaged yet.
+# Bytecode compiled here, source paths in it relative to the prefix like the stdlib's
 export def install []: nothing -> nothing {
   let c = (ctx)
-  let whl = (glob $"($c.build)/dist/*.whl" | first)
+  let whl = (files $"($c.build)/dist/*.whl" | first)
   if (^python3 -c "import installer" | complete).exit_code == 0 {
-    x python3 -m installer --prefix $c.out $whl
+    x python3 -m installer --prefix $c.out --no-compile-bytecode $whl
   } else {
     let ver = (^python3 -c "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')" | str trim)
     let sp = $"($c.out)/lib/python($ver)/site-packages"
     mkdir $sp
     x bsdtar -xf $whl -C $sp
   }
+  x python3 -m compileall -q -o 0 -o 1 -s $c.out $"($c.out)/lib"
   # entry-point scripts run under another package's interpreter and get re-exec'd by path (meson
   # --internal), so no env var will do: each script puts our and our python dependencies'
   # site-packages on sys.path itself, relative to its own location
   let rels = (site-packages ([$c.out] ++ ($c.deps | get root))
     | each {|p| if ($p | str starts-with $c.out) { $"..($p | str substring ($c.out | str length)..)" } else { $"../../($p | path relative-to $env.NIX_STORE)" } })
   let boot = ('import os, sys; sys.path[0:0] = [os.path.join(os.path.dirname(os.path.realpath(__file__)), p) for p in RELS]' | str replace RELS ($rels | to json -r))
-  for f in (glob $"($c.out)/bin/*" --no-dir --no-symlink) {
+  for f in (files --no-symlink $"($c.out)/bin/*") {
     let text = (open --raw $f | into binary)
     if not ($text | bytes starts-with ("#!" | into binary)) { continue }
     let lines = ($text | decode utf-8 | lines)

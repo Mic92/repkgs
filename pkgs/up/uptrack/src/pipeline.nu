@@ -4,6 +4,7 @@
 use purl.nu *
 use version.nu *
 use datasource.nu
+use ../../../../builder/sys-libs.nu
 
 const LIB = path self .
 const UNPACK = path self unpack.nu
@@ -13,7 +14,7 @@ const KNOWN = {
   top: [upstream source pin watch locks]
   upstream: [purl allow prerelease every group cpe frozen relocks]
   watch: [url regex purl]
-  source: [key url hash unpack name]
+  source: [key url hash unpack name frozen]
   locks: [go hackage luarocks]
 }
 # stages an update.nu beside sources.toml may replace
@@ -42,8 +43,9 @@ export def discover [dir: path]: nothing -> table {
     if not $tracked and not $frozen and (($t.source | is-not-empty) or ($t.locks | is-empty)) { error make {msg: $"($f): upstream.purl \(or frozen\) is required"} }
     for s in $t.source {
       check-keys $f source $s
-      # a bump would keep fetching the old file under the new version
-      if $tracked and $s.url !~ '\{' { error make {msg: $"($f): source ($s.key) url has no {placeholder}"} }
+      # a bump would keep fetching the old file under the new version. `frozen = "<reason>"` on
+      # the source: a file that does not follow the pin (a distro's build for one cpu)
+      if $tracked and $s.frozen? == null and $s.url !~ '\{' { error make {msg: $"($f): source ($s.key) url has no {placeholder} \(frozen = \"reason\" if it is not meant to follow the version)"} }
     }
     let dir = ($f | path dirname)
     let hook = ($dir | path join update.nu)
@@ -116,38 +118,61 @@ export def decide [pkgs: table, --prerelease]: nothing -> table {
 export def expand [template: string, pin: record]: nothing -> string {
   let parts = ($pin.version | split row ".")
   {tag: $pin.version, version_: ($parts | str join "_"), major: $parts.0, minor: ($parts | get -o 1 | default "0")}
-    | merge $pin
+    | merge ($pin | reject -o sys)
     | items {|k, v| [$"{($k)}" ($v | into string)] }
     | reduce --fold $template {|kv, acc| $acc | str replace -a $kv.0 $kv.1 }
 }
 
 # the hash nix/sources.nix expects: the NAR hash of the unpacked tree (unpack.nu, shared with the
-# fetcher), or the file's own for `unpack = false`
-export def prefetch [url: string, unpack: bool]: nothing -> string {
+# fetcher), or the file's own for `unpack = false`. `sys`: the libraries of ours the tree's lock
+# files can link (builder/sys-libs.nu), for [pin]
+export def prefetch [url: string, unpack: bool]: nothing -> record<hash: string, sys: list<string>> {
   let f = (^nix store prefetch-file --json $url | from json)
-  if not $unpack { return $f.hash }
+  if not $unpack { return {hash: $f.hash, sys: []} }
   let tmp = $"(mktemp -d -t uptrack-tree.XXXX)/src"
   ^$nu.current-exe --no-config-file $UNPACK $f.storePath $tmp
-  let tree = (^nix hash path --sri --type sha256 $tmp | str trim)
+  let r = {hash: (^nix hash path --sri --type sha256 $tmp | str trim), sys: (sys-libs wanted $tmp)}
   rm -rf ($tmp | path dirname)
-  $tree
+  $r
 }
 
-# sources.toml with `hash` filled in for every [[source]], urls expanded for `pin`.
+# sources.toml with `hash` filled in for every [[source]] and [pin] set to `pin` plus `sys`.
 # `known`: key -> hash already at hand (an upstream-published sha256), not prefetched again
 def with-hashes [t: record<source: list<any>>, pin: record, known: record = {}]: nothing -> record {
-  $t | update source ($t.source | each {|s|
+  let fetched = ($t.source | each {|s|
     let url = (expand $s.url $pin)
     print -e $"  ($url)"
-    $s | upsert hash ($known | get -o $s.key | default { prefetch $url ($s.unpack? | default true) })
+    # a frozen source keeps its hash, a known one needs no download
+    let hash = (if $s.frozen? != null { $s.hash? } else { $known | get -o $s.key })
+    let p = (if $hash != null { {hash: $hash, sys: []} } else { prefetch $url ($s.unpack? | default true) })
+    {source: ($s | upsert hash $p.hash), sys: $p.sys}
   })
+  # [locks] hackage: no lock file in the tree, sys is the lock step's (set-sys) and kept here
+  let sys = (if $t.locks?.hackage? != null { $t.pin?.sys? | default [] } else { $fetched.sys | flatten | uniq | sort })
+  if ($sys | is-not-empty) { print -e $"  sys: ($sys | str join ' ')" }
+  let pin = ($pin | reject -o sys | if ($sys | is-empty) { $in } else { $in | insert sys $sys })
+  $t | update source $fetched.source | upsert pin $pin
 }
 
-# re-prefetch every source at the current pin (after editing a url), no version change
+# sources.toml as treefmt (taplo) formats it, so an update commits clean
+def save-toml [file: path]: record -> nothing {
+  $in | save -f $file
+  if (which taplo | is-not-empty) { ^taplo format $file o+e>| ignore }
+}
+
+# [pin] sys = `sys` for ecosystems whose lock lives outside the source (locks.nu add)
+export def set-sys [pkg: record<file: string>, sys: list<string>]: nothing -> nothing {
+  let t = (open $pkg.file)
+  if ($t.pin?.sys? | default []) == $sys { return }
+  print -e $"  sys: ($sys | str join ' ')"
+  $t | update pin { reject -o sys | if ($sys | is-empty) { $in } else { $in | insert sys $sys } } | save-toml $pkg.file
+}
+
+# re-prefetch every source at the current pin (after editing a url, or for sys), no version change
 export def rehash [pkg: record<file: string>]: nothing -> nothing {
   let t = (open $pkg.file)
   if $t.pin?.version? == null { error make {msg: $"($pkg.file): no [pin] version to rehash at"} }
-  with-hashes $t $t.pin | save -f $pkg.file
+  with-hashes $t $t.pin | save-toml $pkg.file
 }
 
 # write hashes + [pin] for the decided update into sources.toml, then the `files` hook's outputs
@@ -156,7 +181,7 @@ export def apply [entry: record]: nothing -> nothing {
   # a registry-published sha256 is the flat file's: usable only where we keep the file as is
   let known = ($entry.sources | where { not $in.unpack and $in.url == $c.url? and $c.sha256? != null }
     | each {|s| {$s.key: (^nix hash convert --hash-algo sha256 --to sri $c.sha256 | str trim)} } | into record)
-  with-hashes (open $entry.file) $entry.pin $known | upsert pin $entry.pin | save -f $entry.file
+  with-hashes (open $entry.file) $entry.pin $known | save-toml $entry.file
   if (has-hook $entry files) {
     for f in (hook $entry files $entry | transpose path content) {
       $f.content | save -f ($entry.dir | path join $f.path)

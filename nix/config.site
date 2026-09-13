@@ -6,6 +6,10 @@
 # configure sources this as sh. $host is set when --host was given (cross); natively it is empty and
 # the build machine is the host.
 
+# builder/systems/autotools.nu: build paths kept out of configure's recorded argv
+test "$prefix" = NONE && prefix=${PKGS_PREFIX:-NONE}
+test "$cache_file" = /dev/null && cache_file=${PKGS_CONFIG_CACHE:-/dev/null}
+
 case "${host:-$(uname -m)}" in
   x86_64*) site_cpu=x86_64 ;;
   aarch64*) site_cpu=aarch64 ;;

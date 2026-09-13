@@ -1,0 +1,10 @@
+{
+  "name": "test-npm",
+  "version": "2.0.0",
+  "bin": {
+    "test-npm": "cli.js"
+  },
+  "scripts": {
+    "test": "node cli.js | grep -q 'test-npm 2.0.0'"
+  }
+}

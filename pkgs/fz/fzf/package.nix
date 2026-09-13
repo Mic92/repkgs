@@ -6,8 +6,6 @@ package {
   name = "fzf";
   uses = [ "go" ];
   go.ldflags = [
-    "-s"
-    "-w"
     "-X main.version=${sources.version}"
     "-X main.revision=nix1"
   ];

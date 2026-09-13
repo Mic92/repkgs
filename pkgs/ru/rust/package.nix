@@ -1,10 +1,11 @@
 # rustc + cargo + std from the rustc-src tarball, x.py driven by `rust-bootstrap` (upstream
-# binaries, build-only), codegen through our libLLVM. std for the build machine's triple only:
-# cross stds need each target's cc as x.py linker, later.
+# binaries, build-only), codegen through our libLLVM.
 {
   package,
   pkgs,
   buildPkgs,
+  platform,
+  on,
 }:
 package {
   name = "rust";
@@ -14,7 +15,8 @@ package {
     pkgs.openssl # cargo
   ];
   env.OPENSSL_NO_VENDOR = "1"; # cargo's openssl-sys: ours via pkg-config, not a vendored build
-  buildDependencies = [
+  # cross: stage1 runs here and links the build machine's libLLVM
+  buildDependencies = on platform.cross [ buildPkgs.llvm22 ] ++ [
     buildPkgs.rust-bootstrap
     buildPkgs.cpython
     buildPkgs.cmake
@@ -32,6 +34,5 @@ package {
     "cargo"
   ];
   tests.version = "-V";
-  tests.relocated = true;
   exports = false;
 }

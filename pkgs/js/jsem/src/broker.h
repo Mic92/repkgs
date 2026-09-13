@@ -2,7 +2,7 @@
 // first) backed by jigd slots. A token in the semaphore is a daemon slot this build holds
 // idle. The broker keeps one such spare, orders another slot when it was taken and returns slots
 // when ghc gives tokens back. Only sem_trywait/sem_post observe the count (no sem_getvalue: macOS
-// lacks it).
+// lacks it). Tokens are anonymous, so one broker per semaphore (../broker.qnt).
 #pragma once
 
 #include <semaphore.h>

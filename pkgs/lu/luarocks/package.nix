@@ -8,24 +8,27 @@
 }:
 package {
   name = "luarocks";
-  uses = [ "autotools" ];
-  autotools.outOfTree = false;
+  uses = [ "make" ];
   dependencies = [
     pkgs.lua
     pkgs.unzip
   ];
   buildDependencies = [ buildPkgs.unzip ];
-  phases.replace."autotools.configure" = {
-    name = "configure";
-    run = "cd $c.src; x ./configure $\"--prefix=($c.out)\" $\"--with-lua=(dep-root lua 'luarocks runs on it')\"";
-  };
-  phases.after."autotools.install" = [
+  # bin/luarocks finds its modules from arg[0], sysconfdir from where cfg.lua is (upstream),
+  # and the system tree defaults to that prefix
+  patches = [ ./relocatable.patch ];
+  make.configureFlags = [ "--with-lua=${pkgs.lua}" ];
+  phases.after."make.install" = [
     {
       name = "cc";
-      run = "for f in (glob $\"($c.out)/etc/luarocks/config-*.lua\") { \"\\nvariables.CC = \\\"cc\\\"\\nvariables.LD = \\\"cc\\\"\\n\" | save -a $f }";
+      run = ''
+        for f in (files $"($c.out)/etc/luarocks/config-*.lua") {
+          "\nvariables.CC = \"cc\"\nvariables.LD = \"cc\"\n" | save -a $f
+        }
+      '';
     }
   ];
-  phases.remove = [ "autotools.test" ];
+  tests.run = false;
   bin = [
     "luarocks"
     "luarocks-admin"

@@ -43,10 +43,12 @@ key = "default"                    # free-form: default, x86_64-linux, docs…
 url = "https://github.com/sharkdp/fd/archive/refs/tags/v{version}.tar.gz"  # the canonical one, nix/mirrors.nix adds fallbacks by prefix
 hash = "sha256-…"                  # tool; NAR hash of the unpacked tree (--strip-components 1), fetch+unpack is one FOD
 # unpack = false                   # keep the file as is (single files); hash is then the flat sha256
+# frozen = "distro build"          # this url does not follow [pin]: no {placeholder} needed, rehash keeps its hash
 
 [pin]                              # tool
 version = "10.5.0"
 date = "2025-05-18"                # release date: libyear, `every`
+sys = ["jemalloc"]                 # our libraries the lock files in the source can link (builder/sys-libs.nu). nix/package.nix adds those the set has as dependencies
 # file = "25.0.4.1_1"              # anything else a resolve hook returned. Every key here is a {key} in urls
 
 [watch]                            # optional; default is the purl's datasource

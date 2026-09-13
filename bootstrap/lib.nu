@@ -1,5 +1,7 @@
 # Helpers shared by all bootstrap recipes. Only nu builtins + the seed (clang, llvm-ar, bsdtar, toybox).
 
+export use ../builder/glob.nu *
+
 export def say [msg: string]: nothing -> nothing { print -e $"(ansi green)==(ansi reset) ($msg)" }
 
 # parallelism granted by Nix (NIX_BUILD_CORES, 0 = all)
@@ -41,7 +43,7 @@ export def unpack [name: string, ...only: string]: nothing -> path {
 # cp: 4x faster in nu for many small files, and modes from the store are not wanted anyway
 export def copy-tree [from: path, to: path, pattern: string = "**/*"]: nothing -> nothing {
   let from = ($from | path expand)
-  let files = (glob --no-dir --no-symlink $"($from)/($pattern)" | each {|f| {src: $f, dest: $"($to)/($f | path relative-to $from)"} })
+  let files = (files --no-symlink $"($from)/($pattern)" | each {|f| {src: $f, dest: $"($to)/($f | path relative-to $from)"} })
   # directories first and once each: concurrent mkdir and cp of one dir raced (repkgs#2)
   mkdir ...($files | get dest | path dirname | uniq)
   $files | par-each --threads 4 {|f| open --raw $f.src | save -f $f.dest } | ignore

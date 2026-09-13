@@ -22,6 +22,7 @@
 #include "base.h"
 #include "cache_client.h"
 #include "keys.h"
+#include "store.h"
 
 namespace jig {
 
@@ -64,6 +65,16 @@ struct Pending {
   fs::path file;
 };
 
+// text files travel with store hashes masked and come back resolved to this build's roots, so a
+// snapshot restored against other dependency paths names those. Binaries stay byte-exact
+auto IsText(std::string_view data) -> bool { return !data.contains('\0'); }
+auto Stored(std::string data) -> std::string {
+  return IsText(data) ? Store::Get().MaskHashes(std::move(data)) : std::move(data);
+}
+auto Restored(std::string data) -> std::string {
+  return IsText(data) ? Store::Get().ResolveAll(std::move(data)) : std::move(data);
+}
+
 // uploads the files of `pending` whose blob the daemon lacks, returns how many that was
 auto Upload(CacheClient& cache, std::span<const Pending> pending) -> size_t {
   std::vector<std::string> keys;
@@ -78,7 +89,7 @@ auto Upload(CacheClient& cache, std::span<const Pending> pending) -> size_t {
       continue;
     }
     if (std::optional<std::string> data = ReadFile(pending.at(i).file)) {
-      puts.emplace_back(pending.at(i).blob_key, std::move(*data));
+      puts.emplace_back(pending.at(i).blob_key, Stored(std::move(*data)));
     }
   }
   cache.PutMany(puts);
@@ -106,13 +117,13 @@ auto PutDir(const std::string& socket_path, const std::string& key, const std::s
     if (!dent.is_regular_file()) {
       continue;
     }
-    const std::optional<std::string> data = ReadFile(dent.path());
+    std::optional<std::string> data = ReadFile(dent.path());
     if (!data) {
       continue;
     }
     struct stat sta{};
     ::stat(dent.path().c_str(), &sta);
-    const std::string hash = HashOf(*data).hex();
+    const std::string hash = HashOf(Stored(std::move(*data))).hex();
     listing += std::format("f {:o} {}\t{}\n", sta.st_mode & kPermBits, hash, rel);
     pending.push_back({.blob_key = BlobKey(hash), .file = dent.path()});
     ++files;
@@ -161,7 +172,7 @@ auto GetDir(const std::string& socket_path, const std::string& key, const std::s
       const fs::path dest = root / batch.at(i).rel;
       fs::create_directories(dest.parent_path(), ignored);
       const std::optional<std::string>& blob = i < blobs.size() ? blobs.at(i) : std::nullopt;
-      if (!blob.has_value() || !WriteFile(dest, *blob)) {
+      if (!blob.has_value() || !WriteFile(dest, Restored(*blob))) {
         ++missing;
         continue;
       }

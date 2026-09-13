@@ -1,0 +1,8 @@
+[package]
+name = "test-cargo"
+version = "0.1.0"
+edition = "2021"
+
+# upstream crates often strip in release, env.nu must win over this
+[profile.release]
+strip = true

@@ -1,5 +1,5 @@
 # What CI builds for one build machine: the whole set as `pkg-<name>` and per foreign cpu as
-# `cross-<cpu>-<name>`, treefmt and the seed (nothing for <cpu>-windows: the SDK under its
+# `cross-<cpu>-<name>`, tests/builder as `builder-*`, treefmt and the seed (nothing for <cpu>-windows: the SDK under its
 # toolchain is unfree and stays out of the public cache). flake.nix maps this over its
 # systems as `checks`; `nix-build nix/ci.nix -A pkg-jq` works without flakes.
 {
@@ -31,6 +31,7 @@ let
   crossSet = cpu: prefixed "cross-${cpu}-" (supported (setFor cpu));
 in
 prefixed "pkg-" (supported (setFor buildCpu))
+// prefixed "builder-" (import ../tests/builder { inherit system; })
 // lib.mergeAttrsList (map crossSet (lib.filter (cpu: cpu != buildCpu) crossCpus))
 // {
   treefmt =

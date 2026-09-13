@@ -18,11 +18,14 @@ export def --env setup []: nothing -> nothing {
   let host = (^rustc -vV | lines | parse "host: {t}" | get t.0)
   let target = $c.platform.rustTriple
   $env.CARGO_BUILD_TARGET = $target
-  # -sys crates: link our libraries (builder/sys-libs.nu); the vendor dir propagates the ones
-  # Cargo.lock asks for. pkg-config, their usual probe, refuses to answer under --target without ALLOW_CROSS
+  # -sys crates: link our libraries (builder/sys-libs.nu). pkg-config, their usual probe,
+  # refuses to answer under --target without ALLOW_CROSS
+  sys-libs check (project-dir cargo) $c.spec.sys
   let sys = (sys-libs env-for cargo $c.deps)
   load-env ({PKG_CONFIG_ALLOW_CROSS: "1"} | merge $sys)
   if ($sys | is-not-empty) { note sys-libs ($sys | columns | str join " ") }
+  # bindgen asks a clang executable for its include dirs: ours, not a bare one found on PATH
+  $env.CLANG_PATH = (which cc | get 0.path)
   # cross: the toolchain carries std for the build machine only, the target's is <toolchain>-std
   # (cargo.tools): one sysroot of symlinks over both
   let sysroot = (if $c.platform.cross {
@@ -37,7 +40,8 @@ export def --env setup []: nothing -> nothing {
   # source paths, map build tree, cargo home and vendor dir away. Frame pointers like the C side
   let rustflags = ([$"--remap-path-prefix=($c.src)=/src" $"--remap-path-prefix=($env.CARGO_HOME)=/cargo" $"--remap-path-prefix=($o.deps)=/vendor" "-Cforce-frame-pointers=yes"] ++ $sysroot)
   # `deps` null: the source vendors (or has no) dependencies
-  let source = (if $o.deps == null { {} } else { {source: {crates-io: {replace-with: vendored}, vendored: {directory: $o.deps}}} })
+  let vendor = (if ($o.cratePatches | is-empty) { $o.deps } else { patched-vendor $o.deps $o.cratePatches })
+  let source = (if $o.deps == null { {} } else { {source: {crates-io: {replace-with: vendored}, vendored: {directory: $vendor}}} })
   $source | merge {
     net: {offline: true}
     build: {jobs: $c.njobs}
@@ -45,6 +49,25 @@ export def --env setup []: nothing -> nothing {
     target: ({} | upsert $host {linker: $env.CC_FOR_BUILD, rustflags: $rustflags} | upsert $target {linker: cc, rustflags: $rustflags})
   } | to toml | save -f $"($env.CARGO_HOME)/config.toml"
   hide-env -i RUSTFLAGS
+}
+
+# the vendor dir with the named crates copied out and patched, the rest symlinked
+def patched-vendor [deps: string, patches: record]: nothing -> string {
+  let dir = $"((ctx).build)/vendor"
+  mkdir $dir
+  let names = (ls -s $deps | get name)
+  for n in $names { ^ln -s $"($deps)/($n)" $"($dir)/($n)" }
+  for p in ($patches | transpose crate files) {
+    let hits = ($names | where { ($in | parse -r '^(?<n>.+)-\d[^-]*$' | get -o n.0) == $p.crate })
+    if ($hits | is-empty) { error make {msg: $"cargo.cratePatches: no vendored crate ($p.crate)"} }
+    for n in $hits {
+      rm $"($dir)/($n)"
+      ^cp -r $"($deps)/($n)" $"($dir)/($n)"
+      ^chmod -R u+w $"($dir)/($n)"
+      for f in $p.files { note patch $"($n): ($f)"; ^patch -d $"($dir)/($n)" -p1 -F0 -i $f }
+    }
+  }
+  $dir
 }
 
 export def workdir []: nothing -> string { project-dir cargo }

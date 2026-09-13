@@ -9,3 +9,4 @@ hash = "sha256-X3yrZUBieMO5bauUu2mskfvicLRdQcjbXouFTpz+0eQ="
 [pin]
 version = "10.5.0"
 tag = "v10.5.0"
+sys = ["jemalloc"]

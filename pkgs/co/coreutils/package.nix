@@ -3,6 +3,7 @@ package {
   name = "coreutils";
   uses = [ "autotools" ];
   bootstrapTools = true;
+  patches = [ ./relocatable.patch ]; # stdbuf finds libstdbuf.so relative to itself
   autotools.flags = [
     "--disable-acl"
     "--disable-xattr"
@@ -15,7 +16,6 @@ package {
     "--enable-single-binary=symlinks"
   ];
   env.FORCE_UNSAFE_CONFIGURE = "1";
-  tests.relocated = true;
   tests.run = false; # perl, and many root/tty assumptions
   bin = [
     "ls"

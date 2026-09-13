@@ -3,8 +3,8 @@
 # Used for every script (the record names its interpreter), and for programs too when a
 # dependency contributes PATH entries or env defaults.
 #
-# `prebuilt = "ldso"` packages (rust-bootstrap, which formatelf itself is built with) also go
-# through here: the upstream ELF stays untouched and its launcher runs it as
+# `prebuilt = "ldso"` packages (rust-bootstrap: formatelf is built with it) also go through
+# here: the upstream ELF stays untouched and its launcher runs it as
 #   <sysroot>/lib/ld.so --argv0 bin/foo --library-path <libc and deps> bin/.foo
 # argv[0] still says bin/foo, which rustc needs to find its sysroot.
 
@@ -47,6 +47,11 @@ def script-interp [f: path, head: binary, owners: list<string>, inject: bool]: n
     $owners | each {|d| $"($d)/bin/($interp.0 | path basename)" } | where { path exists } | get 0?
   })
   if $prog == null { return null }
+  # a #! into our own prefix would dangle
+  if ($interp.0 | str starts-with $"((ctx).out)/") {
+    let text = (open --raw $f)
+    $"#!/usr/bin/env ($interp.0 | path basename)($text | str substring ($text | str index-of "\n")..)" | save -f $f
+  }
   {program: $prog, args: ($interp | skip 1)}
 }
 
@@ -65,7 +70,9 @@ def target [c: record, f: path, owners: list<string>, inject: bool]: nothing -> 
   let real = $"{root}/bin/.($f | path basename)"
   if ($head | bytes starts-with 0x[23 21]) {
     let i = (script-interp $f $head $owners $inject)
-    if $i != null { {program: (storerel $i.program $c.out), args: ($i.args ++ [$real])} }
+    # a symlinked script runs by its real path so its $0 logic holds
+    let script = (if ($f | path type) == symlink { storerel ($f | path expand) $c.out } else { $real })
+    if $i != null { {program: (storerel $i.program $c.out), args: ($i.args ++ [$script])} }
   } else if not (is-elf $f) {
     null
   } else if (is-foreign $f) {
@@ -83,21 +90,17 @@ export def main [c: record]: nothing -> nothing {
   let a = (attrs)
   let renv = (runtime-env $a.dependencies $c.out)
   let owners = ([$c.out] ++ $a.dependencies)
-  let launch_rel = $"../../($c.platform.launch | path relative-to $env.NIX_STORE)"
-  # Candidates: regular files, and symlinks that resolve inside the package (npm links bin/x to
-  # lib/node_modules/…/cli.js). Not: a symlink to a sibling like python3 -> python3.14. The
-  # sibling gets the launcher, the alias keeps pointing at it, and argv[0] keeps the alias
-  # name. Wrapping the alias too would make it launch the sibling's launcher, which launches
-  # it again, forever.
-  let entries = (ls -a $bindir | get name | where { ($in | path basename) !~ '^\.' and ($in | path exists) and ($in | path expand) =~ $"^($c.out)/" })
-  for f in ($entries | where {|f| ($f | path type) != symlink or (^readlink $f) =~ '/' }) {
+  # not what write-launcher already made, not sibling aliases (python3 -> python3.14)
+  let entries = (ls -a $bindir | get name | where {|f| ($f | path basename) !~ '^\.' and ($f | path exists) and not ($"($bindir)/.($f | path basename).launch" | path exists) })
+  let sibling = {|f| ($f | path type) == symlink and ($bindir | path join (^readlink $f) | path expand -n | path dirname) == $bindir }
+  for f in ($entries | where {|f| not (do $sibling $f) }) {
     let t = (target $c $f $owners ($renv | is-not-empty))
     if $t == null { continue }
     let name = ($f | path basename)
     # bin/.<name> is in the same directory, so $ORIGIN-relative RUNPATHs keep working
     mv $f $"($bindir)/.($name)"
     {env: $renv} | merge $t | to json -r | save -f $"($bindir)/.($name).launch"
-    ^ln -s $launch_rel $f
+    ^ln -s $c.platform.launch $f # absolute until to-store, later entries may name this one
     note launcher $"bin/($name) -> ($t.program)"
   }
 }

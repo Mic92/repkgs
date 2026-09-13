@@ -6,6 +6,13 @@
 package {
   name = "autoconf";
   uses = [ "autotools" ];
+  patches = [ ./relocatable.patch ];
+  phases.before."autotools.configure" = [
+    {
+      name = "man-uptodate"; # no help2man
+      run = ''^touch ...(files $"($c.src)/man/*.1")'';
+    }
+  ];
   buildDependencies = [
     buildPkgs.m4
     buildPkgs.perl
@@ -28,7 +35,6 @@ package {
       '';
     }
   ];
-  tests.relocated = true;
   # 555/557 pass in 20 min. AS_DIRNAME and AC_FUNC_GETGROUPS probe host behaviour (toybox
   # dirname corner cases, no supplementary groups in the sandbox)
   tests.run = false;

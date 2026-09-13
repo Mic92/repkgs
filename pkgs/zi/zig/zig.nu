@@ -15,3 +15,4 @@ export def restore []: nothing -> nothing {
 }
 
 export def store []: nothing -> nothing { probe-cache store-dir (key) $env.ZIG_GLOBAL_CACHE_DIR }
+

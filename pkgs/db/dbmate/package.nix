@@ -7,7 +7,6 @@
 package {
   name = "dbmate";
   uses = [ "go" ];
-  go.ldflags = [ "-s" ];
   go.packages = [ "." ];
   buildDependencies = [ buildPkgs.sqlite ]; # tests dump schemas through the sqlite3 cli
   go.testPackages = [

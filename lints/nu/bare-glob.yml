@@ -1,0 +1,14 @@
+# nu's glob returns directory order. That order leaked into an archive and two builds of one
+# content-addressed derivation differed. `files` (builder/glob.nu) sorts.
+id: bare-glob
+language: nu
+severity: error
+message: "use `files` or `files --dirs` (builder/glob.nu, sorted), not glob"
+ignores:
+  - builder/glob.nu
+  - experiments/**
+  - tools/**
+  - pkgs/up/uptrack/**
+rule:
+  kind: command
+  regex: '^glob\s'

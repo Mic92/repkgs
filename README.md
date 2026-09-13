@@ -25,11 +25,12 @@ is what comes next.
 
 ## Try it
 
-Dynamic derivations need a recent Nix daemon: 2.36, or a 2.36pre from August 2026 on. nixpkgs'
-`nixVersions.git` is one. On NixOS:
+The daemon needs Nix master with [NixOS/nix#16459](https://github.com/NixOS/nix/pull/16459),
+[#16465](https://github.com/NixOS/nix/pull/16465) recommended. [nix/nix](nix/nix/default.nix)
+builds it (`nix-build nix/nix`, flake `packages.x86_64-linux.nix`). On NixOS:
 
 ```nix
-nix.package = pkgs.nixVersions.git;
+nix.package = inputs.repkgs.packages.${pkgs.system}.nix; # or: import "${repkgs}/nix/nix" { inherit pkgs; }
 nix.settings = {
   experimental-features = [ "nix-command" "ca-derivations" "dynamic-derivations" "recursive-nix" ];
   system-features = [ "builder-rpc-v0" "big-parallel" "kvm" "nixos-test" "benchmark" ];
@@ -57,7 +58,7 @@ $ repkgs build --for aarch64-linux jq    # cross
 $ repkgs test jq                         # jq.tests
 $ repkgs log jq                          # the build log
 $ repkgs list --for riscv64-linux --unsupported   # what a platform lacks and why
-$ repkgs info deno                       # version, build systems, platform support
+$ repkgs info deno                       # version, build systems, platform support (--json too)
 $ repkgs options cmake                   # every cmake.* option with type and default
 $ repkgs new foo pkg:github/o/foo 'https://…/foo-{version}.tar.gz'
 $ repkgs update check                    # uptrack: what is outdated
@@ -131,18 +132,42 @@ phases.remove = [ "cargo.test" ];
 `phases = [ … ]` spells the whole list out instead. With several build systems the edits apply
 to the first one's list.
 
-Phases too long to keep inline can live in their own file: `modules.rust = ./build.nu;` makes it
-a module, and `phases` refers to them as `"rust.configure"`. pkgs/ru/rust does this.
+Phases too long to keep inline can live in their own file: a phase `"rust.configure"` whose
+prefix is no build system is `rust.nu` next to package.nix. pkgs/ru/rust does this.
 
 Every build ends the same way. ELF outputs are made relocatable. `bin/<name> --version` runs in
 an empty environment and has to print the pinned version. A `dlopen` that finds nothing during
 that run fails the build, unless `tests.dlopen = [ "libudev.so.1" ]` declares it optional.
-`tests.relocated = true` repeats the run from a copy of the output at another path, and
-`tests.separate = true` puts the test phase in its own derivation.
+The run is repeated from a copy of the closure under another root. `tests.separate = true` puts
+the test phase in its own derivation.
 
 Hardening and `-O2 -g` are compiler defaults, injected by the driver and not through `CFLAGS`.
 `cc.hardening.fortify = false` turns one off, `cc.cflags = [ "-DFOO" ]` (and `cxxflags`,
-`ldflags`) adds to every compile regardless of build system.
+`ldflags`) adds to every compile regardless of build system. Debug info lands in a separate
+`debug` output by build-id (`nix-build -A curl.debug`, then
+`gdb -iex "set debug-file-directory ./result-debug/lib/debug"`).
+
+Choices a user may want to make differently are `features`. The package declares them with a
+default and reads the chosen values back:
+
+```nix
+{ package, pkgs, features, on }:
+package {
+  name = "curl";
+  features = {
+    tls = { values = [ "openssl" "gnutls" "none" ]; default = "openssl"; doc = "TLS backend"; };
+    http3 = { default = false; };
+  };
+  dependencies = on (features.tls != "none") [ pkgs.${features.tls} ] ++ on features.http3 [ pkgs.ngtcp2 ];
+  cmake.defs.USE_NGTCP2 = features.http3;
+}
+```
+
+A feature has the type of its default. `values` lists what a string, or each element of a list,
+may be. To choose:
+`import ./. { features.tls = "gnutls"; }` sets it for every package that declares `tls`,
+`overrides.curl.features.http3 = true` for curl alone. `repkgs info curl` lists a package's
+features and their current values.
 
 A few fields are rarer. `prebuilt = true` takes an upstream binary and only makes it
 relocatable. `install."bin/deno" = "deno"` copies files with no phases at all.
@@ -173,6 +198,7 @@ nix/              evaluation. package.nix turns a spec into a derivation, build-
                   defines each `uses` entry, fetch.nix the lock-file fetchers
 builder/          build time. prepare, finish, and one nu module per build system
 locks/            hashes that lock files lack (go.sum, hackage, luarocks)
+tests/builder/    tiny packages per language that check what builder/ does to them (`repkgs test`)
 docs/             design.md (why), uptrack.md, plan.md
 tools/repkgs      the cli: build, test, log, list, info, options, new, update, repro, cache, seed, fmt
 ```

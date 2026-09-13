@@ -3,7 +3,7 @@ use core.nu *
 
 # fix-env-shebangs edited vendored scripts: keep the crate checksums, drop the per-file ones
 def vendor-checksums []: nothing -> nothing {
-  for f in (glob vendor/*/.cargo-checksum.json) {
+  for f in (files vendor/*/.cargo-checksum.json) {
     let j = (open $f | update files {{}} | to json -r)
     $j | save -f $f
   }
@@ -18,13 +18,14 @@ export def configure []: nothing -> nothing {
   vendor-checksums
   let triple = $c.platform.rustTriple
   let rb = (tool rustc | path dirname | path dirname) # rust-bootstrap, a build tool
+  let host = (^rustc -vV | lines | parse "host: {t}" | get t.0)
   {
     change-id: "ignore"
     profile: "dist"
     # use-libcxx: rustc_llvm links -lstdc++ otherwise, this toolchain has libc++ only
     llvm: {link-shared: true, download-ci-llvm: false, use-libcxx: true}
     build: {
-      build: $triple
+      build: $host
       host: [$triple]
       target: ([$triple] ++ $FREESTANDING)
       rustc: $"($rb)/bin/rustc"
@@ -42,6 +43,9 @@ export def configure []: nothing -> nothing {
     install: {prefix: $c.out, sysconfdir: "etc"}
     rust: {
       channel: "stable"
+      # dist has line tables for std only. 1 = line tables for compiler and tools too, full
+      # DWARF (2) would be gigabytes
+      debuginfo-level: (if $c.spec.debug { 1 } else { 0 })
       remap-debuginfo: true
       frame-pointers: true
       lld: false
@@ -50,7 +54,8 @@ export def configure []: nothing -> nothing {
       codegen-backends: [llvm]
       codegen-tests: false # want FileCheck, which our llvm does not install
     }
-    target: ({$triple: {llvm-config: $"(dep-root llvm22 'libLLVM')/bin/llvm-config", cc: (tool cc), cxx: (tool c++), linker: (tool cc), ar: (tool ar), ranlib: (tool ranlib), crt-static: false}}
+    target: ({$triple: {llvm-config: (llvm-config $c), cc: (tool cc), cxx: (tool c++), linker: (tool cc), ar: (tool ar), ranlib: (tool ranlib), crt-static: false}}
+      | merge (host-target $c $host --llvm)
       # rust#132802: optimized builtins for wasm want a wasm C toolchain
       | merge ($FREESTANDING | each {|t| {$t: {optimized-compiler-builtins: false, profiler: false}} } | into record))
     dist: {compression-formats: [gz], src-tarball: false}
@@ -63,7 +68,22 @@ export def install []: nothing -> nothing {
   let c = (ctx)
   x python3 x.py install
   # rust-installer bookkeeping, install.log carries a timestamp
-  rm -f ...(glob $"($c.out)/lib/rustlib/{install.log,uninstall.sh,manifest-*,components,rust-installer-version}")
+  rm -f ...(files $"($c.out)/lib/rustlib/{install.log,uninstall.sh,manifest-*,components,rust-installer-version}")
+}
+
+# a cross llvm's own llvm-config is a target binary, host/llvm-config runs here (llvm/package.nix)
+def llvm-config [c: record]: nothing -> string {
+  let root = (dep-root llvm22 'libLLVM')
+  if $c.platform.cross { $"($root)/host/llvm-config" } else { $"($root)/bin/llvm-config" }
+}
+
+# cross: the build machine's stage tools and build scripts link with its cc (and the stage1
+# rustc with its libLLVM)
+def host-target [c: record, host: string, --llvm]: nothing -> record {
+  if not $c.platform.cross { return {} }
+  let tools = {cc: (tool $env.CC_FOR_BUILD), cxx: (tool $env.CXX_FOR_BUILD), linker: (tool $env.CC_FOR_BUILD), ar: (tool llvm-ar)}
+  let tools = (if $llvm { $tools | insert llvm-config $"(tool-root llvm22)/bin/llvm-config" } else { $tools })
+  {$host: $tools}
 }
 
 # rust-std: the installed rust as stage0, std for the target only, linked with the target cc
@@ -94,7 +114,7 @@ export def stdConfigure []: nothing -> nothing {
     rust: {channel: "stable", remap-debuginfo: true, frame-pointers: true, lld: false, llvm-tools: false}
     llvm: {download-ci-llvm: false}
     target: ({$triple: {cc: (tool cc), cxx: (tool c++), linker: (tool cc), ar: (tool llvm-ar), ranlib: (tool llvm-ranlib), crt-static: false}}
-      | merge (if $c.platform.cross { {$host: {cc: (tool $env.CC_FOR_BUILD), cxx: (tool $env.CXX_FOR_BUILD), linker: (tool $env.CC_FOR_BUILD), ar: (tool llvm-ar)}} } else { {} }))
+      | merge (host-target $c $host))
     dist: {compression-formats: [gz], src-tarball: false}
   } | to toml | save -f bootstrap.toml
 }
@@ -105,13 +125,13 @@ export def stdInstall []: nothing -> nothing {
   let c = (ctx)
   # x.py install has no stage 0 path. bootstrap only recognises cargo's old target/deps layout,
   # so with the current one the stage0 sysroot gets self-contained/ and nothing else: take that,
-  # and the hashed rlibs from where cargo now puts them
+  # and the hashed rlibs (metadata split into .rmeta) from where cargo now puts them
   let host = (^rustc -vV | lines | parse "host: {t}" | get t.0)
   let triple = $c.platform.rustTriple
   let lib = $"lib/rustlib/($triple)/lib"
   mkdir $"($c.out)/($lib | path dirname)"
   cp -r $"($c.build)/($host)/stage0-sysroot/($lib)" $"($c.out)/($lib)"
-  let built = (glob $"($c.build)/($host)/stage0-std/($triple)/dist/build/*/*/out/*.{rlib,so}")
-  if ($built | is-empty) { error make {msg: "rust.stdInstall: no target rlibs under stage0-std"} }
-  for f in $built { cp $f $"($c.out)/($lib)/" }
+  for f in (files $"($c.build)/($host)/stage0-std/($triple)/dist/build/*/*/out/*.{rlib,rmeta,so}") { cp $f $"($c.out)/($lib)/" }
+  # natively x.py builds nothing and the sysroot copy above is already the whole std
+  if (files $"($c.out)/($lib)/*.rlib" | is-empty) { error make {msg: $"rust.stdInstall: no ($triple) rlibs"} }
 }

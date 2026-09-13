@@ -8,8 +8,10 @@
 // Loaded into a namespace of its own before libc is fully up and run inside the loader's lock:
 // no allocation, no iostreams, no exceptions, nothing but string_view over fixed buffers and
 // raw syscalls. Built -nostdlib++ so it drags no libc++ into the audited process.
+#include <dlfcn.h>
 #include <fcntl.h>
 #include <link.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -39,7 +41,7 @@ auto Ignored(std::string_view name) -> bool {
 void Flush() {
   if (g_state.pending_len > 0 && g_state.out >= 0) {
     // pending_len <= kMaxName by Ignored(); at() would pull libc++'s verbose_abort into the .so
-    g_state.pending[g_state.pending_len] = '\n';  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    g_state.pending[g_state.pending_len] = '\n';  // NOLINT(*-avoid-unchecked-container-access,*-constant-array-index)
     // a short write loses one diagnostic line of a build that is failing anyway
     static_cast<void>(::write(g_state.out, g_state.pending.data(), g_state.pending_len + 1));
   }
@@ -55,8 +57,9 @@ extern "C" {
 
 auto la_version(unsigned version) -> unsigned {
   if (const char* path = std::getenv("DLAUDIT_OUT")) {  // NOLINT(concurrency-mt-unsafe): loader init, single thread
+    constexpr mode_t kMode = 0644;
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg): open(2)
-    g_state.out = ::open(path, O_WRONLY | O_APPEND | O_CREAT | O_CLOEXEC, 0644);
+    g_state.out = ::open(path, O_WRONLY | O_APPEND | O_CREAT | O_CLOEXEC, kMode);
   }
   return version;
 }
@@ -76,6 +79,7 @@ auto la_objsearch(const char* name, uintptr_t* /*cookie*/, unsigned flag) -> cha
 }
 
 // opened under its soname or a versioned alias of what was asked (libfoo.so -> libfoo.so.1)
+// NOLINTNEXTLINE(misc-const-correctness): the rtld-audit(7) signature
 auto la_objopen(struct link_map* map, Lmid_t /*lmid*/, uintptr_t* /*cookie*/) -> unsigned {
   std::string_view opened(map->l_name);
   if (const size_t slash = opened.rfind('/'); slash != std::string_view::npos) {

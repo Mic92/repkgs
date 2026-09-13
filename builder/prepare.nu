@@ -10,21 +10,28 @@ def --env resolve-platform [p: record]: nothing -> record {
   let transparent = ($p.cross and (try { (^$p.probe --version | complete).exit_code == 0 } catch { false }))
   if $p.cross { note platform $"($p.name) binfmt=($transparent)" }
   let plat = ($p | update emulator (if $transparent { [] } else { $p.emulator }) | insert transparent $transparent)
-  load-env ((build-machine-tools $plat.cross) | merge {PKGS_EMULATOR: ($plat.emulator | str join " ")})
+  # qemu-user otherwise hands out guest mappings above 2^48 (mmap hints from V8's code range land
+  # there), where a real arm64 process has no addresses and PAC keeps its signature, so signed
+  # return addresses stop authenticating. binfmt-registered qemu reads it too
+  let qemu = (if $p.cross { {QEMU_RESERVED_VA: "0x1000000000000"} } else { {} })
+  load-env ((build-machine-tools $plat) | merge {PKGS_EMULATOR: ($plat.emulator | str join " ")} | merge $qemu)
   $plat
 }
 
 # The *_FOR_BUILD convention (AX_PROG_CC_FOR_BUILD, glib, meson's native file reads the same
 # names through meson.nu): build-machine compiler, no target flags, and a pkg-config that finds
-# nothing rather than target libraries
-def build-machine-tools [cross: bool]: nothing -> record {
-  if not $cross { return {CC_FOR_BUILD: "cc", CXX_FOR_BUILD: "c++", CPP_FOR_BUILD: "cc -E", PKG_CONFIG_FOR_BUILD: "pkg-config"} }
+# nothing rather than target libraries. cc-rs and pkg-config-rs (build scripts, proc macros)
+# read the same per triple as <VAR>_<build triple>
+def build-machine-tools [plat: record]: nothing -> record {
+  if not $plat.cross { return {CC_FOR_BUILD: "cc", CXX_FOR_BUILD: "c++", CPP_FOR_BUILD: "cc -E", PKG_CONFIG_FOR_BUILD: "pkg-config"} }
   let dir = $"($env.NIX_BUILD_TOP)/for-build"
   mkdir $"($dir)/no-pc"
   $"#!/bin/sh\nPKG_CONFIG_PATH= PKG_CONFIG_LIBDIR=($dir)/no-pc exec pkg-config \"$@\"\n" | save -f $"($dir)/pkg-config"
   chmod +x $"($dir)/pkg-config"
+  let rs = ($plat.buildRustTriple | str replace -a "-" "_")
   {CC_FOR_BUILD: "cc-build", CXX_FOR_BUILD: "c++-build", CPP_FOR_BUILD: "cc-build -E", PKG_CONFIG_FOR_BUILD: $"($dir)/pkg-config"
-    CFLAGS_FOR_BUILD: "", CXXFLAGS_FOR_BUILD: "", CPPFLAGS_FOR_BUILD: "", LDFLAGS_FOR_BUILD: ""}
+    CFLAGS_FOR_BUILD: "", CXXFLAGS_FOR_BUILD: "", CPPFLAGS_FOR_BUILD: "", LDFLAGS_FOR_BUILD: ""
+    $"CC_($rs)": "cc-build", $"CXX_($rs)": "c++-build", $"PKG_CONFIG_($rs)": $"($dir)/pkg-config"}
 }
 
 # sources arrive unpacked (nix/sources.nix). cp -p: the store's uniform mtimes keep generated
@@ -34,7 +41,8 @@ def --env unpack [a: record, src: path, njobs: int]: nothing -> nothing {
   ^cp -rp $"($a.src)/." $src
   ^chmod -R u+w $src
   cd $src
-  for p in $a.patches { note patch $p; ^patch -p1 -i $p }
+  # -F0: a hunk whose context does not match is an error, not applied somewhere similar
+  for p in $a.patches { note patch $p; ^patch -p1 -F0 -i $p }
   fix-env-shebangs . $njobs
 }
 
@@ -51,14 +59,12 @@ export def --env main [
 ]: nothing -> nothing {
   let a = (attrs)
   let spec = $a.spec
-  # in the tests derivation "$out" for build systems is the already-built package. Our own
-  # output is just the log
-  let out = (if $from_tree == "" { $a.outputs.out } else { $a.package })
+  # the build installs outside the store, finish moves it (docs/design.md, Relocatable). In the
+  # tests derivation $out is the built package and our own output just the log
+  let out = (if $from_tree == "" { $"($env.NIX_BUILD_TOP)/prefix" } else { $a.package })
   $env.PKGS_RESULT = $a.outputs.out
   let njobs = ($env.NIX_BUILD_CORES? | default "4" | into int)
-  # the fetched trees of locked dependencies (`<bs>.deps`) are dependencies too: they propagate
-  # the libraries their locked packages link (sys-libs.nu)
-  let deps = (dep-closure ($a.dependencies ++ ($spec.uses? | default [] | each {|u| $spec | get -o $u | get -o deps } | compact)))
+  let deps = (dep-closure $a.dependencies)
   env $a $deps $out
   let plat = (resolve-platform $a.platform)
   let cache = ($"($env.NIX_STORE | path dirname)/var/nix/jigd/socket" | path exists)
@@ -75,6 +81,6 @@ export def --env main [
   let wanted = ($spec.tests?.run? | default true)
   if $from_tree == "" and $wanted and $plat.cross and not $plat.transparent { note untested $"($plat.name): no binfmt on this builder" }
   let tests_run = ($from_tree != "" or ($wanted and ((not $plat.cross) or $plat.transparent)))
-  $env.PKGS_CTX = {spec: $spec, out: $out, deps: $deps, roots: ($env.JIG_STORE_ROOTS | split row " "), njobs: $njobs, src: $env.PWD
+  $env.PKGS_CTX = {spec: $spec, out: $out, dest: $a.outputs.out, deps: $deps, roots: ($env.JIG_STORE_ROOTS | split row " "), njobs: $njobs, src: $env.PWD
     build: $build, platform: $plat, testsRun: $tests_run, cache: $cache}
 }

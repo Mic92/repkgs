@@ -4,6 +4,7 @@
   pkgs,
   platform,
   buildPkgs,
+  on,
 }:
 package {
   name = "cpython314";
@@ -11,6 +12,7 @@ package {
   autotools.flags = [
     "--without-ensurepip"
     "--with-openssl=${pkgs.openssl}"
+    "--with-system-libmpdec"
     "ac_cv_file__dev_ptmx=yes"
     "ac_cv_file__dev_ptc=no"
   ]
@@ -24,6 +26,28 @@ package {
     else
       [ ]
   );
+  # no compiled-in PREFIX: an installed python is where its binary (/proc/self/exe, as macOS
+  # asks the OS) or libpython is, a build tree one uses the source dir. sysconfig data and .pyc
+  # paths relative, python-config from $0. LIBPL gets no copy of the build Makefile and
+  # python-config.py (records of the build, nothing reads them)
+  patches = [ ./relocatable.patch ];
+  # build-details.json (PEP 739) records the paths of the python that ran the generator, under
+  # cross the build machine's: ours by layout, relative as --relative-paths would write them
+  phases.after."autotools.install" = [
+    {
+      name = "build-details";
+      run = ''
+        let f = (files $"($c.out)/lib/python3.*/build-details.json" | first)
+        let py = ($f | path dirname | path basename)
+        open $f | reject libpython.static | merge deep {
+          base_prefix: "../.."
+          base_interpreter: $"./bin/($py)"
+          libpython: {dynamic: $"./lib/lib($py).so", dynamic_stableabi: "./lib/libpython3.so"}
+          c_api: {headers: $"./include/($py)", pkgconfig_path: "./lib/pkgconfig"}
+        } | save -f $f
+      '';
+    }
+  ];
   tests.run = false; # hours
   dependencies = [
     pkgs.zlib
@@ -33,7 +57,8 @@ package {
     pkgs.openssl
     pkgs.expat
     pkgs.sqlite
+    pkgs.mpdecimal
   ];
-  buildDependencies = if platform.cross then [ buildPkgs.cpython ] else [ ];
+  buildDependencies = on platform.cross [ buildPkgs.cpython ];
   bin = [ "python3" ];
 }

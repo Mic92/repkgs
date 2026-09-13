@@ -1,0 +1,83 @@
+--- a/examples/loadables/Makefile.inc.in
++++ b/examples/loadables/Makefile.inc.in
+@@ -24,18 +24,19 @@
+ PACKAGE_VERSION = @PACKAGE_VERSION@
+ 
+ # Include some boilerplate Gnu makefile definitions.
+-prefix = @prefix@
++# this file is <prefix>/lib/bash/Makefile.inc
++prefix = $(abspath $(dir $(lastword $(MAKEFILE_LIST)))../..)
+ 
+-exec_prefix = @exec_prefix@
+-bindir = @bindir@
+-libdir = @libdir@
+-infodir = @infodir@
+-includedir = @includedir@
++exec_prefix = $(prefix)
++bindir = $(prefix)/bin
++libdir = $(prefix)/lib
++infodir = $(prefix)/share/info
++includedir = $(prefix)/include
+ 
+-datarootdir = @datarootdir@
++datarootdir = $(prefix)/share
+ 
+-loadablesdir = @loadablesdir@
+-headersdir = @headersdir@
++loadablesdir = $(libdir)/bash
++headersdir = $(includedir)/@PACKAGE_NAME@
+ 
+ topdir = @top_srcdir@
+ BUILD_DIR = @BUILD_DIR@
+--- a/examples/loadables/Makefile.sample.in
++++ b/examples/loadables/Makefile.sample.in
+@@ -19,14 +19,15 @@
+ 
+ # these should match the ones in Makefile.in (for the make install target)
+ 
+-prefix = @prefix@
+-exec_prefix = @exec_prefix@
+-libdir = @libdir@
++# this file is <prefix>/lib/bash/Makefile.sample
++prefix = $(abspath $(dir $(lastword $(MAKEFILE_LIST)))../..)
++exec_prefix = $(prefix)
++libdir = $(prefix)/lib
+ 
+ # ${loadablesdir} is where the example loadable builtins and data files
+ # are installed (make install target in Makefile.in)
+ 
+-loadablesdir = @loadablesdir@
++loadablesdir = $(libdir)/bash
+ DESTDIR =
+ 
+ # include Makefile.inc for all boilerplate definitions
+--- a/locale.c
++++ b/locale.c
+@@ -32,6 +32,7 @@
+ 
+ #include "bashintl.h"
+ #include "bashansi.h"
++#include <reloc.h>
+ #include <stdio.h>
+ #include "chartypes.h"
+ #include <errno.h>
+@@ -91,7 +92,7 @@
+ #else
+   default_locale = savestring ("C");
+ #endif /* HAVE_SETLOCALE */
+-  bindtextdomain (PACKAGE, LOCALEDIR);
++  bindtextdomain (PACKAGE, RELOC ("../share/locale"));
+   textdomain (PACKAGE);
+ 
+   locale_mb_cur_max = MB_CUR_MAX;
+--- a/pathnames.h.in
++++ b/pathnames.h.in
+@@ -28,6 +28,7 @@
+ #define SYS_PROFILE "/etc/profile"
+ 
+ /* The default location of the bash debugger initialization/startup file. */
+-#define DEBUGGER_START_FILE	"@DEBUGGER_START_FILE@"
++#include <reloc.h>
++#define DEBUGGER_START_FILE	RELOC("../share/bashdb/bashdb-main.inc")
+ 
+ #endif /* _PATHNAMES_H */

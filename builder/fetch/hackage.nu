@@ -4,7 +4,6 @@
 # <pkg>-<version>.tar.gz with the revised <pkg>-<version>.cabal beside it. Shared by every cabal
 # package. Each solves offline against it and builds only its own closure.
 use dyn-drv.nu
-use ../sys-libs.nu
 
 const HACKAGE = "https://hackage.haskell.org/package"
 
@@ -18,6 +17,6 @@ def main []: nothing -> nothing {
     ]
   } | flatten | dyn-drv fetchurls)
   print -e $"hackageSet: ($table | columns | length) packages"
-  let layout = (($files | each {|f| {link: $f.out, to: $f.to} }) | append (dyn-drv json-file exports.json (sys-libs exports hackage-set [])))
+  let layout = (($files | each {|f| {link: $f.out, to: $f.to} }))
   dyn-drv collect hackage-set $layout ($files | get drv)
 }

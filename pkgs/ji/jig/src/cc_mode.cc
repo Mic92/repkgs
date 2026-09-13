@@ -397,6 +397,31 @@ void Classify(Invocation& inv, int sources, bool objects, char stop) {
   }
 }
 
+// what the cache cannot serve: run the compiler as given, under a slot when it is real work
+auto RunUncached(CacheClient& cache, const std::string& socket_path, const std::string& compiler, const Invocation& inv,
+                 bool has_primary, std::span<const std::string> user_args, const Stopwatch& clock) -> int {
+  int status = 0;
+  {
+    // -print-*, --version and friends are no work worth a slot (and glibc runs 600 of them)
+    std::optional<Slot> slot;
+    if (!inv.source.empty() || !inv.inputs.empty()) {
+      slot.emplace(cache, socket_path);
+    }
+    status = Run(compiler, inv.args, StderrMode::kInherit).status;
+  }
+  Outcome outcome = Outcome::kPlainNoSocket;
+  if (inv.query) {
+    outcome = Outcome::kPlainQuery;
+  } else if (!inv.cacheable) {
+    outcome = inv.compile_only ? Outcome::kPlainCompile : Outcome::kPlainLink;
+  } else if (!has_primary) {
+    outcome = Outcome::kPlainNoSource;
+  }
+  LogOutcome("cc", outcome, inv.source, clock);
+  LogUncached(outcome, user_args);
+  return status;
+}
+
 }  // namespace
 
 auto ParseInvocation(std::span<const std::string> args) -> Invocation {
@@ -480,26 +505,7 @@ auto RunCcMode(std::string_view argv0, std::span<const std::string> raw_args, co
     primary = PrimaryIdentity(inv);
   }
   if (!inv.cacheable || !primary || !cache.Connect(socket_path)) {
-    int status = 0;
-    {
-      // -print-*, --version and friends are no work worth a slot (and glibc runs 600 of them)
-      std::optional<Slot> slot;
-      if (!inv.source.empty() || !inv.inputs.empty()) {
-        slot.emplace(cache, socket_path);
-      }
-      status = Run(conf->cc, inv.args, StderrMode::kInherit).status;
-    }
-    Outcome outcome = Outcome::kPlainNoSocket;
-    if (inv.query) {
-      outcome = Outcome::kPlainQuery;
-    } else if (!inv.cacheable) {
-      outcome = inv.compile_only ? Outcome::kPlainCompile : Outcome::kPlainLink;
-    } else if (!primary) {
-      outcome = Outcome::kPlainNoSource;
-    }
-    LogOutcome("cc", outcome, inv.source, clock);
-    LogUncached(outcome, user_args);
-    return status;
+    return RunUncached(cache, socket_path, conf->cc, inv, primary.has_value(), user_args, clock);
   }
 
   const RequestKey request_key = ComputeRequestKey(conf->cc, inv, *primary);

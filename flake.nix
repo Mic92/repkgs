@@ -11,7 +11,13 @@
       each = f: nixpkgs.lib.genAttrs systems f;
     in
     {
-      packages = each (system: import ./default.nix { inherit system; });
+      packages = each (
+        system:
+        import ./default.nix { inherit system; }
+        // {
+          nix = import ./nix/nix { pkgs = nixpkgs.legacyPackages.${system}; };
+        }
+      );
       checks = each (system: import ./nix/ci.nix { inherit system nixpkgs; });
       devShells = each (system: {
         default = import ./shell.nix { pkgs = nixpkgs.legacyPackages.${system}; };

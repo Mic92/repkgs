@@ -1,0 +1,216 @@
+--- a/gio/gapplication-tool.c
++++ b/gio/gapplication-tool.c
+@@ -20,6 +20,7 @@
+  */
+ 
+ #include "config.h"
++#include <reloc.h>
+ 
+ #include <gio/gdesktopappinfo.h>
+ 
+--- a/gio/gdbus-2.0/codegen/gdbus-codegen.in
++++ b/gio/gdbus-2.0/codegen/gdbus-codegen.in
+@@ -48,9 +48,6 @@
+ #
+ # In these cases our installation cannot be relocatable, but at least we should
+ # be able to find the codegen module.
+-if not os.path.isfile(os.path.join(path, 'codegen', 'codegen_main.py')):
+-    path = os.path.join('@DATADIR@', 'glib-2.0')
+-
+ sys.path.insert(0, path)
+ from codegen import codegen_main
+ 
+--- a/gio/gdbus-tool.c
++++ b/gio/gdbus-tool.c
+@@ -21,6 +21,7 @@
+  */
+ 
+ #include "config.h"
++#include <reloc.h>
+ 
+ #include <stdlib.h>
+ #include <string.h>
+--- a/gio/gdesktopappinfo.c
++++ b/gio/gdesktopappinfo.c
+@@ -25,6 +25,7 @@
+ /* Prelude {{{1 */
+ 
+ #include "config.h"
++#include <reloc.h>
+ 
+ /* For the #GDesktopAppInfoLookup macros; since macro deprecation is implemented
+  * in the preprocessor, we need to define this before including glib.h*/
+--- a/gio/giomodule.c
++++ b/gio/giomodule.c
+@@ -21,6 +21,7 @@
+  */
+ 
+ #include "config.h"
++#include <reloc.h>
+ 
+ /* For the #GDesktopAppInfoLookup macros; since macro deprecation is implemented
+  * in the preprocessor, we need to define this before including glib.h*/
+--- a/gio/gio-tool.c
++++ b/gio/gio-tool.c
+@@ -20,6 +20,7 @@
+  */
+ 
+ #include "config.h"
++#include <reloc.h>
+ 
+ #include <gio/gio.h>
+ #include <gi18n.h>
+--- a/gio/glib-compile-resources.c
++++ b/gio/glib-compile-resources.c
+@@ -20,6 +20,7 @@
+  */
+ 
+ #include "config.h"
++#include <reloc.h>
+ 
+ #include <glib.h>
+ #include <gstdio.h>
+--- a/gio/glib-compile-schemas.c
++++ b/gio/glib-compile-schemas.c
+@@ -21,6 +21,7 @@
+ 
+ /* Prologue {{{1 */
+ #include "config.h"
++#include <reloc.h>
+ 
+ #include <glib.h>
+ #include <gstdio.h>
+--- a/gio/gresource-tool.c
++++ b/gio/gresource-tool.c
+@@ -20,6 +20,7 @@
+  */
+ 
+ #include "config.h"
++#include <reloc.h>
+ 
+ #include <stdlib.h>
+ #include <stdio.h>
+--- a/gio/gsettings-tool.c
++++ b/gio/gsettings-tool.c
+@@ -20,6 +20,7 @@
+  */
+ 
+ #include "config.h"
++#include <reloc.h>
+ 
+ #include <gio/gio.h>
+ #include <gi18n.h>
+--- a/gio/meson.build
++++ b/gio/meson.build
+@@ -1,7 +1,7 @@
+ gio_c_args = [
+   '-DG_LOG_DOMAIN="GLib-GIO"',
+-  '-DGIO_LAUNCH_DESKTOP="@0@"'.format(glib_prefix / multiarch_libexecdir / 'gio-launch-desktop'),
+-  '-DGIO_MODULE_DIR="@0@"'.format(glib_giomodulesdir),
++  '-DGIO_LAUNCH_DESKTOP=RELOC("../@0@/gio-launch-desktop")'.format(multiarch_libexecdir),
++  '-DGIO_MODULE_DIR=RELOC("gio/modules")',
+   '-DLOCALSTATEDIR="@0@"'.format(glib_localstatedir),
+ ]
+ 
+--- a/girepository/girepository.c
++++ b/girepository/girepository.c
+@@ -24,6 +24,7 @@
+  */
+ 
+ #include "config.h"
++#include <reloc.h>
+ 
+ #include <stdio.h>
+ #include <string.h>
+--- a/girepository/girparser.c
++++ b/girepository/girparser.c
+@@ -23,6 +23,7 @@
+  */
+ 
+ #include "config.h"
++#include <reloc.h>
+ 
+ #include "girparser-private.h"
+ 
+--- a/girepository/meson.build
++++ b/girepository/meson.build
+@@ -85,9 +85,9 @@
+   '-DGI_COMPILATION',
+   '-DG_LOG_DOMAIN="GLib-GIRepository"',
+   '-DGIR_SUFFIX="@0@"'.format(gir_suffix),
+-  '-DGIR_DIR="@0@"'.format(glib_girdir),
+-  '-DGOBJECT_INTROSPECTION_LIBDIR="@0@"'.format(glib_libdir),
+-  '-DGOBJECT_INTROSPECTION_DATADIR="@0@"'.format(glib_datadir),
++  '-DGIR_DIR=RELOC("../share/gir-1.0")',
++  '-DGOBJECT_INTROSPECTION_LIBDIR=RELOC(".")',
++  '-DGOBJECT_INTROSPECTION_DATADIR=RELOC("../share")',
+   '-DGOBJECT_INTROSPECTION_RELATIVE_LIBDIR="@0@"'.format(get_option('libdir')),
+   warning_sign_conversion_args,
+ ]
+--- a/glib/ggettext.c
++++ b/glib/ggettext.c
+@@ -25,6 +25,7 @@
+  */
+ 
+ #include "config.h"
++#include <reloc.h>
+ 
+ #include "ggettext.h"
+ #include "glibintl.h"
+--- a/glib/libcharset/meson.build
++++ b/glib/libcharset/meson.build
+@@ -8,7 +8,7 @@
+   include_directories : configinc,
+   pic : true,
+   c_args : [
+-    '-DGLIB_CHARSETALIAS_DIR="@0@"'.format(glib_charsetaliasdir),
++    '-DGLIB_CHARSETALIAS_DIR="/usr/lib"',
+     extra_charset_args,
+   ],
+   gnu_symbol_visibility : 'hidden',
+--- a/glib/libglib-gdb.py.in
++++ b/glib/libglib-gdb.py.in
+@@ -2,7 +2,8 @@
+ import gdb
+ 
+ # Update module path.
+-dir_ = '@datadir@/glib-2.0/gdb'
++import os
++dir_ = os.path.join(os.path.dirname(__file__), '../share/glib-2.0/gdb')
+ if not dir_ in sys.path:
+     sys.path.insert(0, dir_)
+ 
+--- a/glib/meson.build
++++ b/glib/meson.build
+@@ -577,7 +577,7 @@
+ 
+ # XXX: We add a leading './' because glib_libdir is an absolute path and we
+ # need it to be a relative path so that join_paths appends it to the end.
+-gdb_install_dir = join_paths(glib_datadir, 'gdb', 'auto-load', './' + glib_libdir)
++gdb_install_dir = glib_libdir
+ 
+ configure_file(
+   input: 'libglib-gdb.py.in',
+--- a/gobject/libgobject-gdb.py.in
++++ b/gobject/libgobject-gdb.py.in
+@@ -2,7 +2,8 @@
+ import gdb
+ 
+ # Update module path.
+-dir_ = '@datadir@/glib-2.0/gdb'
++import os
++dir_ = os.path.join(os.path.dirname(__file__), '../share/glib-2.0/gdb')
+ if not dir_ in sys.path:
+     sys.path.insert(0, dir_)
+ 
+--- a/meson.build
++++ b/meson.build
+@@ -2361,7 +2361,7 @@
+ glib_conf.set('HAVE_DCGETTEXT', 1)
+ glib_conf.set('HAVE_GETTEXT', 1)
+ 
+-glib_conf.set_quoted('GLIB_LOCALE_DIR', glib_localedir)
++glib_conf.set('GLIB_LOCALE_DIR', 'RELOC("../share/locale")')
+ 
+ glib_conf.set_quoted('GLIB_LOCALSTATEDIR', glib_localstatedir)
+ glib_conf.set_quoted('GLIB_RUNSTATEDIR', glib_runstatedir)

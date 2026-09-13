@@ -5,6 +5,7 @@
 # plus a clang VFS overlay that makes the header dirs case-insensitive (SDK headers include each
 # other in spellings that match no file) and lowercase symlinks for lld-link, which has no VFS.
 use msi.nu
+use ../glob.nu *
 
 def main []: nothing -> nothing {
   let a = (open $env.NIX_ATTRS_JSON_FILE)
@@ -44,7 +45,7 @@ def main []: nothing -> nothing {
     -Xmicrosoft-windows-sdk-root SYSROOT/sdk -Xmicrosoft-windows-sdk-version $v -ivfsoverlay SYSROOT/etc/cc/vfs.yaml] | str join "\n" | $in + "\n" | save $"($out)/etc/cc/flags"
   vfs-overlay $out [crt/include $"sdk/include/($v)"] | save $"($out)/etc/cc/vfs.yaml"
   "\n" | save $"($out)/etc/cc/cxxflags"
-  for f in (glob $"($out)/{crt,sdk}/lib/**/*") {
+  for f in (files $"($out)/{crt,sdk}/lib/**/*") {
     let dir = ($f | path dirname); let b = ($f | path basename); let l = ($b | str lowercase)
     if $b != $l and not ($"($dir)/($l)" | path exists) { ^ln -s $b $"($dir)/($l)" }
   }
@@ -54,7 +55,7 @@ def main []: nothing -> nothing {
 # the overlay file so the sysroot's symlink merge keeps it valid
 def vfs-overlay [out: string, dirs: list<string>]: nothing -> string {
   let roots = ($dirs | each {|d|
-    glob $"($out)/($d)/**" --no-file | each {|dir|
+    files --dirs $"($out)/($d)/**" | each {|dir|
       let rel = $"../../($dir | path relative-to $out)"
       let files = (ls $dir | where type == file | get name | path basename)
       if ($files | is-empty) { null } else {

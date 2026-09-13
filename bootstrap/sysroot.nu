@@ -6,7 +6,7 @@ use lib.nu *
 # glibc installs libc.so/libm.{so,a} as linker scripts naming absolute paths, which defeats
 # --sysroot and relocation. Bare names are looked up in -L dirs
 def relativise-ld-scripts [libdir: string]: nothing -> nothing {
-  for f in (glob $"($libdir)/lib{c,m}.{so,a}") {
+  for f in (files $"($libdir)/lib{c,m}.{so,a}") {
     # libc.a is a real archive: only touch ld scripts
     if (open --raw $f | into binary | bytes starts-with ("/* GNU ld script" | into binary)) {
       let text = (open --raw $f | decode utf-8)

@@ -5,20 +5,44 @@
   pkgs,
   buildPkgs,
   platform,
+  on,
+  lib,
 }:
+let
+  inherit (lib) join;
+in
 package {
   name = "llvm";
   uses = [ "cmake" ];
   cmake.root = "llvm";
   cmake.defs =
     import ./defs.nix
-    # the nested NATIVE configure (tblgen) would pick the target cc
-    // (
-      if platform.cross then
-        { CROSS_TOOLCHAIN_FLAGS_NATIVE = "-DCMAKE_C_COMPILER=cc-build;-DCMAKE_CXX_COMPILER=c++-build"; }
-      else
-        { }
-    );
+    # the nested NATIVE configure (tblgen, host/llvm-config) would pick the target cc. Static so
+    # what it builds carries no build-machine store path into $out, and told about the dylib so
+    # its llvm-config answers --link-shared like the target one
+    // on platform.cross {
+      CROSS_TOOLCHAIN_FLAGS_NATIVE = join ";" [
+        "-DCMAKE_C_COMPILER=cc-build"
+        "-DCMAKE_CXX_COMPILER=c++-build"
+        "-DCMAKE_EXE_LINKER_FLAGS=-static"
+        "-DLLVM_BUILD_LLVM_DYLIB=ON"
+        "-DLLVM_LINK_LLVM_DYLIB=ON"
+      ];
+    };
+  # configure-time tools (cmake, meson, x.py) run llvm-config on the build machine. The NATIVE
+  # sub-build makes one from this configure's cache that reports paths relative to itself. In
+  # its own directory: bin/ entries get a target launcher, and a find_program pointed here
+  # must not see the target llvm-config next to it
+  phases.after."cmake.install" = on platform.cross [
+    {
+      name = "llvm-config-host";
+      run = ''
+        x cmake --build NATIVE --target llvm-config
+        mkdir $"($c.out)/host"
+        cp NATIVE/bin/llvm-config $"($c.out)/host/llvm-config"
+      '';
+    }
+  ];
   dependencies = [
     pkgs.zlib
     pkgs.zstd

@@ -1,6 +1,6 @@
 # The process environment every build step inherits. Each function returns a record, `main`
 # loads them in order: sandbox dirs, reproducibility pins, the toolchain's view of the
-# dependencies, default flags, then the dependencies' and the spec's own `env` on top.
+# dependencies, default flags, then the build tools' and the spec's own `env` on top.
 use core.nu *
 
 # writable HOME and XDG dirs for tools with per-user caches (npm, pnpm, bun, luarocks, gem),
@@ -57,16 +57,18 @@ def package-cc [a: record, deps: list<record>]: nothing -> record {
   let enabled = (if $cc.hardening? == false { {} } else { $h.enabled | merge ($cc.hardening? | default {}) })
   let harden = {|names: list<string>| $names | where {|n| ($enabled | get -o $n) == true } | each {|n| $h.flags | get $n } | flatten }
   let compile = ($h.flags | columns | where {|n| $n not-in ($h.cxx ++ $h.link) })
+  # spec.debug for cc and for cargo's release profile
+  let g = (if $a.spec.debug { [-g full] } else { [-g0 none] })
   # dependency dirs as -isystem and trailing -L: searched after the project's own, like /usr would be
   let flags = {
     cflags: ((dep-dirs $deps includeDirs | each { $"-isystem($in)" })
-      ++ ["-O2" "-g" "-fno-omit-frame-pointer" "-mno-omit-leaf-frame-pointer"] ++ (do $harden $compile) ++ ($cc.cflags? | default []))
+      ++ ["-O2" $g.0 "-fno-omit-frame-pointer" "-mno-omit-leaf-frame-pointer"] ++ (do $harden $compile) ++ ($cc.cflags? | default []))
     cxxflags: ((do $harden $h.cxx) ++ ($cc.cxxflags? | default []))
     ldflags: ((dep-dirs $deps libDirs | each { $"-L($in)" })
       ++ (do $harden $h.link) ++ ($cc.ldflags? | default []))
   }
   let root = (which cc | get 0.path | path expand | path dirname -n 2)
-  {PKGS_CC: ({$root: $flags} | to json -r)}
+  {PKGS_CC: ({$root: $flags} | to json -r), CARGO_PROFILE_RELEASE_DEBUG: $g.1, CARGO_PROFILE_RELEASE_STRIP: none}
 }
 
 # rustc and go go through jig only when the environment says so, and more than their own build
@@ -84,6 +86,7 @@ export def --env main [a: record, deps: list<record>, out: string]: nothing -> n
   load-env (reproducible $a)
   load-env (toolchain $a $deps)
   load-env (package-cc $a $deps)
-  load-env ($deps | get env | reduce -f {} {|it, acc| $acc | merge $it })
+  # exported env is for what runs during the build: from build tools, not target dependencies
+  load-env ($a.buildDependencies | each { (exports-of $in).env } | reduce -f {} {|it, acc| $acc | merge $it })
   load-env ($a.spec.env? | default {})
 }

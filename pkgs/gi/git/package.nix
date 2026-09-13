@@ -24,7 +24,14 @@ package {
     "--with-libpcre2"
     "--without-tcltk"
   ];
+  # RUNTIME_PREFIX: exec path, templates, locale relative to the binary (configure made them
+  # absolute), no compiled-in fallback prefix. System config is the machine's /etc
+  patches = [ ./relocatable.patch ];
   autotools.makeFlags = [
+    "RUNTIME_PREFIX=YesPlease"
+    "gitexecdir=libexec/git-core"
+    "template_dir=share/git-core/templates"
+    "sysconfdir=/etc"
     "RUST_TARGET_DIR=$(CARGO_TARGET_DIR)/${platform.rustTriple}/release"
     "CURL_LDFLAGS=-lcurl" # asked of curl-config, which curl built with cmake does not install
     "NO_PERL=1"
@@ -46,5 +53,4 @@ package {
     pkgs.pcre2
     pkgs.openssl
   ];
-  tests.relocated = true;
 }

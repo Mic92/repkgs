@@ -15,6 +15,7 @@
   platform,
   fetch,
   sh,
+  lib,
 }:
 let
   opt = type: default: doc: {
@@ -42,11 +43,18 @@ let
       ++ (if nullable then [ "null" ] else [ ])
     ) null "the locked dependencies, fetched (${fetcher}), by default from the package's own lock file";
   flags = tool: strs [ ] "extra arguments for ${tool}";
+  makeTargets = {
+    installFlags = strs [ ] "arguments for `make install` only";
+    buildTarget = strs [ ] "make goals for build (empty: the makefile's default goal)";
+    testTarget = strs [ "check" ] "make goals for test";
+    installTarget = strs [ "install" ] "make goals for install";
+  };
   # bin scripts say #!/usr/bin/env node, prebuilt .node addons (rollup, esbuild) link libgcc_s.so.1
   nodeDeps = [
     pkgs.nodejs
     pkgs.libgcc-shim
   ];
+  nodeTools = [ buildPkgs.libgcc-shim ]; # the same addons while building (builder/node-common.nu)
   script = optStr "build" "package.json script `build` runs (null: none)";
 in
 builtins.mapAttrs
@@ -94,7 +102,7 @@ builtins.mapAttrs
       # what the package's `<name>` record starts from: every option's default, `lock` ones fetched
       defaults =
         if bs ? lock then
-          args: optionDefaults // builtins.mapAttrs (_: f: f { inherit (args) source; }) bs.lock
+          source: optionDefaults // builtins.mapAttrs (_: f: f { inherit source; }) bs.lock
         else
           _: optionDefaults;
       # `tool`: the build system's own program, a package may swap it (`cmake.tool = …`)
@@ -106,6 +114,20 @@ builtins.mapAttrs
     }
   )
   {
+    make = {
+      phases = [
+        "configure"
+        "build"
+        "test"
+        "install"
+      ];
+      tools = [ sh ];
+      options = makeTargets // {
+        flags = strs [ ] "arguments for every make invocation (build, test, install)";
+        configureScript = str "configure" "hand-written configure script relative to the project, run with --prefix when it exists";
+        configureFlags = flags "make.configureScript";
+      };
+    };
     autotools = {
       unsupported =
         if platform.libc == "msvc" then
@@ -120,14 +142,11 @@ builtins.mapAttrs
       ];
       # make and bash come with baseTools (or the seed's for bootstrapTools packages)
       tools = [ sh ];
-      options = {
+      options = makeTargets // {
         flags = flags "configure";
         makeFlags = strs [ ] "arguments for every make invocation (build, test, install)";
-        installFlags = strs [ ] "arguments for `make install` only";
         configureScript = str "configure" "configure script relative to the project";
         outOfTree = bool true "configure from a separate build directory";
-        buildTarget = strs [ ] "make goals for build (empty: the makefile's default goal)";
-        testTarget = strs [ "check" ] "make goals for test";
       };
     };
     cmake = {
@@ -192,7 +211,7 @@ builtins.mapAttrs
       # `cargo.tool = buildPkgs.rust-bootstrap` for what must exist before llvm and rust are
       # built (formatelf, git). Cross: std for the target is its own package, <tool>-std
       tool = buildPkgs.rust;
-      tools = spec: if platform.cross then [ pkgs."${spec.cargo.tool.pname}-std" ] else [ ];
+      tools = spec: lib.on platform.cross [ pkgs."${spec.cargo.tool.pname}-std" ];
       lock.deps = fetch.cargoVendor;
       options = {
         features = strs [ ] "--features";
@@ -200,19 +219,20 @@ builtins.mapAttrs
         flags = flags "cargo build and cargo test";
         skipTests = strs [ ] "cargo test --skip filters (substring of the test path)";
         deps = deps true "fetch.cargoVendor";
+        cratePatches =
+          attrs { }
+            "crate name -> patches applied to its vendored copy (-p1 inside the crate)";
       };
     };
     cabal = {
       unsupported = if platform.cross then "ghc-bootstrap only targets the build machine" else null;
+      # `cabal.tool = buildPkgs.cabal-bootstrap` for cabal itself
+      tool = buildPkgs.cabal;
       tools = [
         buildPkgs.ghc-bootstrap
-        buildPkgs.cabal-bootstrap
         buildPkgs.jsem
       ];
-      # GHC's threaded RTS ends threads with pthread_exit, for which glibc dlopens libgcc_s.so.1:
-      # in the RUNPATH of what is installed, on LD_LIBRARY_PATH (its env export) while building.
       dependencies = [
-        pkgs.libgcc-shim
         pkgs.gmp # ghc-bignum: every linked program wants -lgmp
         pkgs.libffi # and the RTS -lffi
       ];
@@ -260,7 +280,8 @@ builtins.mapAttrs
       tools = [
         buildPkgs.nodejs
         sh
-      ];
+      ]
+      ++ nodeTools;
       lock.deps = fetch.pnpmDeps;
       dependencies = nodeDeps;
       options = {
@@ -315,7 +336,7 @@ builtins.mapAttrs
     };
     bun = {
       tool = buildPkgs.bun;
-      tools = [ sh ];
+      tools = [ sh ] ++ nodeTools;
       lock.deps = fetch.bunDeps;
       dependencies = nodeDeps;
       options = {
@@ -332,7 +353,8 @@ builtins.mapAttrs
       tools = [
         buildPkgs.nodejs
         sh
-      ];
+      ]
+      ++ nodeTools;
       lock.deps = fetch.yarnDeps;
       dependencies = nodeDeps;
       options = {
@@ -380,7 +402,7 @@ builtins.mapAttrs
     };
     npm = {
       tool = buildPkgs.nodejs;
-      tools = [ sh ];
+      tools = [ sh ] ++ nodeTools;
       lock.deps = fetch.npmDeps;
       dependencies = nodeDeps;
       options = {

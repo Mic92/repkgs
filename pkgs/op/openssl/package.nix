@@ -4,23 +4,31 @@
 }:
 package {
   name = "openssl";
+  # engines and providers next to the loaded libcrypto (reloc.h) instead of a configured libdir
   patches = [ ./relocatable.patch ];
   cc.cflags = [ "-DOSSL_RELOCATABLE" ];
-  uses = [ "autotools" ];
+  uses = [ "make" ];
   # own perl Configure. --openssldir is the §3 ambient path, not a store path
-  phases.replace."autotools.configure" = {
+  phases.replace."make.configure" = {
     name = "configure";
     run = ''
-      cd $c.build
-      let target = ({x86_64: "linux-x86_64", aarch64: "linux-aarch64", riscv64: "linux64-riscv64"} | get ($c.platform.triple | split row '-' | first))
-      x perl $"($c.src)/Configure" $target $"--prefix=($c.out)" "--libdir=lib" "--openssldir=/etc/ssl" shared no-docs no-tests enable-ktls
+      let target = ({x86_64: "linux-x86_64", aarch64: "linux-aarch64", riscv64: "linux64-riscv64"} | get $c.platform.cpu)
+      x perl ./Configure $target $"--prefix=($c.out)" "--libdir=lib" "--openssldir=/etc/ssl" shared no-docs no-tests enable-ktls
     '';
   };
-  phases.replace."autotools.install" = {
-    name = "install";
-    run = "cd $c.build; x make install_sw install_ssldirs $\"OPENSSLDIR=($c.out)/etc/ssl\"; rm $\"($c.out)/bin/c_rehash\""; # perl script; would make perl a runtime dependency
-  };
-  phases.remove = [ "autotools.test" ];
+  make.installTarget = [
+    "install_sw"
+    "install_ssldirs"
+  ];
+  make.installFlags = [ "OPENSSLDIR=$(prefix)/etc/ssl" ];
+  # c_rehash is a perl script: perl would become a runtime dependency
+  phases.after."make.install" = [
+    {
+      name = "no-c_rehash";
+      run = "rm ($c.out)/bin/c_rehash";
+    }
+  ];
+  tests.run = false;
   buildDependencies = [ buildPkgs.perl ];
   tests.version = "version";
 }

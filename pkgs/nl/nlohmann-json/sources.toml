@@ -7,6 +7,11 @@ url = "https://github.com/nlohmann/json/releases/download/{tag}/json.hpp"
 hash = "sha256-qvEnwEyzHEBuWwSmPxrok2n8zebY+nzdoe1PMt/F3mM="
 unpack = false
 
+[[source]]
+key = "tree"
+url = "https://github.com/nlohmann/json/releases/download/{tag}/json.tar.xz"
+hash = "sha256-tOInM4YYi/cbHCWP2R0jlFzlaTN0ZVgHFMWagz9Wnvk="
+
 [pin]
 version = "3.12.0"
 tag = "v3.12.0"

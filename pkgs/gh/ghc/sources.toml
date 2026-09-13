@@ -1,0 +1,13 @@
+[upstream]
+purl = 'pkg:generic/ghc?url=https://downloads.haskell.org/~ghc/&regex=href="(\d+\.\d+\.\d{1,2})/"'
+
+[locks]
+hackage = "hadrian"
+
+[[source]]
+key = "default"
+url = "https://downloads.haskell.org/~ghc/{version}/ghc-{version}-src.tar.xz"
+hash = "sha256-TurHYPNvfMVp2KjySG0wd0cbUMu/ve+QUZCTgftsK+4="
+
+[pin]
+version = "9.12.4"

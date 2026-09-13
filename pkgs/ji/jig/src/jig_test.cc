@@ -12,6 +12,7 @@
 #include <print>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "base.h"
@@ -65,7 +66,7 @@ void TestBase() {
   assert(left.Finish() != right.Finish());
 }
 
-void TestStore() {
+void TestStoreMask() {
   jig::Store const& store = jig::Store::Get();
   const std::string dir = store.dir();
   assert(store.IsStorePath(dir + "/x"));
@@ -82,7 +83,12 @@ void TestStore() {
   assert(masked == "-DENGINESDIR=\"" JIG_STORE_DIR "/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee-openssl/lib/engines\"");
   assert(store.UnmaskOut(masked) == define);
   assert(store.MaskOut(header) == header);
-  // Key(): lexical path normalisation for path-valued args, other text untouched
+}
+
+// Key(): lexical path normalisation for path-valued args, other text untouched
+void TestStoreKey() {
+  jig::Store const& store = jig::Store::Get();
+  const std::string dir = store.dir();
   assert(store.Key("-I./include//sub/../") == "-Iinclude");
   assert(store.Key("-I" + dir + "/h-x/include/.") == store.MaskHashes("-I" + dir + "/h-x/include"));
   assert(store.Key("./src/../src/a.c") == "src/a.c");
@@ -93,13 +99,29 @@ void TestStore() {
   assert(store.Key("CMakeFiles/cmTC_7c7e5.dir/x.c.o") == "CMakeFiles/cmTC_#####.dir/x.c.o");
   assert(store.Key("-O2") == "-O2");
   assert(store.Key("-DFOO=./a//b") == "-DFOO=./a//b");
-  assert(store.ToolId("/no/such/tool") == "/no/such/tool");
+  assert(store.Key("-std=c++23") == "-std=c++23");
+  assert(store.Key(".") == ".");
+}
+
+void TestStoreResolve() {
+  jig::Store const& store = jig::Store::Get();
+  const std::string dir = store.dir();
   // kVendor is in $JIG_STORE_ROOTS (main), an unrelated root is not
-  const std::string vendored = std::string(kVendor) + "/x-1.0/src/util.rs";
+  const std::string vendor(kVendor);
+  const std::string vendored = vendor + "/x-1.0/src/util.rs";
   assert(store.Resolve(store.MaskHashes(vendored)) == vendored);
   assert(!store.Resolve(dir + "/*-elsewhere/f.h"));
   assert(store.Resolve("/tmp/f.h") == "/tmp/f.h");
-  // two packages whose bin/rustc link to one launcher: distinct ids, the launcher not in them
+  // a config text from another build: its root becomes ours, quoted or not, longer names untouched
+  const std::string other = dir + "/" + std::string(jig::kStoreHashLength, 'a') + vendor.substr(vendor.find('-'));
+  assert(store.ResolveAll("p=\"" + other + "/x\" q=" + other + "-ng/y") ==
+         "p=\"" + vendor + "/x\" q=" + store.MaskHashes(other) + "-ng/y");
+}
+
+// two packages whose bin/rustc link to one launcher: distinct ids, the launcher not in them
+void TestStoreToolId() {
+  jig::Store const& store = jig::Store::Get();
+  assert(store.ToolId("/no/such/tool") == "/no/such/tool");
   const fs::path tmp = fs::temp_directory_path() / ("jig-toolid-" + std::to_string(::getpid()));
   for (const char* pkg : {"rust-a", "rust-b"}) {
     fs::create_directories(tmp / pkg / "bin");
@@ -111,8 +133,6 @@ void TestStore() {
   assert(store.ToolId(tmp / "rust-a/bin/rustc") != store.ToolId(tmp / "rust-b/bin/rustc"));
   assert(store.ToolId(tmp / "alias/bin/rustc") == store.ToolId(tmp / "rust-a/bin/rustc"));
   fs::remove_all(tmp);
-  assert(store.Key("-std=c++23") == "-std=c++23");
-  assert(store.Key(".") == ".");
 }
 
 // cgo writes the joined -o form
@@ -243,75 +263,90 @@ void TestManifest() {
   std::filesystem::remove_all(dir);
 }
 
-void TestDriver() {
-  const jig::DriverConf conf = jig::ParseDriverConf(
-      "cc = /seed/bin/clang\nflags = --target=x -O2\ncxxflags = -stdlib=libc++\n# comment\nlibc = /sr/libc\ncrt = "
-      "/cc/lib/crt_interp.o\nruntimes = /sr/rt/lib\n");
-  assert(conf.present && conf.cc == "/seed/bin/clang" && conf.flags == V({"--target=x", "-O2"}));
-  const std::string store = jig::Store::Get().dir();
-  const auto out_has = [](const std::vector<std::string>& v, const std::string& s) {
-    assert(std::find(v.begin(), v.end(), s) != v.end());
-  };
+const char* const kElfConf =
+    "cc = /seed/bin/clang\nflags = --target=x -O2\ncxxflags = -stdlib=libc++\n# comment\nlibc = /sr/libc\ncrt = "
+    "/cc/lib/crt_interp.o\nruntimes = /sr/rt/lib\n";
+auto Has(const std::vector<std::string>& args, const std::string& arg) -> bool {
+  return std::ranges::find(args, arg) != args.end();
+}
 
-  // macho/coff: no interp, no RUNPATH, whatever else the conf says
-  jig::DriverConf macho = jig::ParseDriverConf(
+// conf parsing, and binfmt: macho gets rpaths and @rpath ids but no interp, coff a c++14 floor and no PIC
+void TestDriverConf() {
+  const jig::DriverConf conf = jig::ParseDriverConf(kElfConf);
+  assert(conf.present && conf.cc == "/seed/bin/clang" && conf.flags == V({"--target=x", "-O2"}));
+  const jig::DriverConf macho = jig::ParseDriverConf(
       "cc = /seed/bin/clang\nbinfmt = macho\nflags = --target=arm64-apple-macos14.0\nlibc = /sr\n");
   assert(macho.binfmt == jig::BinFmt::kMachO);
-  for (const std::string& arg : jig::BuildDriverArgs(macho, jig::Language::kC, V({"a.c", "-o", "a"}))) {
-    assert(!arg.contains("rpath") && !arg.contains("dynamic-linker") && !arg.contains("crt_interp"));
-  }
-
-  jig::DriverConf coff =
+  const std::string macho_exe = jig::Join(jig::BuildDriverArgs(macho, jig::Language::kC, V({"a.c", "-o", "a"})), " ");
+  assert(!macho_exe.contains("dynamic-linker") && !macho_exe.contains("crt_interp") && !macho_exe.contains("$ORIGIN"));
+  assert(macho_exe.contains("-Wl,-headerpad_max_install_names") && !macho_exe.contains("-rpath"));
+  // COFF: PIC is not a thing to ask for
+  assert(
+      !Has(jig::BuildDriverArgs(
+               jig::ParseDriverConf("cc = /seed/bin/clang\nbinfmt = coff\nflags = --target=x86_64-pc-windows-msvc\n"),
+               jig::Language::kC, V({"-fPIC", "-c", "a.c"})),
+           "-fPIC"));
+  const jig::DriverConf coff =
       jig::ParseDriverConf("cc = /seed/bin/clang\nbinfmt = coff\nflags = --target=x86_64-pc-windows-msvc\n");
-  out_has(jig::BuildDriverArgs(coff, jig::Language::kCxx, V({"-std=c++11", "-c", "a.cc"})), "-std=c++14");
-  out_has(jig::BuildDriverArgs(coff, jig::Language::kCxx, V({"-std=gnu++17", "-c", "a.cc"})), "-std=gnu++17");
-  out_has(jig::BuildDriverArgs(macho, jig::Language::kCxx, V({"-std=c++11", "-c", "a.cc"})), "-std=c++11");
+  assert(Has(jig::BuildDriverArgs(coff, jig::Language::kCxx, V({"-std=c++11", "-c", "a.cc"})), "-std=c++14"));
+  assert(Has(jig::BuildDriverArgs(coff, jig::Language::kCxx, V({"-std=gnu++17", "-c", "a.cc"})), "-std=gnu++17"));
+  assert(Has(jig::BuildDriverArgs(macho, jig::Language::kCxx, V({"-std=c++11", "-c", "a.cc"})), "-std=c++11"));
+  assert(!jig::Join(jig::BuildDriverArgs(coff, jig::Language::kC, V({"-c", "a.c"})), " ").contains("build-id"));
 
   // compile: conf flags, no link policy
   std::vector<std::string> out = jig::BuildDriverArgs(conf, jig::Language::kC, V({"-c", "a.c"}));
-  assert(out == V({"--start-no-unused-arguments", "--target=x", "-O2", "--end-no-unused-arguments", "-c", "a.c"}));
-
+  assert(out == V({"--start-no-unused-arguments", "--target=x", "-O2", "-Wl,--build-id=sha1",
+                   R"(-Wl,--package-metadata={"type":"repkgs"})", "--end-no-unused-arguments", "-c", "a.c"}));
   // C++ name adds driver mode + cxxflags
   out = jig::BuildDriverArgs(conf, jig::Language::kCxx, V({"-c", "a.cc"}));
   assert(out.at(3) == "--driver-mode=g++" && out.at(4) == "-stdlib=libc++");
+}
 
-  // package flags: after the toolchain's, before the build system's. ldflags only when linking
-  jig::DriverConf pkg = conf;
+// package flags: after the toolchain's, before the build system's. ldflags only when linking
+void TestDriverPackageFlags() {
+  jig::DriverConf pkg = jig::ParseDriverConf(kElfConf);
   pkg.package = {.cflags = V({"-O3"}), .cxxflags = V({"-fno-rtti"}), .ldflags = V({"-Wl,-z,x"})};
-  out = jig::BuildDriverArgs(pkg, jig::Language::kCxx, V({"-c", "a.cc", "-O0"}));
+  std::vector<std::string> out = jig::BuildDriverArgs(pkg, jig::Language::kCxx, V({"-c", "a.cc", "-O0"}));
   assert(out == V({"--start-no-unused-arguments", "--target=x", "-O2", "-O3", "--driver-mode=g++", "-stdlib=libc++",
-                   "-fno-rtti", "--end-no-unused-arguments", "-c", "a.cc", "-O0"}));
+                   "-fno-rtti", "-Wl,--build-id=sha1", R"(-Wl,--package-metadata={"type":"repkgs"})",
+                   "--end-no-unused-arguments", "-c", "a.cc", "-O0"}));
   out = jig::BuildDriverArgs(pkg, jig::Language::kC, V({"-shared", "-o", "x.so", "x.o", "-L."}));
   assert(jig::Join(out, " ").contains("x.o -L. -Wl,-z,x -Wl,"));
+  // the user's --build-id comes later and wins
+  out = jig::BuildDriverArgs(pkg, jig::Language::kC, V({"-Wl,--build-id=none", "x.o"}));
+  assert(jig::Join(out, " ").contains(
+      R"(-Wl,--package-metadata={"type":"repkgs"} --end-no-unused-arguments -Wl,--build-id=none x.o)"));
   pkg.package.cflags = V({"-O2", "-D_FORTIFY_SOURCE=3"});
   assert(jig::Join(jig::BuildDriverArgs(pkg, jig::Language::kC, V({"-c", "a.c"})), " ").contains("FORTIFY"));
   assert(!jig::Join(jig::BuildDriverArgs(pkg, jig::Language::kC, V({"-c", "a.c", "-O0"})), " ").contains("FORTIFY"));
   assert(!jig::Join(jig::BuildDriverArgs(pkg, jig::Language::kC, V({"-c", "a.c", "-O2", "-O0"})), " ").contains("=3"));
   out = jig::BuildDriverArgs(pkg, jig::Language::kC, V({"-c", "a.c", "-D_FORTIFY_SOURCE=2"}));
   assert(!jig::Join(out, " ").contains("=3") && jig::Join(out, " ").contains("=2"));
+}
 
-  // executable link: rpath (runtime only for C++), interp stub, host rpaths dropped, foreign --dynamic-linker dropped
-  out =
+// executable link: rpath (runtimes only for C++), interp stub, host rpaths and foreign
+// --dynamic-linker dropped. shared: rpath, no interp. static / -r / -nostartfiles: nothing
+void TestDriverLink() {
+  const jig::DriverConf conf = jig::ParseDriverConf(kElfConf);
+  const std::string store = jig::Store::Get().dir();
+  std::vector<std::string> out =
       jig::BuildDriverArgs(conf, jig::Language::kC,
                            V({"-o", "x", "x.c", "-Wl,-rpath,/usr/lib:/build/lib", "-Wl,--dynamic-linker=/lib/ld.so"}));
   const std::string joined = jig::Join(out, " ");
   assert(!joined.contains("/usr/lib"));
   assert(!joined.contains("/lib/ld.so "));
   assert(joined.contains("-Wl,-rpath,/build/lib:/sr/libc/lib/.:/_"));
-  // cmake links with "-rpath,<build>:" and its install step insists on finding "<build>:" verbatim
-  out = jig::BuildDriverArgs(conf, jig::Language::kC, V({"-o", "x", "x.c", "-Wl,-rpath,/build/build:"}));
-  assert(jig::Join(out, " ").contains("-Wl,-rpath,/build/build::/sr/libc/lib/.:/_"));
   assert(!joined.contains("/sr/rt/lib"));
   assert(joined.contains(
       "-x none /cc/lib/crt_interp.o -Wl,--dynamic-linker=/sr/libc/lib/././././././././././././ld-linux-x86-64.so.2 "
       "-Wl,--export-dynamic-symbol=__reloc_start"));
-
+  // cmake links with "-rpath,<build>:" and its install step insists on finding "<build>:" verbatim
+  out = jig::BuildDriverArgs(conf, jig::Language::kC, V({"-o", "x", "x.c", "-Wl,-rpath,/build/build:"}));
+  assert(jig::Join(out, " ").contains("-Wl,-rpath,/build/build::/sr/libc/lib/.:/_"));
   out = jig::BuildDriverArgs(conf, jig::Language::kCxx, V({"-o", "x", "x.cc"}));
   assert(jig::Join(out, " ").contains("/sr/rt/lib/.:/sr/libc/lib/.:/_"));
   out = jig::BuildDriverArgs(conf, jig::Language::kC, V({"-o", "x", "x.c", "-lc++"}));
   assert(jig::Join(out, " ").contains("/sr/rt/lib/.:/sr/libc/lib/.:/_"));
-
-  // shared: rpath but no interp. Static / -r / -nostartfiles: nothing
   out = jig::BuildDriverArgs(conf, jig::Language::kC, V({"-shared", "-o", "l.so", "l.c"}));
   assert(jig::Join(out, " ").contains("-rpath") && !jig::Join(out, " ").contains("crt_interp"));
   for (const char* flag : {"-static", "-static-pie", "-r", "-nostartfiles"}) {
@@ -321,7 +356,6 @@ void TestDriver() {
   // store .so by path -> its dir is rpath'd
   out = jig::BuildDriverArgs(conf, jig::Language::kC, V({"-o", "x", "x.c", (store + "/h-zlib/lib/libz.so.1").c_str()}));
   assert(jig::Join(out, " ").contains("-rpath," + store + "/h-zlib/lib/.:/sr/libc/lib/.:/_"));
-
   assert(jig::IsSharedLibName("libz.so") && jig::IsSharedLibName("libz.so.1.3") && !jig::IsSharedLibName("libz.son") &&
          !jig::IsSharedLibName("x.o"));
 }
@@ -402,14 +436,14 @@ void TestGoCache() {
   assert(jig::Base64Decode("YWI=") == "ab");
 }
 
-void TestElfImage() {
+void TestBinaryImage() {
   constexpr size_t kEhdrSize = 64;
   std::string bytes(kEhdrSize, '\0');
   constexpr std::string_view kMagic =
       "\x7f"
       "ELF\x02\x01";
   bytes.replace(0, kMagic.size(), kMagic);
-  jig::ElfImage elf(bytes);
+  jig::BinaryImage elf(bytes);
   assert(elf.IsElf64LittleEndian());
   assert(elf.Write<std::uint32_t>(16, 0xdeadbeef));
   assert(elf.Read<std::uint32_t>(16) == 0xdeadbeefU);
@@ -421,7 +455,97 @@ void TestElfImage() {
   assert(!elf.WritePadded(32, 3, "abc"));  // no room for NUL
   assert(!elf.WritePadded(60, 8, "abc"));
   assert(elf.CString(5000).empty());
-  assert(!jig::ElfImage("short").IsElf64LittleEndian());
+  assert(!jig::BinaryImage("short").IsElf64LittleEndian());
+}
+
+// <mach-o/loader.h> layout, enough to build a dylib as ld64 leaves it: header, __TEXT mapping the
+// header with one section behind the padding, LC_ID_DYLIB and LC_LOAD_DYLIBs with absolute names
+namespace macho {
+constexpr std::uint32_t kMagic64 = 0xfeedfacf;
+constexpr std::uint32_t kHeaderSize = 32;
+constexpr std::uint32_t kNcmdsField = 16;
+constexpr std::uint32_t kSizeofcmdsField = 20;
+constexpr std::uint32_t kSegment64 = 0x19;
+constexpr std::uint32_t kSegmentSize = 72;
+constexpr std::uint32_t kSectionSize = 80;
+constexpr std::uint32_t kSegFilesizeField = 48;
+constexpr std::uint32_t kSegNsectsField = 64;
+constexpr std::uint32_t kSectOffsetField = 48;
+constexpr std::uint32_t kLoadDylib = 0xc;
+constexpr std::uint32_t kIdDylib = 0xd;
+constexpr std::uint32_t kDylibCmdSize = 24;  // cmd, cmdsize, name offset, timestamp, two versions
+constexpr std::uint32_t kAlign = 8;
+
+auto DylibCommand(std::uint32_t cmd, std::string_view path) -> std::string {
+  std::string bytes(kDylibCmdSize, '\0');
+  bytes += path;
+  bytes.resize((bytes.size() + kAlign) / kAlign * kAlign, '\0');
+  jig::BinaryImage image(std::move(bytes));
+  assert(image.Write<std::uint32_t>(0, cmd));
+  assert(image.Write(4, static_cast<std::uint32_t>(image.bytes().size())));
+  assert(image.Write<std::uint32_t>(kAlign, kDylibCmdSize));
+  return image.bytes();
+}
+
+// text_off: where __text starts, the header room ends there
+auto Dylib(std::uint32_t text_off, std::uint64_t file_size, const std::string& dylib_cmds, std::uint32_t ndylibs)
+    -> std::string {
+  jig::BinaryImage segment(std::string(kSegmentSize + kSectionSize, '\0'));
+  assert(segment.Write<std::uint32_t>(0, kSegment64));
+  assert(segment.Write<std::uint32_t>(4, kSegmentSize + kSectionSize));
+  assert(segment.Write<std::uint64_t>(kSegFilesizeField, file_size));  // fileoff stays 0
+  assert(segment.Write<std::uint32_t>(kSegNsectsField, 1));
+  assert(segment.Write<std::uint32_t>(kSegmentSize + kSectOffsetField, text_off));
+  const std::string cmds = segment.bytes() + dylib_cmds;
+  jig::BinaryImage file(std::string(file_size, '\0'));
+  assert(file.Write<std::uint32_t>(0, kMagic64));
+  assert(file.Write<std::uint32_t>(kNcmdsField, ndylibs + 1));
+  assert(file.Write(kSizeofcmdsField, static_cast<std::uint32_t>(cmds.size())));
+  assert(file.Overwrite(kHeaderSize, cmds));
+  return file.bytes();
+}
+}  // namespace macho
+
+void TestMachOFixup() {
+  constexpr std::uint64_t kFileSize = 2048;
+  constexpr std::uint32_t kRoomy = 1024;
+  const std::string prefix_lib = std::string(OUT_ROOT) + "/lib/";
+  const std::string dep = JIG_STORE_DIR "/7123456789abcdfghijklmnpqrsvwxyz-zlib/lib/libz.1.dylib";
+  const std::string dylibs = macho::DylibCommand(macho::kIdDylib, prefix_lib + "libssl.3.dylib") +
+                             macho::DylibCommand(macho::kLoadDylib, prefix_lib + "libcrypto.3.dylib") +
+                             macho::DylibCommand(macho::kLoadDylib, dep) +
+                             macho::DylibCommand(macho::kLoadDylib, "/usr/lib/libSystem.B.dylib");
+  const std::string file = macho::Dylib(kRoomy, kFileSize, dylibs, 4);
+
+  const fs::path tmp = fs::temp_directory_path() / ("jigtest-macho-" + std::to_string(getpid()));
+  fs::create_directories(tmp / "lib");
+  const fs::path dylib = tmp / "lib/libssl.3.dylib";
+  assert(jig::WriteFile(dylib, file));
+  jig::FixupContext ctx;
+  ctx.prefix = tmp;
+  ctx.dest = std::string(OUT_ROOT);
+  jig::BinaryImage image(file);
+  assert(jig::FixMachO(ctx, dylib, image));
+  assert(ctx.errors == 0);
+  const std::string after = jig::ReadFile(dylib).value_or("");
+  assert(after.size() == kFileSize);
+  assert(after.contains("@rpath/libssl.3.dylib"));
+  assert(after.contains("@loader_path/libcrypto.3.dylib"));
+  assert(after.contains("@loader_path/../../7123456789abcdfghijklmnpqrsvwxyz-zlib/lib/libz.1.dylib"));
+  assert(after.contains("/usr/lib/libSystem.B.dylib"));
+  assert(!after.contains(JIG_STORE_DIR "/"));
+
+  // __text right behind the commands: the longer zlib spelling does not fit, an error
+  const std::string grows = macho::DylibCommand(macho::kLoadDylib, dep);
+  const auto tight_off =
+      static_cast<std::uint32_t>(macho::kHeaderSize + macho::kSegmentSize + macho::kSectionSize + grows.size());
+  const std::string tight = macho::Dylib(tight_off, kFileSize, grows, 1);
+  assert(jig::WriteFile(dylib, tight));
+  jig::BinaryImage tight_image(tight);
+  assert(jig::FixMachO(ctx, dylib, tight_image));
+  assert(ctx.errors == 1);
+  assert(jig::ReadFile(dylib) == tight);
+  fs::remove_all(tmp);
 }
 
 void TestNixStore() {
@@ -454,7 +578,10 @@ auto main() -> int {
   setenv("JIG_STORE_ROOTS", VENDOR_ROOT, 1);   // NOLINT(concurrency-mt-unsafe)
   setenv("out", OUT_ROOT, 1);                  // NOLINT(concurrency-mt-unsafe)
   TestBase();
-  TestStore();
+  TestStoreMask();
+  TestStoreKey();
+  TestStoreResolve();
+  TestStoreToolId();
   TestParseInvocation();
   TestParsePch();
   TestParsePreprocess();
@@ -463,11 +590,14 @@ auto main() -> int {
   TestResponseFiles();
   TestDepfile();
   TestManifest();
-  TestDriver();
+  TestDriverConf();
+  TestDriverPackageFlags();
+  TestDriverLink();
   TestDepInfo();
   TestRustInvocation();
   TestGoCache();
-  TestElfImage();
+  TestBinaryImage();
+  TestMachOFixup();
   TestNixStore();
   std::println("jig_test: ok");
   return 0;

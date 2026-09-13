@@ -5,8 +5,8 @@ use ../sys-libs.nu
 #   $out/lib/<name>/                the application tree, gems under vendor/bundle (deployment layout)
 #   $out/bin/<exe>                  stubs that start our ruby with that bundle and load exe/<exe>
 # Native extensions compile with the cc on PATH (mkmf takes CC from rbconfig, which says "cc").
-# Gems that can link one of our libraries get it via the lock: fetch.gems propagates the library,
-# sys-libs.nu supplies `bundle config build.<gem>` flags and env.
+# Gems that can link one of our libraries (a dependency, from [pin] sys) get `bundle config
+# build.<gem>` flags and env from sys-libs.nu.
 def app-dir []: nothing -> string { let c = (ctx); $"($c.out)/lib/($c.spec.name)" }
 
 # mkmf runs on the host ruby but must describe the target: its rbconfig.rb first on RUBYLIB,
@@ -14,7 +14,7 @@ def app-dir []: nothing -> string { let c = (ctx); $"($c.out)/lib/($c.spec.name)
 def --env cross-rbconfig []: nothing -> nothing {
   let c = (ctx)
   if not $c.platform.cross { return }
-  let target = (glob $"(dep-root ruby "extensions compile against the target ruby")/lib/ruby/*/*/rbconfig.rb" | first)
+  let target = (files $"(dep-root ruby "extensions compile against the target ruby")/lib/ruby/*/*/rbconfig.rb" | first)
   let dir = $"($c.build)/cross-rbconfig"
   mkdir $dir
   cp $target $dir
@@ -38,6 +38,7 @@ export def --env setup []: nothing -> nothing {
     BUNDLE_USER_HOME: $"($c.build)/bundle-home", GEM_HOME: $"($c.build)/gem-home"
     MAKEFLAGS: $"-j($c.njobs)"
   }
+  sys-libs check $app $c.spec.sys
   load-env (sys-libs env-for gems $c.deps)
   load-env (gem-build-env $c.deps)
   cross-rbconfig
@@ -48,8 +49,8 @@ export def workdir []: nothing -> string { app-dir }
 # unpack the cached .gem files into vendor/bundle, compiling native extensions
 export def build []: nothing -> nothing {
   x bundle install --local --no-cache ...((options bundler).flags)
-  # the .gem archives, bundler's download cache and extension build logs (which embed the build dir)
-  rm -rf vendor/cache ...(glob vendor/bundle/ruby/*/cache) ...(glob vendor/bundle/ruby/*/extensions/**/{gem_make.out,mkmf.log})
+  # the .gem archives, bundler's download cache and extension build logs and mkmf Makefiles (which embed the build dir)
+  rm -rf vendor/cache ...(files --dirs vendor/bundle/ruby/*/cache) ...(files vendor/bundle/ruby/*/extensions/**/{gem_make.out,mkmf.log}) ...(files vendor/bundle/ruby/*/gems/*/ext/**/Makefile)
   fix-env-shebangs vendor/bundle (ctx).njobs
 }
 
@@ -78,16 +79,19 @@ def gem-build-env [deps: list<record<name: string, root: string>>]: nothing -> r
   $flags | items {|gem, value| [$"BUNDLE_BUILD__($gem | str uppercase | str replace -a "-" "___")" $value] } | into record
 }
 
-# a ruby script that activates the bundle and loads the application's own executable
+# a ruby script that activates the bundle and loads the application's own executable, the app
+# dir found from the stub's own location
 def bin-stub [name: string, app: string, ruby: string]: nothing -> string {
+  let c = (ctx)
   let exe = ([exe bin] | each { $"($app)/($in)/($name)" } | where { path exists } | first)
   [
     $"#!($ruby)/bin/ruby"
-    $"ENV['BUNDLE_GEMFILE'] = '($app)/Gemfile'"
-    $"ENV['BUNDLE_PATH'] = '($app)/vendor/bundle'"
+    $"app = File.expand_path\('../($app | path relative-to $c.out)', __dir__)"
+    "ENV['BUNDLE_GEMFILE'] = \"#{app}/Gemfile\""
+    "ENV['BUNDLE_PATH'] = \"#{app}/vendor/bundle\""
     $"ENV['BUNDLE_WITHOUT'] = '((options bundler).without | str join ":")'"
     "ENV['BUNDLE_FROZEN'] = 'true'"
     "require 'bundler/setup'"
-    $"load '($exe)'"
+    $"load \"#{app}/($exe | path relative-to $app)\""
   ] | str join "\n"
 }

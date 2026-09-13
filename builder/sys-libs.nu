@@ -2,10 +2,10 @@
 # it (`pkg`) and how the build is told to use it instead of a bundled copy (`env`, plus `tags` for
 # go and `flags` for bundler; `{root}` stands for the library's store path).
 #
-# default.nix offers the producers every `pkg:` below that exists as a package; a producer `pick`s the
-# ones its lock file names and propagates them through its output's exports.json, so the package
-# build has them as dependencies without package.nix listing them. The build-system module then
-# applies `env-for`/`go-tags`/`gem-build-flags` for whatever libraries are present.
+# Decided when the package is pinned: uptrack looks the lock files of the tree it just hashed up
+# here (`wanted`) and writes `sys = [..]` into [pin] of sources.toml, nix/package.nix makes those
+# dependencies. At build time the build-system module applies `env-for`/`go-tags`/
+# `gem-build-flags` for the libraries present and `check`s the lock still agrees with sys.
 #
 # Explicit on purpose: linking a system library is a decision. Packages that only ever vendor
 # (ring, aws-lc-sys, modernc.org/sqlite) or are plain OS bindings have no entry.
@@ -35,7 +35,7 @@ export const TABLES = {
   "libdbus-sys": {pkg: dbus, env: {DBUS_SYS_USE_PKG_CONFIG: "1"}}
   "libxml": {pkg: libxml2, env: {}}
   "tikv-jemalloc-sys": {pkg: jemalloc, env: {JEMALLOC_OVERRIDE: "{root}/lib/libjemalloc.so"}}
-  "clang-sys": {pkg: libclang, env: {LIBCLANG_PATH: "{root}/lib"}}
+  "clang-sys": {pkg: clang, env: {LIBCLANG_PATH: "{root}/lib"}}
   }
   # go.sum module paths (cgo packages)
   go: {
@@ -85,30 +85,59 @@ export const TABLES = {
     "charlock_holmes": {pkg: icu, env: {}, flags: ["--with-icu-dir={root}"]}
     gpgme: {pkg: gpgme, env: {RUBY_GPGME_USE_SYSTEM_LIBRARIES: "1"}, flags: ["--use-system-libraries"]}
   }
+  # hackage package names (extra-libraries / pkgconfig-depends). No lock file in the source: the
+  # names come from the solved plan, uptrack `lock` writes sys and cabal.nu checks plan.json
+  hackage: {
+    zlib: {pkg: zlib, env: {}}
+    digest: {pkg: zlib, env: {}}
+    lzma: {pkg: xz, env: {}}
+    "pcre-light": {pkg: pcre2, env: {}}
+    HsOpenSSL: {pkg: openssl, env: {}}
+    "text-icu": {pkg: icu, env: {}}
+    libsodium: {pkg: libsodium, env: {}}
+  }
 }
 
-# --- producer side (fetch/*.nu): which of the offered libraries does this lock want ----------------
+# --- lock side: uptrack writes [pin] sys, the build checks it --------------------------------------
 
-# `sys_libs_file` is nix/fetch.nix's {name: {drv, out}}; `locked` the package names in the lock.
-# Returns [{name, drv, out}] for every library some locked package maps to; names the set does
-# not provide are reported (that dependency will then vendor its copy or fail to build)
-export def pick [ecosystem: string, locked: list<string>, sys_libs_file: path]: nothing -> table {
-  let offered = (open $sys_libs_file)
-  let table = ($TABLES | get $ecosystem)
-  let wanted = ($table | transpose locked entry | where locked in $locked | get entry.pkg | uniq | sort)
-  let missing = ($wanted | where $it not-in $offered)
-  if ($missing | is-not-empty) { print -e $"sys-libs: ($missing | str join ', ') wanted by the lock but not in sysLibs" }
-  let picked = ($wanted | where $it in $offered | each {|name| {name: $name} | merge ($offered | get $name) })
-  if ($picked | is-not-empty) { print -e $"sys-libs: ($picked | get name | str join ' ')" }
-  $picked
+const LOCKS = {cargo: Cargo.lock, go: go.sum, python: uv.lock, gems: Gemfile.lock}
+
+# package names in a lock file
+def locked [ecosystem: string, f: path]: nothing -> list<string> {
+  match $ecosystem {
+    "cargo" | "python" => { open --raw $f | from toml | get -o package | default [] | get name }
+    "go" => { open --raw $f | lines | where $it != "" | split column " " path | get path }
+    "gems" => { open --raw $f | lines | parse -r '^    (?<name>[A-Za-z0-9_.-]+) \(' | get name }
+  }
 }
 
-# the exports.json of a producer output: nothing to link itself, the picked libraries propagate
-export def exports [name: string, picked: list<record<name: string, drv: string, out: string>>]: nothing -> record {
-  {name: $name, includeDirs: [], libDirs: [], libs: [], pkgconfigDirs: [], aclocalDirs: [], propagate: ($picked | get -o out | default [])}
+# our packages the locked `names` of one ecosystem can link, sorted
+export def wanted-for [ecosystem: string, names: list<string>]: nothing -> list<string> {
+  $TABLES | get $ecosystem | transpose locked entry | where locked in $names | get entry.pkg | uniq | sort
 }
 
-# python packages that build from sdist whenever they appear (fetch-pypi.nu)
+# our packages the lock files in `dir` can link, sorted: what [pin] sys should say
+export def wanted [dir: path]: nothing -> list<string> {
+  $LOCKS | items {|eco, file|
+    let f = ($dir | path join $file)
+    if ($f | path exists) { wanted-for $eco (locked $eco $f) } else { [] }
+  } | flatten | uniq | sort
+}
+
+# build time: the lock can link libraries [pin] sys does not name -> the pin is stale. null: no
+# sources.toml, dependencies are by hand. (Names the set lacks on this platform are fine:
+# nix/package.nix drops those and the locked package vendors)
+export def check [dir: path, sys: any]: nothing -> nothing { check-names (wanted $dir) $sys rehash }
+
+export def check-names [wanted: list<string>, sys: any, cmd: string]: nothing -> nothing {
+  if $sys == null { return }
+  let missing = ($wanted | where $it not-in $sys)
+  if ($missing | is-not-empty) {
+    error make {msg: $"sys-libs: the lock can link ($missing | str join ', '), missing from [pin] sys in sources.toml. `repkgs update ($cmd) <pkg>` rewrites it"}
+  }
+}
+
+# python packages that build from sdist whenever they appear (fetch/pypi.nu)
 export def sdist-packages []: nothing -> list<string> { $TABLES.python | columns }
 
 # --- builder side (cargo.nu, go.nu, bundler.nu, pyapp.nu): configure for the libraries present ----

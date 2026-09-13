@@ -7,7 +7,8 @@
 //	SLOT <build>\n         -> OK\n once a compiler slot is free. DONE\n or hang-up returns it (slots.go)
 //	STATS\n               -> gets=… hits=… puts=… ids=… slots=… waiting=… keys=… packs=… bytes=… live=…\n
 //
-// JIGD_SIZE (GiB, default 50) bounds the store; the least recently read packs are dropped beyond it.
+// JIGD_SIZE (GiB, default 50) bounds the store; beyond it the least recently read packs move to
+// $JIGD_COLD (bounded by JIGD_COLD_SIZE) if set, else are dropped.
 // JIGD_SLOTS (default: CPUs) is how many real compiler runs the host admits at once.
 package main
 
@@ -151,6 +152,8 @@ sandbox-paths /nix/var/nix/jigd/socket=<socket>.
 
   XDG_CACHE_HOME  packs live in $XDG_CACHE_HOME/jigd/packs (default ~/.cache)
   JIGD_SIZE       cache budget in GiB (default 50)
+  JIGD_COLD       a second, slower pack directory that takes what JIGD_SIZE pushes out
+  JIGD_COLD_SIZE  its budget in GiB (default 0: unbounded)
   JIGD_SLOTS      concurrent compile slots (default: number of CPUs)
 `
 
@@ -172,11 +175,15 @@ func main() {
 		}
 		cache = filepath.Join(home, ".cache")
 	}
-	budget := int64(50)
-	if v := os.Getenv("JIGD_SIZE"); v != "" {
-		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
-			budget = n
+	gib := func(env string, def int64) int64 {
+		if n, err := strconv.ParseInt(os.Getenv(env), 10, 64); err == nil {
+			return n << 30
 		}
+		return def << 30
+	}
+	tiers := []Tier{{Dir: filepath.Join(cache, "jigd", "packs"), Budget: gib("JIGD_SIZE", 50)}}
+	if cold := os.Getenv("JIGD_COLD"); cold != "" {
+		tiers = append(tiers, Tier{Dir: cold, Budget: gib("JIGD_COLD_SIZE", 0)})
 	}
 	limit := runtime.NumCPU()
 	if v := os.Getenv("JIGD_SLOTS"); v != "" {
@@ -186,7 +193,7 @@ func main() {
 	}
 	slots = NewSlots(limit)
 	var err error
-	store, err = OpenStore(filepath.Join(cache, "jigd", "packs"), budget<<30)
+	store, err = OpenStore(tiers)
 	if err != nil {
 		log.Fatal(err)
 	}

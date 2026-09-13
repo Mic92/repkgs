@@ -4,8 +4,9 @@
 # that cmake configure produces.
 use ../../../bootstrap/lib.nu *
 
+# glibc dlopens libunwind.so.1 and dlsyms __gcc_personality_v0 too (glibc-unwind-origin.patch)
 const LIBS = [
-  { name: unwind, dir: "libunwind/src", glob: "*.{cpp,c,S}", skip: [Unwind_AIXExtras.cpp], std: "c++17", so: [-lc]
+  { name: unwind, dir: "libunwind/src", glob: "*.{cpp,c,S}", skip: [Unwind_AIXExtras.cpp], extra: [compiler-rt/lib/builtins/gcc_personality_v0.c], std: "c++17", so: [-lc]
     flags: [-D_LIBUNWIND_IS_NATIVE_ONLY -D_LIBUNWIND_LINK_DL_LIB -D_LIBUNWIND_LINK_PTHREAD_LIB -fno-exceptions -fno-rtti -fstrict-aliasing] }
   # cmake would also pass -DHAVE___CXA_THREAD_ATEXIT_IMPL (its probe is fooled by COMPILER_WORKS=ON);
   # musl lacks that symbol and libc++abi's own fallback is fine on glibc too
@@ -72,7 +73,7 @@ def install-headers [src: path, inc: path]: nothing -> nothing {
 def main []: nothing -> nothing {
   let out = $env.out
   # libc++ 21 includes llvm-libc's internal headers (libc/shared, from_chars) The rest of the monorepo stays packed
-  let src = (unpack llvm libcxx libcxxabi libunwind libc/shared libc/src/__support libc/include libc/hdr runtimes cmake)
+  let src = (unpack llvm libcxx libcxxabi libunwind compiler-rt/lib/builtins libc/shared libc/src/__support libc/include libc/hdr runtimes cmake)
   let obj = $"($env.NIX_BUILD_TOP)/obj"
   install-headers $src $"($out)/include"
   mkdir $"($out)/lib"
@@ -89,8 +90,8 @@ def main []: nothing -> nothing {
   # LIBCXX{,ABI}_STATICALLY_LINK_UNWINDER_IN_STATIC_LIBRARY), so `-static -lc++` needs no -lc++abi -lunwind
   $LIBS | reduce -f {} {|l, built|
     let std = {|f| if ($f | str ends-with ".cpp") { [$"-std=($l.std)"] } else if ($f | str ends-with ".c") { [-std=c11] } else { [] } }
-    let items = (glob $"($l.dir)/($l.glob)" | each { path relative-to $env.PWD } | sort
-      | where {|f| ($f | path relative-to $l.dir) not-in $l.skip }
+    let items = (files $"($l.dir)/($l.glob)" | each { path relative-to $env.PWD }
+      | where {|f| ($f | path relative-to $l.dir) not-in $l.skip } | append ($l.extra? | default [])
       | each {|f| {src: $f, obj: $"($obj)/($l.name)/($f).o", flags: (do $std $f)} })
     say $"lib($l.name): ($items | length) files"
     let objs = (compile ($common ++ $l.flags) $items)

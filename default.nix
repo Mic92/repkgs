@@ -14,6 +14,8 @@
   # out-of-tree packages: name -> directory with package.nix (+ sources.toml), called like
   # in-tree ones. A name that exists in the tree is replaced
   packages ? { },
+  # set-wide feature values, for every package that declares the name (nix/features.nix)
+  features ? { },
 }:
 (import ./nix/set.nix {
   inherit
@@ -22,5 +24,6 @@
     seed
     overrides
     packages
+    features
     ;
 }).pkgs

@@ -5,7 +5,7 @@ use purl.nu *
 use http.nu *
 
 export def resolve [pkg: record]: nothing -> table {
-  let zig = (open ($pkg.dir | path dirname | path join zig sources.toml)).pin.version
+  let zig = (open ($pkg.dir | path dirname -n 2 | path join zi zig sources.toml)).pin.version
   let url = $"https://codeberg.org/ziglang/zig/raw/tag/($zig)/cmake/Findllvm.cmake"
   let r = (http cached $url --max-age 1day)
   if $r.status != 200 { error make {msg: $"GET ($url) → ($r.status)"} }

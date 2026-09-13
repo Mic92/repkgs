@@ -103,6 +103,7 @@ let
       inherit (oses.linux) osNames;
       os = "linux";
       binfmt = "elf";
+      exe = "";
       names = builtins.mapAttrs (n: _: c.names.${n} or cpu) {
         kernel = null;
         go = null;
@@ -138,6 +139,7 @@ let
       inherit (oses.${o.os}) osNames;
       name = "${cpu}-${o.os}";
       interp = "";
+      exe = if o.binfmt == "coff" then ".exe" else "";
       march = o.march or c.march;
       hardening = { };
     }

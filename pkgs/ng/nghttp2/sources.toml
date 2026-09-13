@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/nghttp2/nghttp2"
+
+[[source]]
+key = "default"
+url = "https://github.com/nghttp2/nghttp2/releases/download/v{version}/nghttp2-{version}.tar.xz"
+hash = "sha256-7ALnBTS9PaY6uJsCMdc3pFhO+3w5UxuohvgACfjj1/U="
+
+[pin]
+version = "1.70.0"
+date = "2026-07-29"
+tag = "v1.70.0"

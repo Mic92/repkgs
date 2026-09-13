@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/libuv/libuv"
+
+[[source]]
+key = "default"
+url = "https://dist.libuv.org/dist/v{version}/libuv-v{version}.tar.gz"
+hash = "sha256-Y9Nph2LkT1qnOYTW3WCumWWwORnI4P7HxzBjUlGaL7M="
+
+[pin]
+version = "1.52.1"
+date = "2026-03-06"
+tag = "v1.52.1"

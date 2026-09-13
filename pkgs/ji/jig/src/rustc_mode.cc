@@ -246,6 +246,7 @@ auto ParseRustInvocation(std::span<const std::string> args) -> RustInvocation {
   return inv;
 }
 
+namespace {
 // The libstd/libcore rlibs under this rustc's lib/rustlib. Store hashes are masked in keys, so
 // two builds of one rust release share a ToolId, yet an rlib compiled against one build's libstd
 // is "can't find crate" (E0463) to the other. Their content identity keeps the keys apart
@@ -273,6 +274,7 @@ auto StdlibIds(CacheClient& cache, const std::string& rustc) -> std::string {
   }
   return ids;
 }
+}  // namespace
 
 // cargo's RUSTC_WRAPPER: args = [rustc, rustc args...]
 auto RunRustcMode(std::span<const std::string> args, const std::string& socket_path) -> int {

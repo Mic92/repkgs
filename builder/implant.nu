@@ -13,22 +13,23 @@ use core.nu *
 # `dir` is for bindists whose install step runs the binaries from the unpacked tree before they
 # reach $out (ghc's `make install` calls the just-installed ghc-pkg). That tree gets interpreter
 # and RUNPATH but no stub, since the stub only works after reloc-fixup, which runs over $out.
+# Idempotent: a second pass over the same files writes the same strings into the same place.
 export def main [c: record, dir?: path]: nothing -> nothing {
   let dir = ($dir | default $c.out)
-  let elves = (glob $"($dir)/{bin,lib,libexec}/**/*" | where {|f| ($f | path type) == "file" and (is-elf $f) })
   let interp = $"($c.platform.interp | path dirname)/(1..12 | each { './' } | str join)($c.platform.interp | path basename)"
   let libdirs = [($c.platform.interp | path dirname)] ++ (dep-dirs $c.deps libDirs)
-  for f in $elves {
+  let stub = (if $dir == $c.out { [--set-entry-stub $c.platform.relocStub] } else { [] })
+  files $"($dir)/{bin,lib,libexec}/**/*" | where {|f| is-elf $f } | par-each {|f|
     let headers = (^llvm-readelf --program-headers $f)
     # static executables and object files have nothing to resolve
-    if not ($headers | str contains "DYNAMIC ") { continue }
-    let dirs = ($libdirs ++ (^formatelf --print-rpath $f | str trim | split row ":" | compact -e))
+    if not ($headers | str contains "DYNAMIC ") { return }
+    # upstream's own entries ($ORIGIN/..) stay, an earlier pass's padding entry goes
+    let dirs = ($libdirs ++ (^formatelf --print-rpath $f | str trim | split row ":") | where { $in =~ '^[/$][^_]' } | uniq)
     let runpath = $"($dirs | str join ':'):/('' | fill -c '_' -w (($dirs | length) * 48 - 1))"
-    ^chmod u+w $f
-    # shared objects only need the RUNPATH: upstream's is $ORIGIN at best and never has libc
-    let stub = (if $dir == $c.out { [--set-entry-stub $c.platform.relocStub] } else { [] })
     let exe = (if ($headers | str contains "INTERP ") { $stub ++ [--set-interpreter $interp] } else { [] })
+    ^chmod u+w $f
     x formatelf ...$exe --set-rpath $runpath $f
-    note implant ($f | path relative-to $dir)
-  }
+    $f | path relative-to $dir
+  } | sort | each {|f| note implant $f }
+  null
 }

@@ -7,6 +7,8 @@
 package {
   name = "glib";
   uses = [ "meson" ];
+  # charset.alias is the system's
+  patches = [ ./relocatable.patch ];
   meson.defs = {
     tests = false;
     nls = "disabled";
@@ -19,6 +21,7 @@ package {
     dtrace = "disabled";
     systemtap = "disabled";
     wrap_mode = "nodownload";
+    localstatedir = "/var";
   };
   dependencies = [
     pkgs.pcre2
@@ -32,12 +35,6 @@ package {
     buildPkgs.python-packaging
   ];
   tests.run = false;
-  # glib-2.0.pc Requires.private libpcre2-8, libffi, zlib: pkgconf wants them for --cflags too
-  exports.propagate = [
-    pkgs.pcre2
-    pkgs.libffi
-    pkgs.zlib
-  ];
   bin = [
     "glib-compile-resources"
     "gdbus"

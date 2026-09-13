@@ -13,7 +13,7 @@ export def benches [tmp: path]: nothing -> table<name: string, note: string, run
     {name: "prepare/dep-closure", note: "8 roots, 60 store paths via propagate", run: {|| dep-closure ($deps | first 8) | length }}
     {name: "core/exports-of", note: "one dependency, defaults from the tree", run: {|| exports-of ($deps | last) }}
     {name: "finish/elf-scan", note: "380 files under bin+lib, is-elf each", run: {||
-      glob $"($out)/{bin,lib,libexec}/**/*" | where { ($in | path type) == "file" and (is-elf $in) } | length }}
+      files $"($out)/{bin,lib,libexec}/**/*" | where { is-elf $in } | length }}
     {name: "finish/cache-summary", note: "20k-line jig.log tallied by kind", run: {||
       open --raw $log | lines | where { $in !~ "^gocacheprog" } | each { split row " " | first } | uniq -c | length }}
   ]

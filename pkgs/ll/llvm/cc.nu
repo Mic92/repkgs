@@ -87,10 +87,13 @@ def main []: nothing -> nothing {
   let conf = {
     cc: (seed-bin clang)
     binfmt: $env.binfmt
-    flags: ([$"-B($out)/bin"] ++ $d.flags | str join " ")
+    flags: ([$"-B($out)/bin" $"-isystem($out)/include"] ++ $d.flags | str join " ")
     cxxflags: $d.cxxflags
     prefix-map: $"($sysroot)=/sysroot:($out)=/cc"
   }
+  # reloc.h: compiled-in dirs relative to the binary, for every binfmt
+  mkdir $"($out)/include"
+  cp $env.reloc_h $"($out)/include/reloc.h"
   let policy = (if $env.binfmt == "elf" { elf-policy $out $sysroot } else { {} })
   $conf | merge $policy | items {|k, v| $"($k) = ($v)" } | str join "\n" | $in + "\n" | save $"($out)/etc/jig.conf"
 

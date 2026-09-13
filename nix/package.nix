@@ -13,22 +13,31 @@
   nu,
   # overrides applied to a spec before validation: name -> spec -> spec (nix/overrides.nix)
   edit,
+  # [pin] sys in sources.toml names packages of the set
+  pkgs,
+  lib,
 }:
 let
   elf = platform.binfmt == "elf";
   hardening = import ./hardening.nix;
+  inherit (lib)
+    join
+    lines
+    ;
   inherit (builtins)
+    all
     any
     attrNames
     concatMap
-    concatStringsSep
     elem
     elemAt
     filter
     foldl'
     head
+    hasContext
     isAttrs
     isList
+    isString
     length
     listToAttrs
     match
@@ -42,6 +51,7 @@ let
   };
   reserved = [
     "name"
+    "features"
     "platforms"
     "version"
     "source"
@@ -58,6 +68,7 @@ let
     "cc"
     "bootstrapTools"
     "prebuilt"
+    "debug"
     "install"
     "links"
   ];
@@ -83,8 +94,10 @@ let
         osNames
         triple
         rustTriple
+        buildRustTriple
         cross
         emulator
+        exe
         ;
       inherit (toolchain) sysroot;
       configTriple = platform.configTriple or platform.triple;
@@ -107,7 +120,7 @@ in
 # sources: the package's sources.toml (nix/sources.nix) or null. It supplies version and source
 # unless package.nix sets them (local trees, demos)
 # dir: the package's directory, where a phase prefix that is no build system finds <prefix>.nu
-sources0: dir: args0:
+sources0: dir: features: fn: args0:
 let
   edited = if edit == null then args0 else edit args0.name args0;
   # an override may repin the package: `pin.merge = { version = "…"; }` plus
@@ -122,7 +135,7 @@ let
         {
           inherit (sources) version;
           # one tarball for all, or one per cpu (prebuilt toolchains keyed "x86_64", "aarch64")
-          source = if sources.has "default" then sources.default else sources.fetch platform.cpu;
+          source = if sources.has "default" then "default" else platform.cpu;
         }
     )
     // (
@@ -146,7 +159,6 @@ let
       "separate"
       "parallel"
       "version"
-      "relocated"
       "dlopen"
     ];
     cc = [
@@ -194,7 +206,7 @@ let
       if !(declared ? ${k}) then
         [ "unknown option ${u}.${k} (have: ${toString (attrNames declared)})" ]
       else if !(elem got want) then
-        [ "option ${u}.${k} is a ${got}, expected ${builtins.concatStringsSep " or " want}" ]
+        [ "option ${u}.${k} is a ${got}, expected ${join " or " want}" ]
       else
         [ ]
     ) (attrNames (args.${u} or { }))
@@ -208,13 +220,21 @@ let
     ++ map (d: "buildDependencies: ${d.pname} is built for ${d.platform}") (
       filter (d: (d.platform or platform.system) != platform.system) (args.buildDependencies or [ ])
     );
-  # `supported` without forcing the derivation (docs/design.md): platforms.cpu, platforms.cross,
+  # `supported` without forcing the derivation (docs/design.md): platforms.{cpu,os,cross},
   # a per-cpu tarball in sources.toml, and the dependencies' own verdicts
   badCpu = args ? platforms.cpu && !(elem platform.cpu args.platforms.cpu);
+  badOs = args ? platforms.os && !(elem platform.os args.platforms.os);
   nativeOnly = (args.platforms.cross or true) == false && platform.cross;
   bsReasons = filter (r: r != null) (map (u: buildSystems.${u}.unsupported) uses);
-  noTarball =
-    sources0 != null && !(args0 ? source) && !(sources0.has "default") && !(sources0.has platform.cpu);
+  # `source` as a plain string names a sources.toml key; a cpu the file has no tarball for is
+  # unsupported. Paths and derivations (strings with context) are the source itself
+  sourceKey =
+    let
+      s = args.source or null;
+    in
+    if isString s && !hasContext s then s else null;
+  noTarball = sourceKey != null && !(sources.has sourceKey);
+  src = if sourceKey != null then sources.fetch sourceKey else args.source;
   unsupportedDeps = filter (d: !(d.supported or true)) (
     common.dependencies
     ++ (args.buildDependencies or [ ])
@@ -223,12 +243,14 @@ let
   unsupportedReason =
     if badCpu then
       "${name}: not for ${platform.cpu} (platforms.cpu)"
+    else if badOs then
+      "${name}: not for ${platform.os} (platforms.os)"
     else if nativeOnly then
       "${name}: runs its own binaries while installing, cannot be cross-built (platforms.cross)"
     else if bsReasons != [ ] then
       "${name}: ${head bsReasons}"
     else if noTarball then
-      "${name}: sources.toml has no '${platform.cpu}' source"
+      "${name}: sources.toml has no '${sourceKey}' source"
     else if unsupportedDeps != [ ] then
       "${name} -> ${(head unsupportedDeps).unsupportedReason}"
     else
@@ -237,19 +259,54 @@ let
   unknownPlatformKeys = attrNames (
     removeAttrs (args.platforms or { }) [
       "cpu"
+      "os"
       "cross"
     ]
   );
 
+  # the declaration's shape. Values from outside are checked where they are resolved (nix/features.nix)
+  badFeatures =
+    if args ? features then
+      filter (
+        n:
+        let
+          d = args.features.${n};
+          t = builtins.typeOf d.default;
+        in
+        !(
+          isAttrs d
+          && d ? default
+          &&
+            removeAttrs d [
+              "default"
+              "values"
+              "doc"
+            ] == { }
+          && elem t [
+            "bool"
+            "string"
+            "list"
+            "int"
+          ]
+          && (
+            !(d ? values)
+            || isList d.values && all (v: elem v d.values) (if t == "list" then d.default else [ d.default ])
+          )
+        )
+      ) (attrNames args.features)
+    else
+      [ ];
   checks =
-    if unknownUses != [ ] then
+    if badFeatures != [ ] then
+      fail "features ${toString badFeatures}: want { default (bool, string, list or int), values? (a list the default is from), doc? }"
+    else if unknownUses != [ ] then
       fail "unknown build systems ${toString unknownUses} (have: ${toString (attrNames buildSystems)})"
     else if unknownFields != [ ] || unknownPlatformKeys != [ ] then
       fail "unknown fields ${toString (unknownFields ++ map (k: "platforms.${k}") unknownPlatformKeys)}"
     else if badOptions != [ ] then
-      fail (builtins.concatStringsSep "; " badOptions)
+      fail (join "; " badOptions)
     else if wrongPlatform != [ ] then
-      fail (builtins.concatStringsSep "; " wrongPlatform)
+      fail (join "; " wrongPlatform)
     else
       true;
 
@@ -290,7 +347,7 @@ let
       if bad != [ ] then
         fail "phases: unknown edit ${head bad} (before, after, replace, remove)"
       else if unknown != [ ] then
-        fail "phases: ${head unknown} is not a phase of ${head uses} (${concatStringsSep " " known})"
+        fail "phases: ${head unknown} is not a phase of ${head uses} (${toString known})"
       else
         concatMap (
           p:
@@ -329,13 +386,13 @@ let
   ];
   # a phase as { test, body }: inline ones and package-module ones built here, a build system's
   # come ready from nix/build-systems.nix. A prefix that is neither: nix reports "path …/<bs>.nu
-  # does not exist"
+  # does not exist". An inline phase's env changes carry over to later phases, its cwd does not
   phase =
     s:
     if isAttrs s then
       {
         test = s.name == "test";
-        body = "note phase ${s.name}\ndo {\ncd (${workdir})\nlet c = (ctx)\n${s.run}\n}";
+        body = "note phase ${s.name}\nlet pwd = $env.PWD\ndo --env {\ncd (${workdir})\nlet c = (ctx)\n${s.run}\n}\ncd $pwd";
       }
     else
       bsPhases.${s} or (
@@ -409,14 +466,14 @@ let
   workdir = if uses == [ ] then "(ctx).src" else "${builtins.head uses} workdir";
   setups = map (u: buildSystems.${u}.setup) uses;
   # also `pkg.script`: lints/package-scripts.nu has nu parse it before anything builds
-  script = concatStringsSep "\n" (
+  script = lines (
     prelude
     ++ [ "prepare" ]
     ++ setups
     ++ map phaseLine phases
     ++ [ (if separate then "finish --keep-tree" else "finish") ]
   );
-  testScript = concatStringsSep "\n" (
+  testScript = lines (
     prelude
     ++ [ "prepare --from-tree ${drv.tree}" ]
     ++ setups
@@ -426,6 +483,10 @@ let
 
   # an upstream-binary package says `prebuilt`, or one of its build systems does (pyapp: wheels)
   prebuilt = args.prebuilt or (any (u: buildSystems.${u}.prebuilt == true) uses);
+  # DWARF goes to the `debug` output (finish.nu). false when the build cannot be made to keep it
+  debug = args.debug or (prebuilt == false);
+  # [pin] sys of sources.toml. null: no sources.toml, dependencies are all by hand
+  sys = if sources == null then null else sources.sys;
   spec =
     removeAttrs args [
       "source"
@@ -437,14 +498,22 @@ let
     // listToAttrs (
       map (u: {
         name = u;
-        value = buildSystems.${u}.defaults args // (args.${u} or { });
+        value = buildSystems.${u}.defaults src // (args.${u} or { });
       }) uses
     )
     // {
-      inherit phases prebuilt;
-    };
+      # sys for sys-libs.nu `check`
+      inherit
+        phases
+        prebuilt
+        debug
+        sys
+        ;
+    }
+    # resolved values, for phases: `(ctx).spec.features.tls`
+    // (if features == { } then { } else { inherit features; });
   common = setCommon // {
-    src = args.source;
+    inherit src;
     inherit (args) version;
     patches = args.patches or [ ];
     inherit spec;
@@ -455,13 +524,22 @@ let
     ++ (if prebuilt == true then relocTools else [ ])
     ++ concatMap (u: buildSystems.${u}.tools spec ++ stackBefore buildSystems.${u}.stack) uses
     ++ (if args.bootstrapTools or false then baseTools.bootstrap else baseTools.full);
-    dependencies = (args.dependencies or [ ]) ++ concatMap (u: buildSystems.${u}.dependencies) uses;
+    # [pin] sys: libraries the lock files can link (builder/sys-libs.nu). Those the set lacks
+    # here are left to the locked package (vendored copy or feature off)
+    dependencies =
+      (args.dependencies or [ ])
+      ++ map (n: pkgs.${n}) (filter (n: pkgs.${n}.supported or false) (if sys == null then [ ] else sys))
+      ++ concatMap (u: buildSystems.${u}.dependencies) uses;
   };
   drv = derivation (
     common
     // {
       name = if platform.cross then "${name}-${platform.name}" else name;
-      outputs = [ "out" ] ++ (if separate then [ "tree" ] else [ ]);
+      outputs = [
+        "out"
+        "debug"
+      ]
+      ++ (if separate then [ "tree" ] else [ ]);
       args = nuArgs ++ [ script ];
     }
   );
@@ -483,7 +561,8 @@ drv
   # what package.nix wrote and read, for `variant`
   args = args0;
   sources = sources0;
-  inherit dir;
+  decl = args0.features or { };
+  inherit dir features fn;
   inherit supported unsupportedReason script;
 }
 // (if separate then { tests = testsDrv; } else { })

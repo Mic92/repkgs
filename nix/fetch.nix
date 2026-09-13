@@ -8,17 +8,11 @@
 # `dynamic-derivations ca-derivations` on the daemon. Dependencies without a hash in the lock
 # (git, path) are rejected by the producer.
 #
-# `libs` (default: the set's `sysLibs`): packages of ours a locked dependency may link instead of
-# a bundled copy (openssl-sys -> openssl, mattn/go-sqlite3 -> sqlite, psych -> libyaml, table in
-# builder/sys-libs.nu). Only their .drv paths reach the producer (unsafeDiscardOutputDependency,
-# so nothing is built for it); those the lock asks for become inputs of the assembled derivation
-# and are propagated through its exports.json, so package.nix never lists them.
 {
   jig,
   nu,
   system,
   cpu,
-  sysLibs ? { },
   sevenzip ? null,
 }:
 let
@@ -27,22 +21,9 @@ let
     name = "producers";
     # fetch/ plus the helpers it imports from its parent. Build systems and the build pipeline stay
     # out, so editing them does not refetch every lock
-    filter = p: _: builtins.match ".*/builder/(fetch(/.*)?|sys-libs\\.nu|pep508\\.nu)" p != null;
+    filter =
+      p: _: builtins.match ".*/builder/(fetch(/.*)?|sys-libs\\.nu|pep508\\.nu|glob\\.nu)" p != null;
   };
-
-  # {name: {drv, out}} as a file in the store; the default one is built once per set
-  sysLibsFile =
-    libs:
-    builtins.toFile "sys-libs.json" (
-      builtins.toJSON (
-        builtins.mapAttrs (_: p: {
-          drv = builtins.unsafeDiscardOutputDependency p.drvPath;
-          out = builtins.unsafeDiscardStringContext p.outPath;
-        }) libs
-      )
-    );
-  defaultSysLibs = sysLibsFile sysLibs;
-  sysLibsFor = libs: if libs == null then defaultSysLibs else sysLibsFile libs;
 
   dynamic' =
     drvName: script: env:
@@ -81,11 +62,9 @@ in
   cargoVendor =
     {
       source,
-      libs ? null,
     }:
     dynamic "cargo-vendor" "fetch/cargo.nu" {
       inherit source;
-      sysLibs = sysLibsFor libs;
     };
 
   # package-lock.json (v2/v3) -> { package-lock.json } with every `resolved` rewritten to
@@ -146,13 +125,11 @@ in
       python,
       root ? ".",
       extras ? [ ],
-      libs ? null,
     }:
     dynamic "python-deps" "fetch/pypi.nu" {
       inherit source root cpu;
       pythonVersion = python.version;
       extras = builtins.concatStringsSep "," extras;
-      sysLibs = sysLibsFor libs;
     };
 
   # Gemfile.lock (with a CHECKSUMS section, Bundler >= 2.6) -> { vendor/cache/*.gem, Gemfile.lock }
@@ -162,13 +139,11 @@ in
       source,
       root ? ".",
       lockFile ? null,
-      libs ? null,
     }:
     dynamic "gems" "fetch/gems.nu" {
       inherit source root;
       lockFile = if lockFile == null then "" else lockFile;
       gemPlatform = "${cpu}-linux";
-      sysLibs = sysLibsFor libs;
     };
 
   # mix.lock or rebar.lock -> packages/hexpm/<name>-<version>.tar (builder/fetch/hex.nu)
@@ -206,11 +181,9 @@ in
       source,
       root ? ".",
       locks ? ../locks/go.toml,
-      libs ? null,
     }:
     dynamic "go-modules" "fetch/go.nu" {
       inherit source root locks;
-      sysLibs = sysLibsFor libs;
     };
 
   empty = builtins.path {

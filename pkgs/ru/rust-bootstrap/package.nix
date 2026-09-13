@@ -9,7 +9,7 @@
 }:
 package {
   name = "rust-bootstrap";
-  source = sources.fetch "rustc-${platform.cpu}";
+  source = "rustc-${platform.cpu}";
   env.components = toString [
     (sources.fetch "cargo-${platform.cpu}")
     (sources.fetch "rust-std-${platform.cpu}")
@@ -27,11 +27,13 @@ package {
           x sh $"($d)/install.sh" $"--prefix=($c.out)" --disable-ldconfig
         }
         rm -rf $"($c.out)/lib/rustlib/($c.platform.triple)/bin" $"($c.out)/etc"
+        # install.sh's bookkeeping names the prefix
+        rm -f $"($c.out)/lib/rustlib/install.log" ...(files $"($c.out)/lib/rustlib/manifest-*")
         # rustc >= 1.90 links x86_64-linux-gnu through its "self-contained" gcc-ld/ld.lld, build
         # scripts included: make that cc's lld
         let gcc_ld = $"($c.out)/lib/rustlib/($c.platform.triple)/bin/gcc-ld"
         mkdir $gcc_ld
-        ^ln -s $"../../../../../../(tool ld | path expand | path relative-to $env.NIX_STORE)" $"($gcc_ld)/ld.lld"
+        ^ln -s (tool ld | path expand) $"($gcc_ld)/ld.lld"
       '';
     }
   ];

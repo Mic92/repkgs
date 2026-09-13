@@ -1,9 +1,13 @@
-bin/erl is a sh script that locates the install from $0. `dirname` is its only external
-command before exec, so with this it runs on sh builtins alone (launch records, env -i).
+bin/erl and bin/start are sh scripts that locate the install from $0. `dirname` is their only
+external command before exec, so with this they run on sh builtins alone (launch records,
+env -i). Install leaves the fallback root empty instead of the configured prefix, and an empty
+fallback is an error that says so.
 
 --- a/erts/etc/unix/erl.src.src
 +++ b/erts/etc/unix/erl.src.src
-@@ -24,3 +24,7 @@
+@@ -22,7 +22,11 @@
+ #
+ 
  absolute_parent() {
 -    DIR=$(dirname "${1}");
 +    case "${1}" in
@@ -12,3 +16,79 @@ command before exec, so with this it runs on sh builtins alone (launch records, 
 +        *) DIR=.;;
 +    esac
      (cd "$DIR" && pwd -P || echo "/");
+ }
+ 
+@@ -37,14 +41,16 @@
+     then
+         # It is likely that the files have been copied or moved
+         echo "$CANDIDATE";
+-    else
++    elif [ -n "${2}" ]; then
+         echo "${2}";
++    else
++        echo "$1: no erts-%VSN% directory above it" >&2; exit 1
+     fi
+ }
+ 
+ if [ -z "$ERL_ROOTDIR" ]
+ then
+-    ROOTDIR=$(find_rootdir "$0" "%FINAL_ROOTDIR%")
++    ROOTDIR=$(find_rootdir "$0" "%FINAL_ROOTDIR%") || exit 1
+ else
+     ROOTDIR="$ERL_ROOTDIR"
+ fi
+--- a/erts/etc/unix/Install.src
++++ b/erts/etc/unix/Install.src
+@@ -76,14 +76,14 @@
+ 
+ cd "$ERL_ROOT/erts-%I_VSN%/bin"
+ 
+-sed -e "s;%FINAL_ROOTDIR%;$TARGET_ERL_ROOT;" erl.src > erl
++sed -e "s;%FINAL_ROOTDIR%;;" erl.src > erl
+ chmod 755 erl
+ 
+ #
+ # Create start file for embedded system use,
+ #
+ (cd "$ERL_ROOT/erts-%I_VSN%/bin";
+- sed -e "s;%FINAL_ROOTDIR%;$TARGET_ERL_ROOT;" \
++ sed -e "s;%FINAL_ROOTDIR%;;" \
+      -e "s;%VSN%;%I_VSN%;" \
+      start.src > start;
+   chmod 755 start)
+--- a/erts/etc/unix/start.src
++++ b/erts/etc/unix/start.src
+@@ -29,7 +29,11 @@
+ #
+ 
+ absolute_parent() {
+-    DIR=$(dirname "${1}");
++    case "${1}" in
++        /*) DIR="${1%/*}"; DIR="${DIR:-/}";;
++        */*) DIR="${1%/*}";;
++        *) DIR=.;;
++    esac
+     (cd "$DIR" && pwd -P || echo "/");
+ }
+ 
+@@ -44,8 +48,10 @@
+     then
+         # It is likely that the files have been copied or moved
+         echo "$CANDIDATE";
+-    else
++    elif [ -n "${2}" ]; then
+         echo "${2}";
++    else
++        echo "$1: no erts-%VSN% directory above it" >&2; exit 1
+     fi
+ }
+ 
+@@ -64,7 +70,7 @@
+ 
+ if [ -z "$ERL_ROOTDIR" ]
+ then
+-    ROOTDIR=$(find_rootdir "$0" "%FINAL_ROOTDIR%")
++    ROOTDIR=$(find_rootdir "$0" "%FINAL_ROOTDIR%") || exit 1
+ else
+     ROOTDIR="$ERL_ROOTDIR"
+ fi

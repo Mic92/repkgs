@@ -1,9 +1,13 @@
-{ package }:
+{ package, buildPkgs }:
 package {
   name = "xz";
-  uses = [ "autotools" ];
-  autotools.flags = [
-    "--disable-doc"
-    "gl_cv_posix_shell=/bin/sh"
-  ]; # else configure bakes the build machine's sh into xzgrep & co
+  uses = [ "cmake" ];
+  cmake.tool = buildPkgs.cmake-bootstrap; # cmake links this
+  patches = [ ./msvc-abi.patch ];
+  cmake.flags = [
+    "-DBUILD_SHARED_LIBS=ON"
+    "-DXZ_NLS=OFF"
+    "-DXZ_DOC=OFF"
+    "-DXZ_POSIX_SHELL=/bin/sh" # else the build machine's sh gets baked into xzgrep & co
+  ];
 }

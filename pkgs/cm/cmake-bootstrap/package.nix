@@ -3,24 +3,21 @@
 { package }:
 package {
   name = "cmake-bootstrap";
-  uses = [ "autotools" ];
-  autotools.configureScript = "bootstrap";
+  uses = [ "make" ];
   phases = [
     {
       name = "configure";
       run = ''
-        cd $c.build
-        (x $env.CONFIG_SHELL $"($c.src)/bootstrap" $"--prefix=($c.out)" $"--parallel=($c.njobs)" --no-system-libs
+        (x $env.CONFIG_SHELL ./bootstrap $"--prefix=($c.out)" $"--parallel=($c.njobs)" --no-system-libs
           --no-qt-gui --docdir=share/doc/cmake --mandir=share/man
           -- -DCMAKE_USE_OPENSSL=OFF -DBUILD_TESTING=OFF -DCMake_BUILD_LTO=OFF $"-DCMAKE_SYSTEM_PREFIX_PATH=($c.platform.sysroot)")
       '';
     }
-    "autotools.build"
-    "autotools.install"
+    "make.build"
+    "make.install"
   ];
   platforms.cross = false;
   tests.run = false;
-  tests.relocated = true;
   bin = [
     "cmake"
     "ctest"

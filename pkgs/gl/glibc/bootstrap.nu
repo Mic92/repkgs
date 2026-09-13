@@ -24,6 +24,10 @@ def main []: nothing -> nothing {
   let src = (unpack glibc)
   cd $src
   for p in ($env.patches | split row " ") { x patch -p1 -i $p }
+  # fclass.{s,d} asm with an int as "=f" output, GCC only: the generic C versions take over
+  if $env.cpu == "loongarch64" {
+    rm ...(^grep -rl '"=f" (\(x_cond\|fn_cond\|cls\))' sysdeps/loongarch | lines)
+  }
   let build = $"($env.NIX_BUILD_TOP)/build"
   mkdir $build
   cd $build

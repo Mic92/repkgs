@@ -46,7 +46,7 @@ reads one file. `buildPkgs` is the build machine's set. Another platform is anot
 
 Every package exists on every platform. `pkg.supported` says whether it is *for* it, without
 forcing the derivation: prebuilts are for the cpus their `sources.toml` has tarballs for, a
-recipe can narrow with `platforms.cpu` or `platforms.cross = false`, and unsupported
+recipe can narrow with `platforms.cpu`, `platforms.os` or `platforms.cross = false`, and unsupported
 dependencies propagate. Only the store paths throw (`bun: sources.toml has no 'riscv64' source`), so CI filters on a boolean instead of
 `tryEval`, which would also hide real errors.
 
@@ -68,11 +68,40 @@ import ./. {
 }
 ```
 
-A list of trees is merged first, so ten layers cost what one does. Every path is checked
-(unknown package or field, `append` on a non-list, a dependency naming nothing) and the result is
+A list of trees is merged first, so ten layers cost what one does, and a later tree's `remove`
+also takes back what an earlier one appended. Every path is checked (unknown package, `remove`
+of a missing field, `append` on a non-list, a dependency naming nothing) and the result is
 validated like a written spec. There is no `.override`, overlay or module system besides this.
 In-tree variants use the same verbs: `llvm22` is `variant pkgs.llvm { }` with its own
 `sources.toml`.
+
+`features` are the other direction: choices a package offers, named by the package.
+
+```nix
+{ package, pkgs, features, on }:
+package {
+  name = "curl";
+  features = {
+    tls = { values = [ "openssl" "gnutls" "none" ]; default = "openssl"; };
+    docs = { default = false; };
+  };
+  dependencies = on (features.tls != "none") [ pkgs.${features.tls} ];
+}
+```
+
+```nix
+import ./. {
+  features = { docs = false; };                   # every package that declares `docs`
+  overrides.curl.features = { tls = "gnutls"; };  # this one
+}
+```
+
+The package reads values back, so a dependency and the configure flag that goes with it stay
+together in package.nix. A feature's type is its default's type, `values` limits a string or a
+list's elements. Prefer those over booleans when a choice has more than two answers. Resolution is default,
+then the set-wide `features` argument, then `overrides.<pkg>.features`. A wrong type, a value
+outside `values` or an undeclared name is an eval error. The resolved set is part of the
+derivation and readable as `pkgs.curl.features`. Packages without `features` pay nothing.
 
 ## Sources and lock files
 
@@ -86,8 +115,13 @@ is an error, not the old tarball. Archives are unpacked once into the store.
   (in jig), so no `nix` in the sandbox and no recursive Nix.
 - **Hashes a lock file lacks** (Go, Hackage, LuaRocks) live in one sorted `locks/<eco>.toml`,
   `merge=union`, filled by `uptrack lock`. A package's vendor derivation mentions only its subset.
-- **Native libraries behind locked deps** are matched at build time from a fixed menu
-  (`sysLibs`, `builder/sys-libs.nu`) and become real inputs. ripgrep never lists pcre2.
+- **Native libraries behind locked deps** are decided when the package is pinned: uptrack reads
+  the lock files in the source it just hashed, looks the names up in `builder/sys-libs.nu`
+  (openssl-sys -> openssl, mattn/go-sqlite3 -> sqlite) and writes `sys = [..]` into `[pin]`.
+  package.nix adds those the set has on the platform as ordinary dependencies, so eval, `info`,
+  `supported` and overrides see them, and ripgrep's package.nix still never lists pcre2. The
+  build system checks the lock against `sys`, so a lock that gained a -sys crate since is an
+  error naming `repkgs update`, not a vendored copy.
 - **Autoconf** probe results that are platform facts are pinned in `nix/config.site`.
 
 ## Relocatable outputs
@@ -99,15 +133,36 @@ reference scanner work unchanged.
 | reference | made relative by |
 |---|---|
 | ELF NEEDED / RUNPATH | jig links with RUNPATH for exactly the dirs that satisfied a `-l`. `reloc-fixup` rewrites in place: NEEDED becomes `$ORIGIN/…/libfoo.so.1` (one `open` per library), RUNPATH keeps libc and `dlopen` dirs |
+| Mach-O LC_LOAD_DYLIB | dependents record each dylib's absolute install name at link time (`-headerpad_max_install_names`), `reloc-fixup` respells them and store LC_RPATHs `@loader_path/…`, re-signs ad hoc |
 | PT_INTERP | a 300-byte entry stub (`crt-interp`) maps ld.so relative to `/proc/self/exe`. glibc unmodified, 0.09 ms |
 | upstream binaries | `prebuilt = true`: formatelf implants the same stub and RUNPATH |
 | scripts, wrappers | `launch`: `bin/foo` hardlink + `bin/.foo.launch` record with `{root}` placeholders. No shebang patching, no makeWrapper |
 | glibc data, pkg-config, cmake | relative to `libc.so.6` (one patch), `${pcfiledir}`, native. `.la` deleted |
 | exported environment | `exports.json` values with `{root}` |
-| compiled-in prefix | dirname-relative patch (openssl providers). fixup warns on any absolute self-reference, `tests.relocated` runs the output from a copy |
+| compiled-in prefix | built under a scratch prefix that finish moves, leftovers are an error; reloc.h patch (openssl providers) |
+
+The build never sees its store path: `$out` is `$NIX_BUILD_TOP/prefix`, finish makes what it
+knows relative to the final location, fails if any file still names the prefix, and moves the
+tree into the store last. An output's bytes cannot depend on where it lands, which also keeps
+content-addressed rebuilds stable (lld hashes `$out` into build ids and string order;
+[NixOS/nix#16465](https://github.com/NixOS/nix/pull/16465) covers derivations that do see
+`$out`, like `bootstrap/`).
 
 Ambient data (CA bundle, zoneinfo, fonts) is an environment variable or system path, never a
-store path. Debug info is always built and split with a relative debuglink.
+store path.
+
+Debug info is built for every package and split into a second output, `debug`, filed by
+build-id (`lib/debug/.build-id/ab/cd….debug`) where gdb, lldb, perf, valgrind and
+systemd-coredump look. `out` keeps `.symtab`, so backtraces and profiles have names without
+it. `out` never references `debug` and `debug` is found by id, not path, so the split costs
+relocatability nothing. `debug = false` is for builds that cannot be taught to keep DWARF.
+An ELF package whose build produced none is an error. Sources are not shipped: DWARF names `/build/source/…`, and `pkg.src` is that tree.
+
+Because no output names itself, every derivation (bootstrap stages included) is floating
+content-addressed: a change to jig, a builder script or the toolchain that leaves a package's
+bytes alone resolves its dependents to what is already in the store instead of rebuilding them.
+Cross builds pass `--deny <build dep>` to reloc-fixup, so a build-machine path in a target
+output is an error, not a silent reference.
 
 ## Builders
 

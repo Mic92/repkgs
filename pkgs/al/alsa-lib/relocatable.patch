@@ -1,0 +1,43 @@
+--- a/src/conf.c
++++ b/src/conf.c
+@@ -431,6 +431,7 @@
+ #include <sys/stat.h>
+ #include <dirent.h>
+ #include <locale.h>
++#include <reloc.h>
+ #ifdef HAVE_LIBPTHREAD
+ #include <pthread.h>
+ #endif
+@@ -602,7 +603,7 @@
+ 	if (!topdir) {
+ 		topdir = getenv("ALSA_CONFIG_DIR");
+ 		if (!topdir || *topdir != '/' || strlen(topdir) >= PATH_MAX)
+-			topdir = ALSA_CONFIG_DIR;
++			topdir = (char *) RELOC("../share/alsa");
+ 	}
+ 	return topdir;
+ }
+--- a/src/ucm/utils.c
++++ b/src/ucm/utils.c
+@@ -31,6 +31,7 @@
+  */
+ 
+ #include "ucm_local.h"
++#include <reloc.h>
+ 
+ void uc_mgr_error(const char *fmt,...)
+ {
+@@ -348,11 +349,11 @@
+ 	if (format >= 2) {
+ 		path = getenv(ALSA_CONFIG_UCM2_VAR);
+ 		if (!path || path[0] == '\0')
+-			path = ALSA_CONFIG_DIR "/ucm2";
++			path = RELOC("../share/alsa/ucm2");
+ 	} else {
+ 		path = getenv(ALSA_CONFIG_UCM_VAR);
+ 		if (!path || path[0] == '\0')
+-			path = ALSA_CONFIG_DIR "/ucm";
++			path = RELOC("../share/alsa/ucm");
+ 	}
+ 	return path;
+ }

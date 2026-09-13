@@ -1,4 +1,5 @@
 use ../core.nu *
+use ../sys-libs.nu
 
 # cabal v2-build against the set's shared hackage repository (locks/hackage.toml), with
 # ghc-bootstrap. Dependencies are cached per unit: cabal's unit-id already hashes source, flags,
@@ -21,12 +22,14 @@ export def --env setup []: nothing -> nothing {
   # cabal writes its index cache into a noindex repository's directory: a writable one of symlinks
   let repo = $"($c.build)/repo"
   mkdir $repo
-  for f in (glob $"($o.deps)/*.{tar.gz,cabal}") { ^ln -s $f $repo }
+  for f in (files $"($o.deps)/*.{tar.gz,cabal}") { ^ln -s $f $repo }
   let unit_id = (^ghc --info | parse --regex '"Project Unit Id","([^"]+)"' | get capture0.0)
   load-env {CABAL_DIR: $"($c.build)/cabal", CABAL_UNITS: $"($STORE)/($unit_id)"}
   mkdir $env.CABAL_DIR $"(unit-dir)/package.db"
+  # ghc refuses a package.db directory without package.cache
+  ^ghc-pkg recache $"--package-db=(unit-dir)/package.db"
   # `semaphore`: cabal passes -jsem to ghc itself, outside the ghc-options that unit ids hash.
-  # ghc runs under jsem (pkgs/js/jsem), which feeds that semaphore from jigd's slots
+  # jsem (pkgs/js/jsem) feeds it from jigd's slots
   let ghc = $"($c.build)/ghc"
   $"#!(tool sh)\nexec (tool jsem) (tool ghc) \"$@\"\n" | save -f $ghc
   chmod +x $ghc
@@ -38,7 +41,7 @@ semaphore: True
 with-compiler: ($ghc)
 with-hc-pkg: (tool ghc-pkg)
 " | save -f $"($env.CABAL_DIR)/config"
-  $"program-locations\n  gcc-location: (tool cc)\npackage *\n  split-sections: True\n($o.project)"
+  $"program-locations\n  gcc-location: (tool cc)\npackage *\n  split-sections: True\n(if $c.spec.debug { "  ghc-options: -g\n" })($o.project)"
   | save -f cabal.project.local
 }
 
@@ -48,13 +51,13 @@ export def workdir []: nothing -> string { project-dir cabal }
 def targets [o: record]: nothing -> list<string> { $o.flags ++ ($o.exes | each {|e| $"exe:($e)" }) }
 
 # dependency units of the build plan
-def plan-units []: nothing -> list<string> {
-  open (glob dist-newstyle/cache/plan.json | first) | get install-plan | where type == "configured" and style? == "global" | get id
+def plan []: nothing -> table {
+  open (files dist-newstyle/cache/plan.json | first) | get install-plan | where type == "configured" and style? == "global"
 }
 
 # cached units -> the store, before cabal builds
 def restore [c: record]: nothing -> nothing {
-  let units = (plan-units)
+  let units = (plan | get id)
   let got = ($units | par-each --threads $c.njobs {|id|
     let tar = $"($c.build)/($id).tar.zst"
     if (^jig cache get $"hs:($id)" $tar | complete).exit_code == 0 {
@@ -85,6 +88,8 @@ def save-units [c: record, before: list<string>]: nothing -> nothing {
 export def build []: nothing -> nothing {
   let c = (ctx); let o = (options cabal)
   cabal build --dry-run ...(targets $o)
+  # hackage packages that bind a C library need it among dependencies ([pin] sys, sys-libs.nu)
+  sys-libs check-names (sys-libs wanted-for hackage (plan | get pkg-name)) $c.spec.sys lock
   if $c.cache { restore $c }
   let before = (ls -s (unit-dir) | get name)
   cabal build ...(targets $o)
@@ -94,7 +99,7 @@ export def build []: nothing -> nothing {
 export def test []: nothing -> nothing {
   let o = (options cabal)
   # cabal test errors out (Cabal-7043) when the package declares no test-suite, executable-only packages often do not
-  let cabals = (glob **/*.cabal --exclude [dist-newstyle/**])
+  let cabals = (files **/*.cabal --exclude [dist-newstyle/**])
   if ($cabals | is-not-empty) and ($cabals | all {|f| (open --raw $f) !~ '(?im)^\s*test-suite\s' }) { note cabal "no test suites"; return }
   # the package's own test suites (`all:tests` in the project's package, flags still apply)
   cabal test --enable-tests ...$o.flags all:tests

@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:generic/mpdecimal?url=https://www.bytereef.org/mpdecimal/download.html"
+
+[[source]]
+key = "default"
+url = "https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-{version}.tar.gz"
+hash = "sha256-q/Vs8IM0HwdarNCxmDjvkfQOrJQPxByl5an2p9KmGIw="
+
+[pin]
+version = "4.0.1"

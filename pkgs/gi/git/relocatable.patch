@@ -1,0 +1,28 @@
+--- a/exec-cmd.c
++++ b/exec-cmd.c
+@@ -54,10 +54,12 @@
+ 	    !(prefix = strip_path_suffix(executable_dirname, GIT_EXEC_PATH)) &&
+ 	    !(prefix = strip_path_suffix(executable_dirname, BINDIR)) &&
+ 	    !(prefix = strip_path_suffix(executable_dirname, "git"))) {
+-		prefix = FALLBACK_RUNTIME_PREFIX;
++		prefix = strip_path_suffix(executable_dirname, "bin");
++		if (!prefix)
++			prefix = executable_dirname;
+ 		trace_printf("RUNTIME_PREFIX requested, "
+ 				"but prefix computation failed.  "
+-				"Using static fallback '%s'.\n", prefix);
++				"Using '%s'.\n", prefix);
+ 	}
+ 	return prefix;
+ }
+--- a/git-sh-i18n.sh
++++ b/git-sh-i18n.sh
+@@ -9,7 +9,7 @@
+ export TEXTDOMAIN
+ if test -z "$GIT_TEXTDOMAINDIR"
+ then
+-	TEXTDOMAINDIR="@LOCALEDIR@"
++	TEXTDOMAINDIR="$(git --exec-path)/../../share/locale"
+ else
+ 	TEXTDOMAINDIR="$GIT_TEXTDOMAINDIR"
+ fi

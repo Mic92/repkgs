@@ -61,7 +61,7 @@ def profile-runtime [src: string, out: string]: nothing -> nothing {
   # *ROCm* is the separate clang_rt.profile_rocm (needs the sanitizer interception layer),
   # WindowsMMap the win32 mmap port
   let skip = (if $env.binfmt == "coff" { "ROCm" } else { "^WindowsMMap|ROCm" })
-  let srcs = (glob $"($p)/*.{c,cpp}" | where { ($in | path basename) !~ $skip })
+  let srcs = (files $"($p)/*.{c,cpp}" | where { ($in | path basename) !~ $skip })
   let has = ({
     elf: [-DCOMPILER_RT_HAS_ATOMICS=1 -DCOMPILER_RT_HAS_FCNTL_LCK=1 -DCOMPILER_RT_HAS_FLOCK=1 -DCOMPILER_RT_HAS_UNAME=1 -fPIC]
     macho: [-DCOMPILER_RT_HAS_ATOMICS=1 -DCOMPILER_RT_HAS_FCNTL_LCK=1 -DCOMPILER_RT_HAS_FLOCK=1 -DCOMPILER_RT_HAS_UNAME=1 -fPIC]

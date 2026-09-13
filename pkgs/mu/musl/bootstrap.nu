@@ -31,9 +31,9 @@ def stem-path [f: string]: nothing -> string { $f | path dirname | path join ($f
 
 # Source set as the Makefile computes it: <dir>/*.c, where <dir>/<cpu>/*.[csS] replaces the same stem.
 def sources [src: path, arch: string]: nothing -> list<string> {
-  let dirs = (glob $"($src)/src/*" | where { ($in | path type) == "dir" }) ++ [$"($src)/src/malloc/mallocng" $"($src)/crt" $"($src)/ldso"]
-  let generic = ($dirs | each {|d| glob $"($d)/*.c" } | flatten)
-  let specific = ($dirs | each {|d| glob $"($d)/($arch)/*.{c,s,S}" } | flatten)
+  let dirs = (files --dirs $"($src)/src/*") ++ [$"($src)/src/malloc/mallocng" $"($src)/crt" $"($src)/ldso"]
+  let generic = ($dirs | each {|d| files $"($d)/*.c" } | flatten)
+  let specific = ($dirs | each {|d| files $"($d)/($arch)/*.{c,s,S}" } | flatten)
   let overridden = ($specific | each {|f| stem-path ($f | path dirname | path dirname | path join ($f | path basename)) })
   ($generic | where { (stem-path $in) not-in $overridden }) ++ $specific | sort
 }

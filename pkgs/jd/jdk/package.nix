@@ -4,6 +4,7 @@
   pkgs,
   buildPkgs,
   platform,
+  on,
 }:
 package {
   name = "jdk";
@@ -23,7 +24,7 @@ package {
     buildPkgs.zip
     buildPkgs.unzip
   ]
-  ++ (if platform.cross then [ buildPkgs.jdk ] else [ ]);
+  ++ on platform.cross [ buildPkgs.jdk ];
   patches = [ ./riscv-float-type.patch ];
   phases = [
     {

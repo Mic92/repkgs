@@ -1,7 +1,10 @@
 # The package builder's shared vocabulary. nix/package.nix generates, per package, the script
 #   use core.nu *; use prepare.nu; use finish.nu; use <bs>.nu …; prepare; <bs> setup …; <phases> …; finish
 # which runs in one nu process, so `def --env` phases hand cwd and environment on to later ones.
-# This module is what build systems and inline phases import: ctx, options, x, tool, note, exports-of.
+# This module is what build systems and inline phases import: ctx, options, x, tool, note, exports.
+
+export use glob.nu *
+export use exports.nu *
 
 # One log line per event, in Nix's own structured-log form ("@nix {json}", libutil/logging.cc) so
 # `nix build`/nom show the current phase and `nix log` keeps the text. `phase` events become the
@@ -12,7 +15,7 @@ export def note [kind: string, msg: string = ""]: nothing -> nothing {
 }
 
 # what build-system and inline phases get to see: {spec out deps njobs src build platform testsRun}
-export def ctx []: nothing -> record<spec: record, out: string, deps: list<record<name: string, root: string>>, roots: list<string>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool> { $env.PKGS_CTX }
+export def ctx []: nothing -> record<spec: record, out: string, dest: string, deps: list<record<name: string, root: string>>, roots: list<string>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool> { $env.PKGS_CTX }
 
 # a build system's options: nix/build-systems.nix defaults merged with the package's `<bs>.*`
 export def options [bs: string]: nothing -> record { (ctx).spec | get $bs }
@@ -31,15 +34,11 @@ export def dep-root [name: string, why: string]: nothing -> string {
 
 # store path of the build dependency called `name`, for tools that are not a bin/ on PATH
 export def tool-root [name: string]: nothing -> string {
-  let r = ((ctx).roots | where { (exports-of $in).name == $name })
+  let r = ((attrs).buildDependencies | where { (exports-of $in).name == $name })
   if ($r | is-empty) { error make {msg: $"buildPkgs.($name) must be in buildDependencies"} }
   $r.0
 }
 
-# absolute directories of one exports field (libDirs, includeDirs, …) across dependencies
-export def dep-dirs [deps: list<record<name: string, root: string>>, field: string]: nothing -> list<string> {
-  $deps | each {|d| $d | get $field | each {|rel| $"($d.root)/($rel)" } } | flatten
-}
 
 # files `names` of `dir` -> $out/bin. finish checks afterwards that every `bin` of the spec exists
 export def install-bins [dir: string, names: list<string>]: nothing -> nothing {
@@ -75,51 +74,11 @@ export def edit [f: path, change: closure]: nothing -> nothing {
 }
 
 # starts with \x7fELF
-export def is-elf [f: path]: nothing -> bool { (open --raw $f | into binary | bytes at 0..<4) == 0x[7f 45 4c 46] }
+export def is-elf [f: path]: nothing -> bool { (open --raw $f | first 4) == 0x[7f 45 4c 46] }
 
-def existing [root: path, rels: list<string>]: nothing -> list<string> { $rels | where {|d| $"($root)/($d)" | path exists } }
-
-# a package's exports with defaults filled in. Used for dependencies and for writing our own
-export def exports-of [p: path]: nothing -> record<name: string, includeDirs: list<string>, libDirs: list<string>, libs: list<string>, pkgconfigDirs: list<string>, aclocalDirs: list<string>, env: record, propagate: list<string>> {
-  let f = $"($p)/exports.json"
-  let e = if ($f | path exists) { open $f } else { {} }
-  {
-    # package name as build systems key on it (sys-libs.nu, dep-root); the store name is <hash>-<name>[-<platform>]
-    name: ($e.name? | default { $p | path basename | str substring 33.. | str replace -r '-(x86_64|aarch64|riscv64|loongarch64|powerpc64le)-\w+$' '' })
-    includeDirs: ($e.includeDirs? | default { existing $p ["include"] })
-    libDirs: ($e.libDirs? | default { existing $p ["lib"] })
-    libs: ($e.libs? | default { glob $"($p)/lib/lib*.so" | each { path parse | get stem | str substring 3.. } | sort })
-    pkgconfigDirs: ($e.pkgconfigDirs? | default { existing $p ["lib/pkgconfig" "share/pkgconfig"] })
-    aclocalDirs: ($e.aclocalDirs? | default { existing $p ["share/aclocal"] })
-    # `{root}` in values: this package's own store path (kept relative in exports.json so the output stays relocatable)
-    env: ($e.env? | default {} | items {|k, v| [$k ($v | str replace -a "{root}" $p)] } | into record)
-    propagate: ($e.propagate? | default [])
-  }
-}
-
-# dependencies plus everything they `propagate`, breadth first, each once
-export def dep-closure [roots: list<string>]: nothing -> list<record> {
-  mut done = []
-  mut todo = $roots
-  while ($todo | is-not-empty) {
-    let p = ($todo | first)
-    $todo = ($todo | skip 1)
-    if $p in ($done | get root) { continue }
-    let d = (exports-of $p | insert root $p)
-    $done ++= [$d]
-    $todo ++= $d.propagate
-  }
-  $done
-}
-
-# store path -> launcher template relative to the package: {root}/... for our own files,
-# {store}/<basename>/... for siblings, anything else verbatim
+# store paths -> {root}/{store} templates launch expands
 export def storerel [p: string, out: string]: nothing -> string {
-  if ($p | str starts-with $out) {
-    $"{root}($p | str substring ($out | str length)..)"
-  } else if ($p | str starts-with $"($env.NIX_STORE)/") {
-    $"{store}/($p | path relative-to $env.NIX_STORE)"
-  } else { $p }
+  $p | str replace -a $out "{root}" | str replace -a $env.NIX_STORE "{store}"
 }
 
 # bin/<name> as a launch record (builder/launchers.nu, pkgs/la/launch): `program` with `args`
@@ -133,28 +92,33 @@ export def write-launcher [name: string, program: string, args: list<string>, va
     program: (do $rel $program), args: ($args | each { do $rel $in })
     env: ($vars | items {|k, v| {$k: {set: (do $rel $v)}} } | into record)
   } | to json -r | save -f $"($c.out)/bin/.($name).launch"
-  ^ln -sf $"../../($c.platform.launch | path relative-to $env.NIX_STORE)" $"($c.out)/bin/($name)"
+  ^ln -sf $c.platform.launch $"($c.out)/bin/($name)"
   note launcher $"bin/($name) -> ($program)"
 }
 
 # no /usr/bin/env in the sandbox: point such scripts at the build PATH's env (build tree only;
-# finish turns installed copies back with --undo and bin/ scripts get launchers). mtimes are kept:
-# a generator script newer than its shipped output makes make regenerate it (coreutils'
-# cu-progs.m4 -> aclocal, ruby's prism templates -> baseruby)
+# finish turns installed copies back with --undo and bin/ scripts get launchers). mtimes are kept
+# in the build tree: a generator script newer than its shipped output makes make regenerate it
+# (coreutils' cu-progs.m4 -> aclocal, ruby's prism templates -> baseruby)
 export def fix-env-shebangs [dir: path, njobs: int = 4, --undo]: nothing -> nothing {
   let ours = $"#!(tool env)"
-  let pair = (if $undo { [$ours "#!/usr/bin/env"] } else { ["#!/usr/bin/env" $ours] } | each { into binary })
-  # find does the walk and the executable/size filter in one process: nu stat-ing 180k llvm files
-  # on all cores took 20s, this 1.5s. More than 16 threads only contend on the page cache
-  # installers drop the x bit (wheels into site-packages), the line stays
-  ^find $dir -type f ...(if $undo { [] } else { [-perm -u+x] }) -size -1024k -printf '%T@ %p\n' | lines
-  | par-each --threads ([$njobs 16] | math min) {|l|
-    let p = ($l | parse '{mtime} {f}' | first)
-    let bytes = (open --raw $p.f | into binary)
-    if ($bytes | bytes starts-with $pair.0) {
-      ^chmod u+w $p.f
-      $pair.1 ++ ($bytes | bytes at ($pair.0 | bytes length)..) | save -f --raw $p.f
-      ^touch -d $"@($p.mtime)" $p.f
+  let pair = (if $undo { [$ours "#!/usr/bin/env"] } else { ["#!/usr/bin/env" $ours] })
+  # grep narrows to candidates in one process, installers drop the x bit so --undo looks at all
+  let hits = (^find $dir -type f ...(if $undo { [] } else { [-perm -u+x] }) -size -1024k -exec grep -l $"^($pair.0)" '{}' + | complete | get stdout | lines)
+  if ($hits | is-empty) { return }
+  let hits = (^find ...$hits -printf '%T@\t%p\n' | lines | split column "\t" mtime f)
+  ^chmod u+w ...$hits.f
+  let done = ($hits | par-each --threads ([$njobs 16] | math min) {|h|
+    let bytes = (open --raw $h.f | into binary)
+    if $undo {
+      # any line: `ruby -x` stubs (rubygems) carry the real #! after a /bin/sh preamble
+      let text = ($bytes | decode)
+      let fixed = ($text | str replace -a $"\n($pair.0)" $"\n($pair.1)" | str replace $pair.0 $pair.1)
+      if $fixed != $text { $fixed | save -f --raw $h.f; $h }
+    } else if ($bytes | bytes starts-with ($pair.0 | into binary)) {
+      ($pair.1 | into binary) ++ ($bytes | bytes at ($pair.0 | str length)..) | save -f --raw $h.f
+      $h
     }
-  } | ignore
+  })
+  if not $undo { for g in ($done | group-by mtime --to-table) { ^touch -d $"@($g.mtime)" ...$g.items.f } }
 }

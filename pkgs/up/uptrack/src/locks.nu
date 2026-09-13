@@ -6,6 +6,7 @@ use lock-go.nu
 use lock-hackage.nu
 use lock-luarocks.nu
 use pipeline.nu
+use ../../../../builder/sys-libs.nu
 
 # entries of <dir>/<eco>.toml, {} when absent
 export def read [dir: path, eco: string]: nothing -> record {
@@ -43,18 +44,24 @@ export def normalize [file: path]: nothing -> nothing {
 export def add [pkg: record]: nothing -> table<eco: string, keys: list<string>> {
   if ($pkg.locks | is-empty) { return [] }
   # fetched sources are derivations (nix-build), in-tree ones (source = ./src) plain paths
-  let src = (^nix-build (pipeline root) -A $"($pkg.name).src" --no-out-link | complete)
-  let src = (if $src.exit_code == 0 { $src.stdout } else { ^nix eval --raw -f (pipeline root) $"($pkg.name).src" } | str trim)
+  let r = (^nix-build (pipeline root) -A $"($pkg.name).src" --no-out-link | complete)
+  let src = (if $r.exit_code == 0 { $r.stdout | str trim } else {
+    let p = (^nix eval --raw -f (pipeline root) $"($pkg.name).src" | str trim)
+    if not ($p | path exists) { error make {msg: $"($pkg.name).src: ($r.stderr | lines | last 3 | str join "\n")"} }
+    $p
+  })
   $pkg.locks | items {|eco, sub|
     let old = (read (dir) $eco)
     let mine = (match $eco {
       "go" => (lock-go lock ($src | path join $sub) $old)
-      "hackage" => (lock-hackage lock ($src | path join $sub) $old)
+      "hackage" => (lock-hackage lock $src $sub (^nix eval --json -f (pipeline root) $"($pkg.name).spec.cabal" | from json) $old)
       "luarocks" => (lock-luarocks lock ($src | path join $sub) $old)
     })
     let new = ($old | merge $mine)
     print -e $"  ($eco): ($mine | columns | length) entries, (($new | columns | length) - ($old | columns | length)) new"
     write (dir) $eco $new
+    # no lock file in the source for prefetch to read: sys comes from the solved names
+    if $eco == "hackage" { pipeline set-sys $pkg (sys-libs wanted-for hackage ($mine | columns)) }
     {eco: $eco, keys: ($mine | columns)}
   }
 }

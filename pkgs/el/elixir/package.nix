@@ -7,10 +7,8 @@
 }:
 package {
   name = "elixir";
-  uses = [ "autotools" ];
-  autotools.outOfTree = false;
-  autotools.testTarget = [ "test_stdlib" ]; # test_mix wants git and network
-  phases.remove = [ "autotools.configure" ];
+  uses = [ "make" ];
+  make.testTarget = [ "test_stdlib" ]; # test_mix wants git and network
   buildDependencies = [ buildPkgs.erlang ];
   dependencies = [
     pkgs.erlang
@@ -18,11 +16,12 @@ package {
     pkgs.sed
   ];
   exports = false;
+  # yecc wrote the build erlang's include path into the parser beams
+  env.ERL_COMPILER_OPTIONS = "deterministic";
   bin = [
     "elixir"
     "elixirc"
     "mix"
     "iex"
   ];
-  tests.relocated = true;
 }

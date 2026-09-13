@@ -1,0 +1,41 @@
+--- a/src/main.c
++++ b/src/main.c
+@@ -15,6 +15,7 @@
+ this program.  If not, see <https://www.gnu.org/licenses/>.  */
+ 
+ #include "makeint.h"
++#include <reloc.h>
+ #include "os.h"
+ #include "filedef.h"
+ #include "dep.h"
+@@ -1245,7 +1246,7 @@
+   setlocale (LC_ALL, "");
+   /* The cast to void shuts up compiler warnings on systems that
+      disable NLS.  */
+-  (void)bindtextdomain (PACKAGE, LOCALEDIR);
++  (void)bindtextdomain (PACKAGE, RELOC ("../share/locale"));
+   (void)textdomain (PACKAGE);
+ 
+ #ifdef  POSIX
+--- a/src/read.c
++++ b/src/read.c
+@@ -107,9 +107,6 @@
+    This is defined as a placeholder.  */
+ # define INCLUDEDIR "."
+ #endif
+-#if defined(INCLUDEDIR)
+-    INCLUDEDIR,
+-#endif
+ #ifndef _AMIGA
+     "/usr/gnu/include",
+     "/usr/local/include",
+--- a/src/remake.c
++++ b/src/remake.c
+@@ -1700,7 +1700,6 @@
+  */
+ #define LIBDIR "."
+ #endif
+-      LIBDIR,                   /* Defined by configuration.  */
+       0
+     };
+ 

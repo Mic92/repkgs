@@ -1,0 +1,35 @@
+From b3ef2f9bb925369543c0e0af5c570a2c12e00f4e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?J=C3=B6rg=20Thalheim?= <joerg@thalheim.io>
+Date: Fri, 11 Sep 2026 20:07:48 +0200
+Subject: [PATCH] hadrian: run autoreconf directly, not through bash
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+autoreconf is whatever executable the autoconf installation provides. Where
+it is not a shell script (a relocatable wrapper binary around the perl
+script), `bash autoreconf` fails with "cannot execute binary file".
+
+Signed-off-by: Jörg Thalheim <joerg@thalheim.io>
+---
+ hadrian/src/Builder.hs | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/hadrian/src/Builder.hs b/hadrian/src/Builder.hs
+index 904fb1e..1e8c9a7 100644
+--- a/hadrian/src/Builder.hs
++++ b/hadrian/src/Builder.hs
+@@ -326,9 +326,7 @@ instance H.Builder Builder where
+ 
+                 Ar Unpack _ -> cmd' [Cwd output] [path] buildArgs buildOptions
+ 
+-                Autoreconf dir -> do
+-                  bash <- bashPath
+-                  cmd' [Cwd dir] [bash, path] buildArgs buildOptions
++                Autoreconf dir -> cmd' [Cwd dir] [path] buildArgs buildOptions
+ 
+                 Configure  dir -> do
+                     -- Inject /bin/bash into `libtool`, instead of /bin/sh,
+-- 
+2.55.0
+

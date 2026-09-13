@@ -1,9 +1,10 @@
-// jsem <ghc> [args…]: runs ghc, and while it runs feeds the `-jsem <name>` semaphore cabal
-// created (cabal --semaphore) with jigd slots ($JIG_SOCK). Without -jsem or without a daemon
-// it is a plain exec.
-#include <sys/wait.h>
+// jsem <ghc> [args…]: execs ghc. The first jsem of a build also starts the one broker that
+// feeds cabal's `-jsem <name>` semaphore from jigd slots ($JIG_SOCK) until cabal removes it.
+#include <fcntl.h>
+#include <sys/file.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cerrno>
 #include <chrono>
 #include <cstdio>
@@ -19,18 +20,20 @@
 
 namespace {
 constexpr auto kTick = std::chrono::milliseconds(10);
+constexpr int kAliveEvery = 50;  // ticks between checks that the semaphore is still linked
 constexpr int kExecFailed = 127;
+constexpr mode_t kLockMode = 0600;
 
 auto Env(const char* name, const std::string& fallback) -> std::string {
-  const char* v = ::getenv(name);  // NOLINT(concurrency-mt-unsafe): before any thread
-  return v != nullptr ? v : fallback;
+  const char* value = ::getenv(name);  // NOLINT(concurrency-mt-unsafe): before any thread
+  return value != nullptr ? value : fallback;
 }
 
 // cabal passes one argument "-jsem <name>"
 auto JsemName(std::span<char*> args) -> std::string {
   constexpr std::string_view kFlag = "-jsem";
   for (size_t i = 0; i < args.size(); ++i) {
-    std::string_view arg = args[i];
+    std::string_view arg = args[i];  // NOLINT(*-unchecked-container-access): i < size
     if (!arg.starts_with(kFlag)) {
       continue;
     }
@@ -42,18 +45,50 @@ auto JsemName(std::span<char*> args) -> std::string {
       return std::string(arg);
     }
     if (i + 1 < args.size()) {
-      return args[i + 1];
+      return args[i + 1];  // NOLINT(*-unchecked-container-access)
     }
   }
   return {};
 }
+
+// one broker per (build, semaphore); the forked broker inherits the flock
+auto TakeLock(const std::string& dir, std::string_view name) -> int {
+  std::string flat(name);
+  std::ranges::replace(flat, '/', '_');
+  const std::string file = std::format("{}/.jsem{}.lock", dir, flat);
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg): open(2)
+  const int lock = ::open(file.c_str(), O_RDWR | O_CREAT | O_CLOEXEC, kLockMode);
+  if (lock < 0) {
+    return -1;
+  }
+  if (::flock(lock, LOCK_EX | LOCK_NB) != 0) {
+    ::close(lock);
+    return -1;
+  }
+  return lock;
+}
+
+[[noreturn]] void RunBroker(const std::string& name, jsem::Sem& sem, const std::string& socket_path) {
+  ::setsid();
+  {
+    jsem::Broker broker(sem, jsem::DaemonSource(socket_path, Env("NIX_BUILD_TOP", "-")));
+    for (int tick = 0;; ++tick) {
+      if (tick % kAliveEvery == 0 && jsem::Sem::Open(name) == nullptr) {
+        break;
+      }
+      broker.Tick();
+      std::this_thread::sleep_for(kTick);
+    }
+  }
+  ::_exit(0);
+}
 }  // namespace
 
-#ifndef JSEM_DEFAULT_SOCK
-#define JSEM_DEFAULT_SOCK "/nix/var/nix/jigd/socket"  // package.nix passes the store-relative one
+#ifndef JSEM_DEFAULT_SOCK                             // package.nix passes the store-relative one
+#define JSEM_DEFAULT_SOCK "/nix/var/nix/jigd/socket"  // NOLINT(cppcoreguidelines-macro-usage): -D default
 #endif
 
-auto main(int argc, char** argv) -> int {
+auto main(int argc, char** argv) -> int {  // NOLINT(bugprone-exception-escape): std::format of literals
   const std::span<char*> args(argv, static_cast<size_t>(argc));
   if (args.size() < 2) {
     std::fputs("usage: jsem <ghc> [args...]\n", stderr);
@@ -64,35 +99,19 @@ auto main(int argc, char** argv) -> int {
   if (!name.empty() && !name.starts_with('/')) {
     name.insert(0, "/");
   }
-  std::unique_ptr<jsem::Sem> sem;
   if (!name.empty() && jsem::DaemonUp(socket_path)) {
-    sem = jsem::Sem::Open(name);
-    if (!sem) {
-      std::fputs(std::format("jsem: cannot open semaphore {}: errno {}\n", name, errno).c_str(), stderr);
+    const int lock = TakeLock(Env("NIX_BUILD_TOP", Env("TMPDIR", "/tmp")), name);
+    if (lock >= 0) {
+      std::unique_ptr<jsem::Sem> sem = jsem::Sem::Open(name);
+      if (!sem) {
+        std::fputs(std::format("jsem: cannot open semaphore {}: errno {}\n", name, errno).c_str(), stderr);
+        ::close(lock);
+      } else if (::fork() == 0) {
+        RunBroker(name, *sem, socket_path);
+      }
     }
   }
-  if (!sem) {
-    ::execv(args[1], &args[1]);
-    std::fputs(std::format("jsem: exec {}: errno {}\n", args[1], errno).c_str(), stderr);
-    return kExecFailed;
-  }
-
-  const pid_t child = ::fork();
-  if (child < 0) {
-    return 1;
-  }
-  if (child == 0) {
-    ::execv(args[1], &args[1]);
-    std::fputs(std::format("jsem: exec {}: errno {}\n", args[1], errno).c_str(), stderr);
-    ::_exit(kExecFailed);
-  }
-  int status = 0;
-  {
-    jsem::Broker broker(*sem, jsem::DaemonSource(socket_path, Env("NIX_BUILD_TOP", "-")));
-    while (::waitpid(child, &status, WNOHANG) != child) {
-      broker.Tick();
-      std::this_thread::sleep_for(kTick);
-    }
-  }
-  return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+  ::execv(args.at(1), &args.at(1));
+  std::fputs(std::format("jsem: exec {}: errno {}\n", args.at(1), errno).c_str(), stderr);
+  return kExecFailed;
 }

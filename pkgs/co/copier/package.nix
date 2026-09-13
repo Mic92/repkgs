@@ -16,7 +16,7 @@ package {
   ];
   dependencies = [
     pkgs.cpython
-    pkgs.libgcc-shim
+    pkgs.libgcc-shim # pydantic-core's prebuilt wheel links libgcc_s.so.1
   ];
   env.SETUPTOOLS_SCM_PRETEND_VERSION = sources.version;
   tests.version = true;

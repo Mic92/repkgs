@@ -3,7 +3,7 @@
 # its store path as a nar to the GitHub release `bootstrap-<pkg>-<version>` and add a
 # `<cpu>` source to pkgs/*/<pkg>-bootstrap/sources.toml. The riscv64 set then fetches it like an
 # upstream tarball (fixed-output, no dependency on this machine's derivations).
-#   tools/upload-bootstrap.nu go jdk [--cpus riscv64] [--repo Mic92/repkgs] [--store-path /nix/store/…]
+#   tools/upload-bootstrap.nu jdk [--cpus riscv64] [--repo Mic92/repkgs] [--store-path /nix/store/…]
 
 def main [
   ...pkgs: string # package names whose output becomes <pkg>-bootstrap's source
@@ -18,7 +18,9 @@ def main [
     let tag = $"bootstrap-($pkg)-($version)"
     let built = ($cpus | split row "," | each {|cpu|
       print -e $"building ($pkg) ($version) for ($cpu)"
-      let out = (if $store_path != null { $store_path } else { ^nix-build $root -A $pkg --argstr platform $"($cpu)-linux" --no-out-link | str trim })
+      # .bundle: the output with its foreign libraries copied in and no store references
+      # (builder/bundle.nu), what a `prebuilt = true` package unpacks
+      let out = (if $store_path != null { $store_path } else { ^nix-build -E $"with import ($root)/nix/set.nix { platform = \"($cpu)-linux\"; }; bundle pkgs.($pkg)" --no-out-link | str trim })
       let file = $"($env.TMPDIR? | default /tmp)/($pkg)-($version)-($cpu)-linux.nar.xz"
       ^nix-store --dump $out | ^xz -T0 -9e | save -f --raw $file
       {cpu: $cpu, file: $file, hash: (^nix-store -q --hash $out | str trim | ^nix hash convert --hash-algo sha256 --to sri $in | str trim)}

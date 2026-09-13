@@ -6,6 +6,7 @@
   buildPkgs,
   platform,
   toolchain,
+  on,
 }:
 package {
   name = "erlang";
@@ -19,13 +20,13 @@ package {
     "--without-wx"
     "--disable-parallel-configure"
   ]
-  ++ (if platform.cross then [ "erl_xcomp_sysroot=${toolchain.sysroot}" ] else [ ]);
+  ++ on platform.cross [ "erl_xcomp_sysroot=${toolchain.sysroot}" ];
   tests.run = false; # the suites run under ts for hours, tests.version and elixir exercise the install
   patches = [
     ./cstdlib.patch
     ./erl-dirname.patch
   ];
-  buildDependencies = [ buildPkgs.perl ] ++ (if platform.cross then [ buildPkgs.erlang ] else [ ]);
+  buildDependencies = [ buildPkgs.perl ] ++ on platform.cross [ buildPkgs.erlang ];
   dependencies = [
     pkgs.ncurses
     pkgs.openssl
@@ -39,5 +40,4 @@ package {
   ];
   # the full version is only in releases/<otp major>/OTP_VERSION, which erl reads here
   tests.version = "erl -noshell -eval {ok,V}=file:read_file(filename:join([code:root_dir(),\"releases\",erlang:system_info(otp_release),\"OTP_VERSION\"])),io:put_chars(V),halt().";
-  tests.relocated = true;
 }

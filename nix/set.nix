@@ -6,10 +6,12 @@
   seed ? null,
   overrides ? { },
   packages ? { },
+  features ? { },
 }:
 let
   ov = import ./overrides.nix;
   overrideTree = ov.merge overrides;
+  feat = import ./features.nix;
   bootstrap = import ../bootstrap { inherit seed system; };
 
   parts = builtins.match "([^-]+)-([^-]+)" platform;
@@ -35,6 +37,8 @@ let
   plat = stage.platform // rec {
     inherit system;
     cross = platform != system;
+    buildRustTriple = bootstrap.stage1.${builtins.head (builtins.split "-" system)}.platform.rustTriple;
+    # its address cap is $QEMU_RESERVED_VA (builder/prepare.nu), build systems want one word here
     emulator =
       if cross && os == "linux" then
         [ "${buildPkgs.qemu}/bin/qemu-${stage.platform.names.qemu}" ]
@@ -59,8 +63,10 @@ let
       self;
 
   # build systems that spawn `sh` by name get the seed's dash
+  lib = import ./lib.nix;
+  inherit (lib) on;
   buildSystems = import ./build-systems.nix {
-    inherit buildPkgs fetch;
+    inherit buildPkgs fetch lib;
     platform = plat;
     pkgs = self;
     sh = bootstrap.seed;
@@ -90,6 +96,7 @@ let
   package = import ./package.nix {
     platform = plat;
     nu = bootstrap.seed;
+    inherit lib;
     # `prebuilt = true` patches upstream ELFs with it (builder/implant.nu)
     relocTools = [ buildPkgs.formatelf ];
     inherit
@@ -101,6 +108,8 @@ let
       ;
     # identity when there are none, so the common case allocates nothing per package
     edit = if overrideTree == { } then null else ov.apply self overrideTree;
+    # [pin] sys names resolve here
+    pkgs = self;
   };
 
   fetch = import ./fetch.nix {
@@ -109,21 +118,6 @@ let
     nu = bootstrap.seed;
     inherit system;
     inherit (plat) cpu;
-    # what the lock-file producers may hand to -sys crates, cgo modules, gems…: every `pkg:` that
-    # builder/sys-libs.nu names and the set has for this platform
-    sysLibs =
-      let
-        words = builtins.filter builtins.isList (
-          builtins.split "pkg: ([a-z0-9-]+)" (builtins.readFile ../builder/sys-libs.nu)
-        );
-        names = map builtins.head words;
-      in
-      builtins.listToAttrs (
-        map (n: {
-          name = n;
-          value = self.${n};
-        }) (builtins.filter (n: self ? ${n} && self.${n}.supported) names)
-      );
   };
 
   scope = {
@@ -135,6 +129,7 @@ let
       ;
     platform = plat;
     pkgs = self;
+    inherit lib on;
   };
   readSources = import ./sources.nix {
     unpacker = bootstrap.seed;
@@ -143,26 +138,65 @@ let
   callPackage =
     dir: name:
     let
-      fn = import (dir + "/package.nix");
       st = dir + "/sources.toml";
       sources = if builtins.pathExists st then readSources st else null;
     in
-    fn (
-      builtins.intersectAttrs (builtins.functionArgs fn) (
-        scope
-        // {
-          inherit sources;
-          package = package sources dir;
-          # another package's spec under this name, edited with override verbs. Own sources.toml
-          # when the directory has one (llvm22: another pin), else the base's (rust-std: same tarball)
-          variant =
-            base: tree:
-            package (if sources == null then base.sources else sources) base.dir (
-              ov.applyOne self name tree (base.args // { inherit name; })
-            );
-        }
-      )
-    );
+    callWith (import (dir + "/package.nix")) dir name sources null;
+  # one package.nix evaluated under `name`: `fn` its function, `edit0` what `variant` adds on
+  # top of the spec (identity for the package itself). `variant pkgs.llvm { … }` re-enters here
+  # with llvm's function, so the base body sees this name's sources and features
+  callWith =
+    fn: dir: name: sources: edit0:
+    let
+      formals = builtins.functionArgs fn;
+      edit = if edit0 == null then (a: a) else edit0;
+      local = overrideTree.${name}.features or { };
+      # default <- set-wide <- overrides.<name>.features, for a package.nix that takes `features`.
+      # Its declaration is read by one more call whose `package` just returns it: lazy (no spec
+      # is built), and the real call's dependencies may then depend on feature values. One that
+      # declares features without reading them only pays when overridden
+      resolved =
+        if formals ? features || local != { } then
+          feat.resolve name
+            (fn (
+              builtins.intersectAttrs formals (
+                scope
+                // {
+                  inherit sources;
+                  features = { };
+                  package = a: { decl = (edit a).features or { }; };
+                  variant = base: _tree: { inherit (base) decl; };
+                }
+              )
+            )).decl
+            features
+            local
+        else
+          { };
+      result = fn (
+        builtins.intersectAttrs formals (
+          scope
+          // {
+            inherit sources;
+            features = resolved;
+            package =
+              if edit0 == null then
+                package sources dir resolved fn
+              else
+                args: package sources dir resolved fn (edit0 args);
+            # another package's spec under this name, edited with override verbs: this function
+            # again with the base's package.nix. Own sources.toml when the directory has one
+            # (llvm22: another pin), else the base's (rust-std: same tarball). A list of trees merges
+            variant =
+              base: tree:
+              callWith base.fn base.dir name (if sources == null then base.sources else sources) (
+                args: ov.applyOne self name (ov.merge tree) (edit args // { inherit name; })
+              );
+          }
+        )
+      );
+    in
+    result;
 
   # pkgs/<first two letters>/<name>/package.nix, attribute name == directory name
   unknownOverrides = ov.unknown (self // aliases) overrideTree;
@@ -205,4 +239,9 @@ in
       self
   );
   inherit bootstrap buildSystems toolchain;
+  bundle = import ./bundle.nix {
+    nu = bootstrap.seed;
+    tools = [ buildPkgs.formatelf ] ++ baseTools.bootstrap;
+    tree = ../builder;
+  };
 }
