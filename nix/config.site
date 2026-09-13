@@ -187,6 +187,12 @@ ac_cv_iconv_omits_bom=no # git
 ac_cv_fread_reads_directories=yes # git
 ac_cv_snprintf_returns_bogus=no # git
 
+# libtool: the toolchain is fixed
+lt_cv_deplibs_check_method=pass_all
+lt_cv_sys_max_cmd_len=1572864
+lt_cv_shlibpath_overrides_runpath=yes
+fi # linux
+
 # tools by name: configure substitutes their build PATH location into what gets installed
 # (python _sysconfigdata, ruby rbconfig.rb), a build machine reference
 ac_cv_path_mkdir=mkdir
@@ -195,12 +201,6 @@ ac_cv_path_EGREP="grep -E"
 ac_cv_path_FGREP="grep -F"
 ac_cv_path_SED=sed
 MKDIR_P="mkdir -p"
-
-# libtool: the toolchain is fixed
-lt_cv_deplibs_check_method=pass_all
-lt_cv_sys_max_cmd_len=1572864
-lt_cv_shlibpath_overrides_runpath=yes
-fi # linux
 
 if test "$site_os" = macos; then
 # libtool greps stderr for this probe and ld64.lld prints a deprecation note: "no" would take the
