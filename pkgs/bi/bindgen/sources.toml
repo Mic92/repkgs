@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/rust-lang/rust-bindgen"
+
+[[source]]
+key = "default"
+url = "https://github.com/rust-lang/rust-bindgen/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-b+0LM4AbngOsOPp0YjLww3EINHJFSbISLbUa2H/HiaA="
+
+[pin]
+version = "0.73.2"
+tag = "v0.73.2"
+sys = ["clang"]
