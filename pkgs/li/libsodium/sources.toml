@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/jedisct1/libsodium"
+
+[[source]]
+key = "default"
+url = "https://github.com/jedisct1/libsodium/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-k8u7iNqvjLA0PptbneDyE8zCtutJlV2LirrRb41tmBY="
+
+[pin]
+version = "1.0.22"
+date = "2026-04-09"
+tag = "1.0.22"
