@@ -1,0 +1,66 @@
+bmake-only conditionals as computed variable names, GNU make reads those too.
+install_name under @rpath, a bare file name is looked up relative to cwd.
+
+--- a/Makefile
++++ b/Makefile
+@@ -150,13 +150,9 @@ CFLAGS		+= -DVERSION=\"$(VERSION)\" -I. -Isrc -Isrc/format -Isrc/parse
+ # failure.
+ # Has no effect unless HAVE_SANDBOX_INIT is defined.
+ 
+-.ifdef SANDBOX_INIT_ERROR_IGNORE
+-.if $(SANDBOX_INIT_ERROR_IGNORE) == "always"
+-CFLAGS		+= -DSANDBOX_INIT_ERROR_IGNORE=2
+-.else
+-CFLAGS		+= -DSANDBOX_INIT_ERROR_IGNORE=1
+-.endif
+-.endif
++SANDBOX_IGNORE_always	= -DSANDBOX_INIT_ERROR_IGNORE=2
++SANDBOX_IGNORE_yes	= -DSANDBOX_INIT_ERROR_IGNORE=1
++CFLAGS		+= $(SANDBOX_IGNORE_$(SANDBOX_INIT_ERROR_IGNORE))
+ 
+ # Names of shared and static libraries.
+ 
+@@ -170,23 +166,21 @@ LIB_ST		 = liblowdown.a
+ # The dynamic version will also need the compats when building the main
+ # object.
+ 
+-LIB_LOWDOWN 	 = $(LIB_ST)
+-MAIN_OBJS	 = src/main.o
+-.ifdef LINK_METHOD
+-.if $(LINK_METHOD) == "shared"
+-LIB_LOWDOWN 	 = $(LIB_SO)
+-MAIN_OBJS	 = $(COMPAT_OBJS) src/main.o
+-.endif
+-.endif
++LIB_LOWDOWN_static	 = $(LIB_ST)
++LIB_LOWDOWN_	 = $(LIB_ST)
++LIB_LOWDOWN_shared	 = $(LIB_SO)
++MAIN_OBJS_shared = $(COMPAT_OBJS)
++LIB_LOWDOWN 	 = $(LIB_LOWDOWN_$(LINK_METHOD))
++MAIN_OBJS	 = $(MAIN_OBJS_$(LINK_METHOD)) src/main.o
+ 
+ # Mac OS X and other Unix systems use different conventions for
+ # indicating shared library versions.
+ 
+-.if $(LINKER_SOSUFFIX) == "dylib"
+-LIB_SOVER	 = liblowdown.$(LIBVER).$(LINKER_SOSUFFIX)
+-.else
+-LIB_SOVER	 = liblowdown.$(LINKER_SOSUFFIX).$(LIBVER)
+-.endif
++LIB_SOVER_dylib	 = liblowdown.$(LIBVER).dylib
++LIB_SOVER_so	 = liblowdown.so.$(LIBVER)
++LIB_SOVER	 = $(LIB_SOVER_$(LINKER_SOSUFFIX))
++LIB_SONAME_dylib = @rpath/$(LIB_SOVER)
++LIB_SONAME_so	 = $(LIB_SOVER)
+ 
+ # Because the objects will be compiled into a shared library:
+ CFLAGS		+= -fPIC
+@@ -257,7 +251,7 @@ $(LIB_ST): $(OBJS) $(COMPAT_OBJS)
+ $(LIB_SO): $(OBJS) $(COMPAT_OBJS)
+ 	$(CC) $(LINKER_SOFLAG) -o $(LIB_SOVER) $(OBJS) $(COMPAT_OBJS) \
+ 		$(LDFLAGS) $(LDADD_MD5) -lm \
+-		-Wl,${LINKER_SONAME},$(LIB_SOVER) $(LDLIBS)
++		-Wl,${LINKER_SONAME},$(LIB_SONAME_$(LINKER_SOSUFFIX)) $(LDLIBS)
+ 	ln -sf $(LIB_SOVER) $@
+ 
+ # Uninstall routines.
