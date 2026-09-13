@@ -1,7 +1,8 @@
 // Bitcask-style blob store: values are appended to the active pack file, an in-memory map says
 // where each key lives, sealed packs get a hint file so startup does not scan data. Eviction drops
-// whole packs, least recently read first. Nothing is fsynced: this is a cache, a torn tail is
-// truncated on load.
+// whole packs, mostly superseded ones first, then least recently read. A pack's mtime is its last
+// read so recency survives restarts. Nothing is fsynced: this is a cache, a torn tail is truncated
+// on load.
 //
 //	packs/000042.pack  records: u32 keylen, u32 vallen, key, value   (little endian)
 //	packs/000042.hint  same records without the value, plus u64 offset of the record in .pack
@@ -20,7 +21,11 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
+
+// a Get moves its pack's mtime at most this often
+const touchEvery = time.Minute
 
 const (
 	packLimit = 256 << 20 // seal the active pack at this size
@@ -34,17 +39,18 @@ type loc struct {
 }
 
 type pack struct {
-	id   uint32
-	file *os.File
-	size int64
-	live int64        // bytes of values the index still points at
-	used atomic.Int64 // sequence number of the last Get served from this pack
+	id      uint32
+	file    *os.File
+	size    int64
+	live    int64        // bytes of values the index still points at
+	used    atomic.Int64 // unix nanos of the last Get served from this pack
+	touched atomic.Int64 // what the file's mtime says, moved at most every touchEvery
 }
 
 type Store struct {
 	dir    string
 	budget int64
-	reads  atomic.Int64 // Get counter, the clock for pack.used
+	now    func() time.Time
 
 	mu     sync.RWMutex
 	index  map[string]loc
@@ -61,7 +67,7 @@ func OpenStore(dir string, budget int64) (*Store, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
-	s := &Store{dir: dir, budget: budget, index: make(map[string]loc), packs: make(map[uint32]*pack)}
+	s := &Store{dir: dir, budget: budget, now: time.Now, index: make(map[string]loc), packs: make(map[uint32]*pack)}
 	names, err := filepath.Glob(filepath.Join(dir, "*.pack"))
 	if err != nil {
 		return nil, err
@@ -94,6 +100,8 @@ func (s *Store) load(id uint32) error {
 		return err
 	}
 	p := &pack{id: id, file: file, size: info.Size()}
+	p.used.Store(info.ModTime().UnixNano())
+	p.touched.Store(info.ModTime().UnixNano())
 	add := func(key string, l loc) {
 		if old, ok := s.index[key]; ok {
 			s.packs[old.pack].live -= int64(old.len)
@@ -190,6 +198,8 @@ func (s *Store) rotate(id uint32) error {
 		return err
 	}
 	s.active = &pack{id: id, file: file}
+	s.active.used.Store(s.now().UnixNano()) // being written counts as recent
+	s.active.touched.Store(s.now().UnixNano())
 	s.packs[id] = s.active
 	return nil
 }
@@ -204,7 +214,11 @@ func (s *Store) Get(key string) *io.SectionReader {
 		return nil
 	}
 	p := s.packs[l.pack]
-	p.used.Store(s.reads.Add(1))
+	now := s.now()
+	p.used.Store(now.UnixNano())
+	if last := p.touched.Load(); now.UnixNano()-last > int64(touchEvery) && p.touched.CompareAndSwap(last, now.UnixNano()) {
+		os.Chtimes(p.file.Name(), time.Time{}, now)
+	}
 	return io.NewSectionReader(p.file, int64(l.off), int64(l.len))
 }
 
@@ -238,9 +252,9 @@ func (s *Store) Put(key string, value []byte) error {
 	return nil
 }
 
-// evict drops whole sealed packs until under budget: the one longest without a read first (by
-// id among never-read ones), so a full disk forgets what no build asks for, not the oldest
-// toolchain objects every build replays. Called with mu held.
+// evict drops whole sealed packs until under budget: mostly superseded ones first (their space
+// is free without losing much), then the one longest without a read, so a full disk forgets what
+// no build asks for, not the toolchain objects every build replays. Called with mu held.
 func (s *Store) evict() {
 	if s.budget <= 0 {
 		return
@@ -251,8 +265,13 @@ func (s *Store) evict() {
 			ids = append(ids, id)
 		}
 	}
+	stale := func(p *pack) bool { return p.live*2 < p.size }
 	sort.Slice(ids, func(i, j int) bool {
-		ui, uj := s.packs[ids[i]].used.Load(), s.packs[ids[j]].used.Load()
+		pi, pj := s.packs[ids[i]], s.packs[ids[j]]
+		if stale(pi) != stale(pj) {
+			return stale(pi)
+		}
+		ui, uj := pi.used.Load(), pj.used.Load()
 		return ui < uj || (ui == uj && ids[i] < ids[j])
 	})
 	for _, id := range ids {

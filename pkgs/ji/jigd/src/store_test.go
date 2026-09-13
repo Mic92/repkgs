@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func read(t *testing.T, s *Store, key string) []byte {
@@ -96,6 +97,59 @@ func TestEvictKeepsReadPack(t *testing.T) {
 	}
 	if read(t, s, fmt.Sprintf("o/%d", per+1)) != nil {
 		t.Fatal("pack 2 was never read and survived")
+	}
+}
+
+// recency is the pack's mtime: a pack read before a restart outlives one that was not
+func TestEvictRecencySurvivesRestart(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := OpenStore(dir, 0)
+	big := bytes.Repeat([]byte{1}, 1<<20)
+	per := packLimit / len(big)
+	for i := 0; i < 2*per; i++ {
+		s.Put(fmt.Sprintf("o/%d", i), big)
+	}
+	s.now = func() time.Time { return time.Now().Add(time.Hour) }
+	read(t, s, "o/0") // pack 1 read later than pack 2 was written, pack 2 never read
+	s.Close()
+
+	s2, _ := OpenStore(dir, 2*packLimit+packLimit/2)
+	if p1, p2 := s2.packs[1].used.Load(), s2.packs[2].used.Load(); p1 <= p2 {
+		t.Fatalf("after restart pack 1 used=%v not newer than pack 2 used=%v", time.Unix(0, p1), time.Unix(0, p2))
+	}
+	for i := 2 * per; i < 7*per/2; i++ {
+		s2.Put(fmt.Sprintf("o/%d", i), big)
+	}
+	if read(t, s2, "o/0") == nil {
+		t.Fatal("pack 1 was read before the restart and got evicted")
+	}
+	if read(t, s2, fmt.Sprintf("o/%d", per+1)) != nil {
+		t.Fatal("pack 2 was never read and survived")
+	}
+}
+
+// a pack whose entries were mostly overwritten goes before a fully live one, however recent
+func TestEvictSupersededFirst(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := OpenStore(dir, 2*packLimit+packLimit/2)
+	big := bytes.Repeat([]byte{1}, 1<<20)
+	per := packLimit / len(big)
+	for i := 0; i < per; i++ { // pack 1: o/0..per
+		s.Put(fmt.Sprintf("o/%d", i), big)
+	}
+	for i := 0; i < per; i++ { // pack 2: the same keys again, pack 1 is now dead weight
+		s.Put(fmt.Sprintf("o/%d", i), big)
+	}
+	read(t, s, "o/0") // served from pack 2; pack 1 gets no reads but make it "recent" anyway
+	s.packs[1].used.Store(time.Now().Add(time.Hour).UnixNano())
+	for i := per; i < 5*per/2; i++ { // pack 3 and a half: over budget
+		s.Put(fmt.Sprintf("o/%d", i), big)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "000001.pack")); !os.IsNotExist(err) {
+		t.Fatal("superseded pack 1 still on disk")
+	}
+	if read(t, s, "o/0") == nil {
+		t.Fatal("live pack 2 evicted instead of dead pack 1")
 	}
 }
 
