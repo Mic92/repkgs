@@ -1,6 +1,8 @@
 {
   package,
   pkgs,
+  platform,
+  on,
 }:
 package {
   name = "sqlite";
@@ -9,7 +11,9 @@ package {
   make.configureFlags = [
     "--enable-all"
     "--enable-column-metadata"
-  ];
+  ]
+  # autosetup takes the shared library suffix from --host, else from the build machine
+  ++ on platform.cross [ "--host=${platform.configTriple}" ];
   tests.run = false; # needs tcl
   dependencies = [ pkgs.zlib ];
 }
