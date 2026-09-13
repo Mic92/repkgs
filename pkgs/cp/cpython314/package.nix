@@ -10,6 +10,7 @@ package {
   name = "cpython314";
   uses = [ "autotools" ];
   autotools.flags = [
+    "--disable-test-modules"
     "--without-ensurepip"
     "--with-openssl=${pkgs.openssl}"
     "--with-system-libmpdec"
