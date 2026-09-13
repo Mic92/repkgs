@@ -335,9 +335,10 @@ auto BuildDriverArgs(const DriverConf& conf, Language lang, std::span<const std:
   for (const std::string& mapping : Split(Env("PKGS_PREFIX_MAP"), ':')) {
     out.push_back("-ffile-prefix-map=" + mapping);
   }
-  // build-id: finish.nu files split DWARF under it. Before the user's args so theirs wins
+  // build-id for the debug split, package note to tell our links from upstream's. User args win
   if (conf.binfmt == BinFmt::kElf) {
     out.emplace_back("-Wl,--build-id=sha1");
+    out.emplace_back("-Wl,--package-metadata={\"type\":\"repkgs\"}");
   }
   out.emplace_back("--end-no-unused-arguments");
   out.insert(out.end(), user.args.begin(), user.args.end());

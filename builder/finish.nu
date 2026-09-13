@@ -179,20 +179,20 @@ def relocate-elf [c: record, inv: table]: nothing -> nothing {
   if $prebuilt != "ldso" { x reloc-fixup $c.out --dest $c.dest ...$deny }
 }
 
-# DWARF -> `debug` under lib/debug/.build-id/, .symtab stays. A build-id means our linker made
-# it, so no DWARF there is a build that strips: an error. No build-id: upstream binary, left alone
+# DWARF -> `debug` under lib/debug/.build-id/, .symtab stays. Only for what jig linked (its
+# package note): no DWARF there means the build strips, an error. Upstream binaries are left alone
 export def split-debug [out: path, debug: path, njobs: int, files: table]: nothing -> nothing {
   strip-archives $out ($files | where rel =~ '\.[ao]$')
   let elfs = (elf-table ($files | where size > 3072 and rel !~ '\.(a|o|rlib)$' | get path) $njobs)
-  let stripped = ($elfs | where id != null and dwarf == false)
+  let stripped = ($elfs | where {|e| $e.ours and not $e.dwarf })
   if ($stripped | is-not-empty) {
     error make {msg: $"debug: linked here but no DWARF: ($stripped.file | first 3 | path relative-to $out | str join ' '). The build strips or drops -g. Fix that, or debug = false"}
   }
-  let foreign = ($elfs | where id == null)
+  let foreign = ($elfs | where {|e| not $e.ours })
   if ($foreign | is-not-empty) {
-    note debug $"($foreign | length) ELF files without build-id left as they are \(($foreign.file | first 2 | path basename | str join ' ')…)"
+    note debug $"($foreign | length) ELF files not linked here left as they are \(($foreign.file | first 2 | path basename | str join ' ')…)"
   }
-  let ours = ($elfs | where id != null)
+  let ours = ($elfs | where {|e| $e.ours })
   if ($ours | is-empty) { return }
   ^chmod u+w ...$ours.file
   # one build-id twice is one binary installed twice: one .debug serves both
@@ -215,22 +215,22 @@ def strip-archives [out: path, archives: table]: nothing -> nothing {
 }
 
 # build-id and .debug_info presence per ELF, readelf batched and split at its "File:" headers
-def elf-table [candidates: list<string>, njobs: int]: nothing -> table<file: string, id: any, dwarf: bool> {
+def elf-table [candidates: list<string>, njobs: int]: nothing -> table<file: string, id: any, ours: bool, dwarf: bool> {
   $candidates
   | where { is-elf $in }
   | chunks 64 | par-each --threads $njobs {|batch|
     let text = (^llvm-readelf -S -n ...$batch)
     let per_file = (if ($batch | length) == 1 { [$"($batch.0)\n($text)"] } else { $"\n($text)" | split row "\nFile: " | skip 1 })
     $per_file | each {|t|
-      {file: ($t | lines | first), id: ($t | parse -r 'Build ID: ([0-9a-f]+)' | get -o capture0.0), dwarf: ($t | str contains ".debug_info")}
+      # 0xcafe1a7e: the FDO package note jig links in
+      {file: ($t | lines | first), id: ($t | parse -r 'Build ID: ([0-9a-f]+)' | get -o capture0.0), ours: ($t | str contains "0xcafe1a7e"), dwarf: ($t | str contains ".debug_info")}
     }
   } | flatten
 }
 
-# tests.version: a command whose output must contain the upstream version ("-V", "ghc-pkg
-# --numeric-version", true = "--version"), its first word picks the binary if bin/ has it. Run
-# in the store and again from a copy of the closure under another root with env -i: an absolute
-# store path to a dependency only shows there. Under dlaudit: a failed dlopen is a missing dependency
+# tests.version: a command whose output must contain the pinned version (true = --version), its
+# first word picks the binary. Run in place and from a copy of the closure under another root
+# (env -i), where an absolute store path would show. Under dlaudit: a failed dlopen is an error
 def version-check [c: record]: nothing -> nothing {
   let bins = (bins $c)
   let line = ($c.spec.tests?.version? | default ($bins | is-not-empty))
