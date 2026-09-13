@@ -8,5 +8,6 @@ package {
   uses = [ "cabal" ];
   cabal.tool = buildPkgs.cabal-bootstrap;
   cabal.exes = [ "cabal" ];
+  tests.run = false; # the suites need Cabal-described, in cabal's repo but not on hackage
   tests.version = "--numeric-version";
 }
