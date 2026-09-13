@@ -8,6 +8,9 @@
   platform,
   on,
 }:
+let
+  glibc = builtins.fromTOML (builtins.readFile ../../gl/glibc/sources.toml);
+in
 package {
   name = "zig";
   uses = [ "cmake" ];
@@ -27,8 +30,8 @@ package {
   # own find_library adds them back
   // on platform.cross {
     ZIG_EXECUTABLE = "${buildPkgs.zig}/bin/zig";
-    # our glibc's version: zig's default (2.28) stubs lack symbols our headers name (__isoc23_*)
-    ZIG_TARGET_TRIPLE = "${platform.cpu}-linux-gnu.${pkgs.glibc.version}";
+    # our glibc's version: zig's default (2.28) stubs lack symbols our headers use (__isoc23_*)
+    ZIG_TARGET_TRIPLE = "${platform.cpu}-linux-gnu.${glibc.pin.version}";
     ZIG_USE_LLVM_CONFIG = true;
     CMAKE_PROGRAM_PATH = "${pkgs.zig-llvm}/host";
     ZIG_STATIC_ZLIB = true;
