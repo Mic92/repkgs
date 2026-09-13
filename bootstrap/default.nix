@@ -58,7 +58,10 @@ let
       launch = pkg "launch" + "/src/launch.cc";
       inherit json_hpp;
     };
-    cc.crt_interp = pkg "crt-interp" + "/src/crt_interp.c";
+    cc = {
+      crt_interp = pkg "crt-interp" + "/src/crt_interp.c";
+      reloc_h = pkg "crt-interp" + "/src/reloc.h";
+    };
     dlaudit.dlaudit = pkg "dlaudit" + "/src/dlaudit.cc";
   };
   # run.nu + lib.nu + builder/glob.nu + the one recipe, laid out as in the tree (bootstrap/, pkgs/x/x/) so the recipe's

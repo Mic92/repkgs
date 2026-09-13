@@ -32,6 +32,8 @@ def driver-flags [sysroot: string]: nothing -> record<flags: list<string>, cxxfl
 def elf-policy [out: string, sysroot: string]: nothing -> record {
   # compile from cwd: the STT_FILE symbol would otherwise record a store path
   cp $env.crt_interp crt_interp.c
+  mkdir $"($out)/include"
+  cp $env.reloc_h $"($out)/include/reloc.h"
   let flags = [...(target) -O2 -fPIE -ffreestanding -nostdlib -nostdinc -fno-builtin -fno-stack-protector -fno-asynchronous-unwind-tables]
   x clang ...$flags -c crt_interp.c -o $"($out)/lib/crt_interp.o"
   x clang ...$flags -DRELOC_STUB -fno-jump-tables -fvisibility=hidden -c crt_interp.c -o reloc_stub.o
@@ -87,7 +89,7 @@ def main []: nothing -> nothing {
   let conf = {
     cc: (seed-bin clang)
     binfmt: $env.binfmt
-    flags: ([$"-B($out)/bin"] ++ $d.flags | str join " ")
+    flags: ([$"-B($out)/bin"] ++ $d.flags ++ (if $env.binfmt == "elf" { [$"-isystem($out)/include"] } else { [] }) | str join " ")
     cxxflags: $d.cxxflags
     prefix-map: $"($sysroot)=/sysroot:($out)=/cc"
   }
