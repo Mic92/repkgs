@@ -1,0 +1,23 @@
+clang with the GNU driver targeting *-windows-msvc links with lld-link: no --output-def,
+the default manifest still needs turning off, and MSVC is only set for cl-style drivers.
+
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -226,6 +226,8 @@
+ # See: https://gitlab.kitware.com/cmake/cmake/-/issues/23066
+ if(MSVC)
+     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /MANIFEST:NO")
++elseif(CMAKE_C_SIMULATE_ID STREQUAL "MSVC")
++    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,/MANIFEST:NO")
+ endif()
+ 
+ # Dependencies for all Windows resource files:
+@@ -1485,7 +1487,7 @@
+         # Export the public API symbols with __declspec(dllexport).
+         target_compile_definitions(liblzma PRIVATE DLL_EXPORT)
+ 
+-        if(NOT MSVC AND NOT CYGWIN)
++        if(NOT MSVC AND NOT CYGWIN AND NOT CMAKE_C_SIMULATE_ID STREQUAL "MSVC")
+             # Create a DEF file. The Autotools-based build creates a DEF file
+             # under Cygwin & MSYS2 too but it almost certainly is a useless
+             # file in that context, so the CMake build omits it.
