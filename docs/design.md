@@ -138,7 +138,7 @@ reference scanner work unchanged.
 | scripts, wrappers | `launch`: `bin/foo` hardlink + `bin/.foo.launch` record with `{root}` placeholders. No shebang patching, no makeWrapper |
 | glibc data, pkg-config, cmake | relative to `libc.so.6` (one patch), `${pcfiledir}`, native. `.la` deleted |
 | exported environment | `exports.json` values with `{root}` |
-| compiled-in prefix | dirname-relative patch (openssl providers), `tests.relocated` runs the output from a copy |
+| compiled-in prefix | built under a scratch prefix that finish moves, leftovers are an error; reloc.h patch (openssl providers) |
 
 The build never sees its store path: `$out` is `$NIX_BUILD_TOP/prefix`, finish makes what it
 knows relative to the final location, fails if any file still names the prefix, and moves the

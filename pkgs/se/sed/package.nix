@@ -8,6 +8,5 @@ package {
     "--without-selinux"
   ];
   # testsuite wants perl + valgrind bits
-  tests.relocated = true;
   tests.run = false;
 }

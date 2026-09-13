@@ -4,7 +4,6 @@ package {
   uses = [ "autotools" ];
   bootstrapTools = true;
   autotools.flags = [ "--disable-perl-regexp" ];
-  tests.relocated = true;
   tests.run = false; # perl
   phases.after."autotools.install" = [
     {

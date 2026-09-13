@@ -16,7 +16,6 @@ package {
     "--enable-single-binary=symlinks"
   ];
   env.FORCE_UNSAFE_CONFIGURE = "1";
-  tests.relocated = true;
   tests.run = false; # perl, and many root/tty assumptions
   bin = [
     "ls"

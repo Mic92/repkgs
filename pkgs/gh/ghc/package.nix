@@ -42,6 +42,5 @@ package {
     "haddock"
   ];
   tests.version = "--numeric-version";
-  tests.relocated = true;
   exports = false;
 }

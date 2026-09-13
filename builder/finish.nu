@@ -228,9 +228,9 @@ def elf-table [candidates: list<string>, njobs: int]: nothing -> table<file: str
 }
 
 # tests.version: a command whose output must contain the upstream version ("-V", "ghc-pkg
-# --numeric-version", true = "--version"), its first word picks the binary if bin/ has it.
-# tests.relocated reruns it from a moved copy with env -i. Both run under dlaudit: a dlopen
-# that finds nothing is a missing dependency
+# --numeric-version", true = "--version"), its first word picks the binary if bin/ has it. Run
+# in the store and again from a copy of the closure under another root with env -i: an absolute
+# store path to a dependency only shows there. Under dlaudit: a failed dlopen is a missing dependency
 def version-check [c: record]: nothing -> nothing {
   let bins = (bins $c)
   let line = ($c.spec.tests?.version? | default ($bins | is-not-empty))
@@ -259,17 +259,14 @@ def version-check [c: record]: nothing -> nothing {
     }
   }
   do $run $c.out
-  let relocated = ($c.spec.tests?.relocated? == true)
-  if $relocated {
-    let root = $"($env.NIX_BUILD_TOP)/relocated"
-    # beside the copy: every store root the build saw, and launch (bin/ launchers link to it)
-    mkdir $root
-    for d in ($c.roots ++ [($c.platform.launch | path dirname -n 2)] | uniq) { ^ln -s $d $root }
-    ^cp -r $c.out $root
-    do $run $"($root)/($c.out | path basename)"
-    rm -rf $root
-  }
-  note version $"($cmd | str join ' ') -> ($want)(if $relocated { ', relocated' })"
+  # beside the copy: every store root the build saw, and launch (bin/ launchers link to it)
+  let root = $"($env.NIX_BUILD_TOP)/relocated"
+  mkdir $root
+  for d in ($c.roots ++ [($c.platform.launch | path dirname -n 2)] | uniq) { ^ln -s $d $root }
+  ^cp -r $c.out $root
+  do $run $"($root)/($c.out | path basename)"
+  rm -rf $root
+  note version $"($cmd | str join ' ') -> ($want)"
 }
 
 # "jig: cc cached=812/855 (95%) compiled=40 …" from $JIG_LOG (tool, outcome, subject, ms per run)

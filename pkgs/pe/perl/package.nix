@@ -22,5 +22,4 @@ package {
     else
       { };
   tests.run = false; # hours; t/ wants a hostname, /etc/protocols, ...
-  tests.relocated = true;
 }

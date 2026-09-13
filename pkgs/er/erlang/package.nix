@@ -40,5 +40,4 @@ package {
   ];
   # the full version is only in releases/<otp major>/OTP_VERSION, which erl reads here
   tests.version = "erl -noshell -eval {ok,V}=file:read_file(filename:join([code:root_dir(),\"releases\",erlang:system_info(otp_release),\"OTP_VERSION\"])),io:put_chars(V),halt().";
-  tests.relocated = true;
 }

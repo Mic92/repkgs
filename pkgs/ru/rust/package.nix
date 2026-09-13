@@ -32,6 +32,5 @@ package {
     "cargo"
   ];
   tests.version = "-V";
-  tests.relocated = true;
   exports = false;
 }

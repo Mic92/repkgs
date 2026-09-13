@@ -51,7 +51,6 @@ package {
     }
   ];
   tests.run = false; # hours
-  tests.relocated = true;
   bin = [
     "node"
     "npm"

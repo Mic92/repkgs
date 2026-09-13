@@ -51,7 +51,6 @@ package (
       "runghc"
     ];
     tests.version = "--numeric-version";
-    tests.relocated = true;
     exports = false;
   }
   # the .deb's version, not the upstream pin

@@ -53,5 +53,4 @@ package {
     pkgs.pcre2
     pkgs.openssl
   ];
-  tests.relocated = true;
 }

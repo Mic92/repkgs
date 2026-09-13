@@ -18,5 +18,4 @@ package {
       '';
     }
   ];
-  tests.relocated = true;
 }

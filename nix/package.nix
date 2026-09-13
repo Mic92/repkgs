@@ -156,7 +156,6 @@ let
       "separate"
       "parallel"
       "version"
-      "relocated"
       "dlopen"
     ];
     cc = [

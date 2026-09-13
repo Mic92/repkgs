@@ -24,5 +24,4 @@ package {
     "mix"
     "iex"
   ];
-  tests.relocated = true;
 }

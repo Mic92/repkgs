@@ -13,7 +13,6 @@ package {
     "bash_cv_job_control_missing=nomissing"
     "bash_cv_sys_named_pipes=nomissing"
   ];
-  tests.relocated = true;
   tests.run = false; # interactive/tty
   links."bin/sh" = "bash";
   bin = [

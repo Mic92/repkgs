@@ -138,8 +138,8 @@ prefix is no build system is `rust.nu` next to package.nix. pkgs/ru/rust does th
 Every build ends the same way. ELF outputs are made relocatable. `bin/<name> --version` runs in
 an empty environment and has to print the pinned version. A `dlopen` that finds nothing during
 that run fails the build, unless `tests.dlopen = [ "libudev.so.1" ]` declares it optional.
-`tests.relocated = true` repeats the run from a copy of the output at another path, and
-`tests.separate = true` puts the test phase in its own derivation.
+The run is repeated from a copy of the closure under another root. `tests.separate = true` puts
+the test phase in its own derivation.
 
 Hardening and `-O2 -g` are compiler defaults, injected by the driver and not through `CFLAGS`.
 `cc.hardening.fortify = false` turns one off, `cc.cflags = [ "-DFOO" ]` (and `cxxflags`,

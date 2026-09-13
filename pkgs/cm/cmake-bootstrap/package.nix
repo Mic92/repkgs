@@ -18,7 +18,6 @@ package {
   ];
   platforms.cross = false;
   tests.run = false;
-  tests.relocated = true;
   bin = [
     "cmake"
     "ctest"

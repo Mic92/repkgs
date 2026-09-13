@@ -7,7 +7,6 @@ package {
   patches = [ ./relocatable.patch ];
   autotools.flags = [ "--without-guile" ];
   autotools.makeFlags = [ "MAKEINFO=true" ];
-  tests.relocated = true;
   tests.run = false; # perl
   bin = [ "make" ];
 }
