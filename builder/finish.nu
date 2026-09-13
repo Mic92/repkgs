@@ -3,7 +3,7 @@ use core.nu *
 use implant.nu
 use launchers.nu
 
-# --env: the cd below must outlive this call, the caller's workdir is gone after to-store
+# --env: the cd must outlive the call
 export def --env main [
   --keep-tree  # tests.separate: save source+build tree for the tests derivation
 ]: nothing -> nothing {
@@ -14,34 +14,36 @@ export def --env main [
   for b in (bins $c) {
     if not ($"($c.out)/bin/($b)" | path exists) { error make {msg: $"bin/($b) missing in output"} }
   }
-  prune $c.out
-  layout-check $c.out $c.dest
+  let inv = (prune $c.out (inventory $c.out))
+  layout-check $c.out
   # installed copies of source scripts carry the build env's path from prepare: not a dependency
   fix-env-shebangs $c.out $c.njobs --undo
   mkdir (attrs).outputs.debug
-  if $c.platform.binfmt == "elf" { relocate-elf $c }
+  if $c.platform.binfmt == "elf" { relocate-elf $c $inv }
   write-exports $c.out $c.spec $c.deps
   note exports (open --raw $"($c.out)/exports.json" | from json | to json -r)
-  cd $env.NIX_BUILD_TOP # the workdir may be inside the prefix (bundler)
-  to-store $c.out $c.dest
+  cd $env.NIX_BUILD_TOP
+  to-store $c.out $c.dest $inv
   version-check ($c | update out $c.dest)
   cache-summary
 }
 
-# .pc files can name their own location: the prefix becomes ${pcfiledir}/../..
-def relativize-pc [prefix: string]: nothing -> nothing {
-  for f in (^grep -rlF $prefix $prefix --include=*.pc | complete | get stdout | lines) {
+# prefix -> ${pcfiledir}/../..
+def relativize-pc [prefix: string, pcs: list<string>]: nothing -> nothing {
+  if ($pcs | is-empty) { return }
+  for f in (^grep -lF $prefix ...$pcs | complete | get stdout | lines) {
     let up = ($f | path dirname | path relative-to $prefix | path split | each { ".." } | str join "/")
     open --raw $f | str replace -a $prefix $"${pcfiledir}/($up)" | save -f $f
   }
 }
 
-# sh scripts in bin/ with a `prefix=<prefix>` line (foo-config): prefix from $0, later
-# mentions ${prefix}
+# foo-config style sh scripts: prefix from $0
 def relativize-scripts [prefix: string]: nothing -> nothing {
-  if not ($"($prefix)/bin" | path exists) { return }
+  # listed afresh: launchers renamed bin/x to bin/.x
+  let scripts = (if ($"($prefix)/bin" | path exists) { ^find $"($prefix)/bin" -maxdepth 1 -type f | lines } else { [] })
+  if ($scripts | is-empty) { return }
   const FROM_0 = 'prefix=$(cd "$(dirname "$0")/.." && pwd -P)'
-  for f in (^grep -rlF $prefix $"($prefix)/bin" | complete | get stdout | lines) {
+  for f in (^grep -lF $prefix ...$scripts | complete | get stdout | lines) {
     let lines = (open --raw $f | lines)
     if ($lines.0 !~ '^#!.*sh$') or not ($lines | any { ($in | str replace -ar `["']` "") == $"prefix=($prefix)" }) { continue }
     ($lines
@@ -51,13 +53,13 @@ def relativize-scripts [prefix: string]: nothing -> nothing {
   }
 }
 
-# prefix -> store. A file still naming the prefix would dangle: not relocatable, an error
-export def to-store [prefix: string, dest: string]: nothing -> nothing {
-  relativize-pc $prefix
+# prefix -> store, anything still naming the prefix is an error
+export def to-store [prefix: string, dest: string, inv: table]: nothing -> nothing {
+  relativize-pc $prefix ($inv | where type == f and rel =~ '\.pc$' | get path)
   relativize-scripts $prefix
+  relativize-links $prefix $dest
   let hits = (^grep -rlF $prefix $prefix | complete | get stdout | lines)
   if ($hits | is-not-empty) {
-    # per file the strings that name the prefix, text or binary alike
     let detail = ($hits | first 10 | each {|f|
       let found = (^strings -n ($prefix | str length) $f | lines | where { $in | str contains $prefix } | uniq | first 3
         | each { str replace -a $prefix '$out' | str substring 0..120 })
@@ -69,6 +71,7 @@ export def to-store [prefix: string, dest: string]: nothing -> nothing {
 ($detail | str join "
 ")($more)"}
   }
+  ^chmod -R u+w $prefix
   ^mv $prefix $dest
 }
 
@@ -112,40 +115,47 @@ def bins [c: record]: nothing -> list<string> {
   $c.spec.bin? | default (if ($"($c.out)/bin/($c.spec.name)" | path exists) { [$c.spec.name] } else { [] })
 }
 
-def --wrapped find-files [out: path, ...tests: string]: nothing -> list<string> { ^find $out -type f ...$tests | lines }
-
-# docs nobody reads from a store path, files with absolute paths or timestamps in them.
-# Installed precompiled headers are an error
-export def prune [out: path]: nothing -> nothing {
-  for d in [share/doc share/info share/gtk-doc] { rm -rf $"($out)/($d)" }
-  let junk = (find-files $out '(' -name '*.la' -o -name perllocal.pod -o -name .packlist -o -path '*/lib/charset.alias' ')')
-  if ($junk | is-not-empty) { rm ...$junk }
-  let gz = (find-files $out -path '*/share/man/*.gz')
-  if ($gz | is-not-empty) { x gzip -d ...$gz }
-  let pch = (find-files $out '(' -name '*.pch' -o -name '*.gch' ')')
-  if ($pch | is-not-empty) { error make {msg: $"precompiled headers in output do not relocate: ($pch | first 3 | str join ' ')"} }
+# the tree walked once, later steps filter it (toybox find has no %y)
+export def inventory [out: path]: nothing -> table {
+  let n = (($out | str length) + 1)
+  [f l d] | each {|t|
+    ^find $out -mindepth 1 -type $t -printf '%s\t%p\t%l\n' | from tsv --noheaders --no-infer
+    | rename size path target | insert type $t
+  } | flatten | update size { into int } | insert rel { $in.path | str substring $n.. }
 }
 
-# lib/ and bin/ only. Absolute symlinks (into the output or to a dependency) are made relative
-# to where the link will be in the store, anything else absolute is an error, none may dangle
-export def layout-check [out: path, dest: string]: nothing -> nothing {
+# docs, junk with absolute paths or timestamps. Returns the inventory minus what it removed
+export def prune [out: path, inv: table]: nothing -> table {
+  const DOCS = [share/doc/ share/info/ share/gtk-doc/]
+  for d in $DOCS { rm -rf $"($out)/($d)" }
+  let inv = ($inv | where {|e| not ($DOCS | any {|d| $"($e.rel)/" | str starts-with $d }) })
+  let files = ($inv | where type == f)
+  let junk = ($files | where { $in.rel =~ '(\.la|/perllocal\.pod|/\.packlist|^lib/charset\.alias)$' })
+  if ($junk | is-not-empty) { rm ...$junk.path }
+  let gz = ($files | where rel =~ '^share/man/.*\.gz$')
+  if ($gz | is-not-empty) { x gzip -d ...$gz.path }
+  let pch = ($files | where rel =~ '\.[pg]ch$')
+  if ($pch | is-not-empty) { error make {msg: $"precompiled headers in output do not relocate: ($pch.rel | first 3 | str join ' ')"} }
+  $inv | where rel not-in $junk.rel | update rel {|e| if $e.rel in $gz.rel { $e.rel | str replace -r '\.gz$' "" } else { $e.rel } } | update path {|e| $"($out)/($e.rel)" }
+}
+
+# lib/ and bin/ only
+export def layout-check [out: path]: nothing -> nothing {
   for d in [lib64 sbin] {
     if ($"($out)/($d)" | path exists) { error make {msg: $"($d)/ in output: configure with --libdir/--sbindir so it installs into lib/ and bin/"} }
   }
-  for l in (^find $out -type l -printf '%p\t%l\n' | lines | split column "\t" link target) {
-    let rel = ($l.link | path relative-to $out)
-    let target = if ($l.target | str starts-with $"($out)/") {
-      $"($dest)/($l.target | path relative-to $out)"
-    } else { $l.target }
-    if ($target | str starts-with $"($env.NIX_STORE)/") {
-      ^ln -sfn (relative-link $"($dest)/($rel)" $target) $l.link
-    } else if ($target | str starts-with "/") {
-      error make {msg: $"symlink ($rel) -> ($target) is absolute and outside the store"}
-    }
-    # resolve as if already at dest, then look under out where the files still are
-    let now = (^readlink $l.link)
-    let final = ($"($dest)/($rel)" | path dirname | path join $now | path expand -n | str replace $dest $out)
-    if not ($final | path exists) { error make {msg: $"symlink ($rel) -> ($now) dangles"} }
+}
+
+# absolute links become relative to their place in the store, none may dangle
+def relativize-links [prefix: string, dest: string]: nothing -> nothing {
+  # listed afresh: launchers added links
+  for l in (^find $prefix -type l -printf '%P\t%l\n' | from tsv --noheaders --no-infer | rename rel target) {
+    # where it points once the tree is at dest
+    let target = (if ($l.target | str starts-with $"($prefix)/") { $"($dest)/($l.target | path relative-to $prefix)" } else { $"($dest)/($l.rel)" | path dirname | path join $l.target | path expand -n })
+    if not ($target | str starts-with $"($env.NIX_STORE)/") { error make {msg: $"symlink ($l.rel) -> ($l.target) leaves the store"} }
+    if ($l.target | str starts-with "/") { ^ln -sfn (relative-link $"($dest)/($l.rel)" $target) $"($prefix)/($l.rel)" }
+    let here = (if ($target | str starts-with $"($dest)/") { $"($prefix)/($target | path relative-to $dest)" } else { $target })
+    if not ($here | path exists -n) { error make {msg: $"symlink ($l.rel) -> ($l.target) dangles"} }
   }
 }
 
@@ -159,9 +169,9 @@ def relative-link [from: string, to: string]: nothing -> string {
 
 # prebuilt `true` implants interp + stub, "ldso" stays byte-identical behind a launcher.
 # --deny: a cross output must not mention build-machine packages
-def relocate-elf [c: record]: nothing -> nothing {
+def relocate-elf [c: record, inv: table]: nothing -> nothing {
   let prebuilt = ($c.spec.prebuilt? | default false)
-  if $c.spec.debug { split-debug $c.out (attrs).outputs.debug $c.njobs }
+  if $c.spec.debug { split-debug $c.out (attrs).outputs.debug $c.njobs ($inv | where type == f) }
   if $prebuilt == true { implant $c }
   launchers $c
   let a = (attrs)
@@ -171,9 +181,9 @@ def relocate-elf [c: record]: nothing -> nothing {
 
 # DWARF -> `debug` under lib/debug/.build-id/, .symtab stays. A build-id means our linker made
 # it, so no DWARF there is a build that strips: an error. No build-id: upstream binary, left alone
-export def split-debug [out: path, debug: path, njobs: int]: nothing -> nothing {
-  strip-archives $out
-  let elfs = (elf-table $out $njobs)
+export def split-debug [out: path, debug: path, njobs: int, files: table]: nothing -> nothing {
+  strip-archives $out ($files | where rel =~ '\.[ao]$')
+  let elfs = (elf-table ($files | where size > 3072 and rel !~ '\.(a|o|rlib)$' | get path) $njobs)
   let stripped = ($elfs | where id != null and dwarf == false)
   if ($stripped | is-not-empty) {
     error make {msg: $"debug: linked here but no DWARF: ($stripped.file | first 3 | path relative-to $out | str join ' '). The build strips or drops -g. Fix that, or debug = false"}
@@ -196,18 +206,17 @@ export def split-debug [out: path, debug: path, njobs: int]: nothing -> nothing 
 }
 
 # objcopy fails on archives with non-object members (LTO bitcode, lib.rmeta): those keep DWARF
-def strip-archives [out: path]: nothing -> nothing {
-  let archives = (find-files $out '(' -name '*.a' -o -name '*.o' ')')
+def strip-archives [out: path, archives: table]: nothing -> nothing {
   if ($archives | is-empty) { return }
-  ^chmod u+w ...$archives
+  ^chmod u+w ...$archives.path
   for f in $archives {
-    if (^llvm-objcopy --strip-debug $f | complete).exit_code != 0 { note debug $"DWARF left in ($f | path relative-to $out)" }
+    if (^llvm-objcopy --strip-debug $f.path | complete).exit_code != 0 { note debug $"DWARF left in ($f.rel)" }
   }
 }
 
 # build-id and .debug_info presence per ELF, readelf batched and split at its "File:" headers
-def elf-table [out: path, njobs: int]: nothing -> table<file: string, id: any, dwarf: bool> {
-  find-files $out -size +3k '!' -name '*.[ao]' '!' -name '*.rlib'
+def elf-table [candidates: list<string>, njobs: int]: nothing -> table<file: string, id: any, dwarf: bool> {
+  $candidates
   | where { is-elf $in }
   | chunks 64 | par-each --threads $njobs {|batch|
     let text = (^llvm-readelf -S -n ...$batch)
