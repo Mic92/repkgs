@@ -36,9 +36,25 @@ def relativize-pc [prefix: string]: nothing -> nothing {
   }
 }
 
+# sh scripts in bin/ with a `prefix=<prefix>` line (foo-config): prefix from $0, later
+# mentions ${prefix}
+def relativize-scripts [prefix: string]: nothing -> nothing {
+  if not ($"($prefix)/bin" | path exists) { return }
+  const FROM_0 = 'prefix=$(cd "$(dirname "$0")/.." && pwd -P)'
+  for f in (^grep -rlF $prefix $"($prefix)/bin" | complete | get stdout | lines) {
+    let lines = (open --raw $f | lines)
+    if ($lines.0 !~ '^#!.*sh$') or not ($lines | any { ($in | str replace -ar `["']` "") == $"prefix=($prefix)" }) { continue }
+    ($lines
+      | each {|l| if ($l | str replace -ar `["']` "") == $"prefix=($prefix)" { $FROM_0 } else { $l | str replace -a $prefix '${prefix}' } }
+      | str join "\n" | save -f $f)
+    note script $"bin/($f | path basename): prefix from $0"
+  }
+}
+
 # prefix -> store. A file still naming the prefix would dangle: not relocatable, an error
 export def to-store [prefix: string, dest: string]: nothing -> nothing {
   relativize-pc $prefix
+  relativize-scripts $prefix
   let hits = (^grep -rlF $prefix $prefix | complete | get stdout | lines)
   if ($hits | is-not-empty) {
     # per file the strings that name the prefix, text or binary alike
