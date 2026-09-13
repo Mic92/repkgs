@@ -25,11 +25,12 @@ is what comes next.
 
 ## Try it
 
-Dynamic derivations need a recent Nix daemon: 2.36, or a 2.36pre from August 2026 on. nixpkgs'
-`nixVersions.git` is one. On NixOS:
+The daemon needs Nix master with [NixOS/nix#16459](https://github.com/NixOS/nix/pull/16459),
+[#16465](https://github.com/NixOS/nix/pull/16465) recommended. [nix/nix](nix/nix/default.nix)
+builds it (`nix-build nix/nix`, flake `packages.x86_64-linux.nix`). On NixOS:
 
 ```nix
-nix.package = pkgs.nixVersions.git;
+nix.package = inputs.repkgs.packages.${pkgs.system}.nix; # or: import "${repkgs}/nix/nix" { inherit pkgs; }
 nix.settings = {
   experimental-features = [ "nix-command" "ca-derivations" "dynamic-derivations" "recursive-nix" ];
   system-features = [ "builder-rpc-v0" "big-parallel" "kvm" "nixos-test" "benchmark" ];
