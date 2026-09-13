@@ -18,13 +18,14 @@ export def configure []: nothing -> nothing {
   vendor-checksums
   let triple = $c.platform.rustTriple
   let rb = (tool rustc | path dirname | path dirname) # rust-bootstrap, a build tool
+  let host = (^rustc -vV | lines | parse "host: {t}" | get t.0)
   {
     change-id: "ignore"
     profile: "dist"
     # use-libcxx: rustc_llvm links -lstdc++ otherwise, this toolchain has libc++ only
     llvm: {link-shared: true, download-ci-llvm: false, use-libcxx: true}
     build: {
-      build: $triple
+      build: $host
       host: [$triple]
       target: ([$triple] ++ $FREESTANDING)
       rustc: $"($rb)/bin/rustc"
@@ -53,7 +54,8 @@ export def configure []: nothing -> nothing {
       codegen-backends: [llvm]
       codegen-tests: false # want FileCheck, which our llvm does not install
     }
-    target: ({$triple: {llvm-config: $"(dep-root llvm22 'libLLVM')/bin/llvm-config", cc: (tool cc), cxx: (tool c++), linker: (tool cc), ar: (tool ar), ranlib: (tool ranlib), crt-static: false}}
+    target: ({$triple: {llvm-config: (llvm-config $c), cc: (tool cc), cxx: (tool c++), linker: (tool cc), ar: (tool ar), ranlib: (tool ranlib), crt-static: false}}
+      | merge (host-target $c $host --llvm)
       # rust#132802: optimized builtins for wasm want a wasm C toolchain
       | merge ($FREESTANDING | each {|t| {$t: {optimized-compiler-builtins: false, profiler: false}} } | into record))
     dist: {compression-formats: [gz], src-tarball: false}
@@ -67,6 +69,21 @@ export def install []: nothing -> nothing {
   x python3 x.py install
   # rust-installer bookkeeping, install.log carries a timestamp
   rm -f ...(files $"($c.out)/lib/rustlib/{install.log,uninstall.sh,manifest-*,components,rust-installer-version}")
+}
+
+# a cross llvm's own llvm-config is a target binary, host/llvm-config runs here (llvm/package.nix)
+def llvm-config [c: record]: nothing -> string {
+  let root = (dep-root llvm22 'libLLVM')
+  if $c.platform.cross { $"($root)/host/llvm-config" } else { $"($root)/bin/llvm-config" }
+}
+
+# cross: the build machine's stage tools and build scripts link with its cc (and the stage1
+# rustc with its libLLVM)
+def host-target [c: record, host: string, --llvm]: nothing -> record {
+  if not $c.platform.cross { return {} }
+  let tools = {cc: (tool $env.CC_FOR_BUILD), cxx: (tool $env.CXX_FOR_BUILD), linker: (tool $env.CC_FOR_BUILD), ar: (tool llvm-ar)}
+  let tools = (if $llvm { $tools | insert llvm-config $"(tool-root llvm22)/bin/llvm-config" } else { $tools })
+  {$host: $tools}
 }
 
 # rust-std: the installed rust as stage0, std for the target only, linked with the target cc
@@ -97,7 +114,7 @@ export def stdConfigure []: nothing -> nothing {
     rust: {channel: "stable", remap-debuginfo: true, frame-pointers: true, lld: false, llvm-tools: false}
     llvm: {download-ci-llvm: false}
     target: ({$triple: {cc: (tool cc), cxx: (tool c++), linker: (tool cc), ar: (tool llvm-ar), ranlib: (tool llvm-ranlib), crt-static: false}}
-      | merge (if $c.platform.cross { {$host: {cc: (tool $env.CC_FOR_BUILD), cxx: (tool $env.CXX_FOR_BUILD), linker: (tool $env.CC_FOR_BUILD), ar: (tool llvm-ar)}} } else { {} }))
+      | merge (host-target $c $host))
     dist: {compression-formats: [gz], src-tarball: false}
   } | to toml | save -f bootstrap.toml
 }

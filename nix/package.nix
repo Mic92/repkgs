@@ -94,6 +94,7 @@ let
         osNames
         triple
         rustTriple
+        buildRustTriple
         cross
         emulator
         exe

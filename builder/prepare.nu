@@ -14,21 +14,24 @@ def --env resolve-platform [p: record]: nothing -> record {
   # there), where a real arm64 process has no addresses and PAC keeps its signature, so signed
   # return addresses stop authenticating. binfmt-registered qemu reads it too
   let qemu = (if $p.cross { {QEMU_RESERVED_VA: "0x1000000000000"} } else { {} })
-  load-env ((build-machine-tools $plat.cross) | merge {PKGS_EMULATOR: ($plat.emulator | str join " ")} | merge $qemu)
+  load-env ((build-machine-tools $plat) | merge {PKGS_EMULATOR: ($plat.emulator | str join " ")} | merge $qemu)
   $plat
 }
 
 # The *_FOR_BUILD convention (AX_PROG_CC_FOR_BUILD, glib, meson's native file reads the same
 # names through meson.nu): build-machine compiler, no target flags, and a pkg-config that finds
-# nothing rather than target libraries
-def build-machine-tools [cross: bool]: nothing -> record {
-  if not $cross { return {CC_FOR_BUILD: "cc", CXX_FOR_BUILD: "c++", CPP_FOR_BUILD: "cc -E", PKG_CONFIG_FOR_BUILD: "pkg-config"} }
+# nothing rather than target libraries. cc-rs and pkg-config-rs (build scripts, proc macros)
+# read the same per triple as <VAR>_<build triple>
+def build-machine-tools [plat: record]: nothing -> record {
+  if not $plat.cross { return {CC_FOR_BUILD: "cc", CXX_FOR_BUILD: "c++", CPP_FOR_BUILD: "cc -E", PKG_CONFIG_FOR_BUILD: "pkg-config"} }
   let dir = $"($env.NIX_BUILD_TOP)/for-build"
   mkdir $"($dir)/no-pc"
   $"#!/bin/sh\nPKG_CONFIG_PATH= PKG_CONFIG_LIBDIR=($dir)/no-pc exec pkg-config \"$@\"\n" | save -f $"($dir)/pkg-config"
   chmod +x $"($dir)/pkg-config"
+  let rs = ($plat.buildRustTriple | str replace -a "-" "_")
   {CC_FOR_BUILD: "cc-build", CXX_FOR_BUILD: "c++-build", CPP_FOR_BUILD: "cc-build -E", PKG_CONFIG_FOR_BUILD: $"($dir)/pkg-config"
-    CFLAGS_FOR_BUILD: "", CXXFLAGS_FOR_BUILD: "", CPPFLAGS_FOR_BUILD: "", LDFLAGS_FOR_BUILD: ""}
+    CFLAGS_FOR_BUILD: "", CXXFLAGS_FOR_BUILD: "", CPPFLAGS_FOR_BUILD: "", LDFLAGS_FOR_BUILD: ""
+    $"CC_($rs)": "cc-build", $"CXX_($rs)": "c++-build", $"PKG_CONFIG_($rs)": $"($dir)/pkg-config"}
 }
 
 # sources arrive unpacked (nix/sources.nix). cp -p: the store's uniform mtimes keep generated
