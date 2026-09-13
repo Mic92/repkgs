@@ -69,7 +69,9 @@ let
       base = stripExt url;
       gh = builtins.match "https://github.com/[^/]+/([^/]+)/archive/refs/tags/(.*)" base;
     in
-    if gh != null then "${builtins.elemAt gh 0}-${builtins.elemAt gh 1}" else builtins.baseNameOf base;
+    builtins.replaceStrings [ "~" ] [ "-" ] (
+      if gh != null then "${builtins.elemAt gh 0}-${builtins.elemAt gh 1}" else builtins.baseNameOf base
+    );
   # `pin`: [pin] keys over the file's, `hashes`: source key -> hash (nix/package.nix, overrides)
   read =
     pin: hashes: file:
