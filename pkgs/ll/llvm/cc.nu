@@ -94,5 +94,22 @@ def main []: nothing -> nothing {
   let policy = (if $env.binfmt == "elf" { elf-policy $out $sysroot } else { {} })
   $conf | merge $policy | items {|k, v| $"($k) = ($v)" } | str join "\n" | $in + "\n" | save $"($out)/etc/jig.conf"
 
+  # clang-scan-deps wrapper: injects sysroot and stdlib into compiler invocation after '--'
+  if ($"($env.seed)/bin/clang-scan-deps" | path exists) {
+    let flags = [$"--target=($env.triple)" $"--sysroot=($sysroot)" $"-resource-dir=($sysroot)/lib/clang"] ++ (if $d.cxxflags != "" { [$d.cxxflags] } else { [] })
+    $"#! (seed-bin nu) --no-config-file
+def --wrapped main [...args] {
+  let sep = \($args | enumerate | where item == \"--\" | get -o 0.index\)
+  let flags = \(($flags | to nuon)\)
+  if $sep == null or $sep + 1 >= \($args | length\) {
+    ^(seed-bin clang-scan-deps) ...$args
+  } else {
+    ^(seed-bin clang-scan-deps) ...\($args | take \($sep + 2\)\) ...$flags ...\($args | skip \($sep + 2\)\)
+  }
+}
+" | save $"($out)/bin/clang-scan-deps"
+    chmod +x $"($out)/bin/clang-scan-deps"
+  }
+
   smoke-test $out
 }
