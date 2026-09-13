@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:generic/generate-ninja?url=https://deb.debian.org/debian/pool/main/g/generate-ninja/&regex=generate-ninja_(0%5C.0~git%5Cd%2B%5C.%5B0-9a-f%5D%2B)%5C.orig%5C.tar%5C.gz"
+
+[[source]]
+key = "default"
+url = "https://deb.debian.org/debian/pool/main/g/generate-ninja/generate-ninja_{version}.orig.tar.gz"
+hash = "sha256-HLkzKXmhE2QVyFrxO6N7nwPnrNgTt2ONiLS5AAzDD28="
+
+[pin]
+version = "0.0~git20260722.27a549cc"
+# git rev-list --count initial-commit..<rev>, what --version prints
+position = 2484
