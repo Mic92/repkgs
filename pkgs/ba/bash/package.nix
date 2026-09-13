@@ -3,6 +3,8 @@ package {
   name = "bash";
   uses = [ "autotools" ];
   bootstrapTools = true;
+  # locale dir, bashdb and the loadables kit relative to where bash is
+  patches = [ ./relocatable.patch ];
   autotools.flags = [
     "--without-bash-malloc"
     "--disable-readline" # build-machine shell for configure scripts, not for people
