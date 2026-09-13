@@ -4,6 +4,7 @@
 }:
 package {
   name = "openssl";
+  # engines and providers next to the loaded libcrypto (reloc.h) instead of a configured libdir
   patches = [ ./relocatable.patch ];
   cc.cflags = [ "-DOSSL_RELOCATABLE" ];
   uses = [ "make" ];
