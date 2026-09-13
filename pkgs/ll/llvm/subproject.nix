@@ -15,6 +15,7 @@ variant llvm [
     cmake.defs.set = {
       LLVM_DIR = "${llvm}/lib/cmake/llvm";
       LLVM_TOOLS_BINARY_DIR = "${buildLlvm}/bin";
+      LLVM_TABLEGEN_EXE = "${buildLlvm}/bin/llvm-tblgen";
       LLVM_LINK_LLVM_DYLIB = true;
       BUILD_SHARED_LIBS = false;
       LLVM_INCLUDE_TESTS = false;
