@@ -1,0 +1,170 @@
+--- a/Lib/sysconfig/__main__.py
++++ b/Lib/sysconfig/__main__.py
+@@ -154,9 +154,15 @@
+ 
+ 
+ def _print_config_dict(d, stream):
++    # the configured prefix is wherever this file ends up: written as an
++    # expression over sys.base_prefix so the module is the same bytes anywhere
++    prefix = d.get('prefix')
+     print ("{", file=stream)
+     for k, v in sorted(d.items()):
+-        print(f"    {k!r}: {v!r},", file=stream)
++        if prefix and isinstance(v, str) and prefix in v:
++            print(f"    {k!r}: {v.replace(prefix, chr(0))!r}.replace(chr(0), _p),", file=stream)
++        else:
++            print(f"    {k!r}: {v!r},", file=stream)
+     print ("}", file=stream)
+ 
+ 
+@@ -227,6 +233,7 @@
+     with open(destfile, 'w', encoding='utf8') as f:
+         f.write('# system configuration generated and used by'
+                 ' the sysconfig module\n')
++        f.write('import sys; _p = sys.base_prefix\n')
+         f.write('build_time_vars = ')
+         _print_config_dict(vars, stream=f)
+ 
+@@ -238,8 +245,12 @@
+     install_vars['srcdir'] = install_vars['LIBPL']
+     # Write a JSON file with the output of sysconfig.get_config_vars
+     jsonfile = os.path.join(pybuilddir, _get_json_data_name())
++    # relative to the prefix, CONFIG_ARGS and anything else naming it likewise
++    prefix = vars['prefix']
++    rel = {k: (v.replace(prefix + os.sep, '').replace(prefix, '.') if isinstance(v, str) else v)
++           for k, v in install_vars.items()}
+     with open(jsonfile, 'w') as f:
+-        json.dump(install_vars, f, indent=2)
++        json.dump(rel, f, indent=2)
+ 
+     print(f'Written {jsonfile}')
+ 
+--- a/Makefile.pre.in
++++ b/Makefile.pre.in
+@@ -1010,7 +1010,7 @@
+ 	fi
+ 
+ build-details.json: pybuilddir.txt
+-	$(RUNSHARED) $(PYTHON_FOR_BUILD) $(srcdir)/Tools/build/generate-build-details.py `cat pybuilddir.txt`/build-details.json
++	$(RUNSHARED) $(PYTHON_FOR_BUILD) $(srcdir)/Tools/build/generate-build-details.py --relative-paths --config-file-path $(LIBDEST)/build-details.json `cat pybuilddir.txt`/build-details.json
+ 
+ # Build static library
+ $(LIBRARY): $(LIBRARY_OBJS)
+@@ -1924,8 +1924,8 @@
+ 
+ Modules/getpath.o: $(srcdir)/Modules/getpath.c Python/frozen_modules/getpath.h Makefile $(PYTHON_HEADERS)
+ 	$(CC) -c $(PY_CORE_CFLAGS) -DPYTHONPATH='"$(PYTHONPATH)"' \
+-		-DPREFIX='"$(host_prefix)"' \
+-		-DEXEC_PREFIX='"$(host_exec_prefix)"' \
++		-DPREFIX='""' \
++		-DEXEC_PREFIX='""' \
+ 		-DVERSION='"$(VERSION)"' \
+ 		-DVPATH='"$(VPATH)"' \
+ 		-DPLATLIBDIR='"$(PLATLIBDIR)"' \
+@@ -2822,12 +2822,12 @@
+ 	@ # Build PYC files for the 3 optimization levels (0, 1, 2)
+ 	-PYTHONPATH=$(DESTDIR)$(LIBDEST) $(RUNSHARED) \
+ 		$(PYTHON_FOR_BUILD) -Wi $(DESTDIR)$(LIBDEST)/compileall.py \
+-		-o 0 -o 1 -o 2 $(COMPILEALL_OPTS) -d $(LIBDEST) -f \
++		-o 0 -o 1 -o 2 $(COMPILEALL_OPTS) -s $(DESTDIR)$(prefix) -f \
+ 		-x 'bad_coding|badsyntax|site-packages' \
+ 		$(DESTDIR)$(LIBDEST)
+ 	-PYTHONPATH=$(DESTDIR)$(LIBDEST) $(RUNSHARED) \
+ 		$(PYTHON_FOR_BUILD) -Wi $(DESTDIR)$(LIBDEST)/compileall.py \
+-		-o 0 -o 1 -o 2 $(COMPILEALL_OPTS) -d $(LIBDEST)/site-packages -f \
++		-o 0 -o 1 -o 2 $(COMPILEALL_OPTS) -s $(DESTDIR)$(prefix) -f \
+ 		-x badsyntax $(DESTDIR)$(LIBDEST)/site-packages
+ 
+ # bpo-21536: Misc/python-config.sh is generated in the build directory
+@@ -2953,7 +2953,6 @@
+ 	fi
+ 	$(INSTALL_DATA) Modules/config.c $(DESTDIR)$(LIBPL)/config.c
+ 	$(INSTALL_DATA) $(srcdir)/Modules/config.c.in $(DESTDIR)$(LIBPL)/config.c.in
+-	$(INSTALL_DATA) Makefile $(DESTDIR)$(LIBPL)/Makefile
+ 	$(INSTALL_DATA) $(srcdir)/Modules/Setup $(DESTDIR)$(LIBPL)/Setup
+ 	$(INSTALL_DATA) Modules/Setup.bootstrap $(DESTDIR)$(LIBPL)/Setup.bootstrap
+ 	$(INSTALL_DATA) Modules/Setup.stdlib $(DESTDIR)$(LIBPL)/Setup.stdlib
+@@ -2962,7 +2961,6 @@
+ 	$(INSTALL_DATA) Misc/python-embed.pc $(DESTDIR)$(LIBPC)/python-$(LDVERSION)-embed.pc
+ 	$(INSTALL_SCRIPT) $(srcdir)/Modules/makesetup $(DESTDIR)$(LIBPL)/makesetup
+ 	$(INSTALL_SCRIPT) $(srcdir)/install-sh $(DESTDIR)$(LIBPL)/install-sh
+-	$(INSTALL_SCRIPT) python-config.py $(DESTDIR)$(LIBPL)/python-config.py
+ 	$(INSTALL_SCRIPT) python-config $(DESTDIR)$(BINDIR)/python$(LDVERSION)-config
+ 	$(INSTALL_SCRIPT) $(SCRIPT_IDLE) $(DESTDIR)$(BINDIR)/idle$(VERSION)
+ 	$(INSTALL_SCRIPT) $(SCRIPT_PYDOC) $(DESTDIR)$(BINDIR)/pydoc$(VERSION)
+--- a/Misc/python-config.sh.in
++++ b/Misc/python-config.sh.in
+@@ -36,8 +36,8 @@
+ # locations. Keep prefix & exec_prefix using their original values in case
+ # they are referenced in other configure variables, to prevent double
+ # substitution, issue #22140.
+-prefix="@prefix@"
+-exec_prefix="@exec_prefix@"
++prefix="${prefix_real}"
++exec_prefix="${prefix_real}"
+ exec_prefix_real=${prefix_real}
+ includedir=$(echo "@includedir@" | sed "s#$prefix#$prefix_real#")
+ libdir=$(echo "@libdir@" | sed "s#$prefix#$prefix_real#")
+--- a/Modules/getpath.c
++++ b/Modules/getpath.c
+@@ -797,6 +797,13 @@
+         PyMem_RawFree(path);
+         break;
+     }
++#elif defined(__linux__)
++    char path[4096];
++    ssize_t n = readlink("/proc/self/exe", path, sizeof(path) - 1);
++    if (n > 0 && path[0] == SEP) {
++        path[n] = '\0';
++        return decode_to_dict(dict, key, path);
++    }
+ #endif
+     return PyDict_SetItemString(dict, key, Py_None) == 0;
+ }
+--- a/Modules/getpath.py
++++ b/Modules/getpath.py
+@@ -598,11 +598,6 @@
+         if prefix and not stdlib_dir:
+             stdlib_dir = joinpath(prefix, STDLIB_SUBDIR)
+ 
+-    if PREFIX and not prefix:
+-        prefix = PREFIX
+-        if not any(isfile(joinpath(prefix, f)) for f in STDLIB_LANDMARKS):
+-            warn('Could not find platform independent libraries <prefix>')
+-
+     if not prefix:
+         prefix = abspath('')
+         warn('Could not find platform independent libraries <prefix>')
+@@ -619,8 +614,6 @@
+             exec_prefix = prefix
+         if not exec_prefix and executable_dir:
+             exec_prefix = search_up(executable_dir, PLATSTDLIB_LANDMARK, test=isdir)
+-        if not exec_prefix and EXEC_PREFIX:
+-            exec_prefix = EXEC_PREFIX
+         if not exec_prefix or not isdir(joinpath(exec_prefix, PLATSTDLIB_LANDMARK)):
+             if os_name == 'nt':
+                 # QUIRK: If DLLs is missing on Windows, don't warn, just assume
+@@ -693,7 +686,7 @@
+         pythonpath.append(joinpath(library_dir, ZIP_LANDMARK))
+     elif build_prefix:
+         # QUIRK: POSIX uses the default prefix when in the build directory
+-        pythonpath.append(joinpath(PREFIX, ZIP_LANDMARK))
++        pythonpath.append(joinpath(build_prefix, ZIP_LANDMARK))
+     else:
+         pythonpath.append(joinpath(base_prefix, ZIP_LANDMARK))
+ 
+@@ -769,10 +762,10 @@
+ # Virtual environments using the build directory Python still keep their prefix.
+ if os_name != 'nt' and build_prefix:
+     if not venv_prefix:
+-        prefix = config.get('prefix') or PREFIX
+-        exec_prefix = config.get('exec_prefix') or EXEC_PREFIX or prefix
+-    base_prefix = config.get('base_prefix') or PREFIX
+-    base_exec_prefix = config.get('base_exec_prefix') or EXEC_PREFIX or base_prefix
++        prefix = config.get('prefix') or build_prefix
++        exec_prefix = config.get('exec_prefix') or prefix
++    base_prefix = config.get('base_prefix') or build_prefix
++    base_exec_prefix = config.get('base_exec_prefix') or base_prefix
+ 
+ 
+ # ******************************************************************************

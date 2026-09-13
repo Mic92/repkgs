@@ -26,6 +26,11 @@ package {
     else
       [ ]
   );
+  # no compiled-in PREFIX: an installed python is where its binary (/proc/self/exe, as macOS
+  # asks the OS) or libpython is, a build tree one uses the source dir. sysconfig data and .pyc
+  # paths relative, python-config from $0. LIBPL gets no copy of the build Makefile and
+  # python-config.py (records of the build, nothing reads them)
+  patches = [ ./relocatable.patch ];
   tests.run = false; # hours
   dependencies = [
     pkgs.zlib
