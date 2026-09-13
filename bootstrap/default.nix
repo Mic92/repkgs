@@ -307,6 +307,7 @@ let
             (pkg "glibc" + "/glibc-debug-after-misc.patch")
             (pkg "glibc" + "/glibc-verneed-dst.patch")
             (pkg "glibc" + "/glibc-unwind-origin.patch")
+            (pkg "glibc" + "/glibc-const-generic-extension.patch")
           ];
           linuxHeaders = linux-headers;
           # the C.UTF-8 locale is compiled by running the fresh localedef, so only where it can run
