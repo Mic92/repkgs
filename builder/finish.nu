@@ -19,7 +19,7 @@ export def --env main [
   # installed copies of source scripts carry the build env's path from prepare: not a dependency
   fix-env-shebangs $c.out $c.njobs --undo
   mkdir (attrs).outputs.debug
-  if $c.platform.binfmt == "elf" { relocate-elf $c $inv }
+  relocate $c $inv
   write-exports $c.out $c.spec $c.deps
   note exports (open --raw $"($c.out)/exports.json" | from json | to json -r)
   cd $env.NIX_BUILD_TOP
@@ -33,7 +33,8 @@ def relativize-pc [prefix: string, pcs: list<string>]: nothing -> nothing {
   if ($pcs | is-empty) { return }
   for f in (^grep -lF $prefix ...$pcs | complete | get stdout | lines) {
     let up = ($f | path dirname | path relative-to $prefix | path split | each { ".." } | str join "/")
-    open --raw $f | str replace -a $prefix $"${pcfiledir}/($up)" | save -f $f
+    let text = (open --raw $f | str replace -a $prefix $"${pcfiledir}/($up)")
+    $text | save -f $f
   }
 }
 
@@ -168,12 +169,15 @@ def relative-link [from: string, to: string]: nothing -> string {
 }
 
 # prebuilt `true` implants interp + stub, "ldso" stays byte-identical behind a launcher.
-# --deny: a cross output must not mention build-machine packages
-def relocate-elf [c: record, inv: table]: nothing -> nothing {
+# --deny: a cross output must not mention build-machine packages. Debug split, implant and
+# launchers are ELF only so far, reloc-fixup does ELF and Mach-O
+def relocate [c: record, inv: table]: nothing -> nothing {
   let prebuilt = ($c.spec.prebuilt? | default false)
-  if $c.spec.debug { split-debug $c.out (attrs).outputs.debug $c.njobs ($inv | where type == f) }
-  if $prebuilt == true { implant $c }
-  launchers $c
+  if $c.platform.binfmt == "elf" {
+    if $c.spec.debug { split-debug $c.out (attrs).outputs.debug $c.njobs ($inv | where type == f) }
+    if $prebuilt == true { implant $c }
+    launchers $c
+  }
   let a = (attrs)
   let deny = (if $c.platform.cross { $a.buildDependencies | where { $in not-in $a.dependencies } | each { [--deny $in] } | flatten } else { [] })
   if $prebuilt != "ldso" { x reloc-fixup $c.out --dest $c.dest ...$deny }

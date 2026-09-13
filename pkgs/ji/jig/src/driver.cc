@@ -58,6 +58,7 @@ class RunpathList {
   // step deletes every RUNPATH element that string-equals a build rpath or dependency libdir it
   // knows, which would take ours with it. fixup normalises the spelling away. `libs`: -l count, each
   // may become a direct $ORIGIN NEEDED string in the same bytes
+  [[nodiscard]] auto Entries() const -> const std::vector<std::string>& { return entries_; }
   [[nodiscard]] auto Render(size_t libs) const -> std::string {
     std::string out = verbatim_;
     for (const std::string& entry : entries_) {
@@ -106,8 +107,9 @@ auto IsRuntimeLib(std::string_view lib) -> bool {
 }
 
 struct UserArgs {
-  std::vector<std::string> args;  // rpath and dynamic-linker requests removed
+  std::vector<std::string> args;  // minus what the policy took
   RunpathList runpath;            // seeded with the build system's rpaths
+  std::string output;             // -o
   bool linking = true;
   bool have_input = false;
   bool shared = false;
@@ -121,41 +123,27 @@ auto IsFortifyArg(std::string_view arg) -> bool {
          arg.starts_with("-Wp,-D_FORTIFY_SOURCE") || arg.starts_with("-Wp,-U_FORTIFY_SOURCE");
 }
 
-// MSVC's STL has no C++11 mode and cl.exe no /std: below c++14: older requests mean c++14 there
-auto MsvcFloorStd(const std::string& arg) -> std::string {
-  for (const std::string_view old : {"++98", "++03", "++0x", "++11"}) {
-    if ((arg.starts_with("-std=c") || arg.starts_with("-std=gnu")) && arg.ends_with(old)) {
-      return arg.substr(0, arg.size() - 2) + "14";
-    }
-  }
-  return arg;
+auto IsPicArg(std::string_view arg) -> bool {
+  return arg == "-fPIC" || arg == "-fpic" || arg == "-fPIE" || arg == "-fpie" || arg == "-fno-PIC" ||
+         arg == "-fno-pic" || arg == "-pie";
 }
 
-auto ScanUserArgs(std::span<const std::string> raw, BinFmt binfmt) -> UserArgs {
-  UserArgs user;
-  for (size_t i = 0; i < raw.size(); ++i) {
-    if (std::optional<std::string> rpath = TakeRpathArg(raw, i)) {
-      user.runpath.AddVerbatim(*rpath);
-      continue;
-    }
-    const std::string& arg = raw.at(i);
-    if (arg.starts_with("-Wl,--dynamic-linker") || arg.starts_with("-Wl,-dynamic-linker")) {
-      continue;  // ours wins
-    }
-    user.linking = user.linking && !IsOutputOnlyMode(arg);
-    user.shared = user.shared || arg == "-shared";
-    user.no_policy = user.no_policy || RefusesLinkPolicy(arg);
-    user.have_input = user.have_input || !arg.starts_with('-');
-    user.sets_fortify = user.sets_fortify || IsFortifyArg(arg);
-    if (arg.starts_with("-O")) {
-      user.optimizes = arg != "-O0";
-    }
-    user.args.push_back(binfmt == BinFmt::kCoff ? MsvcFloorStd(arg) : arg);
+// "-Lx" or "-L x": the value, if args[idx] is that flag
+auto FlagValue(std::span<const std::string> args, size_t idx, std::string_view flag) -> std::optional<std::string> {
+  const std::string& arg = args.at(idx);
+  if (!arg.starts_with(flag)) {
+    return std::nullopt;
   }
-  return user;
+  if (arg.size() > flag.size()) {
+    return arg.substr(flag.size());
+  }
+  if (idx + 1 < args.size()) {
+    return args.at(idx + 1);
+  }
+  return std::nullopt;
 }
 
-// RUNPATH: store -L dirs that satisfy some -l, store .so given by path, the C++ runtime, libc.
+// RUNPATH: store -L dirs that satisfy some -l, store libs given by path, the C++ runtime, libc.
 // Returns the -l count
 auto AddRunpathEntries(const DriverConf& conf, bool cxx, std::span<const std::string> args, RunpathList& runpath)
     -> size_t {
@@ -165,21 +153,9 @@ auto AddRunpathEntries(const DriverConf& conf, bool cxx, std::span<const std::st
   bool links_runtime = cxx;
   for (size_t i = 0; i < args.size(); ++i) {
     const std::string& arg = args.at(i);
-    const auto value_of = [&](std::string_view flag) -> std::optional<std::string> {
-      if (!arg.starts_with(flag)) {
-        return std::nullopt;
-      }
-      if (arg.size() > flag.size()) {
-        return arg.substr(flag.size());
-      }
-      if (i + 1 < args.size()) {
-        return args.at(i + 1);
-      }
-      return std::nullopt;
-    };
-    if (std::optional<std::string> dir = value_of("-L")) {
+    if (std::optional<std::string> dir = FlagValue(args, i, "-L")) {
       lib_dirs.push_back(*dir);
-    } else if (std::optional<std::string> lib = value_of("-l")) {
+    } else if (std::optional<std::string> lib = FlagValue(args, i, "-l")) {
       links_runtime = links_runtime || IsRuntimeLib(*lib);
       libs.push_back(*std::move(lib));
     } else if (store.IsStorePath(arg) && IsSharedLibName(fs::path(arg).filename().string())) {
@@ -189,11 +165,14 @@ auto AddRunpathEntries(const DriverConf& conf, bool cxx, std::span<const std::st
       links_runtime = false;
     }
   }
+  const auto provides = [&](const std::string& dir) -> bool {
+    return std::ranges::any_of(libs, [&](const std::string& lib) -> bool {
+      return fs::exists(std::format("{}/lib{}.so", dir, lib)) || fs::exists(std::format("{}/lib{}.dylib", dir, lib));
+    });
+  };
   for (const std::string& dir : lib_dirs) {
     const std::string real = RealDir(dir);
-    if (store.IsStorePath(real) && std::ranges::any_of(libs, [&](const std::string& lib) -> bool {
-          return fs::exists(std::format("{}/lib{}.so", real, lib));
-        })) {
+    if (store.IsStorePath(real) && provides(real)) {
       runpath.Add(real);
     }
   }
@@ -225,6 +204,127 @@ auto PackageFlags(const fs::path& root) -> PackageCcFlags {
   flags.cxxflags = list("cxxflags");
   flags.ldflags = list("ldflags");
   return flags;
+}
+
+// RUNPATH candidates: -L dirs from argv as well as from $PKGS_CC. Returns the -l count
+auto CollectRunpath(const DriverConf& conf, bool cxx, UserArgs& user) -> size_t {
+  std::vector<std::string> link_args = user.args;
+  link_args.insert(link_args.end(), conf.package.ldflags.begin(), conf.package.ldflags.end());
+  return AddRunpathEntries(conf, cxx, link_args, user.runpath);
+}
+
+// What differs per binary format: how the build system's arguments pass through, what every
+// command line gets, and the link policy that makes the output relocatable
+struct BinFmtPolicy {
+  bool takes_rpath;  // the build system's -rpath requests become ours to render
+  auto (*arg)(const std::string& arg) -> std::optional<std::string>;  // as passed on, nullopt drops it
+  void (*always)(std::vector<std::string>& out);
+  void (*link)(const DriverConf& conf, bool cxx, UserArgs& user, std::vector<std::string>& out);
+};
+
+auto KeepArg(const std::string& arg) -> std::optional<std::string> { return arg; }
+void NoFlags(std::vector<std::string>& /*out*/) {}
+void NoLinkPolicy(const DriverConf& /*conf*/, bool /*cxx*/, UserArgs& /*user*/, std::vector<std::string>& /*out*/) {}
+
+// ELF: the build system's dynamic linker request is dropped, ours wins
+auto ElfArg(const std::string& arg) -> std::optional<std::string> {
+  const bool theirs = arg.starts_with("-Wl,--dynamic-linker") || arg.starts_with("-Wl,-dynamic-linker");
+  return theirs ? std::nullopt : std::optional(arg);
+}
+
+// build-id for the debug split, package note to tell our links from upstream's. User args win
+void ElfFlags(std::vector<std::string>& out) {
+  out.emplace_back("-Wl,--build-id=sha1");
+  out.emplace_back(R"(-Wl,--package-metadata={"type":"repkgs"})");
+}
+
+// RUNPATH over the store dirs padded for `jig fixup`, our dynamic linker, the crt_interp stub
+void ElfLink(const DriverConf& conf, bool cxx, UserArgs& user, std::vector<std::string>& out) {
+  const size_t libs = CollectRunpath(conf, cxx, user);
+  out.insert(out.end(),
+             {"-Wl,--undefined-version", "-Wl,-rpath," + user.runpath.Render(libs), "-Wl,--enable-new-dtags"});
+  if (user.shared) {
+    return;
+  }
+  const std::string libc_lib = conf.libc + "/lib/";
+  if (conf.crt.empty()) {
+    out.push_back("-Wl,--dynamic-linker=" + libc_lib + conf.interp);
+    return;
+  }
+  std::string dots;
+  for (int i = 0; i < kInterpSlack; ++i) {
+    dots += "./";
+  }
+  // after the user's args, so a trailing `-x c` (ghc's configure) must not claim the object
+  out.insert(out.end(), {
+                            "-x",
+                            "none",
+                            conf.crt,
+                            "-Wl,--dynamic-linker=" + libc_lib + dots + conf.interp,
+                            "-Wl,--export-dynamic-symbol=__reloc_start",
+                        });
+}
+
+// Mach-O: dependents record each dylib's absolute install name, `jig fixup` respells those
+// @loader_path-relative and needs header room to do so
+void MachOLink(const DriverConf& /*conf*/, bool /*cxx*/, UserArgs& /*user*/, std::vector<std::string>& out) {
+  out.emplace_back("-Wl,-headerpad_max_install_names");
+}
+
+// COFF: PE is position independent by construction and clang rejects the flags. MSVC's STL has
+// no C++11 mode: older -std requests mean c++14
+auto CoffArg(const std::string& arg) -> std::optional<std::string> {
+  if (IsPicArg(arg)) {
+    return std::nullopt;
+  }
+  for (const std::string_view old : {"++98", "++03", "++0x", "++11"}) {
+    if ((arg.starts_with("-std=c") || arg.starts_with("-std=gnu")) && arg.ends_with(old)) {
+      return arg.substr(0, arg.size() - 2) + "14";
+    }
+  }
+  return arg;
+}
+
+auto PolicyFor(BinFmt binfmt) -> BinFmtPolicy {
+  switch (binfmt) {
+    case BinFmt::kMachO:
+      return {.takes_rpath = false, .arg = KeepArg, .always = NoFlags, .link = MachOLink};
+    case BinFmt::kCoff:
+      return {.takes_rpath = false, .arg = CoffArg, .always = NoFlags, .link = NoLinkPolicy};
+    case BinFmt::kElf:
+      break;
+  }
+  return {.takes_rpath = true, .arg = ElfArg, .always = ElfFlags, .link = ElfLink};
+}
+
+auto ScanUserArgs(std::span<const std::string> raw, const BinFmtPolicy& policy) -> UserArgs {
+  UserArgs user;
+  for (size_t i = 0; i < raw.size(); ++i) {
+    if (policy.takes_rpath) {
+      if (std::optional<std::string> rpath = TakeRpathArg(raw, i)) {
+        user.runpath.AddVerbatim(*rpath);
+        continue;
+      }
+    }
+    const std::string& arg = raw.at(i);
+    if (std::optional<std::string> output = FlagValue(raw, i, "-o")) {
+      user.output = *std::move(output);
+    }
+    std::optional<std::string> kept = policy.arg(arg);
+    if (!kept) {
+      continue;
+    }
+    user.linking = user.linking && !IsOutputOnlyMode(arg);
+    user.shared = user.shared || arg == "-shared" || arg == "-dynamiclib";
+    user.no_policy = user.no_policy || RefusesLinkPolicy(arg);
+    user.have_input = user.have_input || !arg.starts_with('-');
+    user.sets_fortify = user.sets_fortify || IsFortifyArg(arg);
+    if (arg.starts_with("-O")) {
+      user.optimizes = arg != "-O0";
+    }
+    user.args.push_back(*std::move(kept));
+  }
+  return user;
 }
 
 }  // namespace
@@ -295,6 +395,9 @@ auto LoadDriverConf() -> std::optional<DriverConf> {
 }
 
 auto IsSharedLibName(std::string_view base) -> bool {
+  if (base.ends_with(".dylib")) {
+    return true;
+  }
   constexpr std::string_view kSuffix = ".so";
   const size_t suffix_pos = base.rfind(kSuffix);
   if (suffix_pos == std::string_view::npos) {
@@ -311,7 +414,8 @@ auto IsSharedLibName(std::string_view base) -> bool {
 auto BuildDriverArgs(const DriverConf& conf, Language lang, std::span<const std::string> raw_args)
     -> std::vector<std::string> {
   const bool cxx = lang == Language::kCxx;
-  UserArgs user = ScanUserArgs(raw_args, conf.binfmt);
+  const BinFmtPolicy policy = PolicyFor(conf.binfmt);
+  UserArgs user = ScanUserArgs(raw_args, policy);
   // toolchain, then package, then build system: later wins. The bracket silences
   // unused-argument warnings for flags the step does not use
   std::vector<std::string> out{"--start-no-unused-arguments"};
@@ -335,48 +439,16 @@ auto BuildDriverArgs(const DriverConf& conf, Language lang, std::span<const std:
   for (const std::string& mapping : Split(Env("PKGS_PREFIX_MAP"), ':')) {
     out.push_back("-ffile-prefix-map=" + mapping);
   }
-  // build-id for the debug split, package note to tell our links from upstream's. User args win
-  if (conf.binfmt == BinFmt::kElf) {
-    out.emplace_back("-Wl,--build-id=sha1");
-    out.emplace_back(R"(-Wl,--package-metadata={"type":"repkgs"})");
-  }
+  policy.always(out);
   out.emplace_back("--end-no-unused-arguments");
   out.insert(out.end(), user.args.begin(), user.args.end());
   // dependency -L dirs after the build tree's own, like a system lib dir would be
   if (user.linking && user.have_input) {
     out.insert(out.end(), conf.package.ldflags.begin(), conf.package.ldflags.end());
   }
-  if (!user.linking || !user.have_input || user.no_policy || conf.binfmt != BinFmt::kElf) {
-    return out;
+  if (user.linking && user.have_input && !user.no_policy) {
+    policy.link(conf, cxx, user, out);
   }
-
-  // RUNPATH candidates: -L dirs from argv as well as from $PKGS_CC
-  std::vector<std::string> link_args = user.args;
-  link_args.insert(link_args.end(), conf.package.ldflags.begin(), conf.package.ldflags.end());
-  const size_t libs = AddRunpathEntries(conf, cxx, link_args, user.runpath);
-  out.insert(out.end(),
-             {"-Wl,--undefined-version", "-Wl,-rpath," + user.runpath.Render(libs), "-Wl,--enable-new-dtags"});
-
-  const std::string libc_lib = conf.libc + "/lib";
-  if (user.shared) {
-    return out;
-  }
-  if (conf.crt.empty()) {
-    out.push_back("-Wl,--dynamic-linker=" + libc_lib + "/" + conf.interp);
-    return out;
-  }
-  std::string dots;
-  for (int i = 0; i < kInterpSlack; ++i) {
-    dots += "./";
-  }
-  // after the user's args, so a trailing `-x c` (ghc's configure) must not claim the object
-  out.insert(out.end(), {
-                            "-x",
-                            "none",
-                            conf.crt,
-                            "-Wl,--dynamic-linker=" + libc_lib + "/" + dots + conf.interp,
-                            "-Wl,--export-dynamic-symbol=__reloc_start",
-                        });
   return out;
 }
 

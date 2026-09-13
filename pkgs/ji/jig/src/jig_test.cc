@@ -12,6 +12,7 @@
 #include <print>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "base.h"
@@ -269,16 +270,22 @@ auto Has(const std::vector<std::string>& args, const std::string& arg) -> bool {
   return std::ranges::find(args, arg) != args.end();
 }
 
-// conf parsing, and binfmt: macho/coff get no interp, no RUNPATH, msvc a c++14 floor
+// conf parsing, and binfmt: macho gets rpaths and @rpath ids but no interp, coff a c++14 floor and no PIC
 void TestDriverConf() {
   const jig::DriverConf conf = jig::ParseDriverConf(kElfConf);
   assert(conf.present && conf.cc == "/seed/bin/clang" && conf.flags == V({"--target=x", "-O2"}));
   const jig::DriverConf macho = jig::ParseDriverConf(
       "cc = /seed/bin/clang\nbinfmt = macho\nflags = --target=arm64-apple-macos14.0\nlibc = /sr\n");
   assert(macho.binfmt == jig::BinFmt::kMachO);
-  for (const std::string& arg : jig::BuildDriverArgs(macho, jig::Language::kC, V({"a.c", "-o", "a"}))) {
-    assert(!arg.contains("rpath") && !arg.contains("dynamic-linker") && !arg.contains("crt_interp"));
-  }
+  const std::string macho_exe = jig::Join(jig::BuildDriverArgs(macho, jig::Language::kC, V({"a.c", "-o", "a"})), " ");
+  assert(!macho_exe.contains("dynamic-linker") && !macho_exe.contains("crt_interp") && !macho_exe.contains("$ORIGIN"));
+  assert(macho_exe.contains("-Wl,-headerpad_max_install_names") && !macho_exe.contains("-rpath"));
+  // COFF: PIC is not a thing to ask for
+  assert(
+      !Has(jig::BuildDriverArgs(
+               jig::ParseDriverConf("cc = /seed/bin/clang\nbinfmt = coff\nflags = --target=x86_64-pc-windows-msvc\n"),
+               jig::Language::kC, V({"-fPIC", "-c", "a.c"})),
+           "-fPIC"));
   const jig::DriverConf coff =
       jig::ParseDriverConf("cc = /seed/bin/clang\nbinfmt = coff\nflags = --target=x86_64-pc-windows-msvc\n");
   assert(Has(jig::BuildDriverArgs(coff, jig::Language::kCxx, V({"-std=c++11", "-c", "a.cc"})), "-std=c++14"));
@@ -429,14 +436,14 @@ void TestGoCache() {
   assert(jig::Base64Decode("YWI=") == "ab");
 }
 
-void TestElfImage() {
+void TestBinaryImage() {
   constexpr size_t kEhdrSize = 64;
   std::string bytes(kEhdrSize, '\0');
   constexpr std::string_view kMagic =
       "\x7f"
       "ELF\x02\x01";
   bytes.replace(0, kMagic.size(), kMagic);
-  jig::ElfImage elf(bytes);
+  jig::BinaryImage elf(bytes);
   assert(elf.IsElf64LittleEndian());
   assert(elf.Write<std::uint32_t>(16, 0xdeadbeef));
   assert(elf.Read<std::uint32_t>(16) == 0xdeadbeefU);
@@ -448,7 +455,97 @@ void TestElfImage() {
   assert(!elf.WritePadded(32, 3, "abc"));  // no room for NUL
   assert(!elf.WritePadded(60, 8, "abc"));
   assert(elf.CString(5000).empty());
-  assert(!jig::ElfImage("short").IsElf64LittleEndian());
+  assert(!jig::BinaryImage("short").IsElf64LittleEndian());
+}
+
+// <mach-o/loader.h> layout, enough to build a dylib as ld64 leaves it: header, __TEXT mapping the
+// header with one section behind the padding, LC_ID_DYLIB and LC_LOAD_DYLIBs with absolute names
+namespace macho {
+constexpr std::uint32_t kMagic64 = 0xfeedfacf;
+constexpr std::uint32_t kHeaderSize = 32;
+constexpr std::uint32_t kNcmdsField = 16;
+constexpr std::uint32_t kSizeofcmdsField = 20;
+constexpr std::uint32_t kSegment64 = 0x19;
+constexpr std::uint32_t kSegmentSize = 72;
+constexpr std::uint32_t kSectionSize = 80;
+constexpr std::uint32_t kSegFilesizeField = 48;
+constexpr std::uint32_t kSegNsectsField = 64;
+constexpr std::uint32_t kSectOffsetField = 48;
+constexpr std::uint32_t kLoadDylib = 0xc;
+constexpr std::uint32_t kIdDylib = 0xd;
+constexpr std::uint32_t kDylibCmdSize = 24;  // cmd, cmdsize, name offset, timestamp, two versions
+constexpr std::uint32_t kAlign = 8;
+
+auto DylibCommand(std::uint32_t cmd, std::string_view path) -> std::string {
+  std::string bytes(kDylibCmdSize, '\0');
+  bytes += path;
+  bytes.resize((bytes.size() + kAlign) / kAlign * kAlign, '\0');
+  jig::BinaryImage image(std::move(bytes));
+  assert(image.Write<std::uint32_t>(0, cmd));
+  assert(image.Write(4, static_cast<std::uint32_t>(image.bytes().size())));
+  assert(image.Write<std::uint32_t>(kAlign, kDylibCmdSize));
+  return image.bytes();
+}
+
+// text_off: where __text starts, the header room ends there
+auto Dylib(std::uint32_t text_off, std::uint64_t file_size, const std::string& dylib_cmds, std::uint32_t ndylibs)
+    -> std::string {
+  jig::BinaryImage segment(std::string(kSegmentSize + kSectionSize, '\0'));
+  assert(segment.Write<std::uint32_t>(0, kSegment64));
+  assert(segment.Write<std::uint32_t>(4, kSegmentSize + kSectionSize));
+  assert(segment.Write<std::uint64_t>(kSegFilesizeField, file_size));  // fileoff stays 0
+  assert(segment.Write<std::uint32_t>(kSegNsectsField, 1));
+  assert(segment.Write<std::uint32_t>(kSegmentSize + kSectOffsetField, text_off));
+  const std::string cmds = segment.bytes() + dylib_cmds;
+  jig::BinaryImage file(std::string(file_size, '\0'));
+  assert(file.Write<std::uint32_t>(0, kMagic64));
+  assert(file.Write<std::uint32_t>(kNcmdsField, ndylibs + 1));
+  assert(file.Write(kSizeofcmdsField, static_cast<std::uint32_t>(cmds.size())));
+  assert(file.Overwrite(kHeaderSize, cmds));
+  return file.bytes();
+}
+}  // namespace macho
+
+void TestMachOFixup() {
+  constexpr std::uint64_t kFileSize = 2048;
+  constexpr std::uint32_t kRoomy = 1024;
+  const std::string prefix_lib = std::string(OUT_ROOT) + "/lib/";
+  const std::string dep = JIG_STORE_DIR "/7123456789abcdfghijklmnpqrsvwxyz-zlib/lib/libz.1.dylib";
+  const std::string dylibs = macho::DylibCommand(macho::kIdDylib, prefix_lib + "libssl.3.dylib") +
+                             macho::DylibCommand(macho::kLoadDylib, prefix_lib + "libcrypto.3.dylib") +
+                             macho::DylibCommand(macho::kLoadDylib, dep) +
+                             macho::DylibCommand(macho::kLoadDylib, "/usr/lib/libSystem.B.dylib");
+  const std::string file = macho::Dylib(kRoomy, kFileSize, dylibs, 4);
+
+  const fs::path tmp = fs::temp_directory_path() / ("jigtest-macho-" + std::to_string(getpid()));
+  fs::create_directories(tmp / "lib");
+  const fs::path dylib = tmp / "lib/libssl.3.dylib";
+  assert(jig::WriteFile(dylib, file));
+  jig::FixupContext ctx;
+  ctx.prefix = tmp;
+  ctx.dest = std::string(OUT_ROOT);
+  jig::BinaryImage image(file);
+  assert(jig::FixMachO(ctx, dylib, image));
+  assert(ctx.errors == 0);
+  const std::string after = jig::ReadFile(dylib).value_or("");
+  assert(after.size() == kFileSize);
+  assert(after.contains("@rpath/libssl.3.dylib"));
+  assert(after.contains("@loader_path/libcrypto.3.dylib"));
+  assert(after.contains("@loader_path/../../7123456789abcdfghijklmnpqrsvwxyz-zlib/lib/libz.1.dylib"));
+  assert(after.contains("/usr/lib/libSystem.B.dylib"));
+  assert(!after.contains(JIG_STORE_DIR "/"));
+
+  // __text right behind the commands: the longer zlib spelling does not fit, an error
+  const std::string grows = macho::DylibCommand(macho::kLoadDylib, dep);
+  const auto tight_off =
+      static_cast<std::uint32_t>(macho::kHeaderSize + macho::kSegmentSize + macho::kSectionSize + grows.size());
+  const std::string tight = macho::Dylib(tight_off, kFileSize, grows, 1);
+  assert(jig::WriteFile(dylib, tight));
+  jig::BinaryImage tight_image(tight);
+  assert(jig::FixMachO(ctx, dylib, tight_image));
+  assert(ctx.errors == 1);
+  assert(jig::ReadFile(dylib) == tight);
+  fs::remove_all(tmp);
 }
 
 void TestNixStore() {
@@ -499,7 +596,8 @@ auto main() -> int {
   TestDepInfo();
   TestRustInvocation();
   TestGoCache();
-  TestElfImage();
+  TestBinaryImage();
+  TestMachOFixup();
   TestNixStore();
   std::println("jig_test: ok");
   return 0;

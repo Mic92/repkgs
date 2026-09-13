@@ -1,30 +1,53 @@
-// reloc-fixup mode (argv[0] = reloc-fixup): `reloc-fixup <prefix>` rewrites every ELF64-LE file
-// under <prefix> in place so the tree is relocatable:
+// reloc-fixup mode (argv[0] = reloc-fixup): `reloc-fixup <prefix>` rewrites every binary under
+// <prefix> in place so the tree is relocatable. ELF64-LE (elf_fixup.cc):
 //   - NEEDED: every library a store RUNPATH entry (or a lib dir inside <prefix>) provides becomes
 //     $ORIGIN/<rel>/<soname>, opened directly without a search. libc's stay by soname
 //   - RUNPATH: what is left (libc's dir, dirs that served no NEEDED i.e. dlopen) $ORIGIN-relative,
 //     padding/build/host entries dropped
 //   - PT_INTERP (when the crt_interp stub is linked, i.e. __reloc_start is exported): store path
 //     -> prefix-relative, segment type -> PT_NULL, e_entry -> __reloc_start
+// and every 64-bit Mach-O (macho_fixup.cc): LC_LOAD_DYLIB and LC_RPATH naming the store become
+// @loader_path-relative, LC_ID_DYLIB @rpath/<name>, load commands grown into the header padding.
 // Exit status 1 if any file could not be made consistent (unresolvable NEEDED, no slack).
 #pragma once
 
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <optional>
 #include <span>
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <vector>
 
 namespace jig {
 
 auto RunFixupMode(std::span<const std::string> args) -> int;
 
-// Bounds-checked view of an ELF image held in a std::string. Exposed for tests.
-class ElfImage {
+struct FixupContext {
+  std::filesystem::path prefix;
+  std::filesystem::path dest;                       // where prefix ends up, relative paths count from there
+  std::vector<std::filesystem::path> own_lib_dirs;  // dirs under prefix that contain shared objects
+  std::vector<std::string> denied;                  // hash parts of --deny paths
+  int errors = 0;
+
+  // prefix/x -> dest/x
+  [[nodiscard]] auto Final(const std::filesystem::path& path) const -> std::filesystem::path;
+  // dest/x -> prefix/x
+  [[nodiscard]] auto OnDisk(const std::filesystem::path& path) const -> std::filesystem::path;
+};
+
+class BinaryImage;
+void WriteBack(const std::filesystem::path& path, const std::string& bytes);
+// elf_fixup.cc / macho_fixup.cc: true when the file was theirs (handled, maybe with ctx.errors bumped)
+auto FixElf(FixupContext& ctx, const std::filesystem::path& path, BinaryImage& image) -> bool;
+auto FixMachO(FixupContext& ctx, const std::filesystem::path& path, BinaryImage& image) -> bool;
+
+// Bounds-checked view of a binary image held in a std::string. Exposed for tests.
+class BinaryImage {
  public:
-  explicit ElfImage(std::string bytes) : bytes_(std::move(bytes)) {}
+  explicit BinaryImage(std::string bytes) : bytes_(std::move(bytes)) {}
   [[nodiscard]] auto bytes() const -> const std::string& { return bytes_; }
   [[nodiscard]] auto IsElf64LittleEndian() const -> bool;
 
@@ -50,7 +73,10 @@ class ElfImage {
   // NUL-terminated string at offset, "" if out of range
   [[nodiscard]] auto CString(std::uint64_t offset) const -> std::string;
   // overwrite [offset, offset+capacity) with text + NUL padding. Returns false if it does not fit
+  // a C string into a fixed-size field, NUL padded. False when it does not fit
   auto WritePadded(std::uint64_t offset, std::uint64_t capacity, std::string_view text) -> bool;
+  // raw bytes over [offset, offset+size)
+  auto Overwrite(std::uint64_t offset, std::string_view bytes) -> bool;
 
  private:
   std::string bytes_;
