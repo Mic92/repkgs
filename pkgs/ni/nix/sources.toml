@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/NixOS/nix"
+
+[[source]]
+key = "default"
+url = "https://github.com/NixOS/nix/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-C/YEm/5IPiAMxQH5aHlkwgQMkLqK7NVsudEWdlzBZAA="
+
+[pin]
+version = "2.35.2"
+tag = "2.35.2"
