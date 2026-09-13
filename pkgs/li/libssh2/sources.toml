@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/libssh2/libssh2"
+
+[[source]]
+key = "default"
+url = "https://www.libssh2.org/download/libssh2-{version}.tar.gz"
+hash = "sha256-EZ4pbvGLjoYoO0ChKmM+dIcfWhJh48542frYTP+uZb4="
+
+[pin]
+version = "1.11.1"
+date = "2024-10-16"
+tag = "libssh2-1.11.1"
