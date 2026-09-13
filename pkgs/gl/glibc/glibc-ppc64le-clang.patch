@@ -1,10 +1,74 @@
 glibc's powerpc64le Makefile manages GCC's .gnu.attributes long-double ABI tags with
 -m[no-]gnu-attribute and objcopy. clang emits no such section and has neither flag.
-`with-clang` is set by configparms (bootstrap/default.nix).
+no-special-regs (rtld, mcount) reserves FPRs/VRs with GCC's -ffixed-<n>, clang takes -msoft-float.
+`with-clang` is set by configparms (bootstrap.nu).
+clang has __ibm128 but says GCC 4.2, ieee754.h's union needs it under -mabi=ieeelongdouble.
 
+diff --git a/sysdeps/ieee754/ldbl-128ibm-compat/Makefile b/sysdeps/ieee754/ldbl-128ibm-compat/Makefile
+index 10ae73dba1..3c075a055f 100644
+--- a/sysdeps/ieee754/ldbl-128ibm-compat/Makefile
++++ b/sysdeps/ieee754/ldbl-128ibm-compat/Makefile
+@@ -325,8 +325,8 @@ ldbl-extra-routines += err \
+ 		       qefgcvt \
+ 		       qefgcvt_r
+ 
+-CFLAGS-ieee128-qefgcvt.c += -mabi=ieeelongdouble -Wno-psabi -mno-gnu-attribute
+-CFLAGS-ieee128-qefgcvt_r.c += -mabi=ieeelongdouble -Wno-psabi -mno-gnu-attribute
++CFLAGS-ieee128-qefgcvt.c += -mabi=ieeelongdouble -Wno-psabi $(no-gnu-attribute-CFLAGS)
++CFLAGS-ieee128-qefgcvt_r.c += -mabi=ieeelongdouble -Wno-psabi $(no-gnu-attribute-CFLAGS)
+ 
+ tests-internal += tst-ibm128-warn tst-ieee128-warn
+ tests-internal += tst-ibm128-error tst-ieee128-error
+diff --git a/sysdeps/ieee754/ldbl-128ibm/ieee754.h b/sysdeps/ieee754/ldbl-128ibm/ieee754.h
+index 2b829188ad..3106c3bce3 100644
+--- a/sysdeps/ieee754/ldbl-128ibm/ieee754.h
++++ b/sysdeps/ieee754/ldbl-128ibm/ieee754.h
+@@ -170,7 +170,7 @@ union ieee854_long_double
+ #endif
+ 
+ 
+-#if __LDOUBLE_REDIRECTS_TO_FLOAT128_ABI == 0 || __GNUC_PREREQ (7, 0)
++#if __LDOUBLE_REDIRECTS_TO_FLOAT128_ABI == 0 || __GNUC_PREREQ (7, 0) || defined __clang__
+ /* IBM extended format for long double.
+ 
+    Each long double is made up of two IEEE doubles.  The value of the
+@@ -183,7 +183,7 @@ union ieee854_long_double
+    NaN is don't-care.  */
+ union ibm_extended_long_double
+   {
+-# if __LDOUBLE_REDIRECTS_TO_FLOAT128_ABI == 1 && __GNUC_PREREQ (7, 0)
++# if __LDOUBLE_REDIRECTS_TO_FLOAT128_ABI == 1 && (__GNUC_PREREQ (7, 0) || defined __clang__)
+    __ibm128 ld;
+ # else
+    long double ld;
+diff --git a/sysdeps/powerpc/powerpc64/Makefile b/sysdeps/powerpc/powerpc64/Makefile
+index 679d5e49ba..9c1ead2d1e 100644
+--- a/sysdeps/powerpc/powerpc64/Makefile
++++ b/sysdeps/powerpc/powerpc64/Makefile
+@@ -16,6 +16,10 @@ endif
+ # pass the -mno-* switches as well to prevent the compiler from attempting
+ # to emit altivec or vsx instructions, especially when the registers aren't
+ # available.
++# clang has no -ffixed-<fpr/vr>: -msoft-float keeps it off the FPRs
++ifeq ($(with-clang),yes)
++no-special-regs := -msoft-float -mno-altivec -mno-vsx
++else
+ no-special-regs := $(sort $(foreach n,40 41 50 51 60 61 62 63 \
+ 				      $(foreach m,2 3 4 5 6 7 8 9, \
+ 						  3$m 4$m 5$m),\
+@@ -24,6 +28,7 @@ no-special-regs := $(sort $(foreach n,40 41 50 51 60 61 62 63 \
+ 						$m 1$m 2$m) 30 31,\
+ 				    -ffixed-v$n)) \
+ 		   -ffixed-vrsave -ffixed-vscr -mno-altivec -mno-vsx
++endif
+ 
+ # Likewise, we must disable IEEE long double support as some (all?)
+ # compilers will not accept the above options with IEEE long double.
+diff --git a/sysdeps/powerpc/powerpc64/le/Makefile b/sysdeps/powerpc/powerpc64/le/Makefile
+index b77775cf95..a876e09d54 100644
 --- a/sysdeps/powerpc/powerpc64/le/Makefile
 +++ b/sysdeps/powerpc/powerpc64/le/Makefile
-@@ -9,7 +9,13 @@
+@@ -9,7 +9,13 @@ no-gnu-attribute-CFLAGS =
  ifeq ($(ibm128-fcts),yes)
  ibm128-abi-CFLAGS := -mabi=ibmlongdouble
  type-ldouble-CFLAGS += $(ibm128-abi-CFLAGS)
@@ -18,7 +82,7 @@ glibc's powerpc64le Makefile manages GCC's .gnu.attributes long-double ABI tags 
  
  # This is a very gnarly workaround to static libgcc providing a .gnu.attribute
  # in ibm128 functions.  This is not a bug in static libgcc as normal users
-@@ -24,6 +30,8 @@
+@@ -24,6 +30,8 @@ ifeq ($(build-shared),yes)
  # Build everything with IEEE 128-bit long double.
  sysdep-CFLAGS += -mabi=ieeelongdouble -Wno-psabi $(no-gnu-attribute-CFLAGS)
  
@@ -27,7 +91,7 @@ glibc's powerpc64le Makefile manages GCC's .gnu.attributes long-double ABI tags 
  before-compile += $(common-objpfx)no_ldbl_gnu_attribute.bin
  
  $(common-objpfx)no_ldbl_gnu_attribute.bin: $(..)sysdeps/powerpc/powerpc64/le/no_ldbl_gnu_attribute.c
-@@ -45,6 +53,7 @@
+@@ -45,6 +53,7 @@ ifeq ($(subdir),math)
  $(objpfx)m_ldexpl.os: CFLAGS += -mgnu-attribute
  $(objpfx)s_ldexpl.os: CFLAGS += -mgnu-attribute
  endif
