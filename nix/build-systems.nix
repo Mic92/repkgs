@@ -219,6 +219,9 @@ builtins.mapAttrs
         flags = flags "cargo build and cargo test";
         skipTests = strs [ ] "cargo test --skip filters (substring of the test path)";
         deps = deps true "fetch.cargoVendor";
+        cratePatches =
+          attrs { }
+            "crate name -> patches applied to its vendored copy (-p1 inside the crate)";
       };
     };
     cabal = {
