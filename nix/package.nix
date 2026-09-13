@@ -98,12 +98,12 @@ let
         ;
       inherit (toolchain) sysroot;
       configTriple = platform.configTriple or platform.triple;
-      probe = on platform.cross "${toolchain.sysroot}/lib/${platform.interp}";
+      probe = if platform.cross then "${toolchain.sysroot}/lib/${platform.interp}" else "";
       # `prebuilt`: upstream ELFs get our dynamic linker implanted (true) or via launch ("ldso")
       interp = "${toolchain.sysroot}/lib/${platform.interp}";
-      launch = on elf "${launch}/bin/launch";
+      launch = if elf then "${launch}/bin/launch" else "";
       # finish.nu runs the version check under it: a failed dlopen fails the build
-      dlaudit = on elf "${dlaudit}/lib/dlaudit.so";
+      dlaudit = if elf then "${dlaudit}/lib/dlaudit.so" else "";
       relocStub = "${toolchain}/lib/reloc_stub.bin";
     };
     # nix/hardening.nix as data for builder/env.nu: the flag table and what is on for this platform

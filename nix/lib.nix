@@ -6,20 +6,17 @@ let
   inherit (builtins)
     concatStringsSep
     isAttrs
-    isString
     ;
 in
 rec {
-  # `++ on platform.cross [ buildPkgs.x ]`, `// on cond { … }`, `"${on cond "--flag"}"`:
-  # the value when the condition holds, else the empty list, set or string of its kind
+  # `++ on platform.cross [ buildPkgs.x ]`, `// on cond { … }`: the value when the condition
+  # holds, else the empty list or set. Contents stay lazy; not for strings, which have none
   on =
     cond: v:
     if cond then
       v
     else if isAttrs v then
       { }
-    else if isString v then
-      ""
     else
       [ ];
   # space separated is `toString list`
