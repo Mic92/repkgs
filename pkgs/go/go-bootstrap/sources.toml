@@ -2,17 +2,17 @@
 purl = 'pkg:generic/go?url=https://go.dev/dl/&regex=go(\d[0-9.]*)\.src\.tar\.gz'
 
 [[source]]
-key = "x86_64"
+key = "linux-x86_64"
 url = "https://go.dev/dl/go{version}.linux-amd64.tar.gz"
 hash = "sha256-pehnj+Yg/dLjAcnfYC2ps8WmPCT/CIwe80WcFqVyLOQ="
 
 [[source]]
-key = "aarch64"
+key = "linux-aarch64"
 url = "https://go.dev/dl/go{version}.linux-arm64.tar.gz"
 hash = "sha256-t7/ZChLoIl9Rkpln4mx0zaKKuO7v5wmk4AknLRjJzoQ="
 
 [[source]]
-key = "riscv64"
+key = "linux-riscv64"
 url = "https://go.dev/dl/go{version}.linux-riscv64.tar.gz"
 hash = "sha256-PKM42XI+p2RS/iYvcr87TcfDJp+fuFPolCjVW82YiGs="
 
