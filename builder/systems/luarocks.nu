@@ -2,7 +2,7 @@ use ../core.nu *
 
 # A Lua application or module: `luarocks make` of its rockspec into $out as the one rocks tree,
 # dependencies from the set's rock server (fetch.luaRocksSet, locks/luarocks.toml). luarocks'
-# bin wrappers start our lua with $out on package.path. C modules compile with the cc on PATH
+# bin wrappers start our lua with their tree on package.path. C modules compile with the cc on PATH
 # (luarocks takes CC from the environment) against the target lua.
 export def setup []: nothing -> nothing { }
 
@@ -14,9 +14,13 @@ export def install []: nothing -> nothing {
   let o = (options luarocks)
   let lua = (dep-root lua "rocks run on the target lua")
   x luarocks make --tree $c.out $"--only-server=($o.deps)" --deps-mode one --no-doc $"LUA_DIR=($lua)" "CFLAGS=-O2 -fPIC" ...$o.flags ...([$o.rockspec] | compact)
-  # the bin wrappers name luarocks' own config dir: a build tool, and nothing reads it at run time
+  # the bin wrappers name luarocks' own config dir (a build tool, nothing reads it at run time)
+  # and the tree by absolute path: the tree is where the wrapper is
   for f in (files $"($c.out)/bin/*") {
-    let text = (open --raw $f | str replace -r "LUAROCKS_SYSCONFDIR='[^']*' " "")
-    $text | save -f $f
+    edit $f {
+      str replace -r "LUAROCKS_SYSCONFDIR='[^']*' " ""
+      | str replace "\nexec " "\ntree=$(cd \"${0%/*}/..\" && pwd)\nexec "
+      | str replace -a $c.out "'\"$tree\"'"
+    }
   }
 }
