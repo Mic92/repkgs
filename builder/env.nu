@@ -10,7 +10,7 @@ def sandbox-dirs [a: record, out: string]: nothing -> record {
   mkdir $home
   {PATH: ($a.buildDependencies | each { $"($in)/bin" }), HOME: $home, XDG_CACHE_HOME: $"($home)/.cache"
     XDG_DATA_HOME: $"($home)/.local/share", XDG_CONFIG_HOME: $"($home)/.config", TMPDIR: $env.NIX_BUILD_TOP
-    CI: "true", out: $out}
+    CI: "true", TERM: "dumb", out: $out}
 }
 
 # no wall clock, locale, timezone or hash randomisation in outputs. 1980-01-01 is the earliest
