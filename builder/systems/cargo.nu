@@ -24,6 +24,8 @@ export def --env setup []: nothing -> nothing {
   let sys = (sys-libs env-for cargo $c.deps)
   load-env ({PKG_CONFIG_ALLOW_CROSS: "1"} | merge $sys)
   if ($sys | is-not-empty) { note sys-libs ($sys | columns | str join " ") }
+  # bindgen asks a clang executable for its include dirs: ours, not a bare one found on PATH
+  $env.CLANG_PATH = (which cc | get 0.path)
   # cross: the toolchain carries std for the build machine only, the target's is <toolchain>-std
   # (cargo.tools): one sysroot of symlinks over both
   let sysroot = (if $c.platform.cross {
