@@ -5,6 +5,7 @@
 package {
   name = "taglib";
   uses = [ "cmake" ];
+  patches = [ ./relocatable.patch ];
   cmake.defs = {
     WITH_ZLIB = true;
   };
