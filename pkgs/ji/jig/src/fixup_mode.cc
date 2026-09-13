@@ -187,29 +187,34 @@ auto SymbolInside(const ElfImage& elf, const std::vector<Section>& sections, std
   return std::nullopt;
 }
 
-// the existing RUNPATH with store entries made $ORIGIN-relative, then this package's own lib dirs
-// (a NEEDED sibling the build system gave no rpath for). Padding, build and host dirs drop out
+// "$ORIGIN" or "$ORIGIN/<rel>" from one final directory to another
+auto OriginRelative(const fs::path& from, const fs::path& to) -> std::string {
+  const std::string rel = RelativeFrom(from, to);
+  return rel == "." ? "$ORIGIN" : "$ORIGIN/" + rel;
+}
+
+// the existing RUNPATH made $ORIGIN-relative, then this package's own lib dirs (a NEEDED sibling
+// the build system gave no rpath for). Each entry is taken to where it will finally be: a store
+// path stays, prefix/x becomes dest/x, $ORIGIN counts from the file's final place (a binary
+// copied from a dependency already has those). What is then not in the store (build tree, host
+// dirs, padding) drops out
 auto RelativizeRunpath(const FixupContext& ctx, const std::string& old, const fs::path& here)
     -> std::vector<RunpathDir> {
-  constexpr std::string_view kOriginPrefix = "$ORIGIN/";
+  constexpr std::string_view kOrigin = "$ORIGIN";
   const Store& store = Store::Get();
   std::vector<RunpathDir> runpath;
   const fs::path final_here = ctx.Final(here);
   for (const std::string& entry : Split(old, ':')) {
-    // a dependency, or our own lib dir (as prefix or dest)
-    const fs::path on_disk = ctx.OnDisk(entry);
-    if (store.IsStorePath(entry) || ctx.Final(on_disk) != on_disk) {
-      runpath.push_back({.entry = "$ORIGIN/" + RelativeFrom(final_here, ctx.Final(on_disk)), .dir = on_disk});
-    } else if (entry == "$ORIGIN") {
-      runpath.push_back({.entry = entry, .dir = here});
-    } else if (entry.starts_with(kOriginPrefix)) {
-      runpath.push_back({.entry = entry, .dir = (here / entry.substr(kOriginPrefix.size())).lexically_normal()});
+    fs::path final_dir = ctx.Final(entry);
+    if (entry == kOrigin || entry.starts_with(std::string(kOrigin) + "/")) {
+      final_dir = (final_here / entry.substr(std::min(entry.size(), kOrigin.size() + 1))).lexically_normal();
+    }
+    if (store.IsStorePath(final_dir.string())) {
+      runpath.push_back({.entry = OriginRelative(final_here, final_dir), .dir = ctx.OnDisk(final_dir)});
     }
   }
   for (const fs::path& own : ctx.own_lib_dirs) {
-    runpath.push_back({.entry = own == here ? "$ORIGIN" : "$ORIGIN/" + RelativeFrom(final_here, ctx.Final(own)),
-                       .dir = own,
-                       .keep = false});
+    runpath.push_back({.entry = OriginRelative(final_here, ctx.Final(own)), .dir = own, .keep = false});
   }
   return runpath;
 }

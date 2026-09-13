@@ -1,4 +1,4 @@
-{ package }:
+{ package, pkgs }:
 package {
   name = "test-cc";
   version = "1";
@@ -16,9 +16,12 @@ package {
         x cc -shared -fPIC -Wl,--package-metadata= lib.c -o $"($c.out)/lib/upstream.so"
         ^ln -s $"($c.out)/lib/libhello.so" $"($c.out)/lib/libabs.so"
         touch $"($c.out)/lib/libhello.la"
+        # a finished library copied from a dependency (rust-std does that): RUNPATH already $ORIGIN-relative
+        cp (files $"(dep-root zlib "copy a finished library")/lib/libz.so.*.*" | first) $"($c.out)/lib/libcopied.so"
       '';
     }
   ];
+  dependencies = [ pkgs.zlib ];
   install."share/" = [ "data" ];
   tests.version = "hello";
 }
