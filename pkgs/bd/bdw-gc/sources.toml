@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/bdwgc/bdwgc"
+
+[[source]]
+key = "default"
+url = "https://github.com/bdwgc/bdwgc/releases/download/v{version}/gc-{version}.tar.gz"
+hash = "sha256-kerfViIXplH19xkUCA+kvSqTc1BGlPfSngEZWyxdt24="
+
+[pin]
+version = "8.2.12"
+date = "2026-02-05"
+tag = "v8.2.12"
