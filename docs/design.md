@@ -138,7 +138,14 @@ reference scanner work unchanged.
 | scripts, wrappers | `launch`: `bin/foo` hardlink + `bin/.foo.launch` record with `{root}` placeholders. No shebang patching, no makeWrapper |
 | glibc data, pkg-config, cmake | relative to `libc.so.6` (one patch), `${pcfiledir}`, native. `.la` deleted |
 | exported environment | `exports.json` values with `{root}` |
-| compiled-in prefix | dirname-relative patch (openssl providers). fixup warns on any absolute self-reference, `tests.relocated` runs the output from a copy |
+| compiled-in prefix | dirname-relative patch (openssl providers), `tests.relocated` runs the output from a copy |
+
+The build never sees its store path: `$out` is `$NIX_BUILD_TOP/prefix`, finish makes what it
+knows relative to the final location, fails if any file still names the prefix, and moves the
+tree into the store last. An output's bytes cannot depend on where it lands, which also keeps
+content-addressed rebuilds stable (lld hashes `$out` into build ids and string order;
+[NixOS/nix#16465](https://github.com/NixOS/nix/pull/16465) covers derivations that do see
+`$out`, like `bootstrap/`).
 
 Ambient data (CA bundle, zoneinfo, fonts) is an environment variable or system path, never a
 store path.

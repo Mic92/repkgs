@@ -15,7 +15,7 @@ export def note [kind: string, msg: string = ""]: nothing -> nothing {
 }
 
 # what build-system and inline phases get to see: {spec out deps njobs src build platform testsRun}
-export def ctx []: nothing -> record<spec: record, out: string, deps: list<record<name: string, root: string>>, roots: list<string>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool> { $env.PKGS_CTX }
+export def ctx []: nothing -> record<spec: record, out: string, dest: string, deps: list<record<name: string, root: string>>, roots: list<string>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool> { $env.PKGS_CTX }
 
 # a build system's options: nix/build-systems.nix defaults merged with the package's `<bs>.*`
 export def options [bs: string]: nothing -> record { (ctx).spec | get $bs }

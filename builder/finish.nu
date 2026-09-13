@@ -3,7 +3,8 @@ use core.nu *
 use implant.nu
 use launchers.nu
 
-export def main [
+# --env: the cd below must outlive this call, the caller's workdir is gone after to-store
+export def --env main [
   --keep-tree  # tests.separate: save source+build tree for the tests derivation
 ]: nothing -> nothing {
   let c = (ctx)
@@ -14,15 +15,45 @@ export def main [
     if not ($"($c.out)/bin/($b)" | path exists) { error make {msg: $"bin/($b) missing in output"} }
   }
   prune $c.out
-  layout-check $c.out
+  layout-check $c.out $c.dest
   # installed copies of source scripts carry the build env's path from prepare: not a dependency
   fix-env-shebangs $c.out $c.njobs --undo
   mkdir (attrs).outputs.debug
   if $c.platform.binfmt == "elf" { relocate-elf $c }
-  version-check $c
   write-exports $c.out $c.spec $c.deps
   note exports (open --raw $"($c.out)/exports.json" | from json | to json -r)
+  cd $env.NIX_BUILD_TOP # the workdir may be inside the prefix (bundler)
+  to-store $c.out $c.dest
+  version-check ($c | update out $c.dest)
   cache-summary
+}
+
+# .pc files can name their own location: the prefix becomes ${pcfiledir}/../..
+def relativize-pc [prefix: string]: nothing -> nothing {
+  for f in (^grep -rlF $prefix $prefix --include=*.pc | complete | get stdout | lines) {
+    let up = ($f | path dirname | path relative-to $prefix | path split | each { ".." } | str join "/")
+    open --raw $f | str replace -a $prefix $"${pcfiledir}/($up)" | save -f $f
+  }
+}
+
+# prefix -> store. A file still naming the prefix would dangle: not relocatable, an error
+export def to-store [prefix: string, dest: string]: nothing -> nothing {
+  relativize-pc $prefix
+  let hits = (^grep -rlF $prefix $prefix | complete | get stdout | lines)
+  if ($hits | is-not-empty) {
+    # per file the strings that name the prefix, text or binary alike
+    let detail = ($hits | first 10 | each {|f|
+      let found = (^strings -n ($prefix | str length) $f | lines | where { $in | str contains $prefix } | uniq | first 3
+        | each { str replace -a $prefix '$out' | str substring 0..120 })
+      $"  ($f | path relative-to $prefix): ($found | str join ', ')"
+    })
+    let more = if ($hits | length) > 10 { $"
+  ... and (($hits | length) - 10) more" } else { "" }
+    error make {msg: $"not relocatable: ($hits | length) files name the install prefix \(shown as $out). Make the path relative to the file \(reloc.h RELOC, ${pcfiledir}, $ORIGIN) or configure it away:
+($detail | str join "
+")($more)"}
+  }
+  ^mv $prefix $dest
 }
 
 # tests derivation output: a result marker. The package itself is untouched
@@ -79,26 +110,33 @@ export def prune [out: path]: nothing -> nothing {
   if ($pch | is-not-empty) { error make {msg: $"precompiled headers in output do not relocate: ($pch | first 3 | str join ' ')"} }
 }
 
-# lib/ and bin/ only, symlinks relative or made so, none dangling
-export def layout-check [out: path]: nothing -> nothing {
+# lib/ and bin/ only. Absolute symlinks (into the output or to a dependency) are made relative
+# to where the link will be in the store, anything else absolute is an error, none may dangle
+export def layout-check [out: path, dest: string]: nothing -> nothing {
   for d in [lib64 sbin] {
     if ($"($out)/($d)" | path exists) { error make {msg: $"($d)/ in output: configure with --libdir/--sbindir so it installs into lib/ and bin/"} }
   }
   for l in (^find $out -type l -printf '%p\t%l\n' | lines | split column "\t" link target) {
     let rel = ($l.link | path relative-to $out)
-    if ($l.target | str starts-with $"($out)/") {
-      ^ln -sfn (relative-link $rel ($l.target | path relative-to $out)) $l.link
-    } else if ($l.target | str starts-with "/") {
-      error make {msg: $"symlink ($rel) -> ($l.target) is absolute: outputs relocate, link relative"}
+    let target = if ($l.target | str starts-with $"($out)/") {
+      $"($dest)/($l.target | path relative-to $out)"
+    } else { $l.target }
+    if ($target | str starts-with $"($env.NIX_STORE)/") {
+      ^ln -sfn (relative-link $"($dest)/($rel)" $target) $l.link
+    } else if ($target | str starts-with "/") {
+      error make {msg: $"symlink ($rel) -> ($target) is absolute and outside the store"}
     }
-    if not ($l.link | path exists) { error make {msg: $"symlink ($rel) -> ($l.target) dangles"} }
+    # resolve as if already at dest, then look under out where the files still are
+    let now = (^readlink $l.link)
+    let final = ($"($dest)/($rel)" | path dirname | path join $now | path expand -n | str replace $dest $out)
+    if not ($final | path exists) { error make {msg: $"symlink ($rel) -> ($now) dangles"} }
   }
 }
 
-# "lib/a.so" to "lib/b.so": "b.so", "bin/x" to "lib/y.so": "../lib/y.so"
+# link at `from` pointing to `to`, both absolute: the relative target
 def relative-link [from: string, to: string]: nothing -> string {
-  let f = ($from | path split | drop 1)
-  let t = ($to | path split)
+  let f = ($from | path split | drop 1 | skip 1)
+  let t = ($to | path split | skip 1)
   let common = ($f | zip $t | take while { $in.0 == $in.1 } | length)
   $f | skip $common | each { ".." } | append ($t | skip $common) | path join
 }
@@ -112,7 +150,7 @@ def relocate-elf [c: record]: nothing -> nothing {
   launchers $c
   let a = (attrs)
   let deny = (if $c.platform.cross { $a.buildDependencies | where { $in not-in $a.dependencies } | each { [--deny $in] } | flatten } else { [] })
-  if $prebuilt != "ldso" { x reloc-fixup $c.out ...$deny }
+  if $prebuilt != "ldso" { x reloc-fixup $c.out --dest $c.dest ...$deny }
 }
 
 # DWARF -> `debug` under lib/debug/.build-id/, .symtab stays. A build-id means our linker made

@@ -52,9 +52,9 @@ export def --env main [
 ]: nothing -> nothing {
   let a = (attrs)
   let spec = $a.spec
-  # in the tests derivation "$out" for build systems is the already-built package. Our own
-  # output is just the log
-  let out = (if $from_tree == "" { $a.outputs.out } else { $a.package })
+  # the build installs outside the store, finish moves it (docs/design.md, Relocatable). In the
+  # tests derivation $out is the built package and our own output just the log
+  let out = (if $from_tree == "" { $"($env.NIX_BUILD_TOP)/prefix" } else { $a.package })
   $env.PKGS_RESULT = $a.outputs.out
   let njobs = ($env.NIX_BUILD_CORES? | default "4" | into int)
   let deps = (dep-closure $a.dependencies)
@@ -74,6 +74,6 @@ export def --env main [
   let wanted = ($spec.tests?.run? | default true)
   if $from_tree == "" and $wanted and $plat.cross and not $plat.transparent { note untested $"($plat.name): no binfmt on this builder" }
   let tests_run = ($from_tree != "" or ($wanted and ((not $plat.cross) or $plat.transparent)))
-  $env.PKGS_CTX = {spec: $spec, out: $out, deps: $deps, roots: ($env.JIG_STORE_ROOTS | split row " "), njobs: $njobs, src: $env.PWD
+  $env.PKGS_CTX = {spec: $spec, out: $out, dest: $a.outputs.out, deps: $deps, roots: ($env.JIG_STORE_ROOTS | split row " "), njobs: $njobs, src: $env.PWD
     build: $build, platform: $plat, testsRun: $tests_run, cache: $cache}
 }
