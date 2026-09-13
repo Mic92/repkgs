@@ -14,7 +14,7 @@ import (
 func TestServeIdsAndPipelinedGets(t *testing.T) {
 	dir := t.TempDir()
 	var err error
-	store, err = OpenStore(filepath.Join(dir, "packs"), 1<<30)
+	store, err = OpenStore([]Tier{{Dir: filepath.Join(dir, "packs"), Budget: 1 << 30}})
 	if err != nil {
 		t.Fatal(err)
 	}

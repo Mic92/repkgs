@@ -25,7 +25,7 @@ func read(t *testing.T, s *Store, key string) []byte {
 
 func TestPutGetReopen(t *testing.T) {
 	dir := t.TempDir()
-	s, err := OpenStore(dir, 0)
+	s, err := OpenStore([]Tier{{Dir: dir, Budget: 0}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestPutGetReopen(t *testing.T) {
 		t.Fatal("expected miss")
 	}
 	// crash without Close: next open scans the unsealed pack
-	s2, err := OpenStore(dir, 0)
+	s2, err := OpenStore([]Tier{{Dir: dir, Budget: 0}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +48,7 @@ func TestPutGetReopen(t *testing.T) {
 	}
 	s2.Close()
 	// and after a clean close it loads from hints
-	s3, err := OpenStore(dir, 0)
+	s3, err := OpenStore([]Tier{{Dir: dir, Budget: 0}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,14 +59,14 @@ func TestPutGetReopen(t *testing.T) {
 
 func TestTornTail(t *testing.T) {
 	dir := t.TempDir()
-	s, _ := OpenStore(dir, 0)
+	s, _ := OpenStore([]Tier{{Dir: dir, Budget: 0}})
 	s.Put("k", []byte("value"))
 	name := s.active.file.Name()
 	// half a record appended
 	f, _ := os.OpenFile(name, os.O_WRONLY|os.O_APPEND, 0)
 	f.Write([]byte{9, 0, 0, 0, 200, 0, 0, 0, 'x'})
 	f.Close()
-	s2, err := OpenStore(dir, 0)
+	s2, err := OpenStore([]Tier{{Dir: dir, Budget: 0}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestTornTail(t *testing.T) {
 
 func TestEvictKeepsReadPack(t *testing.T) {
 	dir := t.TempDir()
-	s, _ := OpenStore(dir, 2*packLimit+packLimit/2)
+	s, _ := OpenStore([]Tier{{Dir: dir, Budget: 2*packLimit + packLimit/2}})
 	big := bytes.Repeat([]byte{1}, 1<<20)
 	per := packLimit / len(big)
 	// two full packs, pack 1 read from, then a third: pack 2 goes, not pack 1
@@ -92,6 +92,7 @@ func TestEvictKeepsReadPack(t *testing.T) {
 	for i := 2 * per; i < 7*per/2; i++ {
 		s.Put(fmt.Sprintf("o/%d", i), big)
 	}
+	s.Wait()
 	if read(t, s, "o/0") == nil {
 		t.Fatal("pack 1 was read last and got evicted")
 	}
@@ -103,7 +104,7 @@ func TestEvictKeepsReadPack(t *testing.T) {
 // recency is the pack's mtime: a pack read before a restart outlives one that was not
 func TestEvictRecencySurvivesRestart(t *testing.T) {
 	dir := t.TempDir()
-	s, _ := OpenStore(dir, 0)
+	s, _ := OpenStore([]Tier{{Dir: dir, Budget: 0}})
 	big := bytes.Repeat([]byte{1}, 1<<20)
 	per := packLimit / len(big)
 	for i := 0; i < 2*per; i++ {
@@ -113,13 +114,14 @@ func TestEvictRecencySurvivesRestart(t *testing.T) {
 	read(t, s, "o/0") // pack 1 read later than pack 2 was written, pack 2 never read
 	s.Close()
 
-	s2, _ := OpenStore(dir, 2*packLimit+packLimit/2)
+	s2, _ := OpenStore([]Tier{{Dir: dir, Budget: 2*packLimit + packLimit/2}})
 	if p1, p2 := s2.packs[1].used.Load(), s2.packs[2].used.Load(); p1 <= p2 {
 		t.Fatalf("after restart pack 1 used=%v not newer than pack 2 used=%v", time.Unix(0, p1), time.Unix(0, p2))
 	}
 	for i := 2 * per; i < 7*per/2; i++ {
 		s2.Put(fmt.Sprintf("o/%d", i), big)
 	}
+	s2.Wait()
 	if read(t, s2, "o/0") == nil {
 		t.Fatal("pack 1 was read before the restart and got evicted")
 	}
@@ -131,7 +133,7 @@ func TestEvictRecencySurvivesRestart(t *testing.T) {
 // a pack whose entries were mostly overwritten goes before a fully live one, however recent
 func TestEvictSupersededFirst(t *testing.T) {
 	dir := t.TempDir()
-	s, _ := OpenStore(dir, 2*packLimit+packLimit/2)
+	s, _ := OpenStore([]Tier{{Dir: dir, Budget: 2*packLimit + packLimit/2}})
 	big := bytes.Repeat([]byte{1}, 1<<20)
 	per := packLimit / len(big)
 	for i := 0; i < per; i++ { // pack 1: o/0..per
@@ -145,6 +147,7 @@ func TestEvictSupersededFirst(t *testing.T) {
 	for i := per; i < 5*per/2; i++ { // pack 3 and a half: over budget
 		s.Put(fmt.Sprintf("o/%d", i), big)
 	}
+	s.Wait()
 	if _, err := os.Stat(filepath.Join(dir, "000001.pack")); !os.IsNotExist(err) {
 		t.Fatal("superseded pack 1 still on disk")
 	}
@@ -153,9 +156,51 @@ func TestEvictSupersededFirst(t *testing.T) {
 	}
 }
 
+// over the fast budget a pack moves to the cold dir and is still served, over the cold budget it
+// is gone. A restart finds cold packs
+func TestTiers(t *testing.T) {
+	hot, cold := t.TempDir(), t.TempDir()
+	// room for the active pack plus one sealed pack in each tier
+	tiers := []Tier{{Dir: hot, Budget: 2 * packLimit}, {Dir: cold, Budget: packLimit + packLimit/2}}
+	s, _ := OpenStore(tiers)
+	big := bytes.Repeat([]byte{1}, 1<<20)
+	per := packLimit / len(big)
+	puts := func(from, to int) {
+		for i := from; i < to; i++ {
+			s.Put(fmt.Sprintf("o/%d", i), big)
+		}
+		s.Wait()
+	}
+	puts(0, 5*per/2) // packs 1, 2 sealed, 3 half: 1 goes cold
+	if _, err := os.Stat(filepath.Join(cold, "000001.pack")); err != nil {
+		t.Fatal("pack 1 not demoted: ", err)
+	}
+	if _, err := os.Stat(filepath.Join(hot, "000001.pack")); !os.IsNotExist(err) {
+		t.Fatal("pack 1 still hot")
+	}
+	if read(t, s, "o/0") == nil {
+		t.Fatal("o/0 not served from the cold tier")
+	}
+	puts(5*per/2, 7*per/2) // 3 sealed, 4 half: 2 goes cold, cold over budget, 2 was read less recently than 1
+	if read(t, s, fmt.Sprintf("o/%d", per+1)) != nil {
+		t.Fatal("pack 2 survived the cold budget")
+	}
+	if read(t, s, "o/0") == nil {
+		t.Fatal("pack 1 (read) dropped instead of pack 2")
+	}
+	s.Close()
+	s2, err := OpenStore([]Tier{{Dir: hot}, {Dir: cold}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if read(t, s2, "o/0") == nil || s2.packs[1].tier != 1 {
+		t.Fatal("cold pack 1 not found after restart")
+	}
+}
+
 func TestEvictOldestPack(t *testing.T) {
 	dir := t.TempDir()
-	s, _ := OpenStore(dir, packLimit+packLimit/2)
+	s, _ := OpenStore([]Tier{{Dir: dir, Budget: packLimit + packLimit/2}})
 	big := bytes.Repeat([]byte{1}, 1<<20)
 	// ~2.5 packs worth: the first pack must go
 	for i := 0; i < packLimit*5/2/len(big); i++ {
@@ -163,6 +208,7 @@ func TestEvictOldestPack(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	s.Wait()
 	if read(t, s, "o/0") != nil {
 		t.Fatal("o/0 should have been evicted with pack 1")
 	}

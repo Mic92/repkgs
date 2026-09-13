@@ -1,8 +1,9 @@
 // Bitcask-style blob store: values are appended to the active pack file, an in-memory map says
-// where each key lives, sealed packs get a hint file so startup does not scan data. Eviction drops
-// whole packs, mostly superseded ones first, then least recently read. A pack's mtime is its last
-// read so recency survives restarts. Nothing is fsynced: this is a cache, a torn tail is truncated
-// on load.
+// where each key lives, sealed packs get a hint file so startup does not scan data. Packs live in
+// tiers (a fast local dir, then optionally a big slow one), each with a byte budget: a tier over
+// budget demotes whole packs to the next, mostly superseded ones first, then least recently read,
+// and the last tier deletes. A pack's mtime is its last read so recency survives restarts.
+// Nothing is fsynced: this is a cache, a torn tail is truncated on load.
 //
 //	packs/000042.pack  records: u32 keylen, u32 vallen, key, value   (little endian)
 //	packs/000042.hint  same records without the value, plus u64 offset of the record in .pack
@@ -38,8 +39,16 @@ type loc struct {
 	len  uint32
 }
 
+// Tier is a directory of packs with a byte budget (0 = unbounded)
+type Tier struct {
+	Dir    string
+	Budget int64
+	total  int64
+}
+
 type pack struct {
 	id      uint32
+	tier    int // index into Store.tiers
 	file    *os.File
 	size    int64
 	live    int64        // bytes of values the index still points at
@@ -48,49 +57,64 @@ type pack struct {
 }
 
 type Store struct {
-	dir    string
-	budget int64
-	now    func() time.Time
+	tiers []Tier // tiers[0] takes the writes
+	now   func() time.Time
 
 	mu     sync.RWMutex
 	index  map[string]loc
 	packs  map[uint32]*pack
 	active *pack
-	total  int64
+	demote chan struct{} // a tier went over budget
+	done   chan struct{}
 }
 
 func packName(dir string, id uint32, ext string) string {
 	return filepath.Join(dir, fmt.Sprintf("%06d.%s", id, ext))
 }
 
-func OpenStore(dir string, budget int64) (*Store, error) {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return nil, err
-	}
-	s := &Store{dir: dir, budget: budget, now: time.Now, index: make(map[string]loc), packs: make(map[uint32]*pack)}
-	names, err := filepath.Glob(filepath.Join(dir, "*.pack"))
-	if err != nil {
-		return nil, err
-	}
-	sort.Strings(names)
+func (s *Store) name(p *pack, ext string) string { return packName(s.tiers[p.tier].Dir, p.id, ext) }
+
+func OpenStore(tiers []Tier) (*Store, error) {
+	s := &Store{tiers: tiers, now: time.Now, index: make(map[string]loc), packs: make(map[uint32]*pack),
+		demote: make(chan struct{}, 1), done: make(chan struct{})}
 	var last uint32
-	for _, name := range names {
-		var id uint32
-		if _, err := fmt.Sscanf(filepath.Base(name), "%06d.pack", &id); err != nil {
-			continue
+	// fast tier first: a pack in both (stopped mid-demotion) keeps the fast copy
+	for t := range tiers {
+		if err := os.MkdirAll(tiers[t].Dir, 0o755); err != nil {
+			return nil, err
 		}
-		if err := s.load(id); err != nil {
-			log.Printf("pack %06d: %v (skipped)", id, err)
-			continue
+		names, err := filepath.Glob(filepath.Join(tiers[t].Dir, "*.pack"))
+		if err != nil {
+			return nil, err
 		}
-		last = id
+		sort.Strings(names)
+		for _, name := range names {
+			var id uint32
+			if _, err := fmt.Sscanf(filepath.Base(name), "%06d.pack", &id); err != nil {
+				continue
+			}
+			if _, dup := s.packs[id]; dup {
+				os.Remove(name)
+				os.Remove(packName(tiers[t].Dir, id, "hint"))
+				continue
+			}
+			if err := s.load(t, id); err != nil {
+				log.Printf("pack %06d: %v (skipped)", id, err)
+				continue
+			}
+			last = max(last, id)
+		}
 	}
-	return s, s.rotate(last + 1)
+	if err := s.rotate(last + 1); err != nil {
+		return nil, err
+	}
+	go s.demoter()
+	return s, nil
 }
 
 // load one pack into the index: from its hint file if sealed, else by scanning records
-func (s *Store) load(id uint32) error {
-	file, err := os.OpenFile(packName(s.dir, id, "pack"), os.O_RDWR, 0)
+func (s *Store) load(tier int, id uint32) error {
+	file, err := os.OpenFile(packName(s.tiers[tier].Dir, id, "pack"), os.O_RDWR, 0)
 	if err != nil {
 		return err
 	}
@@ -99,7 +123,7 @@ func (s *Store) load(id uint32) error {
 		file.Close()
 		return err
 	}
-	p := &pack{id: id, file: file, size: info.Size()}
+	p := &pack{id: id, tier: tier, file: file, size: info.Size()}
 	p.used.Store(info.ModTime().UnixNano())
 	p.touched.Store(info.ModTime().UnixNano())
 	add := func(key string, l loc) {
@@ -110,7 +134,7 @@ func (s *Store) load(id uint32) error {
 		p.live += int64(l.len)
 	}
 	s.packs[id] = p
-	if hint, err := os.Open(packName(s.dir, id, "hint")); err == nil {
+	if hint, err := os.Open(s.name(p, "hint")); err == nil {
 		defer hint.Close()
 		r := bufio.NewReaderSize(hint, 1<<20)
 		var hdr [recHeader + 8]byte
@@ -125,7 +149,7 @@ func (s *Store) load(id uint32) error {
 			}
 			add(string(key), loc{id, uint32(off) + recHeader + klen, vlen})
 		}
-		s.total += p.size
+		s.tiers[tier].total += p.size
 		return nil
 	}
 	// unsealed (was active when the daemon stopped): scan, truncate a torn tail
@@ -154,13 +178,13 @@ func (s *Store) load(id uint32) error {
 		}
 		p.size = off
 	}
-	s.total += p.size
+	s.tiers[tier].total += p.size
 	return s.seal(p)
 }
 
 // seal writes the hint file for a pack that will not grow any more
 func (s *Store) seal(p *pack) error {
-	tmp := packName(s.dir, p.id, "hint.tmp")
+	tmp := s.name(p, "hint.tmp")
 	f, err := os.Create(tmp)
 	if err != nil {
 		return err
@@ -184,7 +208,7 @@ func (s *Store) seal(p *pack) error {
 	if err := f.Close(); err != nil {
 		return err
 	}
-	return os.Rename(tmp, packName(s.dir, p.id, "hint"))
+	return os.Rename(tmp, s.name(p, "hint"))
 }
 
 func (s *Store) rotate(id uint32) error {
@@ -193,7 +217,7 @@ func (s *Store) rotate(id uint32) error {
 			return err
 		}
 	}
-	file, err := os.OpenFile(packName(s.dir, id, "pack"), os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o644)
+	file, err := os.OpenFile(packName(s.tiers[0].Dir, id, "pack"), os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		return err
 	}
@@ -217,7 +241,7 @@ func (s *Store) Get(key string) *io.SectionReader {
 	now := s.now()
 	p.used.Store(now.UnixNano())
 	if last := p.touched.Load(); now.UnixNano()-last > int64(touchEvery) && p.touched.CompareAndSwap(last, now.UnixNano()) {
-		os.Chtimes(p.file.Name(), time.Time{}, now)
+		os.Chtimes(s.name(p, "pack"), time.Time{}, now)
 	}
 	return io.NewSectionReader(p.file, int64(l.off), int64(l.len))
 }
@@ -232,7 +256,6 @@ func (s *Store) Put(key string, value []byte) error {
 		if err := s.rotate(s.active.id + 1); err != nil {
 			return err
 		}
-		s.evict()
 	}
 	var hdr [recHeader]byte
 	binary.LittleEndian.PutUint32(hdr[0:], uint32(len(key)))
@@ -248,64 +271,172 @@ func (s *Store) Put(key string, value []byte) error {
 	s.index[key] = loc{s.active.id, uint32(s.active.size) + recHeader + uint32(len(key)), uint32(len(value))}
 	s.active.size += int64(len(rec))
 	s.active.live += int64(len(value))
-	s.total += int64(len(rec))
+	s.tiers[0].total += int64(len(rec))
+	if t := s.tiers[0]; t.Budget > 0 && t.total > t.Budget {
+		s.kick()
+	}
 	return nil
 }
 
-// evict drops whole sealed packs until under budget: mostly superseded ones first (their space
-// is free without losing much), then the one longest without a read, so a full disk forgets what
-// no build asks for, not the toolchain objects every build replays. Called with mu held.
-func (s *Store) evict() {
-	if s.budget <= 0 {
-		return
+func (s *Store) kick() {
+	select {
+	case s.demote <- struct{}{}:
+	default:
 	}
-	ids := make([]uint32, 0, len(s.packs))
-	for id := range s.packs {
-		if id != s.active.id {
-			ids = append(ids, id)
+}
+
+// demoter moves packs down a tier while one is over budget. The copy to a slow tier runs
+// without the lock, reads keep being served from the old file until the switch
+func (s *Store) demoter() {
+	defer close(s.done)
+	for range s.demote {
+		for {
+			s.mu.Lock()
+			p, ok := s.victim()
+			s.mu.Unlock()
+			if !ok {
+				break
+			}
+			if err := s.moveDown(p); err != nil {
+				log.Printf("pack %06d: %v", p.id, err)
+				break
+			}
 		}
 	}
-	stale := func(p *pack) bool { return p.live*2 < p.size }
-	sort.Slice(ids, func(i, j int) bool {
-		pi, pj := s.packs[ids[i]], s.packs[ids[j]]
-		if stale(pi) != stale(pj) {
-			return stale(pi)
+}
+
+// victim picks the pack to leave the first tier that is over budget: mostly superseded ones
+// first (their space is free without losing much), then the one longest without a read, so a
+// full tier forgets what no build asks for, not the toolchain objects every build replays.
+// Called with mu held
+func (s *Store) victim() (*pack, bool) {
+	for t := range s.tiers {
+		if s.tiers[t].Budget <= 0 || s.tiers[t].total <= s.tiers[t].Budget {
+			continue
 		}
-		ui, uj := pi.used.Load(), pj.used.Load()
-		return ui < uj || (ui == uj && ids[i] < ids[j])
-	})
-	for _, id := range ids {
-		if s.total <= s.budget {
-			return
+		var out []*pack
+		for _, p := range s.packs {
+			if p.tier == t && p != s.active {
+				out = append(out, p)
+			}
 		}
-		p := s.packs[id]
+		if len(out) == 0 {
+			continue
+		}
+		stale := func(p *pack) bool { return p.live*2 < p.size }
+		sort.Slice(out, func(i, j int) bool {
+			if stale(out[i]) != stale(out[j]) {
+				return stale(out[i])
+			}
+			ui, uj := out[i].used.Load(), out[j].used.Load()
+			return ui < uj || (ui == uj && out[i].id < out[j].id)
+		})
+		return out[0], true
+	}
+	return nil, false
+}
+
+// moveDown demotes p to the next tier, or deletes it from the last
+func (s *Store) moveDown(p *pack) error {
+	from := p.tier
+	if from+1 == len(s.tiers) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
 		for key, l := range s.index {
-			if l.pack == id {
+			if l.pack == p.id {
 				delete(s.index, key)
 			}
 		}
 		// open SectionReaders keep the inode alive until their io.Copy finishes
 		p.file.Close()
-		os.Remove(packName(s.dir, id, "pack"))
-		os.Remove(packName(s.dir, id, "hint"))
-		delete(s.packs, id)
-		s.total -= p.size
-		log.Printf("evicted pack %06d (%d MiB, %d MiB live)", id, p.size>>20, p.live>>20)
+		os.Remove(s.name(p, "pack"))
+		os.Remove(s.name(p, "hint"))
+		delete(s.packs, p.id)
+		s.tiers[from].total -= p.size
+		log.Printf("evicted pack %06d (%d MiB, %d MiB live)", p.id, p.size>>20, p.live>>20)
+		return nil
 	}
+	to := s.tiers[from+1].Dir
+	for _, ext := range []string{"pack", "hint"} {
+		if err := moveFile(packName(s.tiers[from].Dir, p.id, ext), packName(to, p.id, ext)); err != nil {
+			return err
+		}
+	}
+	file, err := os.OpenFile(packName(to, p.id, "pack"), os.O_RDWR, 0)
+	if err != nil {
+		return err
+	}
+	os.Chtimes(file.Name(), time.Time{}, time.Unix(0, p.used.Load()))
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	old := p.file
+	p.file = file
+	p.tier = from + 1
+	s.tiers[from].total -= p.size
+	s.tiers[from+1].total += p.size
+	old.Close()
+	os.Remove(packName(s.tiers[from].Dir, p.id, "pack"))
+	os.Remove(packName(s.tiers[from].Dir, p.id, "hint"))
+	log.Printf("demoted pack %06d to %s (%d MiB, %d MiB live)", p.id, to, p.size>>20, p.live>>20)
+	return nil
+}
+
+// rename, or copy across filesystems (the source stays until the caller removes it)
+func moveFile(from, to string) error {
+	if err := os.Link(from, to); err == nil || os.IsExist(err) {
+		return nil
+	}
+	src, err := os.Open(from)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+	tmp := to + ".tmp"
+	dst, err := os.Create(tmp)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(dst, src); err != nil {
+		dst.Close()
+		os.Remove(tmp)
+		return err
+	}
+	if err := dst.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp, to)
 }
 
 func (s *Store) Stats() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	var live int64
+	var live, total int64
 	for _, p := range s.packs {
 		live += p.live
 	}
-	return fmt.Sprintf("keys=%d packs=%d bytes=%d live=%d", len(s.index), len(s.packs), s.total, live)
+	for _, t := range s.tiers {
+		total += t.total
+	}
+	return fmt.Sprintf("keys=%d packs=%d bytes=%d live=%d", len(s.index), len(s.packs), total, live)
+}
+
+// Wait blocks until no tier is over budget (tests)
+func (s *Store) Wait() {
+	for {
+		s.mu.Lock()
+		_, busy := s.victim()
+		s.mu.Unlock()
+		if !busy {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
 }
 
 // Close seals the active pack so the next start reads hints only
 func (s *Store) Close() error {
+	close(s.demote)
+	<-s.done
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.seal(s.active)
