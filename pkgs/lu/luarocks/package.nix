@@ -14,6 +14,9 @@ package {
     pkgs.unzip
   ];
   buildDependencies = [ buildPkgs.unzip ];
+  # bin/luarocks finds its modules from arg[0], sysconfdir from where cfg.lua is (upstream),
+  # and the system tree defaults to that prefix
+  patches = [ ./relocatable.patch ];
   make.configureFlags = [ "--with-lua=${pkgs.lua}" ];
   phases.after."make.install" = [
     {
