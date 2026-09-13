@@ -184,11 +184,11 @@ let
                 args: package sources dir resolved fn (edit0 args);
             # another package's spec under this name, edited with override verbs: this function
             # again with the base's package.nix. Own sources.toml when the directory has one
-            # (llvm22: another pin), else the base's (rust-std: same tarball)
+            # (llvm22: another pin), else the base's (rust-std: same tarball). A list of trees merges
             variant =
               base: tree:
               callWith base.fn base.dir name (if sources == null then base.sources else sources) (
-                args: ov.applyOne self name tree (edit args // { inherit name; })
+                args: ov.applyOne self name (ov.merge tree) (edit args // { inherit name; })
               );
           }
         )

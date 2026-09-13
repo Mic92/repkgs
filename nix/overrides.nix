@@ -45,7 +45,10 @@ let
     trees:
     zipAttrsWith (
       name: vals:
-      if name == "set" || name == "edit" then
+      # a field that happens to be called like a verb (phases.remove) holds verb nodes itself
+      if elem name verbs && all isVerbNode vals then
+        mergeTrees vals
+      else if name == "set" || name == "edit" then
         builtins.elemAt vals (builtins.length vals - 1)
       else if name == "features" then
         foldl' (a: b: a // b) { } vals
