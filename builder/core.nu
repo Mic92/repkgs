@@ -76,14 +76,9 @@ export def edit [f: path, change: closure]: nothing -> nothing {
 # starts with \x7fELF
 export def is-elf [f: path]: nothing -> bool { (open --raw $f | first 4) == 0x[7f 45 4c 46] }
 
-# store path -> launcher template relative to the package: {root}/... for our own files,
-# {store}/<basename>/... for siblings, anything else verbatim
+# store paths -> {root}/{store} templates launch expands
 export def storerel [p: string, out: string]: nothing -> string {
-  if ($p | str starts-with $out) {
-    $"{root}($p | str substring ($out | str length)..)"
-  } else if ($p | str starts-with $"($env.NIX_STORE)/") {
-    $"{store}/($p | path relative-to $env.NIX_STORE)"
-  } else { $p }
+  $p | str replace -a $out "{root}" | str replace -a $env.NIX_STORE "{store}"
 }
 
 # bin/<name> as a launch record (builder/launchers.nu, pkgs/la/launch): `program` with `args`
