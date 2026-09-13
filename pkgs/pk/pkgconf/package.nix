@@ -7,6 +7,7 @@ package {
   autotools.flags = [
     # no built-in search path: core.nu sets PKG_CONFIG_PATH from dependencies
     "--with-pkg-config-dir="
+    "--with-personality-dir="
     "--with-system-libdir=/nonexistent"
     "--with-system-includedir=/nonexistent"
   ];
