@@ -1,6 +1,7 @@
 #include "store.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cstddef>
 #include <filesystem>
@@ -68,9 +69,9 @@ auto Store::SwapOutHash(std::string bytes, bool back) const -> std::string {
     return bytes;
   }
   const std::string_view from = back ? kOutPlaceholder : std::string_view(out_hash_);
-  const std::string_view to = back ? std::string_view(out_hash_) : kOutPlaceholder;
+  const std::string_view into = back ? std::string_view(out_hash_) : kOutPlaceholder;
   for (size_t pos = 0; (pos = bytes.find(from, pos)) != std::string::npos; pos += from.size()) {
-    bytes.replace(pos, from.size(), to);
+    bytes.replace(pos, from.size(), into);
   }
   return bytes;
 }
@@ -80,7 +81,7 @@ namespace {
 // cmake names every try_compile scratch dir and target at random (mkdtemp TryCompile-XXXXXX,
 // cmTC_<5 hex>): the same probe never repeats its cwd, -o or source path. One fixed spelling each
 void MaskRandomNames(std::string& text) {
-  constexpr std::pair<std::string_view, size_t> kPatterns[] = {{"TryCompile-", 6}, {"cmTC_", 5}};
+  constexpr std::array<std::pair<std::string_view, size_t>, 2> kPatterns = {{{"TryCompile-", 6}, {"cmTC_", 5}}};
   for (const auto& [prefix, width] : kPatterns) {
     for (size_t pos = 0; (pos = text.find(prefix, pos)) != std::string::npos; pos += prefix.size()) {
       const size_t start = pos + prefix.size();
@@ -88,7 +89,7 @@ void MaskRandomNames(std::string& text) {
         break;
       }
       const std::string_view tail = std::string_view(text).substr(start, width);
-      if (std::ranges::all_of(tail, [](unsigned char ch) { return std::isalnum(ch) != 0; })) {
+      if (std::ranges::all_of(tail, [](unsigned char chr) -> bool { return std::isalnum(chr) != 0; })) {
         text.replace(start, width, width, '#');
       }
     }
@@ -158,7 +159,7 @@ auto Store::ResolveAll(std::string text) const -> std::string {
     // whole root only: "*-zlib" must not eat "*-zlib-ng"
     for (size_t pos = 0; (pos = text.find(masked, pos)) != std::string::npos;) {
       const size_t end = pos + masked.size();
-      if (end < text.size() && text.at(end) != '/' && kPathEnds.find(text.at(end)) == std::string_view::npos) {
+      if (end < text.size() && text.at(end) != '/' && !kPathEnds.contains(text.at(end))) {
         pos = end;
         continue;
       }

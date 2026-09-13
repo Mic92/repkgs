@@ -113,7 +113,11 @@ struct Context {
 
 auto Expand(std::string text, const Context& ctx) -> std::string {
   for (const auto& [key, val] : std::initializer_list<std::pair<std::string_view, const std::string&>>{
-           {"{root}", ctx.root}, {"{store}", ctx.store}, {"{self}", ctx.self}, {"{argv0}", ctx.argv0}}) {
+           {"{root}", ctx.root},
+           {"{store}", ctx.store},
+           {"{self}", ctx.self},
+           {"{argv0}", ctx.argv0},
+       }) {
     for (size_t pos = 0; (pos = text.find(key, pos)) != std::string::npos; pos += val.size()) {
       text.replace(pos, key.size(), val);
     }
@@ -141,7 +145,7 @@ auto Join(const std::vector<std::string>& parts, std::string_view sep) -> std::s
     if (i != 0) {
       out += sep;
     }
-    out += parts[i];
+    out += parts.at(i);
   }
   return out;
 }
@@ -182,8 +186,8 @@ auto main(int argc, char** argv) -> int {  // NOLINT(bugprone-exception-escape):
     Die("no argv[0]");
   }
   Context ctx;
-  ctx.argv0 = args[0];
-  const fs::path self = InvokedPath(args[0]);
+  ctx.argv0 = args.front();
+  const fs::path self = InvokedPath(args.front());
   ctx.self = self.native();
   const fs::path bindir = self.parent_path();
   ctx.root = bindir.parent_path().native();
@@ -202,14 +206,14 @@ auto main(int argc, char** argv) -> int {  // NOLINT(bugprone-exception-escape):
     Die("record lacks program", recpath.native());
   }
 
-  const std::string program = Expand(rec["program"].get<std::string>(), ctx);
-  std::string argv0 = rec.contains("argv0") ? Expand(rec["argv0"].get<std::string>(), ctx) : program;
+  const std::string program = Expand(rec.at("program").get<std::string>(), ctx);
+  std::string argv0 = rec.contains("argv0") ? Expand(rec.at("argv0").get<std::string>(), ctx) : program;
   std::vector<std::string> pre;
   if (rec.contains("args")) {
-    pre = StringList(rec["args"], ctx);
+    pre = StringList(rec.at("args"), ctx);
   }
   if (rec.contains("env")) {
-    for (const auto& [name, spec] : rec["env"].items()) {
+    for (const auto& [name, spec] : rec.at("env").items()) {
       ApplyEnv(name, spec, ctx);
     }
   }

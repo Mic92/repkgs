@@ -67,7 +67,7 @@ struct Pending {
 
 // text files travel with store hashes masked and come back resolved to this build's roots, so a
 // snapshot restored against other dependency paths names those. Binaries stay byte-exact
-auto IsText(std::string_view data) -> bool { return data.find('\0') == std::string_view::npos; }
+auto IsText(std::string_view data) -> bool { return !data.contains('\0'); }
 auto Stored(std::string data) -> std::string {
   return IsText(data) ? Store::Get().MaskHashes(std::move(data)) : std::move(data);
 }

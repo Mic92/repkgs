@@ -188,8 +188,8 @@ auto SymbolInside(const ElfImage& elf, const std::vector<Section>& sections, std
 }
 
 // "$ORIGIN" or "$ORIGIN/<rel>" from one final directory to another
-auto OriginRelative(const fs::path& from, const fs::path& to) -> std::string {
-  const std::string rel = RelativeFrom(from, to);
+auto OriginRelative(const fs::path& from, const fs::path& dest) -> std::string {
+  const std::string rel = RelativeFrom(from, dest);
   return rel == "." ? "$ORIGIN" : "$ORIGIN/" + rel;
 }
 

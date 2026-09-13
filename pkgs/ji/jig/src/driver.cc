@@ -123,7 +123,7 @@ auto IsFortifyArg(std::string_view arg) -> bool {
 
 // MSVC's STL has no C++11 mode and cl.exe no /std: below c++14: older requests mean c++14 there
 auto MsvcFloorStd(const std::string& arg) -> std::string {
-  for (std::string_view old : {"++98", "++03", "++0x", "++11"}) {
+  for (const std::string_view old : {"++98", "++03", "++0x", "++11"}) {
     if ((arg.starts_with("-std=c") || arg.starts_with("-std=gnu")) && arg.ends_with(old)) {
       return arg.substr(0, arg.size() - 2) + "14";
     }
@@ -251,7 +251,7 @@ auto ParseDriverConf(std::string_view text) -> DriverConf {
         conf.binfmt = BinFmt::kCoff;
       } else {
         std::println(stderr, "jig.conf: binfmt = {} is none of elf, macho, coff", value);
-        std::exit(2);
+        std::exit(2);  // NOLINT(concurrency-mt-unsafe): single-threaded startup
       }
     } else if (key == "flags") {
       conf.flags = SplitWhitespace(value);
@@ -338,7 +338,7 @@ auto BuildDriverArgs(const DriverConf& conf, Language lang, std::span<const std:
   // build-id for the debug split, package note to tell our links from upstream's. User args win
   if (conf.binfmt == BinFmt::kElf) {
     out.emplace_back("-Wl,--build-id=sha1");
-    out.emplace_back("-Wl,--package-metadata={\"type\":\"repkgs\"}");
+    out.emplace_back(R"(-Wl,--package-metadata={"type":"repkgs"})");
   }
   out.emplace_back("--end-no-unused-arguments");
   out.insert(out.end(), user.args.begin(), user.args.end());
