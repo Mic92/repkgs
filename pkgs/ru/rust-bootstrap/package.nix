@@ -9,7 +9,7 @@
 }:
 package {
   name = "rust-bootstrap";
-  source = sources.fetch "rustc-${platform.cpu}";
+  source = "rustc-${platform.cpu}";
   env.components = toString [
     (sources.fetch "cargo-${platform.cpu}")
     (sources.fetch "rust-std-${platform.cpu}")

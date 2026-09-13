@@ -102,7 +102,7 @@ builtins.mapAttrs
       # what the package's `<name>` record starts from: every option's default, `lock` ones fetched
       defaults =
         if bs ? lock then
-          args: optionDefaults // builtins.mapAttrs (_: f: f { inherit (args) source; }) bs.lock
+          source: optionDefaults // builtins.mapAttrs (_: f: f { inherit source; }) bs.lock
         else
           _: optionDefaults;
       # `tool`: the build system's own program, a package may swap it (`cmake.tool = …`)

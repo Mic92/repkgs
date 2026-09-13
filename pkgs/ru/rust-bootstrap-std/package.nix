@@ -8,7 +8,7 @@
 variant pkgs.rust-bootstrap {
   edit = spec: {
     inherit (spec) name prebuilt;
-    source = pkgs.rust-bootstrap.sources.fetch "rust-std-${platform.cpu}";
+    source = "rust-std-${platform.cpu}";
     phases = [
       {
         name = "install";

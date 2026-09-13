@@ -21,7 +21,6 @@ let
   elf = platform.binfmt == "elf";
   hardening = import ./hardening.nix;
   inherit (lib)
-    on
     join
     lines
     ;
@@ -35,8 +34,10 @@ let
     filter
     foldl'
     head
+    hasContext
     isAttrs
     isList
+    isString
     length
     listToAttrs
     match
@@ -132,7 +133,7 @@ let
         {
           inherit (sources) version;
           # one tarball for all, or one per cpu (prebuilt toolchains keyed "x86_64", "aarch64")
-          source = if sources.has "default" then sources.default else sources.fetch platform.cpu;
+          source = if sources.has "default" then "default" else platform.cpu;
         }
     )
     // (
@@ -222,8 +223,15 @@ let
   badCpu = args ? platforms.cpu && !(elem platform.cpu args.platforms.cpu);
   nativeOnly = (args.platforms.cross or true) == false && platform.cross;
   bsReasons = filter (r: r != null) (map (u: buildSystems.${u}.unsupported) uses);
-  noTarball =
-    sources0 != null && !(args0 ? source) && !(sources0.has "default") && !(sources0.has platform.cpu);
+  # `source` as a plain string names a sources.toml key; a cpu the file has no tarball for is
+  # unsupported. Paths and derivations (strings with context) are the source itself
+  sourceKey =
+    let
+      s = args.source or null;
+    in
+    if isString s && !hasContext s then s else null;
+  noTarball = sourceKey != null && !(sources.has sourceKey);
+  src = if sourceKey != null then sources.fetch sourceKey else args.source;
   unsupportedDeps = filter (d: !(d.supported or true)) (
     common.dependencies
     ++ (args.buildDependencies or [ ])
@@ -237,7 +245,7 @@ let
     else if bsReasons != [ ] then
       "${name}: ${head bsReasons}"
     else if noTarball then
-      "${name}: sources.toml has no '${platform.cpu}' source"
+      "${name}: sources.toml has no '${sourceKey}' source"
     else if unsupportedDeps != [ ] then
       "${name} -> ${(head unsupportedDeps).unsupportedReason}"
     else
@@ -484,7 +492,7 @@ let
     // listToAttrs (
       map (u: {
         name = u;
-        value = buildSystems.${u}.defaults args // (args.${u} or { });
+        value = buildSystems.${u}.defaults src // (args.${u} or { });
       }) uses
     )
     // {
@@ -499,7 +507,7 @@ let
     # resolved values, for phases: `(ctx).spec.features.tls`
     // (if features == { } then { } else { inherit features; });
   common = setCommon // {
-    src = args.source;
+    inherit src;
     inherit (args) version;
     patches = args.patches or [ ];
     inherit spec;
