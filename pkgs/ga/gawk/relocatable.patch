@@ -1,0 +1,60 @@
+--- a/awklib/eg/lib/groupawk.in
++++ b/awklib/eg/lib/groupawk.in
+@@ -11,7 +11,7 @@
+ 
+ BEGIN {
+     # Change to suit your system
+-    _gr_awklib = "/usr/local/libexec/awk/"
++    _gr_awklib = ENVIRON["AWKLIBEXEC"] "/"
+ }
+ 
+ function _gr_init(    oldfs, oldrs, olddol0, grcat,
+--- a/awklib/eg/lib/passwdawk.in
++++ b/awklib/eg/lib/passwdawk.in
+@@ -11,7 +11,7 @@
+ 
+ BEGIN {
+     # tailor this to suit your system
+-    _pw_awklib = "/usr/local/libexec/awk/"
++    _pw_awklib = ENVIRON["AWKLIBEXEC"] "/"
+ }
+ 
+ function _pw_init(    oldfs, oldrs, olddol0, pwcat, using_fw, using_fpat)
+--- a/main.c
++++ b/main.c
+@@ -141,7 +141,8 @@
+ static int do_binary = false;		/* hands off my data! */
+ static int do_version = false;		/* print version info */
+ static const char *locale = "";		/* default value to setlocale */
+-static const char *locale_dir = LOCALEDIR;	/* default locale dir */
++#include <reloc.h>
++static const char *locale_dir;			/* set in main, relative to the binary */
+ #ifdef USE_PERSISTENT_MALLOC
+ const char *get_pma_version(void);
+ #endif
+@@ -245,6 +246,12 @@
+ 	if (argc < 2)
+ 		usage(EXIT_FAILURE, stderr);
+ 
++	static char awkpath[PATH_MAX + 3] = ".:";
++	strcat(awkpath, RELOC("../share/awk"));
++	defpath = awkpath;
++	deflibpath = RELOC("../lib/gawk");
++	locale_dir = RELOC("../share/locale");
++	setenv("AWKLIBEXEC", RELOC("../libexec/awk"), 0);
+ 	if ((cp = getenv("GAWK_LOCALE_DIR")) != NULL)
+ 		locale_dir = cp;
+ 
+--- a/posix/gawkmisc.c
++++ b/posix/gawkmisc.c
+@@ -54,8 +54,8 @@
+ #endif
+ 
+ const char quote = '\'';
+-const char *defpath = DEFPATH;
+-const char *deflibpath = DEFLIBPATH;
++const char *defpath;
++const char *deflibpath;
+ const char envsep = ':';
+ 
+ #ifndef INVALID_HANDLE
