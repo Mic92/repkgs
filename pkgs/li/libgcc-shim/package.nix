@@ -5,6 +5,7 @@ package {
   name = "libgcc-shim";
   version = "1";
   source = ./src;
+  platforms.os = [ "linux" ];
   phases = [
     {
       name = "build";

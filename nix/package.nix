@@ -96,6 +96,7 @@ let
         rustTriple
         cross
         emulator
+        exe
         ;
       inherit (toolchain) sysroot;
       configTriple = platform.configTriple or platform.triple;
@@ -218,9 +219,10 @@ let
     ++ map (d: "buildDependencies: ${d.pname} is built for ${d.platform}") (
       filter (d: (d.platform or platform.system) != platform.system) (args.buildDependencies or [ ])
     );
-  # `supported` without forcing the derivation (docs/design.md): platforms.cpu, platforms.cross,
+  # `supported` without forcing the derivation (docs/design.md): platforms.{cpu,os,cross},
   # a per-cpu tarball in sources.toml, and the dependencies' own verdicts
   badCpu = args ? platforms.cpu && !(elem platform.cpu args.platforms.cpu);
+  badOs = args ? platforms.os && !(elem platform.os args.platforms.os);
   nativeOnly = (args.platforms.cross or true) == false && platform.cross;
   bsReasons = filter (r: r != null) (map (u: buildSystems.${u}.unsupported) uses);
   # `source` as a plain string names a sources.toml key; a cpu the file has no tarball for is
@@ -240,6 +242,8 @@ let
   unsupportedReason =
     if badCpu then
       "${name}: not for ${platform.cpu} (platforms.cpu)"
+    else if badOs then
+      "${name}: not for ${platform.os} (platforms.os)"
     else if nativeOnly then
       "${name}: runs its own binaries while installing, cannot be cross-built (platforms.cross)"
     else if bsReasons != [ ] then
@@ -254,6 +258,7 @@ let
   unknownPlatformKeys = attrNames (
     removeAttrs (args.platforms or { }) [
       "cpu"
+      "os"
       "cross"
     ]
   );
