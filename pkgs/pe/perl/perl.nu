@@ -8,7 +8,9 @@ export def configure []: nothing -> nothing {
   "osvers=\"gnulinux\"\nmyuname=\"pkgs\"\nmyhostname=\"pkgs\"\ncf_by=\"pkgs\"\ncf_time=\"1970-01-01\"\n" | save -f config.over
   let z = (dep-root zlib "Compress::Raw::Zlib links it")
   $"BUILD_ZLIB = False\nINCLUDE = ($z)/include\nLIB = ($z)/lib\nOLD_ZLIB = False\nGZIP_OS_CODE = AUTO_DETECT\nUSE_ZLIB_NG = False\nZLIB_INCLUDE = ($z)/include\nZLIB_LIB = ($z)/lib\n" | save -f cpan/Compress-Raw-Zlib/config.in
+  # startperl/perlpath: the scripts perl installs name it by PATH, finish's launchers bind them
   let common = [$"-Dprefix=($c.out)" -Dcc=cc -Uinstallusrbinperl -Dinstallstyle=lib/perl5 -Duserelocatableinc
+    "-Dstartperl=#!/usr/bin/env perl" -Dperlpath=perl
     -Dman1dir=none -Dman3dir=none "-Accflags=-D_GNU_SOURCE -fno-strict-aliasing"]
   if $c.platform.cross {
     x cp -r $"($env.PERL_CROSS)/." .
@@ -33,8 +35,11 @@ export def scrub []: nothing -> nothing {
   let c = (ctx)
   let arch = (files $"($c.out)/lib/perl5/5.*/*/Config_heavy.pl" | first | path dirname)
   let foreign = $"\(?:-I|-L|--sysroot=\)?/nix/store/\(?!($c.out | path basename)\)[^'\" ]+ ?"
+  # -Duserelocatableinc made every path perl uses `.../..`. Configure still records the literal
+  # -Dprefix in config_args and initialinstalllocation (by design, "where it was first
+  # installed"): the same notation there
   for f in [$"($arch)/Config.pm" $"($arch)/Config_heavy.pl" $"($arch)/CORE/config.h"] {
-    edit $f { str replace -ar '/nix/store/[a-z0-9]{32}-seed[^/]*/bin/' "" | str replace -ar $foreign "" }
+    edit $f { str replace -ar '/nix/store/[a-z0-9]{32}-seed[^/]*/bin/' "" | str replace -ar $foreign "" | str replace -a $c.out ".../.." }
   }
   let left = (open --raw $"($arch)/Config_heavy.pl" | lines | where { $in =~ '/nix/store/' and $in !~ $c.out })
   if ($left | is-not-empty) { error make {msg: $"Config_heavy.pl still names foreign store paths: ($left | first)"} }
