@@ -7,6 +7,8 @@
 package {
   name = "glib";
   uses = [ "meson" ];
+  # charset.alias is the system's
+  patches = [ ./relocatable.patch ];
   meson.defs = {
     tests = false;
     nls = "disabled";
@@ -19,6 +21,7 @@ package {
     dtrace = "disabled";
     systemtap = "disabled";
     wrap_mode = "nodownload";
+    localstatedir = "/var";
   };
   dependencies = [
     pkgs.pcre2
