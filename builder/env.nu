@@ -4,13 +4,14 @@
 use core.nu *
 
 # writable HOME and XDG dirs for tools with per-user caches (npm, pnpm, bun, luarocks, gem),
-# TMPDIR inside the build, CI=true so nothing prompts or draws progress bars
+# TMPDIR inside the build, CI=true and TERM=dumb so nothing prompts or redraws a status line (the
+# builder's stdout is a pty: ninja would overwrite instead of logging each step)
 def sandbox-dirs [a: record, out: string]: nothing -> record {
   let home = $"($env.NIX_BUILD_TOP)/home"
   mkdir $home
   {PATH: ($a.buildDependencies | each { $"($in)/bin" }), HOME: $home, XDG_CACHE_HOME: $"($home)/.cache"
     XDG_DATA_HOME: $"($home)/.local/share", XDG_CONFIG_HOME: $"($home)/.config", TMPDIR: $env.NIX_BUILD_TOP
-    CI: "true", out: $out}
+    CI: "true", TERM: "dumb", out: $out}
 }
 
 # no wall clock, locale, timezone or hash randomisation in outputs. 1980-01-01 is the earliest
