@@ -380,13 +380,13 @@ let
   ];
   # a phase as { test, body }: inline ones and package-module ones built here, a build system's
   # come ready from nix/build-systems.nix. A prefix that is neither: nix reports "path …/<bs>.nu
-  # does not exist"
+  # does not exist". An inline phase's env changes carry over to later phases, its cwd does not
   phase =
     s:
     if isAttrs s then
       {
         test = s.name == "test";
-        body = "note phase ${s.name}\ndo {\ncd (${workdir})\nlet c = (ctx)\n${s.run}\n}";
+        body = "note phase ${s.name}\nlet pwd = $env.PWD\ndo --env {\ncd (${workdir})\nlet c = (ctx)\n${s.run}\n}\ncd $pwd";
       }
     else
       bsPhases.${s} or (
