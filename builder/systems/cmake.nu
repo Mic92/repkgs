@@ -20,8 +20,8 @@ export def configure []: nothing -> nothing {
     CMAKE_BUILD_TYPE: (if ($c.spec.profile? | default "release") == "debug" { "Debug" } else { "Release" })
     CMAKE_INSTALL_LIBDIR: "lib"
     CMAKE_PREFIX_PATH: ($c.deps | get root | str join ";")
-    # what /usr is elsewhere, for find_path/find_library (the compiler knows, cmake does not)
-    CMAKE_SYSTEM_PREFIX_PATH: $c.platform.sysroot
+    # the sysroot's include/ and lib/ for find_path/find_library (an Apple SDK has them under usr/)
+    CMAKE_SYSTEM_PREFIX_PATH: ([$c.platform.sysroot $"($c.platform.sysroot)/usr"] | where { path exists } | str join ";")
     BUILD_SHARED_LIBS: true
     BUILD_TESTING: $c.testsRun
   } | merge (if $c.platform.cross { {
