@@ -41,7 +41,7 @@ let
   };
   # sources a recipe compiles from this repo, per recipe so that editing jig rebuilds jig and cc,
   # not glibc (and eval touches them once, not per stage derivation)
-  json_hpp = source "nlohmann-json";
+  json_hpp = "${source "nlohmann-json"}/single_include/nlohmann/json.hpp";
   recipeInputs = {
     jig = {
       jig = builtins.path {

@@ -14,7 +14,7 @@ let
   thirdParty = pkgs.runCommand "jig-third-party" { } ''
     mkdir -p $out/include
     cp ${src "blake3"}/c/blake3.h ${src "zstd"}/lib/zstd.h ${src "zstd"}/lib/zstd_errors.h $out/include/
-    ln -s ${src "nlohmann-json"} $out/include/json.hpp
+    ln -s ${src "nlohmann-json"}/single_include/nlohmann/json.hpp $out/include/json.hpp
   '';
 in
 # clang-tools' wrapper picks up libc++ and libc from the calling shell's libcxx stdenv
