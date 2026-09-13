@@ -37,6 +37,7 @@ let
   plat = stage.platform // rec {
     inherit system;
     cross = platform != system;
+    # its address cap is $QEMU_RESERVED_VA (builder/prepare.nu), build systems want one word here
     emulator =
       if cross && os == "linux" then
         [ "${buildPkgs.qemu}/bin/qemu-${stage.platform.names.qemu}" ]

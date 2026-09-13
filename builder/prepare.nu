@@ -10,7 +10,11 @@ def --env resolve-platform [p: record]: nothing -> record {
   let transparent = ($p.cross and (try { (^$p.probe --version | complete).exit_code == 0 } catch { false }))
   if $p.cross { note platform $"($p.name) binfmt=($transparent)" }
   let plat = ($p | update emulator (if $transparent { [] } else { $p.emulator }) | insert transparent $transparent)
-  load-env ((build-machine-tools $plat.cross) | merge {PKGS_EMULATOR: ($plat.emulator | str join " ")})
+  # qemu-user otherwise hands out guest mappings above 2^48 (mmap hints from V8's code range land
+  # there), where a real arm64 process has no addresses and PAC keeps its signature, so signed
+  # return addresses stop authenticating. binfmt-registered qemu reads it too
+  let qemu = (if $p.cross { {QEMU_RESERVED_VA: "0x1000000000000"} } else { {} })
+  load-env ((build-machine-tools $plat.cross) | merge {PKGS_EMULATOR: ($plat.emulator | str join " ")} | merge $qemu)
   $plat
 }
 
