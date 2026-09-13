@@ -1,0 +1,15 @@
+memchr, strchr etc. are macros around _Generic since 2.43. They expand in
+the caller, so clang -std=c99 -Wc11-extensions warns at every use (libgit2).
+__extension__ marks it as intended, as elsewhere in this header.
+
+--- a/misc/sys/cdefs.h
++++ b/misc/sys/cdefs.h
+@@ -835,7 +835,7 @@ _Static_assert (0, "IEEE 128-bits long double requires redirection on this platf
+    not an appropriate way of implementing such qualifier-generic
+    operations for C++.  */
+ # define __glibc_const_generic(PTR, CTYPE, CALL)	\
+-  _Generic (0 ? (PTR) : (void *) 1,			\
++  __extension__ _Generic (0 ? (PTR) : (void *) 1,	\
+ 	    const void *: (CTYPE) (CALL),		\
+ 	    default: CALL)
+ #endif
