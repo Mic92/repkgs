@@ -60,8 +60,10 @@ def package-cc [a: record, deps: list<record>]: nothing -> record {
   # dependency dirs as -isystem and trailing -L: searched after the project's own, like /usr would be
   let flags = {
     cflags: ((dep-dirs $deps includeDirs | each { $"-isystem($in)" })
-      ++ ["-O2" "-g" "-fno-omit-frame-pointer" "-mno-omit-leaf-frame-pointer"] ++ (do $harden $compile) ++ ($cc.cflags? | default []))
-    cxxflags: ((do $harden $h.cxx) ++ ($cc.cxxflags? | default []))
+      ++ ["-O2" "-g" "-fno-omit-frame-pointer" "-mno-omit-leaf-frame-pointer" "-fmacro-backtrace-limit=5"]
+      ++ (do $harden $compile) ++ ($cc.cflags? | default []))
+    cxxflags: (["-ftemplate-backtrace-limit=5" "-fconstexpr-backtrace-limit=5"]
+      ++ (do $harden $h.cxx) ++ ($cc.cxxflags? | default []))
     ldflags: ((dep-dirs $deps libDirs | each { $"-L($in)" })
       ++ (do $harden $h.link) ++ ($cc.ldflags? | default []))
   }
