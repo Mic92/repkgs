@@ -40,18 +40,20 @@ export def build []: nothing -> nothing {
   }
 }
 
-# install the wheel into $out with `installer`, or unzip it when installer is not packaged yet
+# install the wheel into $out with `installer`, or unzip it when installer is not packaged yet.
+# Bytecode compiled here, source paths in it relative to the prefix like the stdlib's
 export def install []: nothing -> nothing {
   let c = (ctx)
   let whl = (files $"($c.build)/dist/*.whl" | first)
   if (^python3 -c "import installer" | complete).exit_code == 0 {
-    x python3 -m installer --prefix $c.out $whl
+    x python3 -m installer --prefix $c.out --no-compile-bytecode $whl
   } else {
     let ver = (^python3 -c "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')" | str trim)
     let sp = $"($c.out)/lib/python($ver)/site-packages"
     mkdir $sp
     x bsdtar -xf $whl -C $sp
   }
+  x python3 -m compileall -q -o 0 -o 1 -s $c.out $"($c.out)/lib"
   # entry-point scripts run under another package's interpreter and get re-exec'd by path (meson
   # --internal), so no env var will do: each script puts our and our python dependencies'
   # site-packages on sys.path itself, relative to its own location
