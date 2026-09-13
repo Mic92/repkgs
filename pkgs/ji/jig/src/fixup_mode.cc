@@ -53,9 +53,21 @@ auto RelativeFrom(const fs::path& dir, const fs::path& target) -> std::string {
 
 struct FixupContext {
   fs::path prefix;
+  fs::path dest;                       // where prefix ends up, relative paths count from there
   std::vector<fs::path> own_lib_dirs;  // dirs under prefix that contain shared objects
   std::vector<std::string> denied;     // hash parts of --deny paths
   int errors = 0;
+
+  // prefix/x -> dest/x
+  [[nodiscard]] auto Final(const fs::path& path) const -> fs::path {
+    const fs::path rel = path.lexically_normal().lexically_relative(prefix);
+    return rel.empty() || rel.string().starts_with("..") ? path : (dest / rel).lexically_normal();
+  }
+  // dest/x -> prefix/x
+  [[nodiscard]] auto OnDisk(const fs::path& path) const -> fs::path {
+    const fs::path rel = path.lexically_normal().lexically_relative(dest);
+    return rel.empty() || rel.string().starts_with("..") ? path : (prefix / rel).lexically_normal();
+  }
 };
 
 // --deny: store paths that must not appear in any file (finish: build-machine packages when cross)
@@ -182,9 +194,12 @@ auto RelativizeRunpath(const FixupContext& ctx, const std::string& old, const fs
   constexpr std::string_view kOriginPrefix = "$ORIGIN/";
   const Store& store = Store::Get();
   std::vector<RunpathDir> runpath;
+  const fs::path final_here = ctx.Final(here);
   for (const std::string& entry : Split(old, ':')) {
-    if (store.IsStorePath(entry)) {
-      runpath.push_back({.entry = "$ORIGIN/" + RelativeFrom(here, entry), .dir = fs::path(entry).lexically_normal()});
+    // a dependency, or our own lib dir (as prefix or dest)
+    const fs::path on_disk = ctx.OnDisk(entry);
+    if (store.IsStorePath(entry) || ctx.Final(on_disk) != on_disk) {
+      runpath.push_back({.entry = "$ORIGIN/" + RelativeFrom(final_here, ctx.Final(on_disk)), .dir = on_disk});
     } else if (entry == "$ORIGIN") {
       runpath.push_back({.entry = entry, .dir = here});
     } else if (entry.starts_with(kOriginPrefix)) {
@@ -192,8 +207,9 @@ auto RelativizeRunpath(const FixupContext& ctx, const std::string& old, const fs
     }
   }
   for (const fs::path& own : ctx.own_lib_dirs) {
-    runpath.push_back(
-        {.entry = own == here ? "$ORIGIN" : "$ORIGIN/" + RelativeFrom(here, own), .dir = own, .keep = false});
+    runpath.push_back({.entry = own == here ? "$ORIGIN" : "$ORIGIN/" + RelativeFrom(final_here, ctx.Final(own)),
+                       .dir = own,
+                       .keep = false});
   }
   return runpath;
 }
@@ -347,7 +363,7 @@ auto FixInterp(FixupContext& ctx, const fs::path& path, ElfImage& elf, const Elf
     }
     std::string neu = old;
     if (store.IsStorePath(old)) {
-      neu = RelativeFrom(path.parent_path(), old);
+      neu = RelativeFrom(ctx.Final(path.parent_path()), old);
       if (!elf.WritePadded(ioff, isz, neu)) {
         std::println(stderr, "{}: interp does not fit: {}", path.string(), neu);
         ++ctx.errors;
@@ -436,19 +452,23 @@ auto ElfImage::WritePadded(std::uint64_t offset, std::uint64_t capacity, std::st
 
 auto RunFixupMode(std::span<const std::string> args) -> int {
   if (args.empty()) {
-    std::println(stderr, "usage: reloc-fixup <prefix> [--deny <store path>]...");
+    std::println(stderr, "usage: reloc-fixup <prefix> [--dest <store path>] [--deny <store path>]...");
     return 2;
   }
-  FixupContext ctx{.prefix = fs::path(args.front()).lexically_normal(), .own_lib_dirs = {}, .denied = {}, .errors = 0};
+  FixupContext ctx;
+  ctx.prefix = ctx.dest = fs::path(args.front()).lexically_normal();
   for (size_t i = 1; i + 1 < args.size(); i += 2) {
-    if (args.at(i) != "--deny") {
+    if (args.at(i) == "--dest") {
+      ctx.dest = fs::path(args.at(i + 1)).lexically_normal();
+    } else if (args.at(i) == "--deny") {
+      ctx.denied.push_back(fs::path(args.at(i + 1)).filename().string().substr(0, kStoreHashLength));
+    } else {
       std::println(stderr, "reloc-fixup: unknown argument {}", args.at(i));
       return 2;
     }
-    ctx.denied.push_back(fs::path(args.at(i + 1)).filename().string().substr(0, kStoreHashLength));
   }
-  if (!Store::Get().IsStorePath(ctx.prefix.string())) {
-    std::println(stderr, "reloc-fixup: {} is not under {}", ctx.prefix.string(), Store::Get().dir());
+  if (!Store::Get().IsStorePath(ctx.dest.string())) {
+    std::println(stderr, "reloc-fixup: {} is not under {}", ctx.dest.string(), Store::Get().dir());
     return 2;
   }
   std::set<fs::path> lib_dirs;
