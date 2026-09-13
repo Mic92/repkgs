@@ -23,6 +23,7 @@ package {
   patches = [
     ./libcxx-includes.patch
     ./icu-emulator.patch
+    ./v8-cfi-arm64.patch
     ./highway-rvv-baseline.patch
   ];
   phases = [

@@ -1,0 +1,30 @@
+We compile everything with -mbranch-protection=standard, so the objects (and thus node and
+mksnapshot) are marked BTI. V8's hand-written arm64 asm and its JIT only emit landing pads and
+PAC under V8_ENABLE_CONTROL_FLOW_INTEGRITY, which node's gyp build leaves off: an indirect call
+into PushAllRegistersAndIterateStack is SIGILL on a BTI cpu. GN turns it on whenever
+arm_control_flow_integrity != none; do the same. It changes inline pointer-auth helpers in
+V8 headers, so embedders (libnode, node_mksnapshot) need the define too, like
+V8_COMPRESS_POINTERS.
+
+--- a/configure.py
++++ b/configure.py
+@@ -1960,6 +1960,7 @@ def configure_v8(o, configs):
+   set_configuration_variable(configs, 'v8_enable_v8_checks', release=0, debug=1)
+ 
+   o['variables']['v8_enable_webassembly'] = 0 if options.v8_lite_mode else 1
++  o['variables']['v8_control_flow_integrity'] = 1 if o['variables']['target_arch'] == 'arm64' else 0
+   o['variables']['v8_enable_javascript_promise_hooks'] = 1
+   o['variables']['v8_enable_lite_mode'] = 1 if options.v8_lite_mode else 0
+   is_gdbjit_supported_arch = (
+--- a/common.gypi
++++ b/common.gypi
+@@ -509,6 +509,9 @@
+       ['v8_enable_v8_checks == 1', {
+         'defines': ['V8_ENABLE_CHECKS'],
+       }],
++      ['v8_control_flow_integrity == 1', {
++        'defines': ['V8_ENABLE_CONTROL_FLOW_INTEGRITY'],
++      }],
+       ['v8_enable_pointer_compression == 1', {
+         'defines': ['V8_COMPRESS_POINTERS'],
+       }],
