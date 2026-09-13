@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/troglobit/editline"
+
+[[source]]
+key = "default"
+url = "https://github.com/troglobit/editline/releases/download/{version}/editline-{version}.tar.gz"
+hash = "sha256-gRs+SMNh3cMG47z2ZyOJR2FX7yIUXk8jh40twFUir7Y="
+
+[pin]
+version = "2.1.0"
+date = "2026-07-04"
+tag = "2.1.0"
