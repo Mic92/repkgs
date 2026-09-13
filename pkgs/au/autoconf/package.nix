@@ -6,6 +6,13 @@
 package {
   name = "autoconf";
   uses = [ "autotools" ];
+  patches = [ ./relocatable.patch ];
+  phases.before."autotools.configure" = [
+    {
+      name = "man-uptodate"; # no help2man
+      run = ''^touch ...(files $"($c.src)/man/*.1")'';
+    }
+  ];
   buildDependencies = [
     buildPkgs.m4
     buildPkgs.perl
