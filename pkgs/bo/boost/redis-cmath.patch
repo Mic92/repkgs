@@ -1,0 +1,15 @@
+--- a/libs/redis/include/boost/redis/adapter/detail/adapters.hpp
++++ b/libs/redis/include/boost/redis/adapter/detail/adapters.hpp
+@@ -32,11 +32,8 @@
+ #include <unordered_set>
+ #include <vector>
+ 
+-// See https://stackoverflow.com/a/31658120/1077832
+-#ifdef _LIBCPP_VERSION
+-#else
++#include <cmath>
+ #include <cstdlib>
+-#endif
+ 
+ namespace boost::redis::adapter::detail {
+ 

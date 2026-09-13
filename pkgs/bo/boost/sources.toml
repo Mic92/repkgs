@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/boostorg/boost"
+
+[[source]]
+key = "default"
+url = "https://github.com/boostorg/boost/releases/download/{tag}/boost-{version}-cmake.7z"
+hash = "sha256-rp39josFuuxbOLIgVThC5D/8hkn3A47aNtfV8pfFSWs="
+
+[pin]
+version = "1.92.0"
+date = "2026-08-12"
+tag = "boost-1.92.0"
