@@ -110,7 +110,12 @@ export def fix-env-shebangs [dir: path, njobs: int = 4, --undo]: nothing -> noth
   ^chmod u+w ...$hits.f
   let done = ($hits | par-each --threads ([$njobs 16] | math min) {|h|
     let bytes = (open --raw $h.f | into binary)
-    if ($bytes | bytes starts-with ($pair.0 | into binary)) {
+    if $undo {
+      # any line: `ruby -x` stubs (rubygems) carry the real #! after a /bin/sh preamble
+      let text = ($bytes | decode)
+      let fixed = ($text | str replace -a $"\n($pair.0)" $"\n($pair.1)" | str replace $pair.0 $pair.1)
+      if $fixed != $text { $fixed | save -f --raw $h.f; $h }
+    } else if ($bytes | bytes starts-with ($pair.0 | into binary)) {
       ($pair.1 | into binary) ++ ($bytes | bytes at ($pair.0 | str length)..) | save -f --raw $h.f
       $h
     }
