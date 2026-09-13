@@ -1,0 +1,28 @@
+--- a/src/stdbuf.c
++++ b/src/stdbuf.c
+@@ -28,6 +28,7 @@
+ #include "xreadlink.h"
+ #include "xstrtol.h"
+ #include "c-ctype.h"
++#include <reloc.h>
+ 
+ /* The official name of this program (e.g., no 'g' prefix).  */
+ #define PROGRAM_NAME "stdbuf"
+@@ -222,7 +223,7 @@
+      system (and that of stdbuf itself).  */
+   char const *const search_path[] = {
+     program_path,
+-    PKGLIBEXECDIR,
++    RELOC ("../libexec/coreutils"),
+     NULL
+   };
+ 
+@@ -385,7 +386,7 @@
+      stdbuf is running from.  */
+   set_program_path (program_name);
+   if (!program_path)
+-    program_path = xstrdup (PKGLIBDIR);  /* Need to init to non-null.  */
++    program_path = xstrdup (RELOC ("../lib/coreutils"));
+   set_LD_PRELOAD ();
+   free (program_path);
+ 

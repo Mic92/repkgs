@@ -3,6 +3,7 @@ package {
   name = "coreutils";
   uses = [ "autotools" ];
   bootstrapTools = true;
+  patches = [ ./relocatable.patch ]; # stdbuf finds libstdbuf.so relative to itself
   autotools.flags = [
     "--disable-acl"
     "--disable-xattr"
