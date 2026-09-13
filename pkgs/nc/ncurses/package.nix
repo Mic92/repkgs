@@ -7,6 +7,9 @@
 package {
   name = "ncurses";
   uses = [ "autotools" ];
+  # default terminfo dir relative to libtinfo. A terminfo entry cannot name a file relative to
+  # itself, so the few with init files keep upstream's /usr/share/tabset
+  patches = [ ./relocatable.patch ];
   # cross: the terminfo database is compiled by a tic that runs on the build machine
   buildDependencies = on platform.cross [ buildPkgs.ncurses ];
   # widec with the classic names as linker scripts, libtinfo split out (what ghc bindists NEED),

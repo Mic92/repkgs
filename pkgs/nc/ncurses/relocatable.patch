@@ -1,0 +1,25 @@
+--- a/misc/Makefile.in
++++ b/misc/Makefile.in
+@@ -181,7 +181,7 @@
+ run_tic.sed :
+ 	WHICH_XTERM=@WHICH_XTERM@ \
+ 	XTERM_KBS=@XTERM_KBS@ \
+-	datadir=${datadir} \
++	datadir=/usr/share \
+ 	$(SHELL) $(srcdir)/gen_edit.sh >$@
+ 
+ $(BINDIR) \
+--- a/ncurses/tinfo/db_iterator.c
++++ b/ncurses/tinfo/db_iterator.c
+@@ -44,6 +44,11 @@
+ #include <hashed_db.h>
+ #endif
+ 
++/* the compiled-in database is the one installed with this library, wherever that is */
++#include <reloc.h>
++#undef TERMINFO
++#define TERMINFO RELOC("../share/terminfo")
++
+ MODULE_ID("$Id: db_iterator.c,v 1.54 2025/12/25 18:19:46 tom Exp $")
+ 
+ #define HaveTicDirectory _nc_globals.have_tic_directory
