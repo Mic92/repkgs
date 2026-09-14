@@ -84,6 +84,9 @@ func ids(in *bufio.Reader, out *bufio.Writer, count int) error {
 
 func serve(conn *net.UnixConn) {
 	defer conn.Close()
+	if !allowed(conn) {
+		return
+	}
 	in := bufio.NewReaderSize(conn, 1<<16)
 	out := bufio.NewWriter(conn)
 	// tokens this connection holds: a killed compiler wrapper must not leak them
@@ -205,7 +208,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// a private directory for the socket: connecting to it is trusting whoever serves it
+	// build users have to reach the socket (0666). serve() checks who is on the other end
 	if err := os.MkdirAll(filepath.Dir(sock), 0o755); err != nil {
 		log.Fatal(err)
 	}
