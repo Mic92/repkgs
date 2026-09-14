@@ -150,12 +150,15 @@ auto GetDir(const std::string& socket_path, const std::string& key, const std::s
   std::vector<Entry> entries = ParseListing(*listing);
   const fs::path root(dir);
   std::error_code ignored;
+  // blobs are evicted independently of listings: a partial tree would pass for a warm one
+  std::vector<fs::path> written;
   for (const Entry& entry : entries) {
     if (entry.kind == 'l') {
       const fs::path dest = root / entry.rel;
       fs::create_directories(dest.parent_path(), ignored);
       fs::remove(dest, ignored);
       fs::create_symlink(entry.ref, dest, ignored);
+      written.push_back(dest);
     }
   }
   std::erase_if(entries, [](const Entry& entry) -> bool { return entry.kind != 'f'; });
@@ -176,11 +179,18 @@ auto GetDir(const std::string& socket_path, const std::string& key, const std::s
         ++missing;
         continue;
       }
+      written.push_back(dest);
       ::chmod(dest.c_str(), batch.at(i).mode);
     }
   }
   std::println(stderr, "jig: get-dir {}: {} files, {} missing", key, entries.size(), missing);
-  return missing == 0 ? 0 : 1;
+  if (missing != 0) {
+    for (const fs::path& path : written) {
+      fs::remove(path, ignored);
+    }
+    return 1;
+  }
+  return 0;
 }
 
 }  // namespace jig
