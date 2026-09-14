@@ -38,8 +38,9 @@ export def --env setup []: nothing -> nothing {
   } else { [] })
   # rustflags in config (RUSTFLAGS from the environment would replace them): panic strings embed
   # source paths, map build tree, cargo home and vendor dir away. Frame pointers like the C side
-  let rustflags = ([$"--remap-path-prefix=($c.src)=/src" $"--remap-path-prefix=($env.CARGO_HOME)=/cargo" $"--remap-path-prefix=($o.deps)=/vendor" "-Cforce-frame-pointers=yes"] ++ $sysroot)
-  # `deps` null: the source vendors (or has no) dependencies
+  # `deps` null: the source vendors (or has no) dependencies. An empty FROM would match every path
+  let remap = ({"/src": $c.src, "/cargo": $env.CARGO_HOME, "/vendor": $o.deps} | items {|to, from| if $from != null { $"--remap-path-prefix=($from)=($to)" } } | compact)
+  let rustflags = ($remap ++ ["-Cforce-frame-pointers=yes"] ++ $sysroot)
   let vendor = (if ($o.cratePatches | is-empty) { $o.deps } else { patched-vendor $o.deps $o.cratePatches })
   let source = (if $o.deps == null { {} } else { {source: {crates-io: {replace-with: vendored}, vendored: {directory: $vendor}}} })
   $source | merge {
