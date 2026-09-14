@@ -25,7 +25,7 @@ package {
     buildPkgs.unzip
   ]
   ++ on platform.cross [ buildPkgs.jdk ];
-  patches = [ ./riscv-float-type.patch ];
+  patches = [ ./upstream-riscv-float-type.patch ];
   phases = [
     {
       name = "configure";

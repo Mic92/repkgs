@@ -37,7 +37,7 @@ package {
     ZIG_STATIC_ZLIB = true;
     ZIG_STATIC_ZSTD = true;
   };
-  patches = [ ./cmake-zig-executable.patch ];
+  patches = [ ./upstream-cmake-zig-executable.patch ];
   dependencies = [
     pkgs.llvm21
     pkgs.clang21

@@ -18,7 +18,7 @@ package {
     "--flags=-selftest"
   ];
   # hadrian ran `bash autoreconf`, ours is a launcher binary
-  patches = [ ./hadrian-autoreconf-exec.patch ];
+  patches = [ ./upstream-hadrian-autoreconf-exec.patch ];
   phases.replace."cabal.install" = [
     "ghc.configure"
     "ghc.build"
