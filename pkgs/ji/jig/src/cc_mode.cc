@@ -269,9 +269,11 @@ auto RunObserved(CacheClient& cache, const std::string& compiler, const Invocati
     obs.inputs = ParseDepfile(*obs.dep_text);
   }
   if (obs.link_dep_text) {
+    // the driver's temp object sits directly in $TMPDIR. The source tree is below it too
     const std::string tmp = fs::temp_directory_path(ignored).string() + "/";
     for (std::string& input : ParseDepfile(*obs.link_dep_text)) {
-      if (!input.starts_with(tmp)) {
+      const bool driver_temp = input.starts_with(tmp) && input.find('/', tmp.size()) == std::string::npos;
+      if (!driver_temp) {
         obs.inputs.push_back(std::move(input));
       }
     }
