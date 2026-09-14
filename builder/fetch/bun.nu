@@ -12,9 +12,7 @@ use npm-registry.nu [split-id tarball-url flat-name]
 
 def main []: nothing -> nothing {
   let lock = (read-jsonc ([$env.source $env.root bun.lock] | path join))
-  let entries = ($lock.packages | transpose key value | each {|e|
-    {key: $e.key, id: $e.value.0, registry: ($e.value | get 1), integrity: ($e.value | last)}
-  })
+  let entries = (lock-entries $lock.packages)
   let from_registry = ($entries | where { ($in.integrity | describe) == string and ($in.integrity | str starts-with "sha512-") })
   let unhashed = ($entries | where key not-in ($from_registry | get key) | where id !~ "@workspace:")
   if ($unhashed | is-not-empty) {
@@ -31,6 +29,13 @@ def main []: nothing -> nothing {
     (dyn-drv json-file index.json ($fetched | select id dir))
   ]
   dyn-drv collect bun-deps $layout ($fetched | get drv)
+}
+
+# workspace members are just ["name@workspace:path"]: no registry, no integrity
+export def lock-entries [packages: record]: nothing -> table {
+  $packages | transpose key value | each {|e|
+    {key: $e.key, id: $e.value.0, registry: ($e.value | get -o 1 | default ""), integrity: ($e.value | last)}
+  }
 }
 
 # bun writes trailing commas but no comments
