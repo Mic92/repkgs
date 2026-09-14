@@ -66,6 +66,7 @@ type Store struct {
 	index  map[string]loc
 	packs  map[uint32]*pack
 	active *pack
+	closed bool
 	demote chan struct{} // a tier went over budget
 	done   chan struct{}
 }
@@ -254,6 +255,9 @@ func (s *Store) Put(key string, value []byte) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.closed {
+		return errors.New("store closed")
+	}
 	if s.active.size+int64(recHeader+len(key)+len(value)) > packLimit && s.active.size > 0 {
 		if err := s.rotate(s.active.id + 1); err != nil {
 			return err
@@ -433,6 +437,9 @@ func (s *Store) Wait() {
 
 // Close seals the active pack so the next start reads hints only
 func (s *Store) Close() error {
+	s.mu.Lock()
+	s.closed = true
+	s.mu.Unlock()
 	close(s.demote)
 	<-s.done
 	s.mu.Lock()
