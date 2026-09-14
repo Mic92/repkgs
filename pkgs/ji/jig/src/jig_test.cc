@@ -64,6 +64,9 @@ void TestBase() {
   left.Field("ab").Field("c");
   right.Field("a").Field("bc");
   assert(left.Finish() != right.Finish());
+  assert(!jig::WriteFile("/nonexistent/dir/file", "x"));
+  const std::string big(300000, 'y');
+  assert(jig::WriteFile("/tmp/jig_test.big", big));
 }
 
 void TestStoreMask() {

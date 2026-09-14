@@ -378,7 +378,10 @@ auto FixElf(FixupContext& ctx, const fs::path& path, BinaryImage& image) -> bool
     return true;
   }
   if (dirty) {
-    WriteBack(path, image.bytes());
+    if (!WriteBack(path, image.bytes())) {
+      ++ctx.errors;
+      return false;
+    }
     std::println("{}", Join(log, "  "));
   }
   if (const size_t leak = image.bytes().find(Store::Get().dir() + "/"); leak != std::string::npos) {
