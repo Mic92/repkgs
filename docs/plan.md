@@ -83,6 +83,10 @@ npm/pnpm/bun, and `uptrack check` should warn when a lock names a library the se
 
 - **.pyc in python outputs**: see what pip/meson installs write (`__pycache__` with source
   paths and mtimes) and pick one: delete, or recompile with `--invalidation-mode unchecked-hash`.
+- **windows: cmake `MSVC`**: cmake sets `MSVC` only for cl-style drivers. Our cc is the GNU-style
+  clang targeting msvc, so projects that key windows specifics on `if(MSVC)` (xz manifests,
+  jsoncpp static suffix, libcpuid masm) take the wrong branch. Either a clang-cl personality for
+  cmake builds on windows or `CMAKE_C_SIMULATE_ID`; those packages are linux/macos until then.
 - **config.sub refresh**: old autotools tarballs reject riscv64/loongarch64 triples. Copy a
   current config.sub/config.guess in `autotools.configure` when cross, once a package needs it.
 - **toolchain references**: `reloc-fixup --deny` the `cc` wrapper for native builds too, after

@@ -2,6 +2,11 @@
 { package }:
 package {
   name = "jigd";
+  # unix sockets and syscall.Flock
+  platforms.os = [
+    "linux"
+    "macos"
+  ];
   version = "3";
   source = ./src;
   uses = [ "go" ];

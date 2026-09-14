@@ -1,6 +1,11 @@
 { package, platform }:
 package {
   name = "lowdown";
+  # oconfigure knows ELF and Mach-O shared libraries
+  platforms.os = [
+    "linux"
+    "macos"
+  ];
   uses = [ "make" ];
   patches = [ ./upstream-portable-make.patch ];
   # oconfigure takes KEY=value, not --prefix. seccomp probes the build machine's uname -m

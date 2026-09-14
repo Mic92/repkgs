@@ -65,7 +65,9 @@ export def install []: nothing -> nothing {
     if not ($text | bytes starts-with ("#!" | into binary)) { continue }
     let lines = ($text | decode utf-8 | lines)
     if ($lines | first) !~ "python" { continue }
-    [($lines | first) $boot] ++ ($lines | skip 1) | str join "\n" | save -f $f
+    # installer wrote sys.executable, the build machine's python when cross
+    let interp = (if $c.platform.cross { "#!/usr/bin/env python3" } else { $lines | first })
+    [$interp $boot] ++ ($lines | skip 1) | str join "\n" | save -f $f
   }
   # an import needs the imports below it: whoever depends on (or runs) this module gets our
   # dependencies' site-packages too. finish merges this into the final exports.json

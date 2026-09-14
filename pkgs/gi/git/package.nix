@@ -38,6 +38,18 @@ package {
     "PERL_PATH=" # NO_PERL still leaves /usr/bin/perl for t/Makefile's lints
     "NO_PYTHON=1"
     "NO_GETTEXT=1"
+    # config.mak.uname asks the build machine
+    "uname_S=${
+      {
+        linux = "Linux";
+        macos = "Darwin";
+        windows = "Windows";
+      }
+      .${platform.os}
+    }"
+    "uname_M=${platform.cpu}"
+    "uname_O=${if platform.os == "linux" then "GNU/Linux" else platform.os}"
+    "uname_R="
     "NO_INSTALL_HARDLINKS=1"
     "INSTALL_SYMLINKS=1"
   ];
