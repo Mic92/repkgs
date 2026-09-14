@@ -58,8 +58,10 @@ def main []: nothing -> nothing {
     if not ((^llvm-readelf -lW $f) | str contains "DYNAMIC") { continue }
     let d = (dyn $f)
     let reldir = (rel-lib $out ($f | path dirname))
-    # anything not resolved inside the tree already and not libc: copy it next to ours
-    for n in ($d.needed | where { $in !~ '^\$ORIGIN/[^.]' and ($in | path basename) not-in $LIBC and $in !~ 'ld-linux' }) {
+    # anything not resolved inside the tree already ($ORIGIN/x, a binary's $ORIGIN/../lib/x) and
+    # not libc: copy it next to ours
+    let inside = {|n: string| ($n | str starts-with '$ORIGIN') and ($n | str replace '$ORIGIN' ($f | path dirname) | path expand -n | str starts-with $"($out)/") }
+    for n in ($d.needed | where { not (do $inside $in) and ($in | path basename) not-in $LIBC and $in !~ 'ld-linux' }) {
       let base = ($n | path basename)
       let from = (do $find $base)
       if $from == null { if $n =~ "/" { error make {msg: $"bundle: ($f): ($n) not in the closure"} } else { continue } }

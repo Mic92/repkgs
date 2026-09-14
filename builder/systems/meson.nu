@@ -60,6 +60,7 @@ export def build []: nothing -> nothing { x ninja $"-j((ctx).njobs)" }
 export def test []: nothing -> nothing {
   let skip = (options meson).skipTests
   let names = (if ($skip | is-empty) { [] } else { ^meson test --list | lines | where {|t| not ($skip | any {|s| $t =~ $s }) } })
+  if ($skip | is-not-empty) and ($names | is-empty) { note meson-test "every test matches meson.skipTests"; return }
   x meson test --no-rebuild --print-errorlogs --num-processes (test-jobs) ...$names
 }
 # meson install

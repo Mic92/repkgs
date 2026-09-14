@@ -5,8 +5,14 @@
 
 # true when `marker` holds for `vars`
 export def evaluate [marker: string, vars: record]: nothing -> bool {
-  let tokens = (tokenize (substitute $marker $vars))
-  (parse-or $tokens 0).value
+  let text = (substitute $marker $vars)
+  # a variable `vars` lacks would vanish in tokenize and misalign the parse: wrong, silently
+  let unknown = ($text | str replace -ar "'[^']*'" "" | parse -r '\b(\w+)\b' | get capture0 | where $it not-in [and or not in])
+  if ($unknown | is-not-empty) { error make {msg: $"pep508: unknown marker variable ($unknown | uniq | str join ', ') in `($marker)`"} }
+  let tokens = (tokenize $text)
+  let result = (parse-or $tokens 0)
+  if $result.next != ($tokens | length) { error make {msg: $"pep508: cannot parse `($marker)`"} }
+  $result.value
 }
 
 # replace every marker variable with its quoted value, so only literals and operators remain
@@ -64,6 +70,11 @@ def compare [lhs: string, op: string, rhs: string]: nothing -> bool {
     "not in" => ($rhs not-has $lhs)
     _ if not ($lhs =~ '^\d' and $rhs =~ '^\d') => (match $op { "==" => ($lhs == $rhs), "!=" => ($lhs != $rhs), _ => false })
     "~=" => ((version-order $lhs $rhs) >= 0 and (release $lhs | take ((release $rhs | length) - 1)) == (release $rhs | drop))
+    # PEP 440 prefix match: == 3.14.* / != 3.14.*
+    "==" | "!=" if ($rhs | str ends-with ".*") => {
+      let prefix = (release ($rhs | str replace -r '\.\*$' ""))
+      ((release $lhs | take ($prefix | length)) == $prefix) == ($op == "==")
+    }
     _ => {
       let order = (version-order $lhs $rhs)
       match $op { "==" => ($order == 0), "!=" => ($order != 0), "<" => ($order < 0), "<=" => ($order <= 0), ">" => ($order > 0), ">=" => ($order >= 0), _ => false }

@@ -83,7 +83,8 @@ def install-wheel [wheel: string, --scripts]: nothing -> nothing {
   let stage = $"($c.build)/stage"
   rm -rf $stage
   ^python3 -m installer --prefix $stage --no-compile-bytecode $wheel
-  for entry in (ls ...(files --dirs $"($stage)/lib/python3*/site-packages") | get name) { mv $entry (site-packages) }
+  # namespace packages (sphinxcontrib/, google/) come in pieces from several wheels: merge trees
+  for sp in (files --dirs $"($stage)/lib/python3*/site-packages") { ^cp -rlf $"($sp)/." (site-packages); rm -rf $sp }
   if $scripts and ($"($stage)/bin" | path exists) {
     mkdir $"($c.out)/bin"
     for f in (files $"($stage)/bin/*") { mv $f $"($c.out)/bin/" }

@@ -11,15 +11,19 @@ use npm-registry.nu [split-id tarball-url flat-name]
 
 const JSR = "https://jsr.io"
 
+# "vite@5.0.0_@types+node@20.0.0": the peer suffix starts at the first "_" after the version
+export def npm-key-id [key: string]: nothing -> record<name: string, version: string> {
+  split-id ($key | str replace -r '^(@?[^@]+@[^_]*)_.*' '$1')
+}
+
 def main []: nothing -> nothing {
   let lock = (open --raw ([$env.source $env.root deno.lock] | path join) | from json)
   if ($lock.version? | default "3" | into int) < 4 {
     error make {msg: "denoDeps: deno.lock older than version 4, regenerate it with deno >= 2"}
   }
 
-  # npm keys may carry a peer-dependency suffix: "vite@5.0.0_@types+node@20.0.0"
   let npm = ($lock.npm? | default {} | transpose key entry | each {|p|
-    let id = (split-id ($p.key | str replace -r '_.*' ''))
+    let id = (npm-key-id $p.key)
     let url = (tarball-url $id.name $id.version)
     {name: $id.name, version: $id.version, url: $url, integrity: $p.entry.integrity, file: $"(flat-name $id.name)-($id.version).tgz"}
   } | uniq-by name version | dyn-drv fetchurls)
