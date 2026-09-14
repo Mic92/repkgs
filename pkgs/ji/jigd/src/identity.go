@@ -2,12 +2,15 @@
 // the form jig computes itself). A cache hit re-validates ~100 headers. Hashing them in every
 // compiler process cost 4 ms per hit. Store files are immutable once their build is done, so the
 // daemon memoises by path, guarded by (inode, size, mtime) for paths that get garbage-collected
-// and rebuilt. jig only asks for paths under the store and outside its own $out.
+// and rebuilt. jig only asks for paths under the store and outside its own $out. The daemon
+// answers for nothing else, since any sandboxed build can talk to the socket.
 package main
 
 import (
 	"encoding/hex"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -26,20 +29,35 @@ type identEntry struct {
 }
 
 type Identities struct {
-	mu    sync.RWMutex
-	known map[string]identEntry
+	store, realStore string // with trailing slash, as given and with symlinks resolved
+	mu               sync.RWMutex
+	known            map[string]identEntry
 }
 
-func NewIdentities() *Identities { return &Identities{known: make(map[string]identEntry)} }
+func NewIdentities(storeDir string) *Identities {
+	real, err := filepath.EvalSymlinks(storeDir)
+	if err != nil {
+		real = storeDir
+	}
+	return &Identities{store: filepath.Clean(storeDir) + "/", realStore: filepath.Clean(real) + "/", known: make(map[string]identEntry)}
+}
 
 func stampOf(info os.FileInfo) fileStamp {
 	st := info.Sys().(*syscall.Stat_t)
 	return fileStamp{ino: st.Ino, size: info.Size(), mtime: info.ModTime().UnixNano()}
 }
 
-// Of returns the identity of a regular file, "" if it cannot be read.
+// Of returns the identity of a regular file under the store, "" otherwise.
 func (ids *Identities) Of(path string) string {
-	info, err := os.Stat(path)
+	if !strings.HasPrefix(path, ids.store) || filepath.Clean(path) != path {
+		return ""
+	}
+	// store trees hold symlinks, also ones a hostile build pointed out of the store
+	real, err := filepath.EvalSymlinks(path)
+	if err != nil || !strings.HasPrefix(real, ids.realStore) {
+		return ""
+	}
+	info, err := os.Stat(real)
 	if err != nil || !info.Mode().IsRegular() {
 		return ""
 	}
@@ -50,7 +68,7 @@ func (ids *Identities) Of(path string) string {
 	if ok && entry.stamp == stamp {
 		return entry.id
 	}
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(real)
 	if err != nil {
 		return ""
 	}

@@ -20,6 +20,7 @@ func TestServeIdsAndPipelinedGets(t *testing.T) {
 	}
 	defer store.Close()
 	slots = NewSlots(1)
+	idents = NewIdentities(dir)
 	header := filepath.Join(dir, "h.h")
 	if err := os.WriteFile(header, []byte("abc"), 0o644); err != nil {
 		t.Fatal(err)
