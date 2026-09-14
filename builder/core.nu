@@ -96,29 +96,23 @@ export def write-launcher [name: string, program: string, args: list<string>, va
   note launcher $"bin/($name) -> ($program)"
 }
 
-# no /usr/bin/env in the sandbox: point such scripts at the build PATH's env (build tree only;
-# finish turns installed copies back with --undo and bin/ scripts get launchers). mtimes are kept
-# in the build tree: a generator script newer than its shipped output makes make regenerate it
-# (coreutils' cu-progs.m4 -> aclocal, ruby's prism templates -> baseruby)
+# no /usr/bin/env in the sandbox: point such scripts at the build PATH's env, and back with --undo
+# for installed copies. mtimes are kept, a generator script newer than its shipped output would
+# make make regenerate it (coreutils' cu-progs.m4, ruby's prism templates)
 export def fix-env-shebangs [dir: path, njobs: int = 4, --undo]: nothing -> nothing {
   let ours = $"#!(tool env)"
-  let pair = (if $undo { [$ours "#!/usr/bin/env"] } else { ["#!/usr/bin/env" $ours] })
-  # grep narrows to candidates in one process, installers drop the x bit so --undo looks at all
-  let hits = (^find $dir -type f ...(if $undo { [] } else { [-perm -u+x] }) -size -1024k -exec grep -l $"^($pair.0)" '{}' + | complete | get stdout | lines)
+  # any line: `ruby -x` stubs carry the real #! after a /bin/sh preamble
+  let sub = (if $undo { {from: $"\(?m\)^($ours)", to: "#!/usr/bin/env"} } else { {from: '(?m)^#! ?/usr/bin/env', to: $ours} })
+  # installers drop the x bit, so --undo looks at all files
+  let grep = (if $undo { $"^($ours)" } else { '^#! ?/usr/bin/env' })
+  let hits = (^find $dir -type f ...(if $undo { [] } else { [-perm -u+x] }) -size -1024k -exec grep -lE $grep '{}' + | complete | get stdout | lines)
   if ($hits | is-empty) { return }
   let hits = (^find ...$hits -printf '%T@\t%p\n' | lines | split column "\t" mtime f)
   ^chmod u+w ...$hits.f
   let done = ($hits | par-each --threads ([$njobs 16] | math min) {|h|
-    let bytes = (open --raw $h.f | into binary)
-    if $undo {
-      # any line: `ruby -x` stubs (rubygems) carry the real #! after a /bin/sh preamble
-      let text = ($bytes | decode)
-      let fixed = ($text | str replace -a $"\n($pair.0)" $"\n($pair.1)" | str replace $pair.0 $pair.1)
-      if $fixed != $text { $fixed | save -f --raw $h.f; $h }
-    } else if ($bytes | bytes starts-with ($pair.0 | into binary)) {
-      ($pair.1 | into binary) ++ ($bytes | bytes at ($pair.0 | str length)..) | save -f --raw $h.f
-      $h
-    }
-  })
+    let text = (open --raw $h.f | decode)
+    let fixed = ($text | str replace -ar $sub.from $sub.to)
+    if $fixed != $text { $fixed | save -f --raw $h.f; $h }
+  } | compact)
   if not $undo { for g in ($done | group-by mtime --to-table) { ^touch -d $"@($g.mtime)" ...$g.items.f } }
 }
