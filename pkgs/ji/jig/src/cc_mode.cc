@@ -41,6 +41,11 @@ auto HasSuffix(std::string_view arg, std::span<const std::string_view> suffixes)
       suffixes, [&](std::string_view suffix) -> bool { return arg.size() > suffix.size() && arg.ends_with(suffix); });
 }
 
+auto IsAssembly(std::string_view path) -> bool {
+  static constexpr std::array kExts{".S"sv, ".s"sv, ".sx"sv};
+  return HasSuffix(path, kExts);
+}
+
 auto IsSourceFile(std::string_view arg) -> bool {
   static constexpr std::array kExts{
       ".c"sv, ".cc"sv, ".cpp"sv, ".cxx"sv, ".c++"sv,  //
@@ -244,6 +249,10 @@ auto RunObserved(CacheClient& cache, const std::string& compiler, const Invocati
   const fs::path link_depfile = tmp_base + ".link.d";
   if (own_depfile) {
     args.insert(args.end(), {"-MD", "-MF", depfile.string()});
+  } else if (!inv.link && !IsAssembly(inv.source)) {
+    // -MMD omits -isystem headers, which is every dependency the manifest must see. Assembler
+    // input has no cc1 to take the flag
+    args.insert(args.end(), {"-Xclang", "-sys-header-deps"});
   }
   if (inv.to_stdout) {
     args.insert(args.end(), {"-o", inv.output.string()});
