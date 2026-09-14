@@ -5,6 +5,7 @@ use fetch/gems.nu [checksums]
 use fetch/npm.nu [remote-entries relock]
 use fetch/go.nu [proxy-case]
 use pep508.nu
+use fetch/pypi.nu [runtime-closure]
 use checks.nu *
 
 # deno.lock npm keys: "<name>@<version>[_<peer>@<version>...]", names may contain "_"
@@ -44,4 +45,15 @@ assert "pep508: wildcard other minor" (not (pep508 evaluate "python_full_version
 assert "pep508: or after false" (pep508 evaluate "python_version < '3.10' or sys_platform == 'linux'" $py)
 fails "pep508: unknown variable is an error, not false" { pep508 evaluate "platform_version == 'x' or sys_platform == 'linux'" $py }
 
+# uv.lock forks: two numpy entries, ours is the one whose resolution-markers hold
+let lockp = [
+  {name: app, version: "0", dependencies: [{name: numpy}, {name: six, marker: "python_version < '3'"}]}
+  {name: numpy, version: "2.0.2", resolution-markers: ["python_full_version < '3.10'"]}
+  {name: numpy, version: "2.2.6", resolution-markers: ["python_full_version >= '3.10'"], dependencies: [{name: pinned, version: "2"}]}
+  {name: pinned, version: "1"}
+  {name: pinned, version: "2"}
+  {name: six, version: "1"}
+]
+let closure = (runtime-closure $lockp ($lockp | first) [] $py | select name version | sort-by name)
+assert "pypi: fork by resolution-markers, edge version pin, false marker dropped" ($closure == [[name version]; [numpy "2.2.6"] [pinned "2"]])
 done

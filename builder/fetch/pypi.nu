@@ -20,11 +20,18 @@ def main []: nothing -> nothing {
   if ($lock.version? | default 0) < 1 { error make {msg: "pythonDeps: uv.lock has no `version`, too old"} }
 
   let packages = ($lock.package | group-by name)
-  let names = (runtime-closure $lock $pyproject ($env.extras | split row "," | where $it != ""))
+  let marker_env = {
+    python_full_version: $env.pythonVersion
+    python_version: ($env.pythonVersion | split row "." | take 2 | str join ".")
+    sys_platform: linux, platform_system: Linux, platform_machine: $env.cpu, os_name: posix
+    implementation_name: cpython, implementation_cap: CPython, implementation_version: $env.pythonVersion
+    platform_release: "", platform_version: "", extra: ""
+  }
+  let needed = (runtime-closure $lock.package (project-entry $lock $pyproject) ($env.extras | split row "," | where $it != "") $marker_env)
   let force_sdist = (($pyproject.tool?.uv?.no-binary-package? | default []) ++ (sys-libs sdist-packages))
 
-  let plan = ($names | par-each --keep-order {|name|
-    let package = ($packages | get $name | first)
+  let plan = ($needed | par-each --keep-order {|package|
+    let name = $package.name
     let artefact = (choose-artefact $package ($name in $force_sdist))
     let file = ($artefact.url | path basename | url decode)
     {name: $name, version: $package.version, file: $file, kind: $artefact.kind, url: $artefact.url, sha256: ($artefact.hash | str replace "sha256:" "")}
@@ -38,40 +45,43 @@ def main []: nothing -> nothing {
   dyn-drv collect python-deps $layout ($plan | get drv)
 }
 
-# names of every package the project needs at run time: breadth-first from the project's own
-# lock entry over `dependencies` (+ requested extras), skipping edges whose marker is false here
-def runtime-closure [lock: record, pyproject: record, extras: list<string>]: nothing -> list<string> {
-  let marker_env = {
-    python_full_version: $env.pythonVersion
-    python_version: ($env.pythonVersion | split row "." | take 2 | str join ".")
-    sys_platform: linux, platform_system: Linux, platform_machine: $env.cpu, os_name: posix
-    implementation_name: cpython, implementation_cap: CPython, platform_release: "", extra: ""
-  }
-  let packages = ($lock.package | group-by name)
-  let project = (project-entry $lock $pyproject)
+# runtime closure from the project's entry over `dependencies` whose markers hold. uv may fork
+# a name into several entries: the edge's version or the entry's resolution-markers pick ours
+export def runtime-closure [lock_packages: table, project: record, extras: list<string>, marker_env: record]: nothing -> table {
+  let packages = ($lock_packages | group-by name)
   # a lock repeats a handful of distinct markers hundreds of times: evaluate each once
-  let all_edges = ($lock.package | each {|p| ($p.dependencies? | default []) ++ ($p.optional-dependencies? | default {} | values | flatten) } | flatten)
-  let holds = ($all_edges | get -o marker | compact | uniq | par-each {|m| [$m (pep508 evaluate $m $marker_env)] } | into record)
+  let all_edges = ($lock_packages | each {|p| ($p.dependencies? | default []) ++ ($p.optional-dependencies? | default {} | values | flatten) } | flatten)
+  let markers = ($all_edges | get -o marker) ++ ($lock_packages | get -o resolution-markers | flatten)
+  let holds = ($markers | compact | uniq | par-each {|m| [$m (pep508 evaluate $m $marker_env)] } | into record)
   let edges_of = {|package: record, extras: list<string>|
     let optional = ($extras | each {|e| $package.optional-dependencies? | default {} | get -o $e | default [] } | flatten)
     ($package.dependencies? | default []) ++ $optional | where {|edge| $edge.marker? == null or ($holds | get $edge.marker) }
   }
-  # name -> extras already expanded for it
+  # name -> {extras already expanded for it, entry}
   mut visited = {}
   mut queue = (do $edges_of $project $extras)
   while ($queue | is-not-empty) {
     let edge = ($queue | first)
     $queue = ($queue | skip 1)
     let wanted_extras = ($edge.extra? | default [])
-    let done_extras = ($visited | get -o $edge.name)
-    if $done_extras != null and ($wanted_extras | all { $in in $done_extras }) { continue }
-    $visited = ($visited | upsert $edge.name (($done_extras | default []) ++ $wanted_extras | uniq))
-    # several lock entries share a name only under conflicting forks; the edge then pins a version
+    let done = ($visited | get -o $edge.name)
+    if $done != null and ($wanted_extras | all { $in in $done.extras }) { continue }
     let candidates = ($packages | get $edge.name)
-    let target = (if $edge.version? != null { $candidates | where version == $edge.version | first } else { $candidates | first })
+    let target = (if $edge.version? != null {
+      $candidates | where version == $edge.version | first
+    } else if ($candidates | length) == 1 {
+      $candidates | first
+    } else {
+      let ours = ($candidates | where { ($in.resolution-markers? | default []) | any {|m| $holds | get $m } })
+      if ($ours | length) != 1 {
+        error make {msg: $"pythonDeps: ($edge.name) has ($candidates | get version | str join ', ') in uv.lock and resolution-markers pick ($ours | length) of them"}
+      }
+      $ours | first
+    })
+    $visited = ($visited | upsert $edge.name {extras: (($done.extras? | default []) ++ $wanted_extras | uniq), entry: $target})
     $queue = ($queue ++ (do $edges_of $target $wanted_extras))
   }
-  $visited | columns
+  $visited | values | get entry
 }
 
 # the lock entry for the project being built (source editable/virtual ".", or by normalised name)
