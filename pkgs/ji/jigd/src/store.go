@@ -129,8 +129,12 @@ func (s *Store) load(tier int, id uint32) error {
 	p := &pack{id: id, tier: tier, file: file, size: info.Size()}
 	p.used.Store(info.ModTime().UnixNano())
 	p.touched.Store(info.ModTime().UnixNano())
+	// newest pack id wins whatever the load order
 	add := func(key string, l loc) {
 		if old, ok := s.index[key]; ok {
+			if old.pack > l.pack {
+				return
+			}
 			s.packs[old.pack].live -= int64(old.len)
 		}
 		s.index[key] = l
