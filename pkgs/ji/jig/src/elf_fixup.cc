@@ -248,7 +248,8 @@ auto FixRunpath(FixupContext& ctx, const fs::path& path, BinaryImage& elf, const
       ++ctx.errors;
       return false;
     }
-    if (!elf.WritePadded(runpath_offset, old.size(), blob)) {
+    // the slot is the old string plus its NUL, which CString stopped at
+    if (!elf.WritePadded(runpath_offset, old.size() + 1, blob)) {
       std::println(stderr, "{}: RUNPATH does not fit ({} > {}): {}", path.string(), blob.size(), old.size(), neu);
       ++ctx.errors;
       return false;
