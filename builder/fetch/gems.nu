@@ -31,7 +31,7 @@ def main []: nothing -> nothing {
 
 # [{name, version, platform, sha256}] from the CHECKSUMS section; the application's own PATH gem
 # is listed there without a checksum and dropped
-def checksums [lock: string]: nothing -> table {
+export def checksums [lock: string]: nothing -> table {
   # sections are "NAME\n  line…" blocks separated by blank lines
   let section = ($lock | parse -r '(?s)\nCHECKSUMS\n(?<body>.*?)(?:\n\n|$)' | get -o body.0)
   if $section == null {
