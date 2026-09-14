@@ -1,8 +1,8 @@
 #include "broker.h"
 
 #include <fcntl.h>
-#include <poll.h>
 #include <semaphore.h>
+#include <sys/poll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
@@ -125,7 +125,7 @@ auto DaemonUp(const std::string& socket_path) -> bool { return Conn::Open(socket
 
 auto DaemonSource(std::string socket_path, std::string build) -> TokenSource {
   // the order in flight, shared between calls of the returned closure
-  auto pending = std::make_shared<std::shared_ptr<Conn>>();
+  const auto pending = std::make_shared<std::shared_ptr<Conn>>();
   return [socket_path = std::move(socket_path), build = std::move(build), pending](bool want) -> Token {
     std::shared_ptr<Conn>& order = *pending;
     if (!want) {

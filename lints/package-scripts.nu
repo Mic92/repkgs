@@ -5,7 +5,7 @@
 def main [...files: path] {
   let root = ($env.FILE_PWD | path dirname)
   let names = ($files | each { path dirname | path basename } | each { $'"($in)"' } | str join " ")
-  let scripts = (^nix-instantiate --read-write-mode --eval --strict --json --expr $"let set = import ($root) { }; in map \(n: set.${n}.script or null\) [($names)]" | from json)
+  let scripts = (^nix-instantiate --read-write-mode --eval --strict --json --option extra-experimental-features "ca-derivations dynamic-derivations" --expr $"let set = import ($root) { }; in map \(n: set.${n}.script or null\) [($names)]" | from json)
   let failed = ($files | zip $scripts | where $it.1 != null | par-each {|p|
     # modules say `use core.nu *` by bare name, the derivation passes the same --include-path
     let tree = ($p.1 | parse -r '^use (\S+)/core\.nu' | get 0.capture0)
