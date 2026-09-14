@@ -8,8 +8,15 @@ export def configure []: nothing -> nothing {
   "osvers=\"gnulinux\"\nmyuname=\"pkgs\"\nmyhostname=\"pkgs\"\ncf_by=\"pkgs\"\ncf_time=\"1970-01-01\"\n" | save -f config.over
   let z = (dep-root zlib "Compress::Raw::Zlib links it")
   $"BUILD_ZLIB = False\nINCLUDE = ($z)/include\nLIB = ($z)/lib\nOLD_ZLIB = False\nGZIP_OS_CODE = AUTO_DETECT\nUSE_ZLIB_NG = False\nZLIB_INCLUDE = ($z)/include\nZLIB_LIB = ($z)/lib\n" | save -f cpan/Compress-Raw-Zlib/config.in
+  # relocatable @INC starts from $^X, which is argv[0] unless perl can ask the OS. The Linux probe
+  # runs `ls -l /proc/self/exe` and looks for "/ls" (ours is .coreutils), the macOS one cannot run
+  let self_exe = (match $c.platform.os {
+    "linux" => [-Dd_procselfexe=define '-Dprocselfexe="/proc/self/exe"']
+    "macos" => [-Dusensgetexecutablepath=define]
+    _ => []
+  })
   # startperl/perlpath: the scripts perl installs name it by PATH, finish's launchers bind them
-  let common = [$"-Dprefix=($c.out)" -Dcc=cc -Uinstallusrbinperl -Dinstallstyle=lib/perl5 -Duserelocatableinc
+  let common = [$"-Dprefix=($c.out)" -Dcc=cc -Uinstallusrbinperl -Dinstallstyle=lib/perl5 -Duserelocatableinc ...$self_exe
     "-Dstartperl=#!/usr/bin/env perl" -Dperlpath=perl
     -Dman1dir=none -Dman3dir=none "-Accflags=-D_GNU_SOURCE -fno-strict-aliasing"]
   if $c.platform.cross {
