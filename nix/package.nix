@@ -100,6 +100,7 @@ let
         cross
         emulator
         exe
+        sharedLib
         ;
       inherit (toolchain) sysroot;
       probe = if platform.cross then "${toolchain.sysroot}/lib/${platform.interp}" else "";

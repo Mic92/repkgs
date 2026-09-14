@@ -3,6 +3,8 @@
 { package }:
 package {
   name = "zip";
+  # glibc's fortified printf macro hid these from -Wformat-security
+  patches = [ ./upstream-format-security.patch ];
   phases = [
     {
       name = "build";

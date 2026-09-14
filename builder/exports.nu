@@ -15,7 +15,7 @@ export def exports-of [p: path]: nothing -> record<name: string, includeDirs: li
     name: ($e.name? | default { $p | path basename | str substring 33.. | str replace -r '-(x86_64|aarch64|riscv64|loongarch64|powerpc64le)-\w+$' '' })
     includeDirs: ($e.includeDirs? | default { existing $p ["include"] })
     libDirs: ($e.libDirs? | default { existing $p ["lib"] })
-    libs: ($e.libs? | default { files $"($p)/lib/lib*.so" | each { path parse | get stem | str substring 3.. } })
+    libs: ($e.libs? | default { files $"($p)/lib/lib*.{so,dylib}" | each { path parse | get stem | str substring 3.. } })
     pkgconfigDirs: ($e.pkgconfigDirs? | default { existing $p ["lib/pkgconfig" "share/pkgconfig"] })
     aclocalDirs: ($e.aclocalDirs? | default { existing $p ["share/aclocal"] })
     # `{root}` in values: this package's own store path (kept relative in exports.json so the output stays relocatable)

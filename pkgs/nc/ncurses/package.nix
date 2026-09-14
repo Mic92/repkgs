@@ -51,8 +51,8 @@ package {
         let lib = $"($c.out)/lib"
         # -lncurses, -ltinfo etc. resolve to the wide variants
         for l in [ncurses form panel menu tinfo] {
-          $"INPUT\(-l($l)w)\n" | save -f $"($lib)/lib($l).so"
-          ^ln -sf $"lib($l)w.so.6" $"($lib)/lib($l).so.6"
+          ^ln -sf (shlib $"($l)w") $"($lib)/(shlib $l)"
+          ^ln -sf (shlib $"($l)w" 6) $"($lib)/(shlib $l 6)"
         }
         ^ln -sf ncursesw.pc $"($lib)/pkgconfig/ncurses.pc"
         # a #!$SHELL script duplicating the .pc files
