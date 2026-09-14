@@ -286,8 +286,8 @@ auto CompileAndStore(CacheClient& cache, const std::string& compiler, const Requ
   if (run.status != 0) {
     ForwardStdout(inv, std::nullopt);
     // replayable only if every input is known. A missing header or any link error depends on
-    // something absent that a later build may provide
-    if (!dep_text || links || run.stderr_text.contains("file not found")) {
+    // a killed or crashed compiler says nothing about the inputs
+    if (!dep_text || links || run.stderr_text.contains("file not found") || !Deterministic(run)) {
       LogOutcome("cc", Outcome::kMissFail, subject, clock);
       return run.status;
     }
