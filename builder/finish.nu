@@ -55,10 +55,22 @@ def relativize-scripts [prefix: string]: nothing -> nothing {
   }
 }
 
+# Mach-O: reloc-fixup made every LC_ID_DYLIB @rpath/<name>, cmake's exported targets still
+# record the install_name the project chose (taglib: INSTALL_NAME_DIR $libdir)
+def relativize-sonames [prefix: string, cmakes: list<string>]: nothing -> nothing {
+  if ($cmakes | is-empty) { return }
+  for f in (^grep -lF $"IMPORTED_SONAME" ...$cmakes | complete | get stdout | lines) {
+    let re = (['(IMPORTED_SONAME_\w+ )"' $prefix '/[^"]*/([^/"]+)"'] | str join)
+    let text = (open --raw $f | str replace -ar $re '${1}"@rpath/${2}"')
+    $text | save -f $f
+  }
+}
+
 # prefix -> store, anything still naming the prefix is an error
 export def to-store [prefix: string, dest: string, inv: table]: nothing -> nothing {
   ^chmod -R u+w $prefix # some install -m 0444
   relativize-pc $prefix ($inv | where type == f and rel =~ '\.pc$' | get path)
+  if (ctx).platform.os == "macos" { relativize-sonames $prefix ($inv | where type == f and rel =~ '\.cmake$' | get path) }
   relativize-scripts $prefix
   relativize-links $prefix $dest
   let hits = (^grep -rlF $prefix $prefix | complete | get stdout | lines)

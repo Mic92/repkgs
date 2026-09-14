@@ -107,6 +107,7 @@ let
       os = "linux";
       binfmt = "elf";
       exe = "";
+      sharedLib = "so";
       names = builtins.mapAttrs (n: _: c.names.${n} or cpu) {
         kernel = null;
         go = null;
@@ -149,6 +150,14 @@ let
       name = "${cpu}-${o.os}";
       interp = "";
       exe = if o.binfmt == "coff" then ".exe" else "";
+      # file name pieces by binary format. Versioned names order differently per format: `shlib`
+      # in builder/core.nu
+      sharedLib =
+        {
+          macho = "dylib";
+          coff = "dll";
+        }
+        .${o.binfmt};
       march = o.march or c.march;
       hardening = { };
     }

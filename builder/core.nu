@@ -63,6 +63,17 @@ export def tool [name: string]: nothing -> path {
   $hits | first | get path
 }
 
+# a shared library's file name on this platform: `shlib z` -> libz.so | libz.dylib | z.dll,
+# `shlib z 1` -> libz.so.1 | libz.1.dylib | z.dll (PE names carry no version)
+export def shlib [name: string, version?: string]: nothing -> string {
+  let p = (ctx).platform
+  match $p.binfmt {
+    "macho" => (["lib" $name] ++ (if $version == null { [] } else { ["." $version] }) ++ [".dylib"] | str join)
+    "coff" => $"($name).dll"
+    _ => ([$"lib($name).so"] ++ (if $version == null { [] } else { ["." $version] }) | str join)
+  }
+}
+
 # the derivation's structured attrs (nix/package.nix `common`)
 export def attrs []: nothing -> record { open $env.NIX_ATTRS_JSON_FILE }
 
