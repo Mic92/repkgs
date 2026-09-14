@@ -10,12 +10,13 @@ export def --env setup []: nothing -> nothing {
 
 export def workdir []: nothing -> string { project-dir make }
 
-# MAKEFLAGS: scripts that compile while configuring (cmake's bootstrap) do so in parallel
+# #!/bin/sh would be the sandbox's. MAKEFLAGS for scripts that compile (cmake's bootstrap)
 export def configure []: nothing -> nothing {
   let c = (ctx); let o = (options make)
-  if ($o.configureScript | path exists) {
-    with-env {MAKEFLAGS: $"-j($c.njobs)"} { x $env.CONFIG_SHELL $"./($o.configureScript)" $"--prefix=($c.out)" ...$o.configureFlags }
-  }
+  let script = $"./($o.configureScript)"
+  if not ($script | path exists) { return }
+  let argv = (if (open --raw $script | lines | first) =~ '^#! ?/bin/sh' { [$env.CONFIG_SHELL $script] } else { [$script] })
+  with-env {MAKEFLAGS: $"-j($c.njobs)"} { x ($argv | first) ...($argv | skip 1) $"--prefix=($c.out)" ...$o.configureFlags }
 }
 
 export def run-build [flags: list<string>, targets: list<string>]: nothing -> nothing { x make $"-j((ctx).njobs)" ...$targets ...$flags }

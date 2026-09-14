@@ -1,6 +1,8 @@
 {
   package,
   buildPkgs,
+  platform,
+  on,
 }:
 package {
   name = "openssl";
@@ -8,14 +10,17 @@ package {
   patches = [ ./relocatable.patch ];
   cc.cflags = [ "-DOSSL_RELOCATABLE" ];
   uses = [ "make" ];
-  # own perl Configure. --openssldir is the §3 ambient path, not a store path
-  phases.replace."make.configure" = {
-    name = "configure";
-    run = ''
-      let ktls = (if $c.platform.os == "linux" { [enable-ktls] } else { [] })
-      x perl ./Configure $c.platform.opensslTarget $"--prefix=($c.out)" "--libdir=lib" "--openssldir=/etc/ssl" shared no-docs no-tests ...$ktls
-    '';
-  };
+  # --openssldir is the ambient path, not a store path
+  make.configureScript = "Configure";
+  make.configureFlags = [
+    platform.opensslTarget
+    "--libdir=lib"
+    "--openssldir=/etc/ssl"
+    "shared"
+    "no-docs"
+    "no-tests"
+  ]
+  ++ on (platform.os == "linux") [ "enable-ktls" ];
   make.installTarget = [
     "install_sw"
     "install_ssldirs"
