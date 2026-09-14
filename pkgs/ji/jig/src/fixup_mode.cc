@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
@@ -60,16 +61,13 @@ constexpr size_t kLeakContext = 100;  // bytes of a --deny hit shown
 void CheckDenied(FixupContext& ctx, const fs::path& path, std::string_view data) {
   for (const std::string& hash : ctx.denied) {
     if (const size_t pos = data.find(hash); pos != std::string_view::npos) {
-      size_t end = std::min(data.size(), pos + kLeakContext);
       // up to the first control byte, so a hit in a binary does not spill into the terminal
-      for (size_t i = pos; i < end; ++i) {
-        if (static_cast<unsigned char>(data[i]) < 0x20 || data[i] == 0x7f) {
-          end = i;
-          break;
-        }
-      }
+      std::string_view shown = data.substr(pos, kLeakContext);
+      const auto* const control =
+          std::ranges::find_if(shown, [](unsigned char chr) -> bool { return std::iscntrl(chr) != 0; });
+      shown = shown.substr(0, static_cast<size_t>(control - shown.begin()));
       std::println(stderr, "reloc-fixup: {} refers to build-platform {}", fs::relative(path, ctx.prefix).string(),
-                   data.substr(pos, end - pos));
+                   shown);
       ++ctx.errors;
     }
   }
