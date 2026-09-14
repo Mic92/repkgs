@@ -63,7 +63,8 @@ export def --env main [
   # tests derivation $out is the built package and our own output just the log
   let out = (if $from_tree == "" { $"($env.NIX_BUILD_TOP)/prefix" } else { $a.package })
   $env.PKGS_RESULT = $a.outputs.out
-  let njobs = ($env.NIX_BUILD_CORES? | default "4" | into int)
+  # 0 is nix for "all of them"
+  let njobs = ($env.NIX_BUILD_CORES? | default "0" | into int | if $in > 0 { $in } else { sys cpu | length })
   let deps = (dep-closure $a.dependencies)
   env $a $deps $out
   let plat = (resolve-platform $a.platform)
