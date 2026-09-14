@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/kristapsdz/lowdown"
+
+[[source]]
+key = "default"
+url = "https://github.com/kristapsdz/lowdown/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-myVdHTR+XPaB5WCoJhH34WuWtW9oJykykj2dW8p1RG8="
+
+[pin]
+version = "3.1.1"
+date = "2026-07-19"
+tag = "VERSION_3_1_1"

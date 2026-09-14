@@ -57,6 +57,7 @@ def relativize-scripts [prefix: string]: nothing -> nothing {
 
 # prefix -> store, anything still naming the prefix is an error
 export def to-store [prefix: string, dest: string, inv: table]: nothing -> nothing {
+  ^chmod -R u+w $prefix # some install -m 0444
   relativize-pc $prefix ($inv | where type == f and rel =~ '\.pc$' | get path)
   relativize-scripts $prefix
   relativize-links $prefix $dest
@@ -73,7 +74,6 @@ export def to-store [prefix: string, dest: string, inv: table]: nothing -> nothi
 ($detail | str join "
 ")($more)"}
   }
-  ^chmod -R u+w $prefix
   ^mv $prefix $dest
 }
 

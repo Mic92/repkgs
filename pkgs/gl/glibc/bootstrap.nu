@@ -11,16 +11,9 @@ const CPU_FLAGS = {
   powerpc64le: [--with-long-double-format=ieee libc_cv_no_gnu_attr_ok=yes libc_cv_mlong_double_128=yes]
 }
 
-def configure [src: path, out: path]: nothing -> nothing {
-  (x sh $"($src)/configure" $"--prefix=($out)" $"--host=($env.triple)" --build=x86_64-build-linux-gnu
-    $"--with-headers=($env.linuxHeaders)/include" --enable-kernel=5.10 --disable-werror --disable-nscd
-    --enable-bind-now --enable-fortify-source --enable-stack-protector=strong
-    $"libc_cv_slibdir=($out)/lib" $"libc_cv_rtlddir=($out)/lib"
-    ...($CPU_FLAGS | get -o $env.cpu | default []))
-}
+const BINUTILS = {LD: "ld.lld", AR: "llvm-ar", NM: "llvm-nm", OBJCOPY: "llvm-objcopy", OBJDUMP: "llvm-objdump", READELF: "llvm-readelf", STRIP: "llvm-strip"}
 
-def main []: nothing -> nothing {
-  let out = $env.out
+def patched-source []: nothing -> path {
   let src = (unpack glibc)
   cd $src
   for p in ($env.patches | split row " ") { x patch -p1 -i $p }
@@ -28,58 +21,54 @@ def main []: nothing -> nothing {
   if $env.cpu == "loongarch64" {
     rm ...(^grep -rl '"=f" (\(x_cond\|fn_cond\|cls\))' sysdeps/loongarch | lines)
   }
-  let build = $"($env.NIX_BUILD_TOP)/build"
-  mkdir $build
-  cd $build
-  "with-clang = yes\n" | save configparms  # read by Makeconfig; sysdeps Makefiles branch on it
+  $src
+}
 
-  # the headers-only pass has no compiler-rt yet. The seed's resource dir (headers only) suffices
-  let rt = (if "compiler-rt" in $env { $env."compiler-rt" } else { ^clang --print-resource-dir | str trim })
-  let sysincludes = $"-nostdinc -isystem ($rt)/include -isystem ($env.linuxHeaders)/include"
-  # configure probes with `-Werror -S`, so link-only flags must not warn
-  let cc = ([clang] ++ (target) ++ [$"-resource-dir=($rt)" --start-no-unused-arguments -rtlib=compiler-rt -unwindlib=none -fuse-ld=lld --end-no-unused-arguments] | str join " ")
-  let binutils = {LD: "ld.lld", AR: "llvm-ar", NM: "llvm-nm", OBJCOPY: "llvm-objcopy", OBJDUMP: "llvm-objdump", READELF: "llvm-readelf", STRIP: "llvm-strip"}
+# CXX=false: a working c++ would make the build compile a C++ test helper against our headers.
+# The link flags sit in no-unused-arguments because configure probes with `-Werror -S`
+def configure [src: path, rt: string, sh: path]: nothing -> nothing {
+  let cc = $"clang (target | str join ' ') -resource-dir=($rt) --start-no-unused-arguments -rtlib=compiler-rt -unwindlib=none -fuse-ld=lld --end-no-unused-arguments"
+  let vars = {CONFIG_SHELL: $sh, CC: $cc, CXX: "false", BUILD_CC: "cc", LDFLAGS: $"-L($rt)/lib/($env.triple)"} | merge $BINUTILS
+  "with-clang = yes\n" | save configparms # sysdeps Makefiles branch on it
+  with-env $vars {
+    (x sh $"($src)/configure" $"--prefix=($env.out)" $"--host=($env.triple)" --build=x86_64-build-linux-gnu
+      $"--with-headers=($env.linuxHeaders)/include" --enable-kernel=5.10 --disable-werror --disable-nscd
+      --enable-bind-now --enable-fortify-source --enable-stack-protector=strong
+      $"libc_cv_slibdir=($env.out)/lib" $"libc_cv_rtlddir=($env.out)/lib"
+      ...($CPU_FLAGS | get -o $env.cpu | default []))
+  }
+}
 
-  # CXX=false: a working c++ would make the build compile a C++ test helper against our headers
+# C.UTF-8 so LC_ALL=C.UTF-8 works without a locales package (~360 K), compiled by the fresh localedef
+def c-utf8-locale [src: path, out: path]: nothing -> nothing {
+  mkdir $"($out)/lib/locale"
+  with-env {I18NPATH: $"($src)/localedata"} {
+    x $"($out)/lib/($env.interp)" --library-path $"($out)/lib" $"($out)/bin/localedef" --no-archive -i C -f UTF-8 $"($out)/lib/locale/C.utf8"
+  }
+}
+
+def main []: nothing -> nothing {
+  let out = $env.out
+  let src = (patched-source)
+  # the headers-only pass runs before compiler-rt exists: the seed's resource dir has the headers
+  let rt = ($env."compiler-rt"? | default { ^clang --print-resource-dir | str trim })
   let sh = (tool sh)
-  with-env ({SHELL: $sh, CONFIG_SHELL: $sh, CC: $cc, CXX: "false", BUILD_CC: "cc", LDFLAGS: $"-fuse-ld=lld -L($rt)/lib/($env.triple)"} | merge $binutils) {
-    try { configure $src $out } catch {|e|
-      print -e (open --raw config.log | lines | where { $in =~ '(?i)error|configure:[0-9]+: (checking|result)|^[/a-z].*clang ' } | last 40 | str join "\n")
-      error make {msg: $e.msg}
-    }
-  }
-  # gnulib-extralibdir: Makeconfig's lazy `$(shell $(CC) -print-file-name=libgcc_s.so.1)`,
-  # expanded ~600 times per build. There is no libgcc_s here (compiler-rt), the answer is empty
-  let make = [-j (cores | into string) $"SHELL=($sh)" $"sysincludes=($sysincludes)" "gnulib-extralibdir="]
-  # glibc's make output is ~10k lines of compile commands and "overriding recipe" warnings: to a
-  # file, the tail minus noise on failure
-  let mlog = $"($env.NIX_BUILD_TOP)/make.log"
-  def --wrapped make-logged [...args: string]: nothing -> nothing {
-    print -e $"+ make ($args | str join ' ') > make.log"
-    let ok = (try { ^make ...$args o+e>> $mlog; true } catch { false })
-    if not $ok {
-      # parallel make buries the failing command: every error line, then the tail for context
-      let ls = (open --raw $mlog | lines)
-      print -e ($ls | where { $in =~ '(?i)error|\*\*\*' and $in !~ 'Werror|-Wno-error' } | append ($ls | where { $in !~ 'reassign symbol|static-libgcc|overriding recipe|ignoring old recipe| -c ' } | last 100) | str join "\n")
-      error make {msg: $"glibc: make ($args | last) failed"}
-    }
-  }
+  mkdir $"($env.NIX_BUILD_TOP)/build"
+  cd $"($env.NIX_BUILD_TOP)/build"
+  configure $src $rt $sh
+
+  # sysincludes: configure derives it from a GCC layout. gnulib-extralibdir: Makeconfig otherwise
+  # runs `$(CC) -print-file-name=libgcc_s.so.1` ~600 times for an empty answer
+  let make = [-j (cores | into string) $"SHELL=($sh)"
+    $"sysincludes=-nostdinc -isystem ($rt)/include -isystem ($env.linuxHeaders)/include"
+    "gnulib-extralibdir="]
   cc-facts $out {include-dirs: [include]}
   if "headersOnly" in $env {
-    make-logged ...$make install-headers
+    x make ...$make install-headers
     touch $"($out)/include/gnu/stubs.h"
-    return
+  } else {
+    x make ...$make
+    x make ...$make install -j1 # parallel install races on the .dt -> .d depfile moves
+    if $env.locale == "true" { c-utf8-locale $src $out }
   }
-  make-logged ...$make
-  # serial: parallel install races on the .dt -> .d depfile conversion (several sub-makes include
-  # the same sysd-rules and each `mv`s the same files) Nothing is compiled here anyway
-  make-logged ...$make install -j1
-  # C.UTF-8 so LC_ALL=C.UTF-8 works everywhere without a locales package (charmap data only, ~360 K)
-  if $env.locale == "true" {
-    mkdir $"($out)/lib/locale"
-    with-env {I18NPATH: $"($src)/localedata"} {
-      x $"($out)/lib/($env.interp)" --library-path $"($out)/lib" $"($out)/bin/localedef" --no-archive -i C -f UTF-8 $"($out)/lib/locale/C.utf8"
-    }
-  }
-  say $"glibc ($env.cpu): (ls $'($out)/lib' | length) files in lib/"
 }

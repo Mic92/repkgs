@@ -125,6 +125,7 @@ let
         }
         .${libc}
       }";
+      configTriple = triple; # for configure --host
       rustTriple = "${names.rust}-unknown-linux-${if libc == "musl" then "musl" else "gnu"}";
       opensslTarget = c.names.openssl or "linux64-${cpu}"; # its Configure's own table
       interp = if libc == "musl" then "ld-musl-${cpu}.so.1" else c.interp.glibc;
@@ -151,12 +152,13 @@ let
     // o;
   msvc =
     cpu:
-    given cpu {
+    given cpu rec {
       os = "windows";
       binfmt = "coff";
       libc = "msvc";
       triple = "${cpu}-pc-windows-msvc";
-      rustTriple = "${cpu}-pc-windows-msvc";
+      configTriple = triple;
+      rustTriple = triple;
       opensslTarget = if cpu == "aarch64" then "VC-WIN64-CLANGASM-ARM" else "VC-WIN64A";
     };
   macos =
@@ -167,7 +169,7 @@ let
       libc = "apple";
       minos = "14.0";
       triple = "${cpus.${cpu}.names.clang or cpu}-apple-macos${minos}";
-      configTriple = "${cpu}-apple-darwin"; # the GNU spelling, for configure --host
+      configTriple = "${cpu}-apple-darwin"; # config.sub spelling
       rustTriple = "${cpu}-apple-darwin";
       opensslTarget = "darwin64-${cpus.${cpu}.names.clang or cpu}";
       march = [ "-mcpu=apple-m1" ];
