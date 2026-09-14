@@ -14,6 +14,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 #include "base.h"
@@ -129,13 +130,18 @@ void HandlePut(GoSession& session, LineReader& input, std::int64_t request_id, c
   const Stopwatch clock;
   const std::string output_id = Base64Decode(JsonField(req, "OutputID"));
   std::string body;
-  if (JsonInt(req, "BodySize") > 0) {
+  if (const std::int64_t body_size = JsonInt(req, "BodySize"); body_size > 0) {
     // the body follows as one JSON string line: "base64", possibly after blank lines
     std::string body_line;
     while (body_line.empty() && input.Next(body_line)) {
     }
     if (body_line.size() >= 2 && body_line.front() == '"' && body_line.back() == '"') {
       body = Base64Decode(std::string_view(body_line).substr(1, body_line.size() - 2));
+    }
+    // a killed go build leaves a torn stream: storing "" would poison the action for every build
+    if (std::cmp_not_equal(body.size(), body_size)) {
+      std::println(stdout, R"({{"ID":{},"Err":"body: got {} of {} bytes"}})", request_id, body.size(), body_size);
+      return;
     }
   }
   const fs::path disk_path = session.dir / HexEncode(output_id);
