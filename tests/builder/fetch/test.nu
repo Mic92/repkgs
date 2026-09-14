@@ -3,6 +3,7 @@ use fetch/deno.nu [npm-key-id]
 use fetch/bun.nu [lock-entries]
 use fetch/gems.nu [checksums]
 use fetch/npm.nu [remote-entries relock]
+use fetch/go.nu [proxy-case]
 use checks.nu *
 
 # deno.lock npm keys: "<name>@<version>[_<peer>@<version>...]", names may contain "_"
@@ -31,4 +32,6 @@ let pkgs = {"node_modules/a": {resolved: "https://r/a.tgz", integrity: "sha512-x
 assert "npm: workspace link skipped" ((remote-entries $pkgs | get key) == ["node_modules/a"])
 assert "npm: link keeps its resolved" ((relock $pkgs {"https://r/a.tgz": "/s/a.tgz"} | get node_modules/@o/w | get resolved) == "packages/w")
 
+# go proxy escapes upper case in versions too
+assert "go: proxy-case version" ((proxy-case "v1.0.0-RC1") == "v1.0.0-!r!c1")
 done
