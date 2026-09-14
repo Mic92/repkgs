@@ -1,58 +1,8 @@
 #!/usr/bin/env nu
 # One entry point for working on the set. Every subcommand is a thin wrapper that ends in
 # nix-build, nix, uptrack, jigd or treefmt: `repkgs <cmd> --help` shows what it runs.
-
-const INSIDE = "/nix/var/nix/jigd/socket"
-
-def root []: nothing -> string { $env.CURRENT_FILE | path expand | path dirname -n 2 }
-
-# --for as nix sees it: on a command line, and inside an expression
-def platform-arg [p]: nothing -> list<string> { if $p == null { [] } else { [--argstr platform $p] } }
-def set-expr [p]: nothing -> string { $"\(import (root) (if $p == null { "{ }" } else { $"{ platform = \"($p)\"; }" })\)" }
-
-def fail [msg: string]: nothing -> error { error make --unspanned {msg: $msg} }
-
-# one nix expression to JSON. Nix's own errors (unknown package or platform, a package.nix
-# mistake) are its last `error:` line, not the trace through our query expression
-def eval [expr: string]: nothing -> any {
-  let r = (^nix-instantiate --eval --strict --json --expr $expr | complete)
-  if $r.exit_code != 0 {
-    fail ($r.stderr | lines | where $it =~ '^\s*error:' | last | default $r.stderr | str replace -r '^\s*error:\s*' "")
-  }
-  $r.stdout | from json
-}
-
-# the package <attr> of the set for platform p, as an expression. `s.${"7zip"}` parses where
-# s.7zip does not, and a typo names its neighbours instead of nix's attribute trace
-def pkg-expr [attr: string, p]: nothing -> string {
-  let n = ($attr | to json)
-  $"\(let s = (set-expr $p); n = ($n); in s.${n} or \(builtins.throw \"no package ${n}, near: ${toString \(builtins.filter \(a: builtins.substring 0 2 a == builtins.substring 0 2 n\) \(builtins.attrNames s\)\)}\"\)\)"
-}
-
-# a socket file something is listening on (a crashed jigd leaves the file behind)
-def is-socket [p: string]: nothing -> bool {
-  ($p | path exists) and (ls -D $p | get 0.type) == "socket" and (open --raw /proc/net/unix | str contains $" ($p | path expand)\n")
-}
-
-# under /tmp, not XDG_RUNTIME_DIR: the nix build user has to reach it through extra-sandbox-paths
-def jigd-dir []: nothing -> string { $"/tmp/jigd-(id -u)" }
-
-def jigd-socket []: nothing -> any {
-  [$env.JIGD_SOCK? $INSIDE $"(jigd-dir)/socket"] | compact | where {|p| is-socket $p } | get 0?
-}
-
-# maps the jigd socket into the sandbox (trusted user) and keeps the build local, a remote has no cache
-def cache-args []: nothing -> list<string> {
-  let sock = (jigd-socket)
-  if $sock == null {
-    print -e "repkgs: no jigd socket, building uncached (repkgs cache start)"
-    []
-  } else {
-    [--option extra-sandbox-paths $"($INSIDE)=($sock)" --builders ""]
-  }
-}
-
-def drv [attr: string, p]: nothing -> string { eval $"(pkg-expr $attr $p).drvPath" }
+use nix.nu *
+use dev.nu *
 
 def main []: nothing -> nothing { help main }
 
@@ -62,7 +12,7 @@ def "main build" [
   ...attrs: string # package attributes (jq, jq.tests)
 ]: nothing -> nothing {
   if ($attrs | is-empty) { fail "repkgs build <attr>…, or nix-build -A ci for the whole set" }
-  ^nix-build (root) --no-out-link --log-format bar-with-logs ...(cache-args) ...(platform-arg $for) ...($attrs | each {|a| [-A $a] } | flatten)
+  ^nix-build (root) ...$XP --no-out-link --log-format bar-with-logs ...(cache-args) ...(platform-arg $for) ...($attrs | each {|a| [-A $a] } | flatten)
 }
 
 # build <pkg>.tests (tests.separate packages), or the package itself when it tests in-build.
@@ -72,7 +22,7 @@ def "main test" [
   ...attrs: string
 ]: nothing -> nothing {
   if ($attrs | is-empty) {
-    ^nix-build $"(root)/tests/builder" --no-out-link --log-format bar-with-logs ...(cache-args) ...(platform-arg $for)
+    ^nix-build $"(root)/tests/builder" ...$XP --no-out-link --log-format bar-with-logs ...(cache-args) ...(platform-arg $for)
     return
   }
   let targets = ($attrs | each {|a| if (eval $"(pkg-expr $a $for) ? tests") { $"($a).tests" } else { $a } })
@@ -85,17 +35,9 @@ def "main log" [
   attr: string
 ]: nothing -> nothing {
   let d = (drv $attr $for)
-  let r = (^nix log $d | complete)
+  let r = (^nix ...$XP log $d | complete)
   if $r.exit_code != 0 { fail $"no local log for ($d): built elsewhere or substituted, `repkgs build` it here first" }
   print $r.stdout
-}
-
-# a shell with the package's build environment (nix-shell on its derivation)
-def "main shell" [
-  --for: string # platform
-  attr: string
-]: nothing -> nothing {
-  ^nix-shell (drv $attr $for)
 }
 
 # package names for a platform, or the ones it does not support and why
@@ -175,9 +117,10 @@ def "main repro" [
 ]: nothing -> table {
   let attrs = (if ($attrs | is-empty) { [zlib xz pcre2 jq sqlite ncurses] } else { $attrs })
   $attrs | each {|a|
-    let build = (^nix-build (root) -A $a --no-out-link ...(platform-arg $for) | complete)
+    let build = (^nix-build (root) ...$XP -A $a --no-out-link ...(cache-args) ...(platform-arg $for) | complete)
     if $build.exit_code != 0 { return {attr: $a, status: build-failed} }
-    let check = (^nix-build (root) -A $a --no-out-link --check --keep-failed ...(platform-arg $for) | complete)
+    # --check compiles for real: no cache
+    let check = (^nix-build (root) ...$XP -A $a --no-out-link --check --keep-failed ...(platform-arg $for) | complete)
     {attr: $a, status: (if $check.exit_code == 0 { "reproducible" } else if $check.stderr =~ "may not be deterministic|differs" { "DIFFERS" } else { "check-failed" })}
   }
 }
@@ -195,7 +138,7 @@ def "main cache" [
       if (is-socket $sock) { print -e $"jigd already serving ($sock)"; return }
       mkdir $dir
       rm -f $sock
-      let jigd = (^nix-build (root) -A jigd --no-out-link | str trim)
+      let jigd = (^nix-build (root) ...$XP -A jigd --no-out-link | str trim)
       let pid = (^sh -c $"JIGD_SIZE=($size) setsid ($jigd)/bin/jigd ($sock) >($dir)/log 2>&1 & echo $!" | str trim)
       $pid | save -f $pidfile
       print -e $"jigd pid ($pid), socket ($sock), log ($dir)/log"
