@@ -30,7 +30,7 @@ export def configure []: nothing -> nothing {
       cp -r $have $want
     }
     # --sysroot: Errno_pm.PL and h2ph parse the target's C headers from there
-    x env AR=llvm-ar RANLIB=llvm-ranlib READELF=llvm-readelf OBJDUMP=llvm-objdump NM=llvm-nm $env.CONFIG_SHELL ./configure $"--target=($c.platform.triple)" --host-cc=cc-build $"--sysroot=($env.PERL_SYSROOT)" ...$common
+    x env AR=llvm-ar RANLIB=llvm-ranlib READELF=llvm-readelf OBJDUMP=llvm-objdump NM=llvm-nm $env.CONFIG_SHELL ./configure $"--target=($c.platform.gnuTriple)" --host-cc=cc-build $"--sysroot=($env.PERL_SYSROOT)" ...$common
   } else {
     x $env.CONFIG_SHELL ./Configure -des ...$common
   }

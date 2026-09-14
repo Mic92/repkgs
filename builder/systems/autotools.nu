@@ -33,7 +33,7 @@ export def --env configure []: nothing -> nothing {
   let c = (ctx); let o = (options autotools)
   let script = $"($c.src)/($o.configureScript)"
   # --host: configure stops running test programs. --build only has to differ from it
-  let host_flags = (if $c.platform.cross { [$"--host=($c.platform.configTriple)" "--build=x86_64-build-linux-gnu"] } else { [] })
+  let host_flags = (if $c.platform.cross { [$"--host=($c.platform.gnuTriple)" "--build=x86_64-build-linux-gnu"] } else { [] })
   let cache = $"($c.build)/config.cache"
   let key = (probe-cache key autoconf [$script])
   note config.cache (if (probe-cache restore $key $cache) { "restored" } else { "cold" })

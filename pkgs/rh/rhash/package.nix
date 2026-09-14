@@ -7,7 +7,7 @@ package {
     "--enable-lib-shared"
     "--disable-gettext"
   ]
-  ++ (if platform.cross then [ "--target=${platform.triple}" ] else [ ]);
+  ++ (if platform.cross then [ "--target=${platform.gnuTriple}" ] else [ ]);
   make.buildTarget = [ "lib-shared" ];
   make.installTarget = [
     "-C"

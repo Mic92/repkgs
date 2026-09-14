@@ -92,8 +92,8 @@ let
         binfmt
         names
         osNames
-        triple
-        configTriple
+        clangTarget
+        gnuTriple
         rustTriple
         opensslTarget
         buildRustTriple

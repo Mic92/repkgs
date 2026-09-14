@@ -89,7 +89,7 @@ def main []: nothing -> nothing {
   (x clang ...(target) -fuse-ld=lld -nostdlib -shared "-Wl,-e,_dlstart"
      "-Wl,--sort-section,alignment" "-Wl,--sort-common" "-Wl,--gc-sections" "-Wl,--hash-style=both" "-Wl,--no-undefined" "-Wl,--exclude-libs=ALL"
      $"-Wl,--dynamic-list=($src)/dynamic.list" -o $"($out)/lib/libc.so" $"@($rsp)"
-     $"($env.'compiler-rt')/lib/($env.triple)/libclang_rt.builtins.a")
+     $"($env.'compiler-rt')/lib/($env.clangTarget)/libclang_rt.builtins.a")
   x ln -s libc.so $"($out)/lib/ld-musl-($arch).so.1"
   say $"musl: (ls $'($out)/lib' | length) files in lib/"
 }

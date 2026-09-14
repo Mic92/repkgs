@@ -1,5 +1,5 @@
 # CPU facts, the only place they live. `glibc.<cpu>` / `musl.<cpu>` / `forSystem` add the libc-
-# dependent fields (triple, dynamic linker name) and `binfmt` (elf | macho | coff), which is what
+# dependent fields (clangTarget/gnuTriple/rustTriple, dynamic linker name) and `binfmt` (elf | macho | coff), which is what
 # decides linker flavour, PIC, crt objects, interp/RUNPATH and whether launchers apply.
 # `march` ends up in every cc invocation via jig.conf. `hardening` is the cpu's verdict on
 # nix/hardening.nix names: what it adds (cfprotection, branchprotection) or cannot take.
@@ -118,14 +118,17 @@ let
         openssl = null;
       };
       name = "${cpu}-linux";
-      triple = "${cpu}-unknown-linux-${
+      # three spellings of one platform, named by consumer: clang -target, configure --host
+      # (config.sub), rustc/cargo. They coincide on linux and diverge on macos (arm64-apple-macos14
+      # vs aarch64-apple-darwin), so there is no plain `triple` to reach for
+      clangTarget = "${cpu}-unknown-linux-${
         {
           glibc = "gnu";
           musl = "musl";
         }
         .${libc}
       }";
-      configTriple = triple; # for configure --host
+      gnuTriple = clangTarget;
       rustTriple = "${names.rust}-unknown-linux-${if libc == "musl" then "musl" else "gnu"}";
       opensslTarget = c.names.openssl or "linux64-${cpu}"; # its Configure's own table
       interp = if libc == "musl" then "ld-musl-${cpu}.so.1" else c.interp.glibc;
@@ -156,9 +159,9 @@ let
       os = "windows";
       binfmt = "coff";
       libc = "msvc";
-      triple = "${cpu}-pc-windows-msvc";
-      configTriple = triple;
-      rustTriple = triple;
+      clangTarget = "${cpu}-pc-windows-msvc";
+      gnuTriple = clangTarget;
+      rustTriple = clangTarget;
       opensslTarget = if cpu == "aarch64" then "VC-WIN64-CLANGASM-ARM" else "VC-WIN64A";
     };
   macos =
@@ -168,8 +171,8 @@ let
       binfmt = "macho";
       libc = "apple";
       minos = "14.0";
-      triple = "${cpus.${cpu}.names.clang or cpu}-apple-macos${minos}";
-      configTriple = "${cpu}-apple-darwin"; # config.sub spelling
+      clangTarget = "${cpus.${cpu}.names.clang or cpu}-apple-macos${minos}";
+      gnuTriple = "${cpu}-apple-darwin";
       rustTriple = "${cpu}-apple-darwin";
       opensslTarget = "darwin64-${cpus.${cpu}.names.clang or cpu}";
       march = [ "-mcpu=apple-m1" ];

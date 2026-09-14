@@ -12,7 +12,7 @@ export def key [kind: string, scripts: list<path>, --no-out]: nothing -> string 
   let id = ({
     kind: $kind
     script: ($scripts | sort | each { open --raw $in | hash sha256 })
-    triple: $c.platform.triple
+    target: $c.platform.clangTarget
     roots: $roots
     out: (if $no_out { null } else { $c.out })
     flags: [($env.PKGS_CC | from json | values) $env.PKG_CONFIG_PATH?]

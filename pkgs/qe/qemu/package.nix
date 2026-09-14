@@ -25,7 +25,7 @@ package {
         cd $c.build
         # --cross-prefix is what switches configure to a cross build
         $env.PKG_CONFIG = "pkg-config"
-        let cross = (if $c.platform.cross { [$"--cross-prefix=($c.platform.triple)-" $"--host-cc=($env.CC_FOR_BUILD)"] } else { [] })
+        let cross = (if $c.platform.cross { [$"--cross-prefix=($c.platform.gnuTriple)-" $"--host-cc=($env.CC_FOR_BUILD)"] } else { [] })
         # --prefix paths are templates, get_relocated_path() rebases them on the binary
         (x (tool sh) $"($c.src)/configure" --prefix=/usr --disable-download --without-default-features
           --enable-linux-user --disable-system --disable-tools --disable-docs --disable-werror
