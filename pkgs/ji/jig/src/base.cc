@@ -61,7 +61,7 @@ auto ReadFile(const fs::path& path) -> std::optional<std::string> {
   if (!file.valid()) {
     return std::nullopt;
   }
-  // regular files: one read of the known size (+1 to see EOF). Others grow chunk by chunk
+  // read(2) returns at most ~2 GiB per call: only 0 is EOF
   struct stat info{};
   const size_t known = ::fstat(file.get(), &info) == 0 && info.st_size > 0 ? static_cast<size_t>(info.st_size) : 0;
   std::string out;
@@ -77,9 +77,6 @@ auto ReadFile(const fs::path& path) -> std::optional<std::string> {
           break;
         }
         filled += static_cast<size_t>(got);
-        if (known > 0) {
-          break;  // a short read of a regular file is EOF
-        }
       }
       return filled;
     });
