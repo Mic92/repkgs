@@ -154,6 +154,10 @@ func (s *Store) load(tier int, id uint32) error {
 			if _, err := io.ReadFull(r, key); err != nil {
 				break
 			}
+			// pack and hint are not fsynced: after a crash the hint can outlive pack writes
+			if int64(off)+recHeader+int64(klen)+int64(vlen) > p.size {
+				continue
+			}
 			add(string(key), loc{id, uint32(off) + recHeader + klen, vlen})
 		}
 		s.tiers[tier].total += p.size

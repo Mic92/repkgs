@@ -50,7 +50,11 @@ func get(conn *net.UnixConn, out *bufio.Writer, key string) error {
 		return err
 	}
 	// SectionReader over *os.File -> *net.UnixConn: io.Copy uses sendfile(2)
-	_, err := io.Copy(conn, val)
+	n, err := io.Copy(conn, val)
+	if err == nil && n != val.Size() {
+		// the client waits for the promised length forever: hang up so it falls back to compiling
+		return io.ErrUnexpectedEOF
+	}
 	return err
 }
 

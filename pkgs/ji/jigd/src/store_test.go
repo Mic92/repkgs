@@ -267,6 +267,28 @@ func TestReopenNewestAcrossTiers(t *testing.T) {
 }
 
 // a sealed pack shorter than its hint claims (writes lost in a crash) must not index records
+// past EOF: Get would promise bytes it cannot send
+func TestHintPastEOF(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := OpenStore([]Tier{{Dir: dir}})
+	s.Put("a", []byte("first"))
+	s.Put("b", []byte("second"))
+	name := s.active.file.Name()
+	s.Close()
+	os.Truncate(name, recHeader+1+5+recHeader+1+2) // "b" torn mid-value
+	s2, err := OpenStore([]Tier{{Dir: dir}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := read(t, s2, "a"); string(got) != "first" {
+		t.Fatalf("a: %q", got)
+	}
+	if r := s2.Get("b"); r != nil {
+		got, _ := io.ReadAll(r)
+		t.Fatalf("b indexed past EOF: promised %d, readable %d", r.Size(), len(got))
+	}
+}
+
 func TestEvictOldestPack(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := OpenStore([]Tier{{Dir: dir, Budget: packLimit + packLimit/2}})
