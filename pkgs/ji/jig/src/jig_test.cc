@@ -91,6 +91,9 @@ void TestStoreMask() {
   assert(masked == "-DENGINESDIR=\"" JIG_STORE_DIR "/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee-openssl/lib/engines\"");
   assert(store.UnmaskOut(masked) == define);
   assert(store.MaskOut(header) == header);
+  // a literal run of 'e' that is not a store path stays
+  const std::string pad = "char pad[] = \"" + std::string(40, 'e') + "\";";
+  assert(store.UnmaskOut(pad) == pad);
 }
 
 // Key(): lexical path normalisation for path-valued args, other text untouched
