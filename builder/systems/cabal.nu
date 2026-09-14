@@ -3,9 +3,9 @@ use ../sys-libs.nu
 
 # cabal v2-build against the set's shared hackage repository (locks/hackage.toml), with
 # ghc-bootstrap. Dependencies are cached per unit: cabal's unit-id already hashes source, flags,
-# compiler and the dependency closure, so a unit built once on this host (by any package) is
-# fetched from jigd instead of compiled. The store directory is the same fixed path in
-# every sandbox so the paths inside cached units agree.
+# compiler version and the dependency closure, the key adds the ghc build, so a unit built
+# once on this host (by any package) is fetched from jigd instead of compiled. The store
+# directory is the same fixed path in every sandbox so the paths inside cached units agree.
 def --wrapped cabal [...args: string]: nothing -> any {
   print -e $"+ cabal ($args | str join ' ')"
   ^cabal ...$args
@@ -24,7 +24,7 @@ export def --env setup []: nothing -> nothing {
   mkdir $repo
   for f in (files $"($o.deps)/*.{tar.gz,cabal}") { ^ln -s $f $repo }
   let unit_id = (^ghc --info | parse --regex '"Project Unit Id","([^"]+)"' | get capture0.0)
-  load-env {CABAL_DIR: $"($c.build)/cabal", CABAL_UNITS: $"($STORE)/($unit_id)"}
+  load-env {CABAL_DIR: $"($c.build)/cabal", CABAL_UNITS: $"($STORE)/($unit_id)", CABAL_UNIT_KEY: $"hs:(tool ghc | path dirname -n 2 | path basename)"}
   mkdir $env.CABAL_DIR $"(unit-dir)/package.db"
   # ghc refuses a package.db directory without package.cache
   ^ghc-pkg recache $"--package-db=(unit-dir)/package.db"
@@ -60,7 +60,7 @@ def restore [c: record]: nothing -> nothing {
   let units = (plan | get id)
   let got = ($units | par-each --threads $c.njobs {|id|
     let tar = $"($c.build)/($id).tar.zst"
-    if (^jig cache get $"hs:($id)" $tar | complete).exit_code == 0 {
+    if (^jig cache get $"($env.CABAL_UNIT_KEY)/($id)" $tar | complete).exit_code == 0 {
       ^bsdtar -xf $tar -C (unit-dir)
       rm $tar
       $id
@@ -78,7 +78,7 @@ def save-units [c: record, before: list<string>]: nothing -> nothing {
     let tar = $"($c.build)/($id).tar.zst"
     let conf = ([$"package.db/($id).conf"] | where { $"(unit-dir)/($in)" | path exists })
     ^bsdtar -c --zstd -f $tar -C (unit-dir) $id ...$conf
-    ^jig cache put $"hs:($id)" $tar | complete | ignore
+    ^jig cache put $"($env.CABAL_UNIT_KEY)/($id)" $tar | complete | ignore
     rm $tar
   }
   note cabal $"($new | length) units stored"
