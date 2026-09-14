@@ -22,13 +22,13 @@ def main []: nothing -> nothing {
   let files = ($modules | each {|m|
     let dir = $"(proxy-case $m.path)/@v"
     $table | get $m.key | items {|ext, sri|
-      let file = $"($m.version).($ext)"
+      let file = $"(proxy-case $m.version).($ext)"
       {to: $"($dir)/($file)", file: $"($m.path)-($file)", url: $"($PROXY)/($dir)/($file)", integrity: $sri}
     }
   } | flatten | dyn-drv fetchurls)
   let layout = [
     ...($files | each {|f| {link: $f.out, to: $f.to} })
-    ...($modules | each {|m| dyn-drv json-file $"(proxy-case $m.path)/@v/($m.version).info" {Version: $m.version} })
+    ...($modules | each {|m| dyn-drv json-file $"(proxy-case $m.path)/@v/(proxy-case $m.version).info" {Version: $m.version} })
   ]
   dyn-drv collect go-modules $layout ($files | get drv)
 }
@@ -41,5 +41,5 @@ def go-sum [file: path]: nothing -> table {
     | insert key {|m| $"($m.path)@($m.version)" }
 }
 
-# the proxy's case encoding for module paths: "github.com/BurntSushi" -> "github.com/!burnt!sushi"
-def proxy-case [path: string]: nothing -> string { $path | str replace -ar "([A-Z])" "!$1" | str lowercase }
+# the proxy's case encoding for module paths and versions (v1.0.0-RC1): "github.com/BurntSushi" -> "github.com/!burnt!sushi"
+export def proxy-case [path: string]: nothing -> string { $path | str replace -ar "([A-Z])" "!$1" | str lowercase }
