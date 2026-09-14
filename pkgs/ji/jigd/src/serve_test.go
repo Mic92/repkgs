@@ -87,3 +87,46 @@ func TestServeIdsAndPipelinedGets(t *testing.T) {
 		t.Fatalf("slot after hang-up: %q", line)
 	}
 }
+
+// a request line longer than the read buffer is a broken or hostile client: hang up, don't buffer
+func TestServeHangsUpOnEndlessLine(t *testing.T) {
+	dir := t.TempDir()
+	var err error
+	store, err = OpenStore([]Tier{{Dir: filepath.Join(dir, "packs"), Budget: 1 << 30}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	slots = NewSlots(1)
+	idents = NewIdentities(dir)
+	ua, err := net.ListenUnix("unix", &net.UnixAddr{Name: filepath.Join(dir, "s"), Net: "unix"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ua.Close()
+	go func() {
+		conn, err := ua.AcceptUnix()
+		if err == nil {
+			serve(conn)
+		}
+	}()
+	conn, err := net.Dial("unix", filepath.Join(dir, "s"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	go func() {
+		junk := make([]byte, 1<<16)
+		for i := range junk {
+			junk[i] = 'a'
+		}
+		for {
+			if _, err := conn.Write(junk); err != nil {
+				return
+			}
+		}
+	}()
+	if _, err := conn.Read(make([]byte, 1)); err == nil {
+		t.Fatal("daemon answered an endless line")
+	}
+}
