@@ -40,7 +40,7 @@ def "main log" [
   print $r.stdout
 }
 
-# package names for a platform, or the ones it does not support and why
+# packages a platform supports, or the ones it does not and why
 def "main list" [
   --for: string # platform
   --unsupported # show what `supported` filters out, with the reason
@@ -50,7 +50,7 @@ def "main list" [
   let rows = (if $unsupported {
     eval $"let s = ($set); in map \(n: { name = n; reason = s.${n}.unsupportedReason; }\) \(builtins.filter \(n: !s.${n}.supported\) \(builtins.attrNames s\)\)"
   } else {
-    eval $"builtins.attrNames ($set)"
+    eval $"let s = ($set); in builtins.filter \(n: s.${n}.supported\) \(builtins.attrNames s\)"
   })
   if $json { $rows | to json } else if $unsupported { $rows } else { $rows | wrap name }
 }

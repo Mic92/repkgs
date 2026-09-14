@@ -15,7 +15,8 @@ export def fail [msg: string]: nothing -> error { error make --unspanned {msg: $
 # one nix expression to JSON. Nix's own errors (unknown package or platform, a package.nix
 # mistake) are its last `error:` line, not the trace through our query expression
 export def eval [expr: string]: nothing -> any {
-  let r = (^nix-instantiate ...$XP --eval --strict --json --expr $expr | complete)
+  # read-write: a dynamic derivation's path is only known once its .drv is written
+  let r = (^nix-instantiate ...$XP --eval --read-write-mode --strict --json --expr $expr | complete)
   if $r.exit_code != 0 {
     fail ($r.stderr | lines | where $it =~ '^\s*error:' | last | default $r.stderr | str replace -r '^\s*error:\s*' "")
   }
