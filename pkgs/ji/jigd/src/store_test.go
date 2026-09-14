@@ -198,6 +198,29 @@ func TestTiers(t *testing.T) {
 	}
 }
 
+// a reader handed out by Get keeps working while its pack is evicted underneath it
+func TestGetSurvivesEviction(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := OpenStore([]Tier{{Dir: dir, Budget: packLimit + packLimit/2}})
+	big := bytes.Repeat([]byte{1}, 1<<20)
+	per := packLimit / len(big)
+	for i := 0; i < per; i++ {
+		s.Put(fmt.Sprintf("o/%d", i), big)
+	}
+	r := s.Get("o/0") // pack 1, about to be evicted
+	for i := per; i < 5*per/2; i++ {
+		s.Put(fmt.Sprintf("o/%d", i), big)
+	}
+	s.Wait()
+	if _, err := os.Stat(filepath.Join(dir, "000001.pack")); !os.IsNotExist(err) {
+		t.Fatal("pack 1 still on disk")
+	}
+	got, err := io.ReadAll(r)
+	if err != nil || !bytes.Equal(got, big) {
+		t.Fatalf("in-flight read broke: %v, %d bytes", err, len(got))
+	}
+}
+
 func TestEvictOldestPack(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := OpenStore([]Tier{{Dir: dir, Budget: packLimit + packLimit/2}})
