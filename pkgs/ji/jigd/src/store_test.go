@@ -235,6 +235,38 @@ func TestPutAfterClose(t *testing.T) {
 	s.Put("k2", []byte("v"))
 }
 
+// after a restart the copy in the newer (hot) pack wins over a demoted older one
+func TestReopenNewestAcrossTiers(t *testing.T) {
+	hot, cold := t.TempDir(), t.TempDir()
+	s, _ := OpenStore([]Tier{{Dir: hot, Budget: packLimit + packLimit/2}, {Dir: cold}})
+	big := bytes.Repeat([]byte{1}, 1<<20)
+	per := packLimit / len(big)
+	s.Put("m/k", []byte("old"))
+	for i := 0; i < per; i++ {
+		s.Put(fmt.Sprintf("o/%d", i), big)
+	}
+	s.Put("m/k", []byte("new")) // pack 2
+	for i := per; i < 2*per; i++ {
+		s.Put(fmt.Sprintf("p/%d", i), big)
+	}
+	s.Wait()
+	if _, err := os.Stat(filepath.Join(cold, "000001.pack")); err != nil {
+		t.Fatal("pack 1 not demoted: ", err)
+	}
+	s.Close()
+	s2, err := OpenStore([]Tier{{Dir: hot}, {Dir: cold}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := read(t, s2, "m/k"); string(got) != "new" {
+		t.Fatalf("got %q from pack %d", got, s2.index["m/k"].pack)
+	}
+	if s2.packs[2].live < s2.packs[1].live {
+		t.Fatalf("hot pack accounted as superseded: live %d vs cold %d", s2.packs[2].live, s2.packs[1].live)
+	}
+}
+
+// a sealed pack shorter than its hint claims (writes lost in a crash) must not index records
 func TestEvictOldestPack(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := OpenStore([]Tier{{Dir: dir, Budget: packLimit + packLimit/2}})
