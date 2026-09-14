@@ -24,6 +24,7 @@
 #include "keys.h"
 #include "manifest.h"
 #include "nix_store_mode.h"
+#include "process.h"
 #include "rustc_mode.h"
 #include "store.h"
 
@@ -64,6 +65,13 @@ void TestBase() {
   left.Field("ab").Field("c");
   right.Field("a").Field("bc");
   assert(left.Finish() != right.Finish());
+  assert(!jig::WriteFile("/nonexistent/dir/file", "x"));
+  const std::string big(300000, 'y');
+  assert(jig::WriteFile("/tmp/jig_test.big", big));
+  assert(jig::ReadFile("/tmp/jig_test.big") == big);
+  assert(jig::Deterministic({.status = 1, .stderr_text = "x.c:1: error: foo"}));
+  assert(!jig::Deterministic({.status = 137, .stderr_text = ""}));
+  assert(!jig::Deterministic({.status = 1, .stderr_text = "clang: error: unable to execute command: Killed"}));
 }
 
 void TestStoreMask() {
@@ -83,6 +91,9 @@ void TestStoreMask() {
   assert(masked == "-DENGINESDIR=\"" JIG_STORE_DIR "/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee-openssl/lib/engines\"");
   assert(store.UnmaskOut(masked) == define);
   assert(store.MaskOut(header) == header);
+  // a literal run of 'e' that is not a store path stays
+  const std::string pad = "char pad[] = \"" + std::string(40, 'e') + "\";";
+  assert(store.UnmaskOut(pad) == pad);
 }
 
 // Key(): lexical path normalisation for path-valued args, other text untouched

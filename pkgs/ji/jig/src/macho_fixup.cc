@@ -271,7 +271,10 @@ auto FixMachO(FixupContext& ctx, const fs::path& path, BinaryImage& image) -> bo
     ++ctx.errors;
     return true;
   }
-  WriteBack(path, image.bytes());
+  if (!WriteBack(path, image.bytes())) {
+    ++ctx.errors;
+    return true;
+  }
   std::println("{}", Join(log, "  "));
   return true;
 }

@@ -61,7 +61,7 @@ auto ReadFile(const fs::path& path) -> std::optional<std::string> {
   if (!file.valid()) {
     return std::nullopt;
   }
-  // regular files: one read of the known size (+1 to see EOF). Others grow chunk by chunk
+  // read(2) returns at most ~2 GiB per call: only 0 is EOF
   struct stat info{};
   const size_t known = ::fstat(file.get(), &info) == 0 && info.st_size > 0 ? static_cast<size_t>(info.st_size) : 0;
   std::string out;
@@ -77,9 +77,6 @@ auto ReadFile(const fs::path& path) -> std::optional<std::string> {
           break;
         }
         filled += static_cast<size_t>(got);
-        if (known > 0) {
-          break;  // a short read of a regular file is EOF
-        }
       }
       return filled;
     });
@@ -92,13 +89,14 @@ auto ReadFile(const fs::path& path) -> std::optional<std::string> {
 
 auto WriteFile(const fs::path& path, std::string_view data) -> bool {
   const fs::path tmp = path.parent_path() / std::format(".jig{}.{}", ::getpid(), path.filename().string());
-  {
-    std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
-    if (!out.write(data.data(), static_cast<std::streamsize>(data.size()))) {
-      return false;
-    }
-  }
+  std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+  out.write(data.data(), static_cast<std::streamsize>(data.size()));
+  out.close();  // flushes: ENOSPC on the tail shows up here, not in write()
   std::error_code error;
+  if (out.fail()) {
+    fs::remove(tmp, error);
+    return false;
+  }
   fs::rename(tmp, path, error);
   return !error;
 }
@@ -106,6 +104,18 @@ auto WriteFile(const fs::path& path, std::string_view data) -> bool {
 auto Env(const char* name, std::string_view fallback) -> std::string {
   const char* value = std::getenv(name);  // NOLINT(concurrency-mt-unsafe): single-threaded
   return value != nullptr ? std::string(value) : std::string(fallback);
+}
+
+auto OnPath(const std::string& name) -> std::string {
+  if (!name.contains('/')) {
+    for (const std::string& dir : Split(Env("PATH"), ':')) {
+      std::error_code ignored;
+      if (fs::exists(fs::path(dir) / name, ignored)) {
+        return (fs::path(dir) / name).string();
+      }
+    }
+  }
+  return name;
 }
 
 auto SplitWhitespace(std::string_view text) -> std::vector<std::string> {

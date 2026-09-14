@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <cstddef>
 #include <cstdio>
 #include <expected>
@@ -38,6 +39,11 @@ using std::string_view_literals::operator""sv;
 auto HasSuffix(std::string_view arg, std::span<const std::string_view> suffixes) -> bool {
   return std::ranges::any_of(
       suffixes, [&](std::string_view suffix) -> bool { return arg.size() > suffix.size() && arg.ends_with(suffix); });
+}
+
+auto IsAssembly(std::string_view path) -> bool {
+  static constexpr std::array kExts{".S"sv, ".s"sv, ".sx"sv};
+  return HasSuffix(path, kExts);
 }
 
 auto IsSourceFile(std::string_view arg) -> bool {
@@ -81,6 +87,10 @@ auto ComputeRequestKey(const std::string& compiler, const Invocation& inv, std::
   hasher.Field("cc=" + store.ToolId(compiler));
   // cwd: relative -I/-include and __FILE__ depend on it. Inside the sandbox it is stable
   hasher.Field("cwd=" + store.Key(fs::current_path().string()));
+  // identical bytes at another path are another __FILE__, DW_AT_name and depfile prerequisite
+  if (!inv.link) {
+    hasher.Field("src=" + store.Key(store.MaskOut(inv.source)));
+  }
   std::string_view mode = "mode=compile";
   if (inv.link) {
     mode = "mode=link";
@@ -99,6 +109,42 @@ auto ComputeRequestKey(const std::string& compiler, const Invocation& inv, std::
   }
   hasher.Field(store.MaskOut(std::string(primary)));
   return {Tool::kCc, hasher.Finish()};
+}
+
+// ToolId masks the store hash: a toolchain patched at the same version must still miss
+auto ToolchainIds(CacheClient& cache, const std::string& compiler, const Invocation& inv) -> std::string {
+  std::error_code error;
+  std::vector<std::string> tools{OnPath(compiler)};
+  if (inv.link_one || inv.link) {
+    for (const std::string& arg : inv.args) {
+      if (arg.starts_with("--ld-path=")) {
+        tools.push_back(arg.substr(std::string_view("--ld-path=").size()));
+      }
+    }
+  }
+  std::vector<std::string> files;
+  for (const std::string& tool : tools) {
+    const fs::path real = fs::canonical(tool, error);
+    if (error) {
+      continue;
+    }
+    files.push_back(real.string());
+    for (const auto& entry : fs::directory_iterator(real.parent_path().parent_path() / "lib", error)) {
+      const std::string name = entry.path().filename().string();
+      if ((name.starts_with("libLLVM") || name.starts_with("libclang-cpp") || name.starts_with("liblld")) &&
+          entry.is_regular_file(error) && !entry.is_symlink(error)) {
+        files.push_back(entry.path().string());
+      }
+    }
+  }
+  std::ranges::sort(files);
+  files.erase(std::ranges::unique(files).begin(), files.end());
+  PrefetchIdentities(cache, files);
+  std::string ids;
+  for (const std::string& file : files) {
+    ids += Store::Get().InputId(file).value_or("?") + ",";
+  }
+  return ids;
 }
 
 // what the request key hashes besides the arguments. nullopt = an input is unreadable
@@ -200,15 +246,21 @@ auto Replay(const CachedResult& result, const Invocation& inv) -> int {
   if (inv.to_stdout) {
     ForwardStdout(inv, result.object);
   } else if (result.object) {
-    WriteFile(inv.output, *result.object);
+    if (!WriteFile(inv.output, *result.object)) {
+      std::println(stderr, "jig: cannot write {}: {}", inv.output.string(),
+                   std::error_code(errno, std::generic_category()).message());
+      return 1;
+    }
     if (inv.link_one || inv.link) {
       std::error_code ignored;
       fs::permissions(inv.output, fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec,
                       fs::perm_options::add, ignored);
     }
   }
-  if (result.depfile) {
-    WriteFile(inv.depfile, RetargetDepfile(Store::Get().ResolveAll(*result.depfile), inv));
+  if (result.depfile && !WriteFile(inv.depfile, RetargetDepfile(Store::Get().ResolveAll(*result.depfile), inv))) {
+    std::println(stderr, "jig: cannot write {}: {}", inv.depfile.string(),
+                 std::error_code(errno, std::generic_category()).message());
+    return 1;
   }
   std::print(stderr, "{}", result.stderr_text);
   return result.status;
@@ -233,6 +285,10 @@ auto RunObserved(CacheClient& cache, const std::string& compiler, const Invocati
   const fs::path link_depfile = tmp_base + ".link.d";
   if (own_depfile) {
     args.insert(args.end(), {"-MD", "-MF", depfile.string()});
+  } else if (!inv.link && !IsAssembly(inv.source)) {
+    // -MMD omits -isystem headers, which is every dependency the manifest must see. Assembler
+    // input has no cc1 to take the flag
+    args.insert(args.end(), {"-Xclang", "-sys-header-deps"});
   }
   if (inv.to_stdout) {
     args.insert(args.end(), {"-o", inv.output.string()});
@@ -258,9 +314,11 @@ auto RunObserved(CacheClient& cache, const std::string& compiler, const Invocati
     obs.inputs = ParseDepfile(*obs.dep_text);
   }
   if (obs.link_dep_text) {
+    // the driver's temp object sits directly in $TMPDIR. The source tree is below it too
     const std::string tmp = fs::temp_directory_path(ignored).string() + "/";
     for (std::string& input : ParseDepfile(*obs.link_dep_text)) {
-      if (!input.starts_with(tmp)) {
+      const bool driver_temp = input.starts_with(tmp) && input.find('/', tmp.size()) == std::string::npos;
+      if (!driver_temp) {
         obs.inputs.push_back(std::move(input));
       }
     }
@@ -279,8 +337,8 @@ auto CompileAndStore(CacheClient& cache, const std::string& compiler, const Requ
   if (run.status != 0) {
     ForwardStdout(inv, std::nullopt);
     // replayable only if every input is known. A missing header or any link error depends on
-    // something absent that a later build may provide
-    if (!dep_text || links || run.stderr_text.contains("file not found")) {
+    // a killed or crashed compiler says nothing about the inputs
+    if (!dep_text || links || run.stderr_text.contains("file not found") || !Deterministic(run)) {
       LogOutcome("cc", Outcome::kMissFail, subject, clock);
       return run.status;
     }
@@ -508,6 +566,7 @@ auto RunCcMode(std::string_view argv0, std::span<const std::string> raw_args, co
     return RunUncached(cache, socket_path, conf->cc, inv, primary.has_value(), user_args, clock);
   }
 
+  *primary += "\ntoolchain=" + ToolchainIds(cache, conf->cc, inv);
   const RequestKey request_key = ComputeRequestKey(conf->cc, inv, *primary);
   const std::expected<CachedResult, std::string> hit = Lookup(cache, request_key, inv);
   if (hit) {

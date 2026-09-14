@@ -64,12 +64,15 @@ auto Store::MaskHashes(std::string text) const -> std::string {
 constexpr std::string_view kOutPlaceholder = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 static_assert(kOutPlaceholder.size() == kStoreHashLength);
 
+// only as "<store>/<hash>-": a bare run of 32 'e' is not ours
 auto Store::SwapOutHash(std::string bytes, bool back) const -> std::string {
   if (out_hash_.empty()) {
     return bytes;
   }
-  const std::string_view from = back ? kOutPlaceholder : std::string_view(out_hash_);
-  const std::string_view into = back ? std::string_view(out_hash_) : kOutPlaceholder;
+  const std::string real = dir_ + "/" + out_hash_ + "-";
+  const std::string placeholder = dir_ + "/" + std::string(kOutPlaceholder) + "-";
+  const std::string& from = back ? placeholder : real;
+  const std::string& into = back ? real : placeholder;
   for (size_t pos = 0; (pos = bytes.find(from, pos)) != std::string::npos; pos += from.size()) {
     bytes.replace(pos, from.size(), into);
   }

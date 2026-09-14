@@ -33,6 +33,9 @@ struct RunResult {
   std::string stderr_text;  // only filled for StderrMode::kCapture
 };
 
+// false if the run died of a signal, or the driver reports its child did / crashed
+auto Deterministic(const RunResult& run) -> bool;
+
 // execvp(program, [program, args...]) and wait. Exit status 127 if exec failed.
 auto Run(const std::string& program, std::span<const std::string> args, StderrMode stderr_mode) -> RunResult;
 

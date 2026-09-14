@@ -104,4 +104,9 @@ auto Run(const std::string& program, std::span<const std::string> args, StderrMo
   return result;
 }
 
+auto Deterministic(const RunResult& run) -> bool {
+  return run.status < kSignalStatusBase && !run.stderr_text.contains("unable to execute command") &&
+         !run.stderr_text.contains("PLEASE submit a bug report");
+}
+
 }  // namespace jig

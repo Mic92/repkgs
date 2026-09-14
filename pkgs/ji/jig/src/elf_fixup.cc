@@ -248,7 +248,8 @@ auto FixRunpath(FixupContext& ctx, const fs::path& path, BinaryImage& elf, const
       ++ctx.errors;
       return false;
     }
-    if (!elf.WritePadded(runpath_offset, old.size(), blob)) {
+    // the slot is the old string plus its NUL, which CString stopped at
+    if (!elf.WritePadded(runpath_offset, old.size() + 1, blob)) {
       std::println(stderr, "{}: RUNPATH does not fit ({} > {}): {}", path.string(), blob.size(), old.size(), neu);
       ++ctx.errors;
       return false;
@@ -377,7 +378,10 @@ auto FixElf(FixupContext& ctx, const fs::path& path, BinaryImage& image) -> bool
     return true;
   }
   if (dirty) {
-    WriteBack(path, image.bytes());
+    if (!WriteBack(path, image.bytes())) {
+      ++ctx.errors;
+      return false;
+    }
     std::println("{}", Join(log, "  "));
   }
   if (const size_t leak = image.bytes().find(Store::Get().dir() + "/"); leak != std::string::npos) {
