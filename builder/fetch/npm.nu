@@ -6,14 +6,25 @@
 # integrity itself.
 use dyn-drv.nu
 
+export def remote-entries [packages: record]: nothing -> table {
+  $packages | transpose key val | where { $in.val.resolved? != null and $in.val.link? != true }
+}
+
+# `resolved` of fetched entries pointed at the store tarballs
+export def relock [packages: record, by_url: record]: nothing -> record {
+  $packages | items {|key, val|
+    [$key (if $val.resolved? == null or $val.link? == true { $val } else { $val | update resolved $"file:($by_url | get $val.resolved)" })]
+  } | into record
+}
+
 def main []: nothing -> nothing {
   let lock_file = (if $env.lockFile != "" { $env.lockFile } else { [$env.source $env.root package-lock.json] | path join })
   let lock = (open --raw $lock_file | from json)
   if ($lock.lockfileVersion? | default 1) < 2 {
     error make {msg: "npmDeps: package-lock.json v1 is not supported (run `npm i --lockfile-version 3`)"}
   }
-  # workspace links and bundled deps have no `resolved`; everything fetched needs `integrity`
-  let remote = ($lock.packages | transpose key val | where { $in.val.resolved? != null })
+  # bundled deps have no `resolved`, workspace links resolve to a directory. Everything fetched needs `integrity`
+  let remote = (remote-entries $lock.packages)
   let foreign = ($remote | where { $in.val.resolved !~ '^https?://' })
   if ($foreign | is-not-empty) { error make {msg: $"npmDeps: unsupported `resolved` (git/file) for: ($foreign | get key | str join ', ')"} }
   let unhashed = ($remote | where { $in.val.integrity? == null })
@@ -23,11 +34,7 @@ def main []: nothing -> nothing {
     | insert file {|e| $e.url | url parse | get path | path basename }
     | dyn-drv fetchurls)
   let by_url = ($fetched | each {|f| [$f.url $f.out] } | into record)
-  let new_lock = ($lock | reject -o dependencies | update packages {|l|
-    $l.packages | items {|key, val|
-      [$key (if $val.resolved? == null { $val } else { $val | update resolved $"file:($by_url | get $val.resolved)" })]
-    } | into record
-  })
+  let new_lock = ($lock | reject -o dependencies | update packages {|l| relock $l.packages $by_url })
   # structured attrs: the lock is far beyond execve's env limit
   dyn-drv collect npm-deps [(dyn-drv json-file package-lock.json $new_lock)] ($fetched | get drv)
 }
