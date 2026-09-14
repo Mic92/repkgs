@@ -44,7 +44,7 @@ def main []: nothing -> nothing {
   let fetched = ($remote | each {|e|
     let url = ($e.resolved | split row "#" | first)
     {url: $url, integrity: $e.integrity, file: (mirror-name $url)}
-  } | uniq-by url | dyn-drv fetchurls)
+  } | uniq-by file | dyn-drv fetchurls)  # the same name-version from two registry hosts is one mirror file
   let layout = ($fetched | each {|f| {link: $f.out, to: $f.file} })
   dyn-drv collect yarn-deps $layout ($fetched | get drv)
 }
