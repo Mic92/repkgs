@@ -1,0 +1,306 @@
+Darwin target: osname and hints, Mach-O link flags, object probes that do not need ELF,
+Time::HiRes hints by target OS.
+
+--- a/Makefile
++++ b/Makefile
+@@ -146,7 +146,7 @@ ifeq ($(soname),)
+ perl$x: LDFLAGS += -Wl,-rpath,$(archlib)/CORE
+ endif
+ endif # or should it be "else"?
+-perl$x: LDFLAGS += -Wl,-E
++perl$x: LDFLAGS += $(ccdlflags)
+ 
+ perl$x: perlmain$o $(LIBPERL) $(static_modules) static.list ext.libs
+ 	$(eval extlibs=$(shell cat ext.libs))
+--- a/Makefile.config.SH
++++ b/Makefile.config.SH
+@@ -124,6 +124,7 @@ perlname = $perlname
+ version = $version
+ dynaloader = $dynaloader
+ useshrplib = $useshrplib
++ccdlflags = $ccdlflags
+ soname = $soname
+ patchset = $package-$version
+ installbin = $installbin
+--- a/cnf/configure_tool.sh
++++ b/cnf/configure_tool.sh
+@@ -146,19 +146,86 @@ if not hinted "extern_C"; then
+ 	esac
+ fi
+ 
++# Guessing OS is better done with the toolchain available.
++# CC output is crucial here -- Android toolchains come with
++# generic armeabi prefix and "android" is one of the few osname
++# values that make difference later.
++
++mstart "Trying to guess target OS"
++if not hinted 'osname'; then
++	run $cc -v > try.out 2>&1
++	try_dump_out
++
++	_ct=`sed -ne '/^Target: /s///p' try.out`
++	test -z "$_ct" && _ct="$targetarch"
++
++	case "$_ct" in
++		*-mingw32)
++			define osname "MSWin32"
++			result "MSWin32"
++			;;
++		*-android|*-androideabi)
++			define osname "android"
++			result "Android"
++			;;
++		*-linux*)
++			define osname "linux"
++			result "Linux"
++			;;
++		*-nto*)
++			define osname "nto"
++			result "QNX"
++			;;
++		*-netbsd*)
++			define osname "netbsd"
++			result "NetBSD"
++			;;
++		*-bsd*)
++			define osname "bsd"
++			result "BSD"
++			;;
++		*-gnu*)
++			define osname "gnu"
++			result "GNU"
++			;;
++		*-midipix*)
++			define osname "midipix"
++			result "Midipix"
++			;;
++		*-darwin*|*-macos*|*-ios*)
++			define osname "darwin"
++			result "Darwin"
++			;;
++		*)
++			result "no"
++			;;
++	esac
++fi
++
+ # File name extensions, must be set before running any compile/link tests
+ define _o '.o'
+ define _a '.a'
+-define so 'so'
+ define _exe ''
+ 
+ # Used only for modules
+-define cccdlflags '-fPIC -Wno-unused-function'
+-define ccdlflags '-Wl,-E'
++case "$osname" in
++	darwin)
++		define so 'dylib'
++		define cccdlflags ' '
++		define ccdlflags ' '
++		predef lddlflags "-bundle -undefined dynamic_lookup"
++		predef ccflags "-fno-common -DPERL_DARWIN"
++		;;
++	*)
++		define so 'so'
++		define cccdlflags '-fPIC -Wno-unused-function'
++		define ccdlflags '-Wl,-E'
++		predef lddlflags "-shared"
++		predef ccflags ''
++		;;
++esac
+ 
+ # Misc flags setup
+-predef lddlflags "-shared"	# modules
+-predef ccflags ''		# perl and modules
+ predef ldflags ''		# perl only?
+ predef cppflags ''		# unused?
+ 
+@@ -228,58 +295,6 @@ EOM
+ 	fi
+ fi
+ 
+-# Guessing OS is better done with the toolchain available.
+-# CC output is crucial here -- Android toolchains come with
+-# generic armeabi prefix and "android" is one of the few osname
+-# values that make difference later.
+-
+-mstart "Trying to guess target OS"
+-if not hinted 'osname'; then
+-	run $cc -v > try.out 2>&1
+-	try_dump_out
+-
+-	_ct=`sed -ne '/^Target: /s///p' try.out`
+-	test -z "$_ct" && _ct="$targetarch"
+-
+-	case "$_ct" in
+-		*-mingw32)
+-			define osname "MSWin32"
+-			result "MSWin32"
+-			;;
+-		*-android|*-androideabi)
+-			define osname "android"
+-			result "Android"
+-			;;
+-		*-linux*)
+-			define osname "linux"
+-			result "Linux"
+-			;;
+-		*-nto*)
+-			define osname "nto"
+-			result "QNX"
+-			;;
+-		*-netbsd*)
+-			define osname "netbsd"
+-			result "NetBSD"
+-			;;
+-		*-bsd*)
+-			define osname "bsd"
+-			result "BSD"
+-			;;
+-		*-gnu*)
+-			define osname "gnu"
+-			result "GNU"
+-			;;
+-		*-midipix*)
+-			define osname "midipix"
+-			result "Midipix"
+-			;;
+-		*)
+-			result "no"
+-			;;
+-	esac
+-fi
+-
+ # Check whether debugging should be enabled
+ # Allow -DEBUGGING as well (sets EBUGGING=define)
+ case "$DEBUGGING:$EBUGGING" in
+--- a/cnf/configure_type.sh
++++ b/cnf/configure_type.sh
+@@ -38,13 +38,20 @@ checksize() {
+ 		return
+ 	fi
+ 
+-	if not try_readelf --syms > try.out 2>>$cfglog; then
+-		result 'unknown'
+-		die "Cannot determine sizeof($2), use -D${1}size="
+-		return
++	if try_readelf --syms > try.out 2>>$cfglog; then
++		result=`grep foo try.out | sed -r -e 's/.*: [0-9]+ +//' -e 's/ .*//' -e 's/^0+//g'`
++	else
++		result=''
++	fi
++	if [ -z "$result" ]; then
++		# no symbol sizes (Mach-O): the size that compiles as a non-negative array bound
++		for result in 1 2 4 8 16 12 ''; do
++			try_start
++			try_includes $3
++			try_add "char foo[1 - 2*(sizeof($2) != $result)];"
++			try_compile && break
++		done
+ 	fi
+-
+-	result=`grep foo try.out | sed -r -e 's/.*: [0-9]+ +//' -e 's/ .*//' -e 's/^0+//g'`
+ 	if [ -z "$result" ]; then
+ 		result "unknown"
+ 		die "Cannot determine sizeof($2)"
+--- a/cnf/configure_type_sel.sh
++++ b/cnf/configure_type_sel.sh
+@@ -113,8 +113,8 @@ if not hinted 'byteorder'; then
+ 		die "Cannot check byte order without known uvsize"
+ 	fi
+ 
+-	# Most targets use .data but PowerPC has .sdata instead
+-	if try_compile && try_objdump -j .data -j .sdata -s; then
++	# Most targets use .data but PowerPC has .sdata instead, Mach-O __data
++	if try_compile && try_objdump -j .data -j .sdata -j __data -s; then
+ 		bo=`grep '11' try.out | grep '44' | sed -e 's/  .*//' -e 's/[^1-8]//g' -e 's/\([1-8]\)\1/\1/g'`
+ 	else
+ 		bo=''
+--- /dev/null
++++ b/cnf/diffs/perl5-5.40.0/time-hires-hints.patch
+@@ -0,0 +1,12 @@
++Time::HiRes picks hints/<os>.pl by the running perl's $^O, under perl-cross that is the
++build machine's (linux.pl adds -lrt, which a Darwin target does not have).
++
++--- a/dist/Time-HiRes/Makefile.PL
+++++ b/dist/Time-HiRes/Makefile.PL
++@@ -390,5 +390,5 @@
++ 
++ sub init {
++-    my $hints = File::Spec->catfile("hints", "$^O.pl");
+++    my $hints = File::Spec->catfile("hints", "$Config{osname}.pl");
++     if (-f $hints) {
++         print "Using hints $hints...\n";
+--- /dev/null
++++ b/cnf/diffs/perl5-5.40.1/time-hires-hints.patch
+@@ -0,0 +1,12 @@
++Time::HiRes picks hints/<os>.pl by the running perl's $^O, under perl-cross that is the
++build machine's (linux.pl adds -lrt, which a Darwin target does not have).
++
++--- a/dist/Time-HiRes/Makefile.PL
+++++ b/dist/Time-HiRes/Makefile.PL
++@@ -390,5 +390,5 @@
++ 
++ sub init {
++-    my $hints = File::Spec->catfile("hints", "$^O.pl");
+++    my $hints = File::Spec->catfile("hints", "$Config{osname}.pl");
++     if (-f $hints) {
++         print "Using hints $hints...\n";
+--- /dev/null
++++ b/cnf/diffs/perl5-5.40.2/time-hires-hints.patch
+@@ -0,0 +1,12 @@
++Time::HiRes picks hints/<os>.pl by the running perl's $^O, under perl-cross that is the
++build machine's (linux.pl adds -lrt, which a Darwin target does not have).
++
++--- a/dist/Time-HiRes/Makefile.PL
+++++ b/dist/Time-HiRes/Makefile.PL
++@@ -390,5 +390,5 @@
++ 
++ sub init {
++-    my $hints = File::Spec->catfile("hints", "$^O.pl");
+++    my $hints = File::Spec->catfile("hints", "$Config{osname}.pl");
++     if (-f $hints) {
++         print "Using hints $hints...\n";
+--- /dev/null
++++ b/cnf/diffs/perl5-5.40.3/time-hires-hints.patch
+@@ -0,0 +1,12 @@
++Time::HiRes picks hints/<os>.pl by the running perl's $^O, under perl-cross that is the
++build machine's (linux.pl adds -lrt, which a Darwin target does not have).
++
++--- a/dist/Time-HiRes/Makefile.PL
+++++ b/dist/Time-HiRes/Makefile.PL
++@@ -390,5 +390,5 @@
++ 
++ sub init {
++-    my $hints = File::Spec->catfile("hints", "$^O.pl");
+++    my $hints = File::Spec->catfile("hints", "$Config{osname}.pl");
++     if (-f $hints) {
++         print "Using hints $hints...\n";
+--- /dev/null
++++ b/cnf/hints/darwin
+@@ -0,0 +1,24 @@
++# Darwin syscalls
++d_voidsig='define'
++d_nanosleep='define'
++d_clock_gettime='define'
++d_clock_getres='define'
++d_clock='define'
++
++dlext='bundle'
++ldlibpthname='DYLD_LIBRARY_PATH'
++usemallocwrap='define'
++usenm='false'
++
++# poll() on a tty/devnull misbehaves, perl's hints/darwin.sh turns it off too
++d_poll='undef'
++i_poll='undef'
++d_syscall='undef'
++d_mkostemp='undef'
++
++libswanted='m dl'
++
++st_ino_sign=1
++st_ino_size=8
++
++d_fcntl_can_lock='define'
