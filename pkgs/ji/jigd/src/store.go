@@ -46,6 +46,8 @@ type Tier struct {
 	total  int64
 }
 
+// Pack files are never Closed explicitly: readers from Get may outlive eviction, the
+// finalizer closes the fd. Packs are few and large.
 type pack struct {
 	id      uint32
 	tier    int // index into Store.tiers
@@ -347,8 +349,6 @@ func (s *Store) moveDown(p *pack) error {
 				delete(s.index, key)
 			}
 		}
-		// open SectionReaders keep the inode alive until their io.Copy finishes
-		p.file.Close()
 		os.Remove(s.name(p, "pack"))
 		os.Remove(s.name(p, "hint"))
 		delete(s.packs, p.id)
@@ -369,12 +369,10 @@ func (s *Store) moveDown(p *pack) error {
 	os.Chtimes(file.Name(), time.Time{}, time.Unix(0, p.used.Load()))
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	old := p.file
 	p.file = file
 	p.tier = from + 1
 	s.tiers[from].total -= p.size
 	s.tiers[from+1].total += p.size
-	old.Close()
 	os.Remove(packName(s.tiers[from].Dir, p.id, "pack"))
 	os.Remove(packName(s.tiers[from].Dir, p.id, "hint"))
 	log.Printf("demoted pack %06d to %s (%d MiB, %d MiB live)", p.id, to, p.size>>20, p.live>>20)
