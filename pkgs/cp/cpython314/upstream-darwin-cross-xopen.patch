@@ -1,6 +1,5 @@
-A cross build leaves ac_sys_release empty, so Darwin matched none of the
-release patterns and got _XOPEN_SOURCE/_POSIX_C_SOURCE, which hide sendfile,
-getpagesize and friends. Native macOS builds never define them.
+Cross builds leave ac_sys_release empty: Darwin/ matched nothing and got
+_XOPEN_SOURCE, hiding sendfile and getpagesize.
 
 --- a/configure
 +++ b/configure
