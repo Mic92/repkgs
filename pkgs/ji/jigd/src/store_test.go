@@ -221,6 +221,20 @@ func TestGetSurvivesEviction(t *testing.T) {
 	}
 }
 
+// a Put racing with Close (connections outlive the listener) must not panic
+func TestPutAfterClose(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := OpenStore([]Tier{{Dir: dir, Budget: 1}})
+	s.Put("k", []byte("v"))
+	s.Close()
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("panic: %v", r)
+		}
+	}()
+	s.Put("k2", []byte("v"))
+}
+
 func TestEvictOldestPack(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := OpenStore([]Tier{{Dir: dir, Budget: packLimit + packLimit/2}})
