@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -25,16 +26,21 @@ namespace jig {
 namespace fs = std::filesystem;
 
 // the file may be read-only (installed 0444): writable for the moment
-void WriteBack(const fs::path& path, const std::string& bytes) {
+auto WriteBack(const fs::path& path, const std::string& bytes) -> bool {
   struct stat status{};
   const bool have_mode = ::stat(path.c_str(), &status) == 0;
   if (have_mode) {
     ::chmod(path.c_str(), status.st_mode | S_IWUSR);
   }
-  WriteFile(path, bytes);
+  const bool written = WriteFile(path, bytes);
   if (have_mode) {
     ::chmod(path.c_str(), status.st_mode);
   }
+  if (!written) {
+    std::println(stderr, "{}: cannot write back: {}", path.string(),
+                 std::error_code(errno, std::generic_category()).message());
+  }
+  return written;
 }
 
 auto FixupContext::Final(const fs::path& path) const -> fs::path {

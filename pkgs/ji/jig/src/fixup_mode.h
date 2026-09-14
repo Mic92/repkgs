@@ -39,7 +39,7 @@ struct FixupContext {
 };
 
 class BinaryImage;
-void WriteBack(const std::filesystem::path& path, const std::string& bytes);
+auto WriteBack(const std::filesystem::path& path, const std::string& bytes) -> bool;
 // elf_fixup.cc / macho_fixup.cc: true when the file was theirs (handled, maybe with ctx.errors bumped)
 auto FixElf(FixupContext& ctx, const std::filesystem::path& path, BinaryImage& image) -> bool;
 auto FixMachO(FixupContext& ctx, const std::filesystem::path& path, BinaryImage& image) -> bool;

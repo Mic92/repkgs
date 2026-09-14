@@ -89,13 +89,14 @@ auto ReadFile(const fs::path& path) -> std::optional<std::string> {
 
 auto WriteFile(const fs::path& path, std::string_view data) -> bool {
   const fs::path tmp = path.parent_path() / std::format(".jig{}.{}", ::getpid(), path.filename().string());
-  {
-    std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
-    if (!out.write(data.data(), static_cast<std::streamsize>(data.size()))) {
-      return false;
-    }
-  }
+  std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+  out.write(data.data(), static_cast<std::streamsize>(data.size()));
+  out.close();  // flushes: ENOSPC on the tail shows up here, not in write()
   std::error_code error;
+  if (out.fail()) {
+    fs::remove(tmp, error);
+    return false;
+  }
   fs::rename(tmp, path, error);
   return !error;
 }

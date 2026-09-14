@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <cstddef>
 #include <cstdio>
 #include <expected>
@@ -200,15 +201,21 @@ auto Replay(const CachedResult& result, const Invocation& inv) -> int {
   if (inv.to_stdout) {
     ForwardStdout(inv, result.object);
   } else if (result.object) {
-    WriteFile(inv.output, *result.object);
+    if (!WriteFile(inv.output, *result.object)) {
+      std::println(stderr, "jig: cannot write {}: {}", inv.output.string(),
+                   std::error_code(errno, std::generic_category()).message());
+      return 1;
+    }
     if (inv.link_one || inv.link) {
       std::error_code ignored;
       fs::permissions(inv.output, fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec,
                       fs::perm_options::add, ignored);
     }
   }
-  if (result.depfile) {
-    WriteFile(inv.depfile, RetargetDepfile(Store::Get().ResolveAll(*result.depfile), inv));
+  if (result.depfile && !WriteFile(inv.depfile, RetargetDepfile(Store::Get().ResolveAll(*result.depfile), inv))) {
+    std::println(stderr, "jig: cannot write {}: {}", inv.depfile.string(),
+                 std::error_code(errno, std::generic_category()).message());
+    return 1;
   }
   std::print(stderr, "{}", result.stderr_text);
   return result.status;
