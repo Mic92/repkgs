@@ -300,11 +300,13 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
   const Store& store = Store::Get();
   Hasher hasher;
   // bumped when what a key covers changes, so entries made under the old rules are not asked for
-  hasher.Field("rs-schema=6");
+  hasher.Field("rs-schema=7");
   // cargo may hand us a bare `rustc`: resolve on PATH first, or two toolchains share a key
   hasher.Field("rustc=" + store.ToolId(OnPath(rustc)));
   hasher.Field("stdlib=" + StdlibIds(cache, rustc));
   hasher.Field("cwd=" + store.Key(fs::current_path().string()));
+  // same bytes under vendor/foo and vendor/foo-1.0: file!(), DWARF and dep-info name the path
+  hasher.Field("src=" + store.Key(inv.source));
   for (const std::string& arg : inv.key_args) {
     hasher.Field(store.Key(arg));
   }
