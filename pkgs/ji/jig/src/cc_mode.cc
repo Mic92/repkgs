@@ -82,6 +82,10 @@ auto ComputeRequestKey(const std::string& compiler, const Invocation& inv, std::
   hasher.Field("cc=" + store.ToolId(compiler));
   // cwd: relative -I/-include and __FILE__ depend on it. Inside the sandbox it is stable
   hasher.Field("cwd=" + store.Key(fs::current_path().string()));
+  // identical bytes at another path are another __FILE__, DW_AT_name and depfile prerequisite
+  if (!inv.link) {
+    hasher.Field("src=" + store.Key(store.MaskOut(inv.source)));
+  }
   std::string_view mode = "mode=compile";
   if (inv.link) {
     mode = "mode=link";
