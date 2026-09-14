@@ -11,7 +11,6 @@
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <link.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include <algorithm>

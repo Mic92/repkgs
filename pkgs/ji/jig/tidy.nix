@@ -17,8 +17,8 @@ let
     ln -s ${src "nlohmann-json"} $out/include/json.hpp
   '';
 in
-# clang-tools' wrapper picks up libc++ and libc from the calling shell's libcxx stdenv
+# the clang-tools wrapper takes libc++ from the calling shell, and needs bash
 pkgs.writeShellScriptBin "jig-tidy" ''
-  exec ${llvm.clang-tools}/bin/clang-tidy -quiet "$@" -- \
+  exec ${pkgs.bash}/bin/bash ${llvm.clang-tools}/bin/clang-tidy -quiet "$@" -- \
     -std=c++26 -stdlib=libc++ -DJIG_STORE_DIR="\"${builtins.storeDir}\"" -isystem ${thirdParty}/include
 ''
