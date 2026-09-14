@@ -211,3 +211,7 @@ seed        static nu, clang, lld, bsdtar, toybox, make …
 ```
 
 The seed itself is reproducible from `pkgs/se/seed/build.nix`.
+
+## License
+
+MIT, see [LICENSE](LICENSE). Patches under `pkgs/` carry the license of the project they apply to.
