@@ -10,7 +10,8 @@ export def --env setup []: nothing -> nothing {
   load-env {HOME: $c.build, REBAR_CACHE_DIR: $"($c.build)/rebar3-cache", REBAR_OFFLINE: "1", ERL_AFLAGS: "+B", LANG: "C.UTF-8"
     ERL_COMPILER_OPTIONS: "deterministic"}
   for tar in (files $"($o.deps)/packages/hexpm/*.tar") {
-    beam unpack $tar $"_checkouts/($tar | path basename | str replace -r '-[^-]+$' "")"
+    # <name>-<version>.tar: hex names are [a-z0-9_], versions may have hyphens (2.0.0-rc.2)
+    beam unpack $tar $"_checkouts/($tar | path basename | str replace -r '-\d[^/]*$' "")"
   }
   let key = (probe-cache key $"rebar3-deps/($o.deps | path basename)" [])
   note rebar3-deps (if (probe-cache restore-dir $key _build/default/checkouts) { "restored" } else { "cold" })
