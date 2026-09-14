@@ -10,9 +10,12 @@ export def --env setup []: nothing -> nothing {
 
 export def workdir []: nothing -> string { project-dir make }
 
+# MAKEFLAGS: scripts that compile while configuring (cmake's bootstrap) do so in parallel
 export def configure []: nothing -> nothing {
   let c = (ctx); let o = (options make)
-  if ($o.configureScript | path exists) { x $env.CONFIG_SHELL $"./($o.configureScript)" $"--prefix=($c.out)" ...$o.configureFlags }
+  if ($o.configureScript | path exists) {
+    with-env {MAKEFLAGS: $"-j($c.njobs)"} { x $env.CONFIG_SHELL $"./($o.configureScript)" $"--prefix=($c.out)" ...$o.configureFlags }
+  }
 }
 
 export def run-build [flags: list<string>, targets: list<string>]: nothing -> nothing { x make $"-j((ctx).njobs)" ...$targets ...$flags }
