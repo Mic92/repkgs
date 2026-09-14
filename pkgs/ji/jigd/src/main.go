@@ -30,7 +30,7 @@ import (
 
 var (
 	store            *Store
-	idents           = NewIdentities()
+	idents           *Identities
 	slots            *Slots
 	gets, hits, puts atomic.Int64
 )
@@ -50,30 +50,41 @@ func get(conn *net.UnixConn, out *bufio.Writer, key string) error {
 		return err
 	}
 	// SectionReader over *os.File -> *net.UnixConn: io.Copy uses sendfile(2)
-	_, err := io.Copy(conn, val)
+	n, err := io.Copy(conn, val)
+	if err == nil && n != val.Size() {
+		// the client waits for the promised length forever: hang up so it falls back to compiling
+		return io.ErrUnexpectedEOF
+	}
 	return err
 }
 
 func put(in *bufio.Reader, out *bufio.Writer, key string, size int64) error {
 	puts.Add(1)
-	buf := make([]byte, size)
-	if _, err := io.ReadFull(in, buf); err != nil {
-		return err
-	}
-	if err := store.Put(key, buf); err != nil {
+	if err := store.Put(key, size, in); err != nil {
+		// the stream position is unknown after a failed body read: hang up
 		log.Printf("put %s: %v", key, err)
+		return err
 	}
 	_, err := out.WriteString("OK\n")
 	return err
 }
 
+// readLine fails on a line longer than the buffer instead of growing without bound
+func readLine(in *bufio.Reader) (string, error) {
+	line, err := in.ReadSlice('\n')
+	if err != nil {
+		return "", err
+	}
+	return string(line[:len(line)-1]), nil
+}
+
 func ids(in *bufio.Reader, out *bufio.Writer, count int) error {
 	for ; count > 0; count-- {
-		path, err := in.ReadString('\n')
+		path, err := readLine(in)
 		if err != nil {
 			return err
 		}
-		if _, err := out.WriteString(idents.Of(strings.TrimSuffix(path, "\n")) + "\n"); err != nil {
+		if _, err := out.WriteString(idents.Of(path) + "\n"); err != nil {
 			return err
 		}
 	}
@@ -82,6 +93,9 @@ func ids(in *bufio.Reader, out *bufio.Writer, count int) error {
 
 func serve(conn *net.UnixConn) {
 	defer conn.Close()
+	if !allowed(conn) {
+		return
+	}
 	in := bufio.NewReaderSize(conn, 1<<16)
 	out := bufio.NewWriter(conn)
 	// tokens this connection holds: a killed compiler wrapper must not leak them
@@ -94,7 +108,7 @@ func serve(conn *net.UnixConn) {
 		}
 	}()
 	for {
-		line, err := in.ReadString('\n')
+		line, err := readLine(in)
 		if err != nil {
 			return
 		}
@@ -110,7 +124,7 @@ func serve(conn *net.UnixConn) {
 			_, err = out.WriteString(has)
 		case len(fields) == 3 && fields[0] == "PUT":
 			size, perr := strconv.ParseInt(fields[2], 10, 64)
-			if perr != nil || size < 0 || size > 2<<30 {
+			if perr != nil {
 				return
 			}
 			err = put(in, out, fields[1], size)
@@ -150,6 +164,7 @@ const usage = `usage: jigd <socket>
 The compile cache and job-slot daemon jig talks to. Nix builds reach it through
 sandbox-paths /nix/var/nix/jigd/socket=<socket>.
 
+  NIX_STORE_DIR   the only tree IDS answers for (default /nix/store)
   XDG_CACHE_HOME  packs live in $XDG_CACHE_HOME/jigd/packs (default ~/.cache)
   JIGD_SIZE       cache budget in GiB (default 50)
   JIGD_COLD       a second, slower pack directory that takes what JIGD_SIZE pushes out
@@ -192,12 +207,17 @@ func main() {
 		}
 	}
 	slots = NewSlots(limit)
+	storeDir := os.Getenv("NIX_STORE_DIR")
+	if storeDir == "" {
+		storeDir = "/nix/store"
+	}
+	idents = NewIdentities(storeDir)
 	var err error
 	store, err = OpenStore(tiers)
 	if err != nil {
 		log.Fatal(err)
 	}
-	// a private directory for the socket: connecting to it is trusting whoever serves it
+	// build users have to reach the socket (0666). serve() checks who is on the other end
 	if err := os.MkdirAll(filepath.Dir(sock), 0o755); err != nil {
 		log.Fatal(err)
 	}
