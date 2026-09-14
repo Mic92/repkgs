@@ -60,12 +60,10 @@ func get(conn *net.UnixConn, out *bufio.Writer, key string) error {
 
 func put(in *bufio.Reader, out *bufio.Writer, key string, size int64) error {
 	puts.Add(1)
-	buf := make([]byte, size)
-	if _, err := io.ReadFull(in, buf); err != nil {
-		return err
-	}
-	if err := store.Put(key, buf); err != nil {
+	if err := store.Put(key, size, in); err != nil {
+		// the stream position is unknown after a failed body read: hang up
 		log.Printf("put %s: %v", key, err)
+		return err
 	}
 	_, err := out.WriteString("OK\n")
 	return err
@@ -114,7 +112,7 @@ func serve(conn *net.UnixConn) {
 			_, err = out.WriteString(has)
 		case len(fields) == 3 && fields[0] == "PUT":
 			size, perr := strconv.ParseInt(fields[2], 10, 64)
-			if perr != nil || size < 0 || size > 2<<30 {
+			if perr != nil {
 				return
 			}
 			err = put(in, out, fields[1], size)
