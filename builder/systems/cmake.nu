@@ -20,14 +20,16 @@ export def configure []: nothing -> nothing {
     CMAKE_BUILD_TYPE: (if ($c.spec.profile? | default "release") == "debug" { "Debug" } else { "Release" })
     CMAKE_INSTALL_LIBDIR: "lib"
     CMAKE_PREFIX_PATH: ($c.deps | get root | str join ";")
-    # the sysroot's include/ and lib/ for find_path/find_library (an Apple SDK has them under usr/)
-    CMAKE_SYSTEM_PREFIX_PATH: ([$c.platform.sysroot $"($c.platform.sysroot)/usr"] | where { path exists } | str join ";")
+    CMAKE_SYSTEM_PREFIX_PATH: $c.platform.sysroot
     BUILD_SHARED_LIBS: true
     BUILD_TESTING: $c.testsRun
   } | merge (if $c.platform.cross { {
     CMAKE_SYSTEM_NAME: $c.platform.osNames.cmake
     CMAKE_SYSTEM_PROCESSOR: $c.platform.cpu
-  } } else { {} }) | merge (if ($c.platform.emulator | is-empty) { {} } else { {CMAKE_CROSSCOMPILING_EMULATOR: ($c.platform.emulator | str join ";")} }) | merge $o.defs)
+  } } else { {} }) | merge (if $c.platform.os == "macos" {
+    # Darwin.cmake finds usr/ and the frameworks from this
+    {CMAKE_OSX_SYSROOT: $c.platform.sysroot}
+  } else { {} }) | merge (if ($c.platform.emulator | is-empty) { {} } else { {CMAKE_CROSSCOMPILING_EMULATOR: ($c.platform.emulator | str join ";")} }) | merge $o.defs)
   let srcdir = (project-dir cmake)
   # results of check_*/try_compile (the project's INTERNAL cache entries) carried across builds
   let key = (probe-cache key cmake (files $"($srcdir)/**/{CMakeLists.txt,*.cmake}"))
