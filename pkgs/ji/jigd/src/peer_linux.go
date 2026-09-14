@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"os/user"
 	"strconv"
+	"strings"
 	"syscall"
 )
 
@@ -36,3 +38,9 @@ var nixbld = func() int {
 	gid, _ := strconv.Atoi(g.Gid)
 	return gid
 }()
+
+// fdUnder: the file f has open lives under dir (trailing slash), by the kernel's account
+func fdUnder(f *os.File, dir string) bool {
+	at, err := os.Readlink(fmt.Sprintf("/proc/self/fd/%d", f.Fd()))
+	return err == nil && strings.HasPrefix(at, dir)
+}

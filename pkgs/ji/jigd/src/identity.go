@@ -8,6 +8,7 @@ package main
 
 import (
 	"encoding/hex"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -57,8 +58,15 @@ func (ids *Identities) Of(path string) string {
 	if err != nil || !strings.HasPrefix(real, ids.realStore) {
 		return ""
 	}
-	info, err := os.Stat(real)
-	if err != nil || !info.Mode().IsRegular() {
+	// stat and read through one fd, checked after opening: the build owns directories under its
+	// $out and can swap one for a symlink between any two path lookups
+	f, err := os.Open(real)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil || !info.Mode().IsRegular() || !fdUnder(f, ids.realStore) {
 		return ""
 	}
 	stamp := stampOf(info)
@@ -68,8 +76,8 @@ func (ids *Identities) Of(path string) string {
 	if ok && entry.stamp == stamp {
 		return entry.id
 	}
-	data, err := os.ReadFile(real)
-	if err != nil {
+	data := make([]byte, info.Size())
+	if _, err := io.ReadFull(f, data); err != nil {
 		return ""
 	}
 	sum := blake3.Sum256(data)
