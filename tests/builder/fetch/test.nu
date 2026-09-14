@@ -4,6 +4,7 @@ use fetch/bun.nu [lock-entries]
 use fetch/gems.nu [checksums]
 use fetch/npm.nu [remote-entries relock]
 use fetch/go.nu [proxy-case]
+use pep508.nu
 use checks.nu *
 
 # deno.lock npm keys: "<name>@<version>[_<peer>@<version>...]", names may contain "_"
@@ -34,4 +35,13 @@ assert "npm: link keeps its resolved" ((relock $pkgs {"https://r/a.tgz": "/s/a.t
 
 # go proxy escapes upper case in versions too
 assert "go: proxy-case version" ((proxy-case "v1.0.0-RC1") == "v1.0.0-!r!c1")
+
+# PEP 508 markers as uv writes them
+let py = {python_full_version: "3.14.7", python_version: "3.14", sys_platform: linux, implementation_name: cpython}
+assert "pep508: wildcard ==" (pep508 evaluate "python_full_version == '3.14.*'" $py)
+assert "pep508: wildcard !=" (not (pep508 evaluate "python_full_version != '3.14.*' and sys_platform == 'linux'" $py))
+assert "pep508: wildcard other minor" (not (pep508 evaluate "python_full_version == '3.13.*'" $py))
+assert "pep508: or after false" (pep508 evaluate "python_version < '3.10' or sys_platform == 'linux'" $py)
+fails "pep508: unknown variable is an error, not false" { pep508 evaluate "platform_version == 'x' or sys_platform == 'linux'" $py }
+
 done
