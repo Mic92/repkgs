@@ -179,19 +179,6 @@ void TakeCodegenOption(std::span<const std::string> args, size_t& idx, RustInvoc
   }
 }
 
-// first `name` on PATH (name itself if it has a directory part or is not found)
-auto OnPath(const std::string& name) -> std::string {
-  if (!name.contains('/')) {
-    for (const std::string& dir : Split(Env("PATH"), ':')) {
-      std::error_code ignored;
-      if (fs::exists(fs::path(dir) / name, ignored)) {
-        return (fs::path(dir) / name).string();
-      }
-    }
-  }
-  return name;
-}
-
 // under a build slot unless it is a probe, logged with why it was not cached
 auto RunUncached(CacheClient& cache, const std::string& socket_path, const std::string& rustc,
                  const RustInvocation& inv, bool have_source, const std::string& label, const Stopwatch& clock) -> int {

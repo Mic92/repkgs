@@ -106,6 +106,18 @@ auto Env(const char* name, std::string_view fallback) -> std::string {
   return value != nullptr ? std::string(value) : std::string(fallback);
 }
 
+auto OnPath(const std::string& name) -> std::string {
+  if (!name.contains('/')) {
+    for (const std::string& dir : Split(Env("PATH"), ':')) {
+      std::error_code ignored;
+      if (fs::exists(fs::path(dir) / name, ignored)) {
+        return (fs::path(dir) / name).string();
+      }
+    }
+  }
+  return name;
+}
+
 auto SplitWhitespace(std::string_view text) -> std::vector<std::string> {
   std::vector<std::string> out;
   size_t pos = 0;

@@ -47,6 +47,8 @@ auto ReadFile(const fs::path& path) -> std::optional<std::string>;
 auto WriteFile(const fs::path& path, std::string_view data) -> bool;
 
 auto Env(const char* name, std::string_view fallback = {}) -> std::string;
+// first `name` on PATH (name itself if it has a directory part or is not found)
+auto OnPath(const std::string& name) -> std::string;
 
 auto SplitWhitespace(std::string_view text) -> std::vector<std::string>;
 // `@file` arguments replaced by the file's words (GNU quoting). A @word that names no readable
