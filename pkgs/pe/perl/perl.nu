@@ -21,6 +21,7 @@ export def configure []: nothing -> nothing {
     -Dman1dir=none -Dman3dir=none "-Accflags=-D_GNU_SOURCE -fno-strict-aliasing"]
   if $c.platform.cross {
     x cp -r $"($env.PERL_CROSS)/." .
+    x patch -p1 -F0 -i $env.PERL_CROSS_PATCH
     # perl-cross ships one patchset per perl release. A point release it does not know yet
     # gets the previous one's
     let want = $"cnf/diffs/perl5-($c.spec.version)"

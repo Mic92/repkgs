@@ -17,6 +17,7 @@ package {
     if platform.cross then
       {
         PERL_CROSS = "${sources.fetch "cross"}";
+        PERL_CROSS_PATCH = "${./upstream-cross-darwin.patch}";
         PERL_SYSROOT = "${toolchain.sysroot}";
       }
     else
