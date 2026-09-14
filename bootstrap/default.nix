@@ -303,11 +303,11 @@ let
           src = source "glibc";
           patches = [
             (pkg "glibc" + "/glibc-gconv-relative.patch")
-            (pkg "glibc" + "/glibc-ppc64le-clang.patch")
-            (pkg "glibc" + "/glibc-debug-after-misc.patch")
-            (pkg "glibc" + "/glibc-verneed-dst.patch")
+            (pkg "glibc" + "/upstream-ppc64le-clang.patch")
+            (pkg "glibc" + "/upstream-debug-after-misc.patch")
+            (pkg "glibc" + "/upstream-verneed-dst.patch")
             (pkg "glibc" + "/glibc-unwind-origin.patch")
-            (pkg "glibc" + "/glibc-const-generic-extension.patch")
+            (pkg "glibc" + "/upstream-const-generic-extension.patch")
           ];
           linuxHeaders = linux-headers;
           # the C.UTF-8 locale is compiled by running the fresh localedef, so only where it can run

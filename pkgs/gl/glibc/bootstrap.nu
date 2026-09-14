@@ -4,7 +4,7 @@
 use ../../../bootstrap/lib.nu *
 
 # per-cpu configure arguments: probes that cannot run when cross compiling, ABI choices, and
-# checks for GCC-only flags clang does not need (glibc-ppc64le-clang.patch)
+# checks for GCC-only flags clang does not need (upstream-ppc64le-clang.patch)
 const CPU_FLAGS = {
   x86_64: [--enable-cet libc_cv_have_x86_lahf_sahf=yes libc_cv_have_x86_movbe=yes]
   # ldbl-opt's -mlong-double-128 probe is written as a nested function, a GCC extension

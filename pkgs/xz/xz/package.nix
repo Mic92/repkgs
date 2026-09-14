@@ -3,7 +3,7 @@ package {
   name = "xz";
   uses = [ "cmake" ];
   cmake.tool = buildPkgs.cmake-bootstrap; # cmake links this
-  patches = [ ./msvc-abi.patch ];
+  patches = [ ./upstream-msvc-abi.patch ];
   cmake.flags = [
     "-DBUILD_SHARED_LIBS=ON"
     "-DXZ_NLS=OFF"

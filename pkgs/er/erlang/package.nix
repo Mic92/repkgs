@@ -23,7 +23,7 @@ package {
   ++ on platform.cross [ "erl_xcomp_sysroot=${toolchain.sysroot}" ];
   tests.run = false; # the suites run under ts for hours, tests.version and elixir exercise the install
   patches = [
-    ./cstdlib.patch
+    ./upstream-cstdlib.patch
     ./erl-dirname.patch
   ];
   buildDependencies = [ buildPkgs.perl ] ++ on platform.cross [ buildPkgs.erlang ];

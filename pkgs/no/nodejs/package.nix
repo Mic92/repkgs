@@ -21,10 +21,10 @@ package {
     buildPkgs.ninja
   ];
   patches = [
-    ./libcxx-includes.patch
-    ./icu-emulator.patch
+    ./upstream-libcxx-includes.patch
+    ./upstream-icu-emulator.patch
     ./v8-cfi-arm64.patch
-    ./highway-rvv-baseline.patch
+    ./upstream-highway-rvv-baseline.patch
   ];
   phases = [
     {

@@ -12,7 +12,7 @@ package {
     BOOST_ENABLE_MPI = false;
     BOOST_ENABLE_PYTHON = false;
   };
-  patches = [ ./redis-cmath.patch ];
+  patches = [ ./upstream-redis-cmath.patch ];
   dependencies = [
     pkgs.zlib
     pkgs.bzip2
