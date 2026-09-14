@@ -111,6 +111,42 @@ auto ComputeRequestKey(const std::string& compiler, const Invocation& inv, std::
   return {Tool::kCc, hasher.Finish()};
 }
 
+// ToolId masks the store hash: a toolchain patched at the same version must still miss
+auto ToolchainIds(CacheClient& cache, const std::string& compiler, const Invocation& inv) -> std::string {
+  std::error_code error;
+  std::vector<std::string> tools{OnPath(compiler)};
+  if (inv.link_one || inv.link) {
+    for (const std::string& arg : inv.args) {
+      if (arg.starts_with("--ld-path=")) {
+        tools.push_back(arg.substr(std::string_view("--ld-path=").size()));
+      }
+    }
+  }
+  std::vector<std::string> files;
+  for (const std::string& tool : tools) {
+    const fs::path real = fs::canonical(tool, error);
+    if (error) {
+      continue;
+    }
+    files.push_back(real.string());
+    for (const auto& entry : fs::directory_iterator(real.parent_path().parent_path() / "lib", error)) {
+      const std::string name = entry.path().filename().string();
+      if ((name.starts_with("libLLVM") || name.starts_with("libclang-cpp") || name.starts_with("liblld")) &&
+          entry.is_regular_file(error) && !entry.is_symlink(error)) {
+        files.push_back(entry.path().string());
+      }
+    }
+  }
+  std::ranges::sort(files);
+  files.erase(std::ranges::unique(files).begin(), files.end());
+  PrefetchIdentities(cache, files);
+  std::string ids;
+  for (const std::string& file : files) {
+    ids += Store::Get().InputId(file).value_or("?") + ",";
+  }
+  return ids;
+}
+
 // what the request key hashes besides the arguments. nullopt = an input is unreadable
 auto PrimaryIdentity(const Invocation& inv) -> std::optional<std::string> {
   std::string ids;
@@ -530,6 +566,7 @@ auto RunCcMode(std::string_view argv0, std::span<const std::string> raw_args, co
     return RunUncached(cache, socket_path, conf->cc, inv, primary.has_value(), user_args, clock);
   }
 
+  *primary += "\ntoolchain=" + ToolchainIds(cache, conf->cc, inv);
   const RequestKey request_key = ComputeRequestKey(conf->cc, inv, *primary);
   const std::expected<CachedResult, std::string> hit = Lookup(cache, request_key, inv);
   if (hit) {
