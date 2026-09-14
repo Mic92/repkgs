@@ -48,25 +48,16 @@ $ nix-build bootstrap -A stage1.x86_64.cc           # just the toolchain
 
 The first build fetches the seed and builds the toolchain. Everything after that is incremental.
 
-`repkgs` (tools/, on PATH with direnv) wraps the common tasks, `repkgs <cmd> --help` says what
-each runs:
+`repkgs` (on PATH with direnv) wraps the common tasks; [tools/repkgs/README.md](tools/repkgs/README.md)
+has all of them:
 
 ```console
-$ repkgs cache start                     # the compile cache daemon (jigd), optional
-$ repkgs build jq                        # nix-build with the cache socket mapped into the sandbox
+$ repkgs build jq                        # through the compile cache (repkgs cache start)
 $ repkgs build --for aarch64-linux jq    # cross
 $ repkgs test jq                         # jq.tests
-$ repkgs log jq                          # the build log
-$ repkgs list --for riscv64-linux --unsupported   # what a platform lacks and why
-$ repkgs info deno                       # version, build systems, platform support (--json too)
-$ repkgs options cmake                   # every cmake.* option with type and default
-$ repkgs new foo pkg:github/o/foo 'https://…/foo-{version}.tar.gz'
-$ repkgs update check                    # uptrack: what is outdated
-$ repkgs repro zlib                      # rebuild and compare
+$ repkgs dev jq                          # a failing build by hand, in a tree that stays
+$ repkgs info deno                       # version, build systems, platform support
 ```
-
-Mapping the cache socket is a per-build `extra-sandbox-paths`, so your user has to be in
-`nix.settings.trusted-users`. Build logs then end in a line like `jig: cc cached=812/815 (99%) compiled=3`.
 
 ## Writing a package
 
@@ -200,7 +191,7 @@ builder/          build time. prepare, finish, and one nu module per build syste
 locks/            hashes that lock files lack (go.sum, hackage, luarocks)
 tests/builder/    tiny packages per language that check what builder/ does to them (`repkgs test`)
 docs/             design.md (why), uptrack.md, plan.md
-tools/repkgs      the cli: build, test, log, list, info, options, new, update, repro, cache, seed, fmt
+tools/repkgs/     the cli (its README.md is for changing it)
 ```
 
 Four in-tree programs hold this together. **jig** (pkgs/ji/jig, C++) is what `cc` and `rustc`
