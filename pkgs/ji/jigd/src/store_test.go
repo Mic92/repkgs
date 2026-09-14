@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+func putb(s *Store, key string, v []byte) error {
+	return s.Put(key, int64(len(v)), bytes.NewReader(v))
+}
+
 func read(t *testing.T, s *Store, key string) []byte {
 	t.Helper()
 	r := s.Get(key)
@@ -29,9 +33,9 @@ func TestPutGetReopen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.Put("o/aa", []byte("one"))
-	s.Put("o/bb", []byte("two"))
-	s.Put("o/aa", []byte("three")) // overwrite: newest wins
+	putb(s, "o/aa", []byte("one"))
+	putb(s, "o/bb", []byte("two"))
+	putb(s, "o/aa", []byte("three")) // overwrite: newest wins
 	if got := read(t, s, "o/aa"); string(got) != "three" {
 		t.Fatalf("got %q", got)
 	}
@@ -57,10 +61,33 @@ func TestPutGetReopen(t *testing.T) {
 	}
 }
 
+// values past spoolMin go through a temp file. A body shorter than announced leaves no record
+func TestPutSpooled(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := OpenStore([]Tier{{Dir: dir}})
+	big := bytes.Repeat([]byte{7}, spoolMin+123)
+	if err := putb(s, "big", big); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Put("short", int64(len(big)), bytes.NewReader(big[:100])); err == nil {
+		t.Fatal("short body accepted")
+	}
+	putb(s, "after", []byte("ok"))
+	if got := read(t, s, "big"); !bytes.Equal(got, big) {
+		t.Fatalf("big: %d bytes", len(got))
+	}
+	if read(t, s, "short") != nil || string(read(t, s, "after")) != "ok" {
+		t.Fatal("torn put corrupted the pack")
+	}
+	if left, _ := filepath.Glob(filepath.Join(dir, "*.tmp")); len(left) > 0 {
+		t.Fatalf("spool files left: %v", left)
+	}
+}
+
 func TestTornTail(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := OpenStore([]Tier{{Dir: dir, Budget: 0}})
-	s.Put("k", []byte("value"))
+	putb(s, "k", []byte("value"))
 	name := s.active.file.Name()
 	// half a record appended
 	f, _ := os.OpenFile(name, os.O_WRONLY|os.O_APPEND, 0)
@@ -86,11 +113,11 @@ func TestEvictKeepsReadPack(t *testing.T) {
 	per := packLimit / len(big)
 	// two full packs, pack 1 read from, then a third: pack 2 goes, not pack 1
 	for i := 0; i < 2*per; i++ {
-		s.Put(fmt.Sprintf("o/%d", i), big)
+		putb(s, fmt.Sprintf("o/%d", i), big)
 	}
 	read(t, s, "o/0")
 	for i := 2 * per; i < 7*per/2; i++ {
-		s.Put(fmt.Sprintf("o/%d", i), big)
+		putb(s, fmt.Sprintf("o/%d", i), big)
 	}
 	s.Wait()
 	if read(t, s, "o/0") == nil {
@@ -108,7 +135,7 @@ func TestEvictRecencySurvivesRestart(t *testing.T) {
 	big := bytes.Repeat([]byte{1}, 1<<20)
 	per := packLimit / len(big)
 	for i := 0; i < 2*per; i++ {
-		s.Put(fmt.Sprintf("o/%d", i), big)
+		putb(s, fmt.Sprintf("o/%d", i), big)
 	}
 	s.now = func() time.Time { return time.Now().Add(time.Hour) }
 	read(t, s, "o/0") // pack 1 read later than pack 2 was written, pack 2 never read
@@ -119,7 +146,7 @@ func TestEvictRecencySurvivesRestart(t *testing.T) {
 		t.Fatalf("after restart pack 1 used=%v not newer than pack 2 used=%v", time.Unix(0, p1), time.Unix(0, p2))
 	}
 	for i := 2 * per; i < 7*per/2; i++ {
-		s2.Put(fmt.Sprintf("o/%d", i), big)
+		putb(s2, fmt.Sprintf("o/%d", i), big)
 	}
 	s2.Wait()
 	if read(t, s2, "o/0") == nil {
@@ -137,15 +164,15 @@ func TestEvictSupersededFirst(t *testing.T) {
 	big := bytes.Repeat([]byte{1}, 1<<20)
 	per := packLimit / len(big)
 	for i := 0; i < per; i++ { // pack 1: o/0..per
-		s.Put(fmt.Sprintf("o/%d", i), big)
+		putb(s, fmt.Sprintf("o/%d", i), big)
 	}
 	for i := 0; i < per; i++ { // pack 2: the same keys again, pack 1 is now dead weight
-		s.Put(fmt.Sprintf("o/%d", i), big)
+		putb(s, fmt.Sprintf("o/%d", i), big)
 	}
 	read(t, s, "o/0") // served from pack 2; pack 1 gets no reads but make it "recent" anyway
 	s.packs[1].used.Store(time.Now().Add(time.Hour).UnixNano())
 	for i := per; i < 5*per/2; i++ { // pack 3 and a half: over budget
-		s.Put(fmt.Sprintf("o/%d", i), big)
+		putb(s, fmt.Sprintf("o/%d", i), big)
 	}
 	s.Wait()
 	if _, err := os.Stat(filepath.Join(dir, "000001.pack")); !os.IsNotExist(err) {
@@ -167,7 +194,7 @@ func TestTiers(t *testing.T) {
 	per := packLimit / len(big)
 	puts := func(from, to int) {
 		for i := from; i < to; i++ {
-			s.Put(fmt.Sprintf("o/%d", i), big)
+			putb(s, fmt.Sprintf("o/%d", i), big)
 		}
 		s.Wait()
 	}
@@ -205,11 +232,11 @@ func TestGetSurvivesEviction(t *testing.T) {
 	big := bytes.Repeat([]byte{1}, 1<<20)
 	per := packLimit / len(big)
 	for i := 0; i < per; i++ {
-		s.Put(fmt.Sprintf("o/%d", i), big)
+		putb(s, fmt.Sprintf("o/%d", i), big)
 	}
 	r := s.Get("o/0") // pack 1, about to be evicted
 	for i := per; i < 5*per/2; i++ {
-		s.Put(fmt.Sprintf("o/%d", i), big)
+		putb(s, fmt.Sprintf("o/%d", i), big)
 	}
 	s.Wait()
 	if _, err := os.Stat(filepath.Join(dir, "000001.pack")); !os.IsNotExist(err) {
@@ -225,14 +252,14 @@ func TestGetSurvivesEviction(t *testing.T) {
 func TestPutAfterClose(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := OpenStore([]Tier{{Dir: dir, Budget: 1}})
-	s.Put("k", []byte("v"))
+	putb(s, "k", []byte("v"))
 	s.Close()
 	defer func() {
 		if r := recover(); r != nil {
 			t.Fatalf("panic: %v", r)
 		}
 	}()
-	s.Put("k2", []byte("v"))
+	putb(s, "k2", []byte("v"))
 }
 
 // after a restart the copy in the newer (hot) pack wins over a demoted older one
@@ -241,13 +268,13 @@ func TestReopenNewestAcrossTiers(t *testing.T) {
 	s, _ := OpenStore([]Tier{{Dir: hot, Budget: packLimit + packLimit/2}, {Dir: cold}})
 	big := bytes.Repeat([]byte{1}, 1<<20)
 	per := packLimit / len(big)
-	s.Put("m/k", []byte("old"))
+	putb(s, "m/k", []byte("old"))
 	for i := 0; i < per; i++ {
-		s.Put(fmt.Sprintf("o/%d", i), big)
+		putb(s, fmt.Sprintf("o/%d", i), big)
 	}
-	s.Put("m/k", []byte("new")) // pack 2
+	putb(s, "m/k", []byte("new")) // pack 2
 	for i := per; i < 2*per; i++ {
-		s.Put(fmt.Sprintf("p/%d", i), big)
+		putb(s, fmt.Sprintf("p/%d", i), big)
 	}
 	s.Wait()
 	if _, err := os.Stat(filepath.Join(cold, "000001.pack")); err != nil {
@@ -271,8 +298,8 @@ func TestReopenNewestAcrossTiers(t *testing.T) {
 func TestHintPastEOF(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := OpenStore([]Tier{{Dir: dir}})
-	s.Put("a", []byte("first"))
-	s.Put("b", []byte("second"))
+	putb(s, "a", []byte("first"))
+	putb(s, "b", []byte("second"))
 	name := s.active.file.Name()
 	s.Close()
 	os.Truncate(name, recHeader+1+5+recHeader+1+2) // "b" torn mid-value
@@ -295,7 +322,7 @@ func TestEvictOldestPack(t *testing.T) {
 	big := bytes.Repeat([]byte{1}, 1<<20)
 	// ~2.5 packs worth: the first pack must go
 	for i := 0; i < packLimit*5/2/len(big); i++ {
-		if err := s.Put(fmt.Sprintf("o/%d", i), big); err != nil {
+		if err := putb(s, fmt.Sprintf("o/%d", i), big); err != nil {
 			t.Fatal(err)
 		}
 	}

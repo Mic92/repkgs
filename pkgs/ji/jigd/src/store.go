@@ -11,6 +11,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -31,6 +32,7 @@ const touchEvery = time.Minute
 const (
 	packLimit = 256 << 20 // seal the active pack at this size
 	recHeader = 8
+	spoolMin  = 4 << 20 // a Put body from here on waits for the lock in a temp file, not in RAM
 )
 
 type loc struct {
@@ -257,35 +259,68 @@ func (s *Store) Get(key string) *io.SectionReader {
 	return io.NewSectionReader(p.file, int64(l.off), int64(l.len))
 }
 
-func (s *Store) Put(key string, value []byte) error {
-	if len(key) == 0 || len(key) > 4096 || strings.ContainsAny(key, "\n ") {
-		return errors.New("bad key")
+// Put appends one record of size bytes from r, read before taking the lock and bounded in RAM.
+func (s *Store) Put(key string, size int64, r io.Reader) error {
+	if len(key) == 0 || len(key) > 4096 || strings.ContainsAny(key, "\n ") || size < 0 || size > 2<<30 {
+		return errors.New("bad put")
+	}
+	var body io.Reader
+	if size < spoolMin {
+		buf := make([]byte, size)
+		if _, err := io.ReadFull(r, buf); err != nil {
+			return err
+		}
+		body = bytes.NewReader(buf)
+	} else {
+		tmp, err := os.CreateTemp(s.tiers[0].Dir, "put-*.tmp")
+		if err != nil {
+			return err
+		}
+		defer tmp.Close()
+		os.Remove(tmp.Name())
+		if _, err := io.CopyN(tmp, r, size); err != nil {
+			return err
+		}
+		if _, err := tmp.Seek(0, io.SeekStart); err != nil {
+			return err
+		}
+		body = tmp
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
 		return errors.New("store closed")
 	}
-	if s.active.size+int64(recHeader+len(key)+len(value)) > packLimit && s.active.size > 0 {
+	recLen := recHeader + int64(len(key)) + size
+	if s.active.size+recLen > packLimit && s.active.size > 0 {
 		if err := s.rotate(s.active.id + 1); err != nil {
 			return err
 		}
 	}
-	var hdr [recHeader]byte
-	binary.LittleEndian.PutUint32(hdr[0:], uint32(len(key)))
-	binary.LittleEndian.PutUint32(hdr[4:], uint32(len(value)))
-	rec := make([]byte, 0, recHeader+len(key)+len(value))
-	rec = append(append(append(rec, hdr[:]...), key...), value...)
-	if _, err := s.active.file.WriteAt(rec, s.active.size); err != nil {
+	hdr := make([]byte, 0, recHeader+len(key))
+	hdr = binary.LittleEndian.AppendUint32(hdr, uint32(len(key)))
+	hdr = binary.LittleEndian.AppendUint32(hdr, uint32(size))
+	hdr = append(hdr, key...)
+	// the active pack is only written here, under mu. Gets use ReadAt and ignore the offset
+	f := s.active.file
+	if _, err := f.Seek(s.active.size, io.SeekStart); err != nil {
 		return err
+	}
+	if _, err := f.Write(hdr); err != nil {
+		f.Truncate(s.active.size)
+		return err
+	}
+	if n, err := io.Copy(f, body); err != nil || n != size { // copy_file_range from the spool
+		f.Truncate(s.active.size)
+		return fmt.Errorf("put %s: wrote %d of %d: %v", key, n, size, err)
 	}
 	if old, ok := s.index[key]; ok {
 		s.packs[old.pack].live -= int64(old.len)
 	}
-	s.index[key] = loc{s.active.id, uint32(s.active.size) + recHeader + uint32(len(key)), uint32(len(value))}
-	s.active.size += int64(len(rec))
-	s.active.live += int64(len(value))
-	s.tiers[0].total += int64(len(rec))
+	s.index[key] = loc{s.active.id, uint32(s.active.size) + recHeader + uint32(len(key)), uint32(size)}
+	s.active.size += recLen
+	s.active.live += size
+	s.tiers[0].total += recLen
 	if t := s.tiers[0]; t.Budget > 0 && t.total > t.Budget {
 		s.kick()
 	}
