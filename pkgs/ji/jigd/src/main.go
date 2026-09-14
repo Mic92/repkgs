@@ -30,7 +30,7 @@ import (
 
 var (
 	store            *Store
-	idents           = NewIdentities()
+	idents           *Identities
 	slots            *Slots
 	gets, hits, puts atomic.Int64
 )
@@ -154,6 +154,7 @@ const usage = `usage: jigd <socket>
 The compile cache and job-slot daemon jig talks to. Nix builds reach it through
 sandbox-paths /nix/var/nix/jigd/socket=<socket>.
 
+  NIX_STORE_DIR   the only tree IDS answers for (default /nix/store)
   XDG_CACHE_HOME  packs live in $XDG_CACHE_HOME/jigd/packs (default ~/.cache)
   JIGD_SIZE       cache budget in GiB (default 50)
   JIGD_COLD       a second, slower pack directory that takes what JIGD_SIZE pushes out
@@ -196,6 +197,11 @@ func main() {
 		}
 	}
 	slots = NewSlots(limit)
+	storeDir := os.Getenv("NIX_STORE_DIR")
+	if storeDir == "" {
+		storeDir = "/nix/store"
+	}
+	idents = NewIdentities(storeDir)
 	var err error
 	store, err = OpenStore(tiers)
 	if err != nil {
