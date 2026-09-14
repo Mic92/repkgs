@@ -78,7 +78,7 @@ export def cc-fact [libc: path, name: string]: nothing -> oneof<list<string>, no
 }
 
 # --target plus the platform's -march/hardening flags (nix/platforms.nix).
-export def target []: nothing -> list<string> { [$"--target=($env.triple)"] ++ ($env.flags | split row " ") }
+export def target []: nothing -> list<string> { [$"--target=($env.clangTarget)"] ++ ($env.flags | split row " ") }
 
 # Compile/link against $env.sysroot with the raw seed clang (recipes that run before `cc` exists,
 # or that build the things `cc` is made of). -unwindlib=none because the seed clang defaults to

@@ -28,10 +28,10 @@ def patched-source []: nothing -> path {
 # The link flags sit in no-unused-arguments because configure probes with `-Werror -S`
 def configure [src: path, rt: string, sh: path]: nothing -> nothing {
   let cc = $"clang (target | str join ' ') -resource-dir=($rt) --start-no-unused-arguments -rtlib=compiler-rt -unwindlib=none -fuse-ld=lld --end-no-unused-arguments"
-  let vars = {CONFIG_SHELL: $sh, CC: $cc, CXX: "false", BUILD_CC: "cc", LDFLAGS: $"-L($rt)/lib/($env.triple)"} | merge $BINUTILS
+  let vars = {CONFIG_SHELL: $sh, CC: $cc, CXX: "false", BUILD_CC: "cc", LDFLAGS: $"-L($rt)/lib/($env.clangTarget)"} | merge $BINUTILS
   "with-clang = yes\n" | save configparms # sysdeps Makefiles branch on it
   with-env $vars {
-    (x sh $"($src)/configure" $"--prefix=($env.out)" $"--host=($env.triple)" --build=x86_64-build-linux-gnu
+    (x sh $"($src)/configure" $"--prefix=($env.out)" $"--host=($env.clangTarget)" --build=x86_64-build-linux-gnu
       $"--with-headers=($env.linuxHeaders)/include" --enable-kernel=5.10 --disable-werror --disable-nscd
       --enable-bind-now --enable-fortify-source --enable-stack-protector=strong
       $"libc_cv_slibdir=($env.out)/lib" $"libc_cv_rtlddir=($env.out)/lib"

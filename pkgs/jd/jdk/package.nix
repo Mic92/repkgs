@@ -36,7 +36,7 @@ package {
         open --raw $h | str replace "#include <string>" "#include <new>\n#include <string>" | save -f $h
         # not autotools proper: its own wrapper, and it wants bash
         let cross = (if $c.platform.cross {
-          [$"--openjdk-target=($c.platform.triple)" $"--with-build-jdk=(tool-root jdk)" $"BUILD_CC=($env.CC_FOR_BUILD)" $"BUILD_CXX=($env.CXX_FOR_BUILD)"]
+          [$"--openjdk-target=($c.platform.gnuTriple)" $"--with-build-jdk=(tool-root jdk)" $"BUILD_CC=($env.CC_FOR_BUILD)" $"BUILD_CXX=($env.CXX_FOR_BUILD)"]
         } else { [] })
         (x bash configure ...$cross
           $"--prefix=($c.out)"

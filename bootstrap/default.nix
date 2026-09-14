@@ -152,7 +152,7 @@ let
         outputHashAlgo = "sha256";
         outputs = [ "out" ];
         inherit (platform)
-          triple
+          clangTarget
           cpu
           libc
           os
@@ -311,7 +311,7 @@ let
           ];
           linuxHeaders = linux-headers;
           # the C.UTF-8 locale is compiled by running the fresh localedef, so only where it can run
-          locale = platform.triple == (platforms.forSystem system "glibc").triple;
+          locale = platform.clangTarget == (platforms.forSystem system "glibc").clangTarget;
         };
         linuxHeaders = linux-headers;
         ccArgs = crossCc platform;

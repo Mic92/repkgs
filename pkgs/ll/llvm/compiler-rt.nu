@@ -32,8 +32,8 @@ def builtin-item [b: string, obj: string, f: string]: nothing -> record {
 # <name>.lib (lld-link), and for darwin only ever lib/darwin/libclang_rt.osx.a (fat in Xcode, one arch here)
 def builtins-lib [out: string]: nothing -> string {
   match $env.binfmt {
-    "elf" => $"($out)/lib/($env.triple)/libclang_rt.builtins.a"
-    "coff" => $"($out)/lib/($env.triple)/clang_rt.builtins.lib"
+    "elf" => $"($out)/lib/($env.clangTarget)/libclang_rt.builtins.a"
+    "coff" => $"($out)/lib/($env.clangTarget)/clang_rt.builtins.lib"
     "macho" => $"($out)/lib/darwin/libclang_rt.osx.a"
   }
 }
@@ -42,7 +42,7 @@ def builtins-lib [out: string]: nothing -> string {
 # glibc's Makeconfig, which links them even when configure saw compiler-rt
 def elf-extras [src: string, out: string, common: list<string>]: nothing -> nothing {
   let b = $"($src)/compiler-rt/lib/builtins"
-  let libdir = $"($out)/lib/($env.triple)"
+  let libdir = $"($out)/lib/($env.clangTarget)"
   let crtflags = [-DCRT_HAS_INITFINI_ARRAY -DEH_USE_FRAME_REGISTRY]
   compile $common [
     {src: $"($b)/crtbegin.c", obj: $"($libdir)/clang_rt.crtbegin.o", flags: $crtflags}
@@ -69,8 +69,8 @@ def profile-runtime [src: string, out: string]: nothing -> nothing {
   } | get $env.binfmt)
   let flags = (target) ++ (libc-includes) ++ [-O2 -nostdinc++ -w $"-I($src)/compiler-rt/include" $"-I($p)"] ++ $has
   let lib = ({
-    elf: $"($out)/lib/($env.triple)/libclang_rt.profile.a"
-    coff: $"($out)/lib/($env.triple)/clang_rt.profile.lib"
+    elf: $"($out)/lib/($env.clangTarget)/libclang_rt.profile.a"
+    coff: $"($out)/lib/($env.clangTarget)/clang_rt.profile.lib"
     macho: $"($out)/lib/darwin/libclang_rt.profile_osx.a"
   } | get $env.binfmt)
   let items = ($srcs | each {|f| {src: $f, obj: $"($env.NIX_BUILD_TOP)/obj/profile/($f | path basename).o"} })

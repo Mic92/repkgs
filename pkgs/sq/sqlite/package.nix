@@ -13,7 +13,7 @@ package {
     "--enable-column-metadata"
   ]
   # autosetup takes the shared library suffix from --host, else from the build machine
-  ++ on platform.cross [ "--host=${platform.configTriple}" ];
+  ++ on platform.cross [ "--host=${platform.gnuTriple}" ];
   tests.run = false; # needs tcl
   dependencies = [ pkgs.zlib ];
 }
