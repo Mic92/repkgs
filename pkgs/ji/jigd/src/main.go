@@ -69,13 +69,22 @@ func put(in *bufio.Reader, out *bufio.Writer, key string, size int64) error {
 	return err
 }
 
+// readLine fails on a line longer than the buffer instead of growing without bound
+func readLine(in *bufio.Reader) (string, error) {
+	line, err := in.ReadSlice('\n')
+	if err != nil {
+		return "", err
+	}
+	return string(line[:len(line)-1]), nil
+}
+
 func ids(in *bufio.Reader, out *bufio.Writer, count int) error {
 	for ; count > 0; count-- {
-		path, err := in.ReadString('\n')
+		path, err := readLine(in)
 		if err != nil {
 			return err
 		}
-		if _, err := out.WriteString(idents.Of(strings.TrimSuffix(path, "\n")) + "\n"); err != nil {
+		if _, err := out.WriteString(idents.Of(path) + "\n"); err != nil {
 			return err
 		}
 	}
@@ -99,7 +108,7 @@ func serve(conn *net.UnixConn) {
 		}
 	}()
 	for {
-		line, err := in.ReadString('\n')
+		line, err := readLine(in)
 		if err != nil {
 			return
 		}
