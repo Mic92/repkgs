@@ -24,6 +24,7 @@
 #include "keys.h"
 #include "manifest.h"
 #include "nix_store_mode.h"
+#include "process.h"
 #include "rustc_mode.h"
 #include "store.h"
 
@@ -67,6 +68,10 @@ void TestBase() {
   assert(!jig::WriteFile("/nonexistent/dir/file", "x"));
   const std::string big(300000, 'y');
   assert(jig::WriteFile("/tmp/jig_test.big", big));
+  assert(jig::ReadFile("/tmp/jig_test.big") == big);
+  assert(jig::Deterministic({.status = 1, .stderr_text = "x.c:1: error: foo"}));
+  assert(!jig::Deterministic({.status = 137, .stderr_text = ""}));
+  assert(!jig::Deterministic({.status = 1, .stderr_text = "clang: error: unable to execute command: Killed"}));
 }
 
 void TestStoreMask() {
