@@ -5,9 +5,12 @@
 package {
   name = "libseccomp";
   uses = [ "autotools" ];
+  patches = [ ./upstream-tests-tail-pid.patch ];
   platforms.os = [ "linux" ];
   buildDependencies = [
     buildPkgs.gperf
+    buildPkgs.bash # tests/regression
+    buildPkgs.which
+    buildPkgs.util-linux
   ];
-  tests.run = false; # test scripts assume /bin/bash and require util-linux/which
 }
