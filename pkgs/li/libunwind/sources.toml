@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/libunwind/libunwind"
+
+[[source]]
+key = "default"
+url = "https://github.com/libunwind/libunwind/releases/download/{tag}/libunwind-{version}.tar.gz"
+hash = "sha256-G2RKVhM9DuzspxkMnd6Wh/FTm/9ykie0khuMJfcZaKM="
+
+[pin]
+version = "1.8.3"
+date = "2025-09-04"
+tag = "v1.8.3"

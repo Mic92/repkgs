@@ -3,12 +3,14 @@
 {
   package,
   buildPkgs,
+  platform,
+  on,
 }:
 package {
   name = "formatelf";
   uses = [ "cargo" ];
-  # tree infrastructure (finish.nu implants prebuilt ELFs with it): must not wait for llvm + rust
-  cargo.tool = buildPkgs.rust-bootstrap;
+  # finish.nu needs it on Linux before llvm + rust exist
+  cargo = on (platform.os == "linux") { tool = buildPkgs.rust-bootstrap; };
   links."bin/auto-formatelf" = "formatelf";
   links."bin/patchelf" = "formatelf";
   bin = [

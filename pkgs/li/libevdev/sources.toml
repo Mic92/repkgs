@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:gitlab/libevdev/libevdev?repository_url=https://gitlab.freedesktop.org"
+
+[[source]]
+key = "default"
+url = "https://www.freedesktop.org/software/libevdev/libevdev-{version}.tar.xz"
+hash = "sha256-NQKV+D//A4wc1860N1GP1kmHC1i5BumqIO6fn9E5KZY="
+
+[pin]
+version = "1.13.7"
+date = "2026-08-18"
+tag = "libevdev-1.13.7"

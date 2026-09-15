@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/libusb/hidapi"
+
+[[source]]
+key = "default"
+url = "https://github.com/libusb/hidapi/archive/refs/tags/hidapi-{version}.tar.gz"
+hash = "sha256-o6IZRG42kTa7EQib9eaV1HGyjaGgeCabk+8fyQTm/0s="
+
+[pin]
+version = "0.15.0"
+date = "2025-05-18"
+tag = "hidapi-0.15.0"
