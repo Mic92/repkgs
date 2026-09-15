@@ -115,23 +115,45 @@ export def write-launcher [name: string, program: string, args: list<string>, va
   note launcher $"bin/($name) -> ($program)"
 }
 
-# no /usr/bin/env in the sandbox: point such scripts at the build PATH's env, and back with --undo
-# for installed copies. mtimes are kept, a generator script newer than its shipped output would
-# make make regenerate it (coreutils' cu-progs.m4, ruby's prism templates)
-export def fix-env-shebangs [dir: path, njobs: int = 4, --undo]: nothing -> nothing {
-  let ours = $"#!(tool env)"
-  # any line: `ruby -x` stubs carry the real #! after a /bin/sh preamble
-  let sub = (if $undo { {from: $"\(?m\)^($ours)", to: "#!/usr/bin/env"} } else { {from: '(?m)^#! ?/usr/bin/env', to: $ours} })
+# The sandbox only has /bin/sh, so #! lines naming `/usr/bin/env X` or an absolute interpreter are
+# rewritten to the program found on PATH, arguments kept. env lines are matched anywhere in the
+# file (`ruby -x` stubs), absolute ones only on the first line. The original of each rewritten
+# file is saved under its new hash so `--undo` can restore installed copies (a marker line inside
+# the script would break escript). mtimes are preserved so make regenerates nothing
+export def fix-shebangs [dir: path, njobs: int = 4, --undo]: nothing -> nothing {
+  let ledger = $"($env.NIX_BUILD_TOP)/shebangs"
+  if $undo and not ($ledger | path exists) { return }
   # installers drop the x bit, so --undo looks at all files
-  let grep = (if $undo { $"^($ours)" } else { '^#! ?/usr/bin/env' })
+  let grep = (if $undo { '^#! ?/nix/store/' } else { '^#! ?(/usr(/local)?)?/bin/' })
   let hits = (^find $dir -type f ...(if $undo { [] } else { [-perm -u+x] }) -size -1024k -exec grep -lE $grep '{}' + | complete | get stdout | lines)
   if ($hits | is-empty) { return }
+  if $undo {
+    # only verbatim installed copies of what prepare rewrote: build systems write store shebangs too
+    for f in $hits {
+      let orig = $"($ledger)/(open --raw $f | hash sha256)"
+      if ($orig | path exists) { ^chmod u+w $f; ^cp $orig $f }
+    }
+    return
+  }
+  mkdir $ledger
   let hits = (^find ...$hits -printf '%T@\t%p\n' | lines | split column "\t" mtime f)
   ^chmod u+w ...$hits.f
+  let rewrite = {|line: string, first: bool|
+    let m = ($line | parse -r '^#! ?(?:/usr/bin/env (?<e>\S+)|(?:/usr(?:/local)?)?/bin/(?!sh\b|env\b)(?<a>[a-z][a-z0-9.]*))(?<args>.*)$')
+    if ($m | is-empty) or ((not $first) and ($m.0.e == "")) { return $line }
+    # an interpreter not on PATH stays, so the failure names it
+    let found = (which $"($m.0.e)($m.0.a)" | where type == external)
+    if ($found | is-empty) { $line } else { $"#!($found.0.path)($m.0.args)" }
+  }
   let done = ($hits | par-each --threads ([$njobs 16] | math min) {|h|
     let text = (open --raw $h.f | decode)
-    let fixed = ($text | str replace -ar $sub.from $sub.to)
-    if $fixed != $text { $fixed | save -f --raw $h.f; $h }
+    let lines = ($text | split row "\n")
+    let fixed = ($lines | enumerate | each {|l| if ($l.item | str starts-with "#!") { do $rewrite $l.item ($l.index == 0) } else { $l.item } } | str join "\n")
+    if $fixed != $text {
+      $fixed | save -f --raw $h.f
+      $text | save -f --raw $"($ledger)/($fixed | hash sha256)"
+      $h
+    }
   } | compact)
-  if not $undo { for g in ($done | group-by mtime --to-table) { ^touch -d $"@($g.mtime)" ...$g.items.f } }
+  for g in ($done | group-by mtime --to-table) { ^touch -d $"@($g.mtime)" ...$g.items.f }
 }

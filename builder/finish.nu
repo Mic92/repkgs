@@ -18,7 +18,7 @@ export def --env main [
   let inv = (prune $c.out (inventory $c.out))
   layout-check $c.out
   # installed copies of source scripts carry the build env's path from prepare: not a dependency
-  fix-env-shebangs $c.out $c.njobs --undo
+  fix-shebangs $c.out $c.njobs --undo
   mkdir (attrs).outputs.debug
   relocate $c $inv
   write-exports $c.out $c.spec $c.platform $c.deps
