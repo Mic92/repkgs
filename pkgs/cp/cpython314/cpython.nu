@@ -67,10 +67,11 @@ export def build-details []: nothing -> nothing {
   let c = (ctx)
   let f = (files $"($c.out)/lib/python3.*/build-details.json" | first)
   let py = ($f | path dirname | path basename)
-  open $f | reject libpython.static | merge deep {
+  let details = (open $f | reject libpython.static | merge deep {
     base_prefix: "../.."
     base_interpreter: $"./bin/($py)"
     libpython: {dynamic: $"./lib/lib($py).so", dynamic_stableabi: "./lib/libpython3.so"}
     c_api: {headers: $"./include/($py)", pkgconfig_path: "./lib/pkgconfig"}
-  } | save -f $f
+  })
+  $details | save -f $f
 }
