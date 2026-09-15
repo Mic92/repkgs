@@ -31,4 +31,18 @@ export def run-install [flags: list<string>, targets: list<string>]: nothing -> 
 
 export def build []: nothing -> nothing { let o = (options make); run-build $o.flags $o.buildTarget }
 export def test []: nothing -> nothing { let o = (options make); run-test $o.flags $o.testTarget }
-export def install []: nothing -> nothing { let o = (options make); run-install ($o.flags ++ $o.installFlags) $o.installTarget }
+# `make.programs` around an install step: the suffix-less name exists for the Makefile before,
+# the installed copy gets its suffix back after
+def with-programs [programs: list<string>, install: closure]: nothing -> nothing {
+  let c = (ctx)
+  let exe = $c.platform.ext.exe
+  if $exe == "" { do $install; return }
+  for f in ($programs | each {|p| glob $"**/($p)($exe)" } | flatten) { ^cp $f ($f | str replace -r $'\($exe)$' "") }
+  do $install
+  for f in ($programs | each {|p| $"($c.out)/bin/($p)" } | where { $in | path exists }) { ^mv $f $"($f)($exe)" }
+}
+
+export def install []: nothing -> nothing {
+  let o = (options make)
+  with-programs $o.programs { run-install ($o.flags ++ $o.installFlags) $o.installTarget }
+}

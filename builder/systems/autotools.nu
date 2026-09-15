@@ -7,12 +7,30 @@ export def --env setup []: nothing -> nothing { make setup }
 
 export def workdir []: nothing -> string { if (options autotools).outOfTree { (ctx).build } else { project-dir autotools } }
 
-# gnulib's gettext.h without NLS: `((void) d, gettext (s))`. clang sees no string literal
-# behind the comma operator and -Werror=format-security rejects every _("...")
-def gnulib-gettext-literal [src: string]: nothing -> nothing {
-  const FALLBACK = "((void) (Domainname), gettext (Msgid))"
-  for f in (files $"($src)/**/gettext.h" | where { open --raw $in | str contains $FALLBACK }) {
-    edit $f { str replace -a $FALLBACK "gettext (Msgid)" | str replace -a "((void) (Category), dgettext (Domainname, Msgid))" "dgettext (Domainname, Msgid)" }
+# Fixes newer upstreams ship, applied to the generated copies old tarballs carry. Each entry:
+# files (glob under the source), the text as shipped, its replacement
+const BACKPORTS = [
+  [files old new];
+  # gnulib gettext.h without NLS: `((void) d, gettext (s))` hides the literal from -Wformat-security
+  ["**/gettext.h" "((void) (Domainname), gettext (Msgid))" "gettext (Msgid)"]
+  ["**/gettext.h" "((void) (Category), dgettext (Domainname, Msgid))" "dgettext (Domainname, Msgid)"]
+  # libtool < 2.5 loses compiler-rt's builtins (___chkstk_ms, __divti3) relinking a C++ library
+  # -nostdlib: configure keeps only -l/-L words of `$CC -v`, ltmain drops static archive deplibs
+  ["**/configure" "    -L* | -R* | -l*)\n       # Some compilers place" "    -L* | -R* | -l* | */libclang_rt.*.a)\n       # Some compilers place"]
+  ["**/ltmain.sh" "\t    # Linking convenience modules into shared libraries is allowed,\n" "\t    case $deplib in */libgcc*.$libext | */libclang_rt*.$libext) deplibs=\"$deplib $deplibs\"; continue ;; esac\n\t    # Linking convenience modules into shared libraries is allowed,\n"]
+]
+
+# mtimes kept: a configure newer than the shipped docs has make regenerate them (flex.info: makeinfo)
+def backports [src: string]: nothing -> nothing {
+  for b in $BACKPORTS {
+    for f in (files $"($src)/($b.files)") {
+      let text = (open --raw $f)
+      if ($text | str contains $b.old) {
+        let mtime = (ls -l $f | first | get modified)
+        $text | str replace -a $b.old $b.new | save -f $f
+        ^touch -d ($mtime | format date "@%s") $f
+      }
+    }
   }
 }
 
@@ -37,13 +55,22 @@ export def --env configure []: nothing -> nothing {
   let cache = $"($c.build)/config.cache"
   let key = (probe-cache key autoconf [$script])
   note config.cache (if (probe-cache restore $key $cache) { "restored" } else { "cold" })
-  gnulib-gettext-literal $c.src
+  backports $c.src
   cp (tool install) (install-tool)
   with-env {PKGS_PREFIX: $c.out, PKGS_CONFIG_CACHE: $cache, INSTALL: $"(install-tool) -c"} {
     (x $env.CONFIG_SHELL $script --disable-nls --disable-dependency-tracking --disable-static --enable-shared
       ...$host_flags ...$o.flags)
   }
   probe-cache store $key $cache
+  if not $c.platform.posix { stub-gnulib-tests (workdir) }
+}
+
+# gnulib's own tests: their nanosleep/pthread replacements collide with winpthreads' inline ones
+def stub-gnulib-tests [build: string]: nothing -> nothing {
+  for mf in (files $"($build)/{gnulib-tests,tests}/Makefile" | where { open --raw $in | str contains "test-nanosleep" }) {
+    "all install check clean distclean:\n\t@:\n.PHONY: all install check clean distclean\n" | save -f $mf
+    note gnulib-tests $"($mf | path relative-to $build | path dirname): skipped on (ctx).platform.os"
+  }
 }
 
 export def build []: nothing -> nothing { let o = (options autotools); make run-build $o.makeFlags $o.buildTarget }

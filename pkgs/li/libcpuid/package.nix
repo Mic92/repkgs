@@ -3,10 +3,10 @@
 }:
 package {
   name = "libcpuid";
-  # cmake sets MSVC only for cl-style drivers, the project keys windows specifics on it (docs/plan.md)
-  platforms.os = [
-    "linux"
-    "macos"
+  # cmake sets MSVC only for cl-style drivers, the project keys windows specifics on it
+  platforms.abi = [
+    "gnu"
+    "apple"
   ];
   uses = [ "cmake" ];
   # the ARM kernel driver installs DKMS sources to /usr/src

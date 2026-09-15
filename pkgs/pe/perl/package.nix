@@ -6,6 +6,8 @@
   toolchain,
 }:
 package {
+  # perl-cross has no win32 configuration
+  platforms.posix = true;
   name = "perl";
   dependencies = [ pkgs.zlib ];
   uses = [ "autotools" ];

@@ -4,10 +4,7 @@
 package {
   name = "zip";
   # unix/Makefile
-  platforms.os = [
-    "linux"
-    "macos"
-  ];
+  platforms.posix = true;
   # glibc's fortified printf macro hid these from -Wformat-security
   patches = [ ./upstream-format-security.patch ];
   phases = [

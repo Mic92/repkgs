@@ -6,7 +6,7 @@ use ../../../bootstrap/lib.nu *
 # absolute seed paths: `cc` must work with an empty PATH, and `clang` on PATH is the cache shim
 def seed-bin [name: string]: nothing -> string { $"($env.seed)/bin/($name)" }
 
-def lld []: nothing -> string { seed-bin ({elf: "ld.lld", macho: "ld64.lld", coff: "lld-link"} | get $env.binfmt) }
+def lld []: nothing -> string { seed-bin (target-profile).lld }
 
 # What jig prepends for `cc` (flags) and additionally for `c++` (cxxflags). An SDK states its
 # own in etc/cc/{flags,cxxflags} (bootstrap/lib.nu cc-facts, merged into the sysroot), SYSROOT
@@ -49,7 +49,7 @@ def elf-policy [out: string, sysroot: string]: nothing -> record {
 
 # hello.c and hello.cc through the finished wrapper. Run only when the target is the build machine
 def smoke-test [out: string]: nothing -> nothing {
-  let exe = ({elf: "", macho: "", coff: ".exe"} | get $env.binfmt)
+  let exe = (target-profile).exe
   "#include <stdio.h>\nint main(void) { puts(\"cc ok\"); }\n" | save -f hello.c
   "#include <print>\nint main() { std::println(\"c++ ok\"); }\n" | save -f hello.cc
   x $"($out)/bin/cc" hello.c -o $"hello($exe)"
@@ -67,10 +67,18 @@ def main []: nothing -> nothing {
   # the raw seed compiler, which bootstrap recipes drive themselves
   cp $"($env.prebuilt)/bin/jig" $"($out)/bin/jig"
   for n in [cc c++ gcc g++ reloc-fixup gocacheprog rustcwrap] { x ln -s jig $"($out)/bin/($n)" }
-  # lld picks its personality from argv[0], and "ld" means ELF: spell the flavour out elsewhere
-  if $env.binfmt == "elf" { x ln -s (lld) $"($out)/bin/ld" } else {
-    $"#!/bin/sh\nexec (seed-bin lld) -flavor ({macho: darwin, coff: link} | get $env.binfmt) \"$@\"\n" | save $"($out)/bin/ld"
+  # lld picks its personality from argv[0], and "ld" means ELF: spell the target out where it differs
+  let p = (target-profile)
+  let ldargs = (if $p.ldFlavor != null { $"(seed-bin lld) -flavor ($p.ldFlavor)" } else if "ldEmulation" in $p { $"(lld) -m ($p.ldEmulation)" })
+  if $ldargs == null { x ln -s (lld) $"($out)/bin/ld" } else {
+    $"#!/bin/sh\nexec ($ldargs) \"$@\"\n" | save $"($out)/bin/ld"
     chmod +x $"($out)/bin/ld"
+  }
+  # binutils that mingw build files call unprefixed and that need the target spelled out
+  if "bfd" in $p {
+    $"#!/bin/sh\nexec (seed-bin llvm-windres) --target=($p.bfd) --preprocessor-arg=--sysroot=($sysroot) \"$@\"\n" | save $"($out)/bin/windres"
+    $"#!/bin/sh\nexec (seed-bin llvm-dlltool) -m ($p.dlltoolMachine) \"$@\"\n" | save $"($out)/bin/dlltool"
+    chmod +x $"($out)/bin/windres" $"($out)/bin/dlltool"
   }
   # CC_FOR_BUILD when cross: jig locates its conf via /proc/self/exe, so symlinks to the native cc suffice
   if "native" in $env { for n in [cc c++] { x ln -s $"($env.native)/bin/($n)" $"($out)/bin/($n)-build" } }

@@ -28,15 +28,7 @@ def builtin-item [b: string, obj: string, f: string]: nothing -> record {
   {src: $"($b)/($f)", obj: $"($obj)/($f).o", flags: $std}
 }
 
-# Where each driver looks for the builtins: the per-target runtime dir with lib<name>.a (ELF) or
-# <name>.lib (lld-link), and for darwin only ever lib/darwin/libclang_rt.osx.a (fat in Xcode, one arch here)
-def builtins-lib [out: string]: nothing -> string {
-  match $env.binfmt {
-    "elf" => $"($out)/lib/($env.clangTarget)/libclang_rt.builtins.a"
-    "coff" => $"($out)/lib/($env.clangTarget)/clang_rt.builtins.lib"
-    "macho" => $"($out)/lib/darwin/libclang_rt.osx.a"
-  }
-}
+def rt-lib [out: string, name: string]: nothing -> string { $"($out)/(do (target-profile).rt $name)" }
 
 # ELF only: crtbegin/crtend (vcruntime and libSystem bring their own) and GCC's crt names for
 # glibc's Makeconfig, which links them even when configure saw compiler-rt
@@ -62,17 +54,10 @@ def profile-runtime [src: string, out: string]: nothing -> nothing {
   # WindowsMMap the win32 mmap port
   let skip = (if $env.binfmt == "coff" { "ROCm" } else { "^WindowsMMap|ROCm" })
   let srcs = (files $"($p)/*.{c,cpp}" | where { ($in | path basename) !~ $skip })
-  let has = ({
-    elf: [-DCOMPILER_RT_HAS_ATOMICS=1 -DCOMPILER_RT_HAS_FCNTL_LCK=1 -DCOMPILER_RT_HAS_FLOCK=1 -DCOMPILER_RT_HAS_UNAME=1 -fPIC]
-    macho: [-DCOMPILER_RT_HAS_ATOMICS=1 -DCOMPILER_RT_HAS_FCNTL_LCK=1 -DCOMPILER_RT_HAS_FLOCK=1 -DCOMPILER_RT_HAS_UNAME=1 -fPIC]
-    coff: [-DCOMPILER_RT_HAS_ATOMICS=1]
-  } | get $env.binfmt)
+  let p = (target-profile)
+  let has = [-DCOMPILER_RT_HAS_ATOMICS=1] ++ $p.pic ++ (if $p.posix { [-DCOMPILER_RT_HAS_FCNTL_LCK=1 -DCOMPILER_RT_HAS_FLOCK=1 -DCOMPILER_RT_HAS_UNAME=1] } else { [] })
   let flags = (target) ++ (libc-includes) ++ [-O2 -nostdinc++ -w $"-I($src)/compiler-rt/include" $"-I($p)"] ++ $has
-  let lib = ({
-    elf: $"($out)/lib/($env.clangTarget)/libclang_rt.profile.a"
-    coff: $"($out)/lib/($env.clangTarget)/clang_rt.profile.lib"
-    macho: $"($out)/lib/darwin/libclang_rt.profile_osx.a"
-  } | get $env.binfmt)
+  let lib = (rt-lib $out profile)
   let items = ($srcs | each {|f| {src: $f, obj: $"($env.NIX_BUILD_TOP)/obj/profile/($f | path basename).o"} })
   archive $lib (compile $flags $items)
 }
@@ -83,7 +68,7 @@ def main []: nothing -> nothing {
   let b = $"($src)/compiler-rt/lib/builtins"
   let obj = $"($env.NIX_BUILD_TOP)/obj"
 
-  let pic = ({elf: [-fPIC], macho: [-fPIC], coff: []} | get $env.binfmt)
+  let pic = (target-profile).pic
   # no -DCOMPILER_RT_HAS_FLOAT16 on ppc: clang has no _Float16 there (cmake probes the same)
   let percpu = (match $env.cpu {
     "powerpc64le" => []
@@ -97,7 +82,7 @@ def main []: nothing -> nothing {
 
   let items = (read-list $env.list | each {|f| builtin-item $b $obj $f })
   say $"compiler-rt builtins ($env.cpu): ($items | length) objects"
-  let lib = (builtins-lib $out)
+  let lib = (rt-lib $out builtins)
   mkdir ($lib | path dirname)
   archive $lib (compile $common $items)
 

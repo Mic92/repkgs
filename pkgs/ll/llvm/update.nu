@@ -1,4 +1,4 @@
-# uptrack hook. builtins-<cpu>[-<os>].txt = the lib/builtins sources cmake would select per target,
+# uptrack hook. builtins-<platform>.txt = the lib/builtins sources cmake would select per target,
 # derived from the pinned llvm-project. pkgs/ll/llvm/compiler-rt.nu compiles that list so stage0
 # needs no cmake.
 
@@ -9,8 +9,9 @@ const TARGETS = {
   riscv64: {triple: riscv64-unknown-linux-gnu, system: Linux}
   loongarch64: {triple: loongarch64-unknown-linux-gnu, system: Linux}
   powerpc64le: {triple: powerpc64le-unknown-linux-gnu, system: Linux}
-  x86_64-windows: {triple: x86_64-pc-windows-msvc, system: Windows}
-  aarch64-windows: {triple: aarch64-pc-windows-msvc, system: Windows}
+  x86_64-windows-msvc: {triple: x86_64-pc-windows-msvc, system: Windows}
+  x86_64-windows-gnu: {triple: x86_64-w64-mingw32, system: Windows}
+  aarch64-windows-msvc: {triple: aarch64-pc-windows-msvc, system: Windows}
 }
 
 # compiler-rt's Apple path shells out to xcrun and PlistBuddy, so it cannot be configured here.

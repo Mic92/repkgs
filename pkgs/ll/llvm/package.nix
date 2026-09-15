@@ -17,9 +17,8 @@ package {
   cmake.root = "llvm";
   cmake.defs =
     import ./defs.nix
-    # the nested NATIVE configure (tblgen, host/llvm-config) would pick the target cc. Static so
-    # what it builds carries no build-machine store path into $out, and told about the dylib so
-    # its llvm-config answers --link-shared like the target one
+    # the nested NATIVE configure (tblgen, host/llvm-config): build cc, static so no build-machine
+    # store path lands in $out, and dylib + triple so its llvm-config answers like the target's
     // on platform.cross {
       CROSS_TOOLCHAIN_FLAGS_NATIVE = join ";" [
         "-DCMAKE_C_COMPILER=cc-build"
@@ -27,6 +26,7 @@ package {
         "-DCMAKE_EXE_LINKER_FLAGS=-static"
         "-DLLVM_BUILD_LLVM_DYLIB=ON"
         "-DLLVM_LINK_LLVM_DYLIB=ON"
+        "-DLLVM_HOST_TRIPLE=${platform.clangTarget}"
       ];
     };
   # configure-time tools (cmake, meson, x.py) run llvm-config on the build machine. The NATIVE

@@ -3,10 +3,7 @@
 package {
   name = "unzip";
   # unix/Makefile
-  platforms.os = [
-    "linux"
-    "macos"
-  ];
+  platforms.posix = true;
   phases = [
     {
       name = "build";

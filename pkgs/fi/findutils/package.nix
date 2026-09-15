@@ -1,5 +1,7 @@
 { package }:
 package {
+  # pwd.h, fnmatch
+  platforms.posix = true;
   name = "findutils";
   uses = [ "autotools" ];
   bootstrapTools = true;

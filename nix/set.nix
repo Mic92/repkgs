@@ -1,5 +1,5 @@
 # The package set for one platform and what it is made from: { pkgs, bootstrap, buildSystems }.
-# default.nix is `pkgs` alone; nix/options.nix and nix/ci.nix read the rest.
+# default.nix is `pkgs` alone; nix/options.nix and nix/checks.nix read the rest.
 {
   system ? builtins.currentSystem,
   platform ? system,
@@ -14,22 +14,28 @@ let
   feat = import ./features.nix;
   bootstrap = import ../bootstrap { inherit seed system; };
 
-  parts = builtins.match "([^-]+)-([^-]+)" platform;
+  parts = builtins.match "([^-]+)-([^-]+)(-(msvc|gnu))?" platform;
   cpu = builtins.head parts;
   os = builtins.elemAt parts 1;
+  abi = builtins.elemAt parts 3;
   unknown = throw "no platform ${platform}";
-  # <cpu>-windows: the msvc toolchain over the SDK the build machine's set fetches
+  # <cpu>-windows[-msvc]: the msvc toolchain over the SDK the build machine's set fetches,
+  # <cpu>-windows-gnu: mingw-w64
   stage =
-    if parts == null then
+    if parts == null || (abi != null && os != "windows") then
       unknown
     else
       {
-        windows = bootstrap.msvc cpu (
-          fetch.windowsSdk {
-            manifest = (readSources ../pkgs/wi/windows-sdk/sources.toml).fetch "default";
-            arch = cpu;
-          }
-        );
+        windows =
+          if abi == "gnu" then
+            bootstrap.mingw cpu
+          else
+            bootstrap.msvc cpu (
+              fetch.windowsSdk {
+                manifest = (readSources ../pkgs/wi/windows-sdk/sources.toml).fetch "default";
+                arch = cpu;
+              }
+            );
         macos = bootstrap.macos cpu;
         linux = bootstrap.stage1.${cpu} or unknown;
       }

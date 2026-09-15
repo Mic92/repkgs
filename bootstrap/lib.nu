@@ -77,6 +77,27 @@ export def cc-fact [libc: path, name: string]: nothing -> oneof<list<string>, no
   if ($f | path exists) { read-list $f }
 }
 
+# What differs per binary format / libc in the llvm recipes, decided once. rt: where the clang
+# driver looks for a clang_rt library, relative to the resource dir. ldFlavor/ldEmulation: what
+# bin/ld must pass so a bare `ld` behaves as the target's linker (libtool probes `ld --help`)
+export def target-profile []: nothing -> record {
+  let t = $env.clangTarget
+  let cpu = $env.cpu
+  match [$env.binfmt $env.libc] {
+    ["coff" "mingw"] => {posix: false, pic: [], shared: false, exe: ".exe", lld: "ld.lld", ldFlavor: null
+      ldEmulation: ({x86_64: "i386pep", aarch64: "arm64pe"} | get $cpu)
+      rt: {|n| $"lib/windows/libclang_rt.($n)-($cpu).a" }
+      bfd: ({x86_64: "pe-x86-64", aarch64: "pe-aarch64-little"} | get $cpu)
+      dlltoolMachine: ({x86_64: "i386:x86-64", aarch64: "arm64"} | get $cpu)}
+    ["coff" _] => {posix: false, pic: [], shared: false, exe: ".exe", lld: "lld-link", ldFlavor: link
+      rt: {|n| $"lib/($t)/clang_rt.($n).lib" }}
+    ["macho" _] => {posix: true, pic: [-fPIC], shared: true, exe: "", lld: "ld64.lld", ldFlavor: darwin
+      rt: {|n| $"lib/darwin/libclang_rt.(if $n == builtins { '' } else { $'($n)_' })osx.a" }}
+    _ => {posix: true, pic: [-fPIC], shared: true, exe: "", lld: "ld.lld", ldFlavor: null
+      rt: {|n| $"lib/($t)/libclang_rt.($n).a" }}
+  }
+}
+
 # --target plus the platform's -march/hardening flags (nix/platforms.nix).
 export def target []: nothing -> list<string> { [$"--target=($env.clangTarget)"] ++ ($env.flags | split row " ") }
 

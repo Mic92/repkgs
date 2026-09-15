@@ -1,6 +1,7 @@
 { package }:
 package {
   name = "alsa-lib";
+  platforms.os = [ "linux" ];
   uses = [ "autotools" ];
   # plugins are the system's
   patches = [ ./relocatable.patch ];

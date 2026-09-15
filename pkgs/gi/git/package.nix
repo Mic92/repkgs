@@ -10,6 +10,8 @@
 }:
 package {
   name = "git";
+  # Git for Windows is a fork with its own compat layer, upstream configure needs socklen_t & co.
+  platforms.posix = true;
   uses = [
     "autotools"
     "cargo"
@@ -39,14 +41,7 @@ package {
     "NO_PYTHON=1"
     "NO_GETTEXT=1"
     # config.mak.uname asks the build machine
-    "uname_S=${
-      {
-        linux = "Linux";
-        macos = "Darwin";
-        windows = "Windows";
-      }
-      .${platform.os}
-    }"
+    "uname_S=${platform.osNames.cmake}"
     "uname_M=${platform.cpu}"
     "uname_O=${if platform.os == "linux" then "GNU/Linux" else platform.os}"
     "uname_R="

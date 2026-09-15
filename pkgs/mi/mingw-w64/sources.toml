@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:generic/mingw-w64?url=https://www.mingw-w64.org/changelog/"
+
+[[source]]
+key = "default"
+url = "https://downloads.sourceforge.net/project/mingw-w64/mingw-w64/mingw-w64-release/mingw-w64-v{version}.tar.bz2"
+hash = "sha256-7BIbs/T/RhzlqLLZi9UfPzwePBFfotAHQ898TrdsjHU="
+
+[pin]
+version = "13.0.0"

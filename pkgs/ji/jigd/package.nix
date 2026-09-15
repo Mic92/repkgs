@@ -3,10 +3,7 @@
 package {
   name = "jigd";
   # unix sockets and syscall.Flock
-  platforms.os = [
-    "linux"
-    "macos"
-  ];
+  platforms.posix = true;
   version = "3";
   source = ./src;
   uses = [ "go" ];

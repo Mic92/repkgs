@@ -1,5 +1,7 @@
 { package }:
 package {
+  # langinfo.h, wait
+  platforms.posix = true;
   name = "gawk";
   uses = [ "autotools" ];
   bootstrapTools = true;

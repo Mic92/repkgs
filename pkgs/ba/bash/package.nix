@@ -1,5 +1,7 @@
 { package }:
 package {
+  # fork, signals, job control
+  platforms.posix = true;
   name = "bash";
   uses = [ "autotools" ];
   bootstrapTools = true;

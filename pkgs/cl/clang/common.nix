@@ -42,7 +42,7 @@ import ../../ll/llvm/subproject.nix
     phases.after.set."cmake.install" = [
       {
         name = "clang-tblgen";
-        run = "cp bin/clang-tblgen $\"($c.out)/bin/\"";
+        run = "cp $\"bin/clang-tblgen($c.platform.ext.exe)\" $\"($c.out)/bin/\"";
       }
     ];
     bin.set = [ ];

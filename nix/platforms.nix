@@ -7,6 +7,26 @@
 # cpu_family, qemu-user binary, gyp/V8 dest-cpu, apple's clang arch) where it differs from ours,
 # and `osNames` the same for the os (cmake CMAKE_SYSTEM_NAME, meson system and kernel, GOOS).
 let
+  # file name pieces per binary format (and import library convention). Versioned shared
+  # library names order differently per format: `shlib` / `linklib` in builder/core.nu
+  extFor = binfmt: libc: {
+    exe = if binfmt == "coff" then ".exe" else "";
+    shared =
+      {
+        elf = ".so";
+        macho = ".dylib";
+        coff = ".dll";
+      }
+      .${binfmt};
+    static = if libc == "msvc" then ".lib" else ".a";
+    # what -l<name> finds for a shared library where that is not the library itself
+    import =
+      {
+        msvc = ".lib";
+        mingw = ".dll.a";
+      }
+      .${libc} or null;
+  };
   oses = {
     linux.osNames = {
       cmake = "Linux";
@@ -105,9 +125,10 @@ let
       inherit cpu libc;
       inherit (oses.linux) osNames;
       os = "linux";
+      abi = "gnu";
+      posix = true;
       binfmt = "elf";
-      exe = "";
-      sharedLib = "so";
+      ext = extFor binfmt libc;
       names = builtins.mapAttrs (n: _: c.names.${n} or cpu) {
         kernel = null;
         go = null;
@@ -134,10 +155,11 @@ let
       opensslTarget = c.names.openssl or "linux64-${cpu}"; # its Configure's own table
       interp = if libc == "musl" then "ld-musl-${cpu}.so.1" else c.interp.glibc;
     };
-  # The non-Linux targets take libc, C++ library and SDK as given (pkgs/wi/windows-sdk,
-  # pkgs/ap/apple-sdk). PE and Mach-O find libraries beside the binary / by install name, so there
-  # is no interp and finish/launchers have nothing to do. Windows is the MSVC ABI every other
-  # Windows binary has. macOS links with ld64.lld, `minos` is the deployment target.
+  # The non-Linux targets. PE and Mach-O find libraries beside the binary / by install name, so
+  # there is no interp and finish/launchers have nothing to do. macOS and msvc take libc, C++
+  # library and SDK as given (pkgs/ap/apple-sdk, pkgs/wi/windows-sdk); windows gnu is mingw-w64
+  # on UCRT with our libc++. `abi` tells the two windows apart, `posix` is what packages needing
+  # fork/signals/ttys ask for. `minos` is the deployment target.
   given =
     cpu: o:
     let
@@ -148,16 +170,9 @@ let
       inherit (mk cpu "glibc") names;
       inherit (oses.${o.os}) osNames;
       name = "${cpu}-${o.os}";
+      posix = o.os != "windows";
       interp = "";
-      exe = if o.binfmt == "coff" then ".exe" else "";
-      # file name pieces by binary format. Versioned names order differently per format: `shlib`
-      # in builder/core.nu
-      sharedLib =
-        {
-          macho = "dylib";
-          coff = "dll";
-        }
-        .${o.binfmt};
+      ext = extFor o.binfmt o.libc;
       march = o.march or c.march;
       hardening = { };
     }
@@ -168,15 +183,30 @@ let
       os = "windows";
       binfmt = "coff";
       libc = "msvc";
+      abi = "msvc";
       clangTarget = "${cpu}-pc-windows-msvc";
       gnuTriple = clangTarget;
       rustTriple = clangTarget;
       opensslTarget = if cpu == "aarch64" then "VC-WIN64-CLANGASM-ARM" else "VC-WIN64A";
     };
+  mingw =
+    cpu:
+    given cpu rec {
+      name = "${cpu}-windows-gnu";
+      os = "windows";
+      binfmt = "coff";
+      libc = "mingw";
+      abi = "gnu";
+      clangTarget = "${cpu}-w64-mingw32";
+      gnuTriple = clangTarget;
+      rustTriple = "${cpu}-pc-windows-gnullvm";
+      opensslTarget = if cpu == "aarch64" then "mingwarm64" else "mingw64";
+    };
   macos =
     cpu:
     given cpu rec {
       os = "macos";
+      abi = "apple";
       binfmt = "macho";
       libc = "apple";
       minos = "14.0";
@@ -194,6 +224,10 @@ in
   msvc = {
     x86_64 = msvc "x86_64";
     aarch64 = msvc "aarch64";
+  };
+  mingw = {
+    x86_64 = mingw "x86_64";
+    aarch64 = mingw "aarch64";
   };
   macos.aarch64 = macos "aarch64";
 }
