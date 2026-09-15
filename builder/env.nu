@@ -2,6 +2,7 @@
 # loads them in order: sandbox dirs, reproducibility pins, the toolchain's view of the
 # dependencies, default flags, then the build tools' and the spec's own `env` on top.
 use core.nu *
+use hardening.nu
 
 # writable HOME and XDG dirs for tools with per-user caches (npm, pnpm, bun, luarocks, gem),
 # TMPDIR inside the build, CI=true and TERM=dumb so nothing prompts or redraws a status line (the
@@ -49,24 +50,18 @@ def toolchain [a: record, deps: list<record>]: nothing -> record {
 
 # $PKGS_CC: what jig adds to every target cc command line (dependency dirs, defaults, hardening,
 # the package's cc.*flags), keyed by toolchain root so cc-build gets none of it. Not CFLAGS:
-# a Makefile that sets CFLAGS must not lose them. Hardening is nix/hardening.nix: on per platform
-# ($a.hardening.enabled), a package turns names off or on with `cc.hardening.<name>` or all off
-# with `cc.hardening = false`
+# a Makefile that sets CFLAGS must not lose them
 def package-cc [a: record, deps: list<record>]: nothing -> record {
   let cc = ($a.spec.cc? | default {})
-  let h = $a.hardening
-  let enabled = (if $cc.hardening? == false { {} } else { $h.enabled | merge ($cc.hardening? | default {}) })
-  let harden = {|names: list<string>| $names | where {|n| ($enabled | get -o $n) == true } | each {|n| $h.flags | get $n } | flatten }
-  let compile = ($h.flags | columns | where {|n| $n not-in ($h.cxx ++ $h.link) })
+  let h = (hardening enabled-flags $a.platform $cc)
   # spec.debug for cc and for cargo's release profile
   let g = (if $a.spec.debug { [-g full] } else { [-g0 none] })
   # dependency dirs as -isystem and trailing -L: searched after the project's own, like /usr would be
   let flags = {
     cflags: ((dep-dirs $deps includeDirs | each { $"-isystem($in)" })
-      ++ ["-O2" $g.0 "-fno-omit-frame-pointer" "-mno-omit-leaf-frame-pointer"] ++ (do $harden $compile) ++ ($cc.cflags? | default []))
-    cxxflags: ((do $harden $h.cxx) ++ ($cc.cxxflags? | default []))
-    ldflags: ((dep-dirs $deps libDirs | each { $"-L($in)" })
-      ++ (do $harden $h.link) ++ ($cc.ldflags? | default []))
+      ++ ["-O2" $g.0 "-fno-omit-frame-pointer" "-mno-omit-leaf-frame-pointer"] ++ $h.cflags ++ ($cc.cflags? | default []))
+    cxxflags: ($h.cxxflags ++ ($cc.cxxflags? | default []))
+    ldflags: ((dep-dirs $deps libDirs | each { $"-L($in)" }) ++ $h.ldflags ++ ($cc.ldflags? | default []))
   }
   let root = (which cc | get 0.path | path expand | path dirname -n 2)
   {PKGS_CC: ({$root: $flags} | to json -r), CARGO_PROFILE_RELEASE_DEBUG: $g.1, CARGO_PROFILE_RELEASE_STRIP: none}

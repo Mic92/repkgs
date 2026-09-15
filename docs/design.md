@@ -185,7 +185,7 @@ phases = [ "foo.gen" "cmake.build" ];                 # foo.<phase> lives in foo
 - **Cross is the build system's job**, from one platform record: `--host` + `config.site`, meson
   cross file, cmake toolchain file, `CARGO_TARGET_*`, `GOARCH`. Tests run under qemu.
 - **Hardening and reproducibility are compiler defaults.** jig adds `-O2 -g`, frame pointers and
-  the nixpkgs hardening set outside `CFLAGS`, so no Makefile drops them. `nix/hardening.nix`
+  the nixpkgs hardening set outside `CFLAGS`, so no Makefile drops them. `builder/hardening.nu`
   is the table, a platform or package turns names off (`cc.hardening.fortify = false`).
   `SOURCE_DATE_EPOCH`, prefix maps and fixed seeds cover reproducibility.
 - **Tests run**, in the build or as `<pkg>.tests` (`tests.separate`). Every `bin/x --version`

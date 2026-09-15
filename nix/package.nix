@@ -19,7 +19,6 @@
 }:
 let
   elf = platform.binfmt == "elf";
-  hardening = import ./hardening.nix;
   inherit (lib)
     join
     lines
@@ -103,6 +102,7 @@ let
         libc
         posix
         ext
+        hardening
         ;
       inherit (toolchain) sysroot;
       probe = if platform.cross then "${toolchain.sysroot}/lib/${platform.interp}" else "";
@@ -112,11 +112,6 @@ let
       # finish.nu runs the version check under it: a failed dlopen fails the build
       dlaudit = if elf then "${dlaudit}/lib/dlaudit.so" else "";
       relocStub = "${toolchain}/lib/reloc_stub.bin";
-    };
-    # nix/hardening.nix as data for builder/env.nu: the flag table and what is on for this platform
-    hardening = {
-      inherit (hardening) flags cxx link;
-      enabled = hardening.forPlatform platform;
     };
   };
   phaseRe = "([a-z][a-z0-9]*)\\.([a-zA-Z][a-zA-Z-]*)";
@@ -171,7 +166,6 @@ let
       "ldflags"
       "hardening"
     ];
-    "cc.hardening" = attrNames hardening.flags;
   };
   subKeys =
     prefix: set:

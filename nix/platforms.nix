@@ -1,8 +1,8 @@
 # CPU facts, the only place they live. `glibc.<cpu>` / `musl.<cpu>` / `forSystem` add the libc-
 # dependent fields (clangTarget/gnuTriple/rustTriple, dynamic linker name) and `binfmt` (elf | macho | coff), which is what
 # decides linker flavour, PIC, crt objects, interp/RUNPATH and whether launchers apply.
-# `march` ends up in every cc invocation via jig.conf. `hardening` is the cpu's verdict on
-# nix/hardening.nix names: what it adds (cfprotection, branchprotection) or cannot take.
+# `march` ends up in every cc invocation via jig.conf, on linux with `cf`, the cpu's control-flow
+# hardening. `hardening` is the cpu's verdict on builder/hardening.nu names it cannot take.
 # `names`: what other ecosystems call the cpu (kernel ARCH=, GOARCH, rust triple prefix, meson
 # cpu_family, qemu-user binary, gyp/V8 dest-cpu, apple's clang arch) where it differs from ours,
 # and `osNames` the same for the os (cmake CMAKE_SYSTEM_NAME, meson system and kernel, GOOS).
@@ -56,7 +56,7 @@ let
         openssl = "linux-x86_64";
       };
       march = [ "-march=x86-64-v3" ];
-      hardening.cfprotection = true;
+      cf = [ "-fcf-protection=full" ];
       interp.glibc = "ld-linux-x86-64.so.2";
     };
     aarch64 = {
@@ -68,7 +68,7 @@ let
         openssl = "linux-aarch64";
       };
       march = [ "-march=armv8.2-a+lse" ];
-      hardening.branchprotection = true;
+      cf = [ "-mbranch-protection=standard" ];
       interp.glibc = "ld-linux-aarch64.so.1";
     };
     riscv64 = {
@@ -120,9 +120,14 @@ let
     let
       c = cpus.${cpu};
     in
-    (removeAttrs c [ "names" ])
+    (removeAttrs c [
+      "names"
+      "cf"
+    ])
     // rec {
       inherit cpu libc;
+      march = c.march ++ c.cf or [ ];
+      hardening = c.hardening or { };
       inherit (oses.linux) osNames;
       os = "linux";
       abi = "gnu";
