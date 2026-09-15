@@ -3,6 +3,7 @@ package {
   name = "diffutils";
   uses = [ "autotools" ];
   bootstrapTools = true;
+  patches = [ ./upstream-strptime-prototypes.patch ];
   # man/ regenerates *.1 with help2man (perl)
   autotools.makeFlags = [ "SUBDIRS=lib src" ];
   tests.run = false; # perl

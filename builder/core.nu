@@ -5,6 +5,7 @@
 
 export use glob.nu *
 export use exports.nu *
+use names.nu
 
 # One log line per event, in Nix's own structured-log form ("@nix {json}", libutil/logging.cc) so
 # `nix build`/nom show the current phase and `nix log` keeps the text. `phase` events become the
@@ -63,16 +64,10 @@ export def tool [name: string]: nothing -> path {
   $hits | first | get path
 }
 
-# a shared library's file name on this platform: `shlib z` -> libz.so | libz.dylib | z.dll,
-# `shlib z 1` -> libz.so.1 | libz.1.dylib | z.dll (PE names carry no version)
-export def shlib [name: string, version?: string]: nothing -> string {
-  let p = (ctx).platform
-  match $p.binfmt {
-    "macho" => (["lib" $name] ++ (if $version == null { [] } else { ["." $version] }) ++ [".dylib"] | str join)
-    "coff" => $"($name).dll"
-    _ => ([$"lib($name).so"] ++ (if $version == null { [] } else { ["." $version] }) | str join)
-  }
-}
+# file names for this build's platform (names.nu)
+export def shlib [name: string, version?: string]: nothing -> string { names shlib (ctx).platform $name $version }
+export def linklib [name: string]: nothing -> string { names linklib (ctx).platform $name }
+export def shlibdir []: nothing -> string { names shlibdir (ctx).platform }
 
 # the derivation's structured attrs (nix/package.nix `common`)
 export def attrs []: nothing -> record { open $env.NIX_ATTRS_JSON_FILE }

@@ -19,12 +19,17 @@ package {
     "--without-debug"
     "--without-ada"
     "--enable-widec"
-    "--with-termlib"
     "--with-versioned-syms"
     "--enable-pc-files"
     "--disable-stripping"
     "--with-terminfo-dirs=/etc/terminfo:/lib/terminfo:/usr/share/terminfo"
     "--without-manpages"
+  ]
+  # the win32 terminal driver cannot live in a separate libtinfo
+  ++ on (platform.os != "windows") [ "--with-termlib" ]
+  ++ on (platform.os == "windows") [
+    "--enable-term-driver"
+    "--enable-sp-funcs"
   ]
   ++ (
     if platform.cross then
@@ -50,9 +55,9 @@ package {
       run = ''
         let lib = $"($c.out)/lib"
         # -lncurses, -ltinfo etc. resolve to the wide variants
-        for l in [ncurses form panel menu tinfo] {
-          ^ln -sf (shlib $"($l)w") $"($lib)/(shlib $l)"
-          ^ln -sf (shlib $"($l)w" 6) $"($lib)/(shlib $l 6)"
+        for l in ([ncurses form panel menu] ++ (if $c.platform.os == "windows" { [] } else { [tinfo] })) {
+          ^ln -sf (linklib $"($l)w") $"($lib)/(linklib $l)"
+          if $c.platform.binfmt != "coff" { ^ln -sf (shlib $"($l)w" 6) $"($lib)/(shlib $l 6)" }
         }
         ^ln -sf ncursesw.pc $"($lib)/pkgconfig/ncurses.pc"
         # a #!$SHELL script duplicating the .pc files

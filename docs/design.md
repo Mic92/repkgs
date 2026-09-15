@@ -45,9 +45,9 @@ pkgs/cp/cpython314/          another major version is another package, pkgs/alia
 reads one file. `buildPkgs` is the build machine's set. Another platform is another import.
 
 Every package exists on every platform. `pkg.supported` says whether it is *for* it, without
-forcing the derivation: prebuilts are for the cpus their `sources.toml` has tarballs for, a
-recipe can narrow with `platforms.cpu`, `platforms.os` or `platforms.cross = false`, and unsupported
-dependencies propagate. Only the store paths throw (`bun: sources.toml has no 'riscv64' source`), so CI filters on a boolean instead of
+forcing the derivation: prebuilts are for the platforms their `sources.toml` has tarballs for (keys `x86_64-linux`, `aarch64-macos`), a
+recipe can narrow with `platforms.{cpu,os,abi}` lists, `platforms.posix = true` or `platforms.cross = false`, and unsupported
+dependencies propagate. Only the store paths throw (`bun: sources.toml has no 'riscv64-linux' source`), so CI filters on a boolean instead of
 `tryEval`, which would also hide real errors.
 
 ### Overrides

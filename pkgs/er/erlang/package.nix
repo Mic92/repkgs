@@ -10,6 +10,8 @@
 }:
 package {
   name = "erlang";
+  # otp's own Windows build is msvc under WSL/cygwin, configure has no mingw target
+  platforms.posix = true;
   uses = [ "autotools" ];
   autotools.outOfTree = false;
   autotools.flags = [

@@ -3,6 +3,7 @@
 # env.nu turns the closure of these into search paths
 
 use glob.nu [files]
+use names.nu [linkable-libs]
 
 def existing [root: path, rels: list<string>]: nothing -> list<string> { $rels | where {|d| $"($root)/($d)" | path exists } }
 
@@ -12,10 +13,10 @@ export def exports-of [p: path]: nothing -> record<name: string, includeDirs: li
   let e = if ($f | path exists) { open $f } else { {} }
   {
     # package name as build systems key on it (sys-libs.nu, dep-root); the store name is <hash>-<name>[-<platform>]
-    name: ($e.name? | default { $p | path basename | str substring 33.. | str replace -r '-(x86_64|aarch64|riscv64|loongarch64|powerpc64le)-\w+$' '' })
+    name: ($e.name? | default { $p | path basename | str substring 33.. | str replace -r '-(x86_64|aarch64|riscv64|loongarch64|powerpc64le)-[\w-]+$' '' })
     includeDirs: ($e.includeDirs? | default { existing $p ["include"] })
     libDirs: ($e.libDirs? | default { existing $p ["lib"] })
-    libs: ($e.libs? | default { files $"($p)/lib/lib*.{so,dylib}" | each { path parse | get stem | str substring 3.. } })
+    libs: ($e.libs? | default [])
     pkgconfigDirs: ($e.pkgconfigDirs? | default { existing $p ["lib/pkgconfig" "share/pkgconfig"] })
     aclocalDirs: ($e.aclocalDirs? | default { existing $p ["share/aclocal"] })
     # `{root}` in values: this package's own store path (kept relative in exports.json so the output stays relocatable)
@@ -46,10 +47,10 @@ export def dep-dirs [deps: list<record<name: string, root: string>>, field: stri
 }
 
 # exports.json: spec.exports over the defaults, exports = false: nothing to link against
-export def write-exports [out: string, spec: record, deps: list<record>]: nothing -> nothing {
+export def write-exports [out: string, spec: record, platform: record, deps: list<record>]: nothing -> nothing {
   let none = {includeDirs: [], libDirs: [], libs: [], pkgconfigDirs: [], aclocalDirs: []}
   let own = (if $spec.exports? == false { $none } else { $spec.exports? | default {} })
-  let exports = (exports-of $out | merge $own | upsert name $spec.name)
+  let exports = (exports-of $out | upsert libs (linkable-libs $platform $"($out)/lib") | merge $own | upsert name $spec.name)
   let exports = ($exports | update propagate { $in ++ (required-deps $out $deps $exports) | uniq })
   $exports | to json | save -f $"($out)/exports.json"
 }

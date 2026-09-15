@@ -4,9 +4,9 @@ package {
   name = "rhash";
   uses = [ "make" ];
   # its configure knows linux, darwin, mingw. Not msvc
-  platforms.os = [
-    "linux"
-    "macos"
+  platforms.abi = [
+    "gnu"
+    "apple"
   ];
   make.configureFlags = [
     "--enable-lib-shared"
@@ -19,7 +19,7 @@ package {
     "librhash"
     "install-lib-shared"
     "install-lib-headers"
-    "install-so-link"
-  ];
+  ]
+  ++ (if platform.os == "windows" then [ ] else [ "install-so-link" ]);
   tests.run = false;
 }

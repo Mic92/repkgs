@@ -126,6 +126,9 @@ builtins.mapAttrs
         flags = strs [ ] "arguments for every make invocation (build, test, install)";
         configureScript = str "configure" "hand-written configure script relative to the project, run with --prefix when it exists";
         configureFlags = flags "make.configureScript";
+        programs =
+          strs [ ]
+            "programs the Makefile builds and installs by bare name: where executables carry a suffix (.exe) the built file is copied to that name before install";
       };
     };
     autotools = {

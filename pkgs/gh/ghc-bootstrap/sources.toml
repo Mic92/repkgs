@@ -6,17 +6,17 @@ relocks = [
 allow = "==9.12.*"
 
 [[source]]
-key = "x86_64"
+key = "x86_64-linux"
 url = "https://downloads.haskell.org/~ghc/{version}/ghc-{version}-x86_64-deb12-linux.tar.xz"
 hash = "sha256-CiRLfu+lNf9RIJ7NSz9ho1cz0m8pPA7DGpE08peh0DU="
 
 [[source]]
-key = "aarch64"
+key = "aarch64-linux"
 url = "https://downloads.haskell.org/~ghc/{version}/ghc-{version}-aarch64-deb12-linux.tar.xz"
 hash = "sha256-HQs61CKq9/z0rhvOpxK+N2iwudhDsUUmfawESxgJC0Q="
 
 [[source]]
-key = "riscv64"
+key = "riscv64-linux"
 frozen = "no upstream riscv64 bindist: Debian's build, 9.10 is new enough to boot 9.12"
 url = "https://snapshot.debian.org/archive/debian/20260317T082636Z/pool/main/g/ghc/ghc_9.10.3-4_riscv64.deb"
 hash = "sha256-2pm3qHjvJYPtWbn2i2TJdg+AlHo14TTeOjU6KR2Dn/k="

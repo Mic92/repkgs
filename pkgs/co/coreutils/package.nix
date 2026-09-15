@@ -1,5 +1,7 @@
 { package }:
 package {
+  # pwd.h, waitpid
+  platforms.posix = true;
   name = "coreutils";
   uses = [ "autotools" ];
   bootstrapTools = true;

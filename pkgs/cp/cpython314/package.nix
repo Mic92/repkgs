@@ -8,6 +8,8 @@
 }:
 package {
   name = "cpython314";
+  # configure: "cross build not supported" for mingw. upstream Windows builds are PCbuild/ (msvc)
+  platforms.posix = true;
   uses = [ "autotools" ];
   autotools.flags = [
     "--disable-test-modules"

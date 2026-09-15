@@ -1,10 +1,10 @@
 { package, buildPkgs }:
 package {
   name = "xz";
-  # cmake sets MSVC only for cl-style drivers, the project keys windows specifics on it (docs/plan.md)
-  platforms.os = [
-    "linux"
-    "macos"
+  # cmake sets MSVC only for cl-style drivers, the project keys windows specifics on it
+  platforms.abi = [
+    "gnu"
+    "apple"
   ];
   uses = [ "cmake" ];
   cmake.tool = buildPkgs.cmake-bootstrap; # cmake links this

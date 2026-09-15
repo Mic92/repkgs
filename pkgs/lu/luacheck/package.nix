@@ -3,10 +3,7 @@
 package {
   name = "luacheck";
   # luafilesystem's rockspec builds lfs.c the unix way
-  platforms.os = [
-    "linux"
-    "macos"
-  ];
+  platforms.posix = true;
   uses = [ "luarocks" ];
   dependencies = [ pkgs.lua ];
   tests.version = true;

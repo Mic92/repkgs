@@ -10,6 +10,8 @@
 }:
 package {
   name = "git";
+  # Git for Windows is a fork with its own compat layer, upstream configure needs socklen_t & co.
+  platforms.posix = true;
   uses = [
     "autotools"
     "cargo"

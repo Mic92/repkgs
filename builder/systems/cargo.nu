@@ -86,6 +86,7 @@ export def install []: nothing -> nothing {
   # with CARGO_BUILD_TARGET set cargo always builds into target/<triple>/
   let release = $"($env.CARGO_TARGET_DIR)/($env.CARGO_BUILD_TARGET)/release"
   # cargo's own files there: lib*.rlib/.so/.d and .cargo-lock; the rest are the [[bin]] targets
-  let built = (ls -s $release | where type == file and name !~ '^lib|\.(d|rlib)$|^\.' | get name)
-  install-bins $release ($built | where { $c.spec.bin? == null or $in in $c.spec.bin })
+  let built = (ls -s $release | where type == file and name !~ '^lib|\.(d|rlib|pdb)$|^\.' | get name)
+  let exe = $c.platform.ext.exe
+  install-bins $release ($built | where { $c.spec.bin? == null or ($in | str replace -r $'\($exe)$' "") in $c.spec.bin })
 }

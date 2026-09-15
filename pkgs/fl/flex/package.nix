@@ -5,6 +5,8 @@
 }:
 package {
   name = "flex";
+  # needs <regex.h>
+  platforms.posix = true;
   uses = [ "autotools" ];
   bootstrapTools = true;
   buildDependencies = [ buildPkgs.m4 ];

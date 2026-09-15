@@ -19,7 +19,7 @@ case "${host:-$(uname -m)}" in
   *) site_cpu=unknown ;;
 esac
 case "${host:-linux}" in
-  *windows*) site_os=windows ;;
+  *windows* | *mingw*) site_os=windows ;;
   *darwin*) site_os=macos ;;
   *) site_os=linux ;;
 esac
@@ -219,6 +219,12 @@ gl_cv_func_working_mktime=no
 gl_cv_func_posix_spawnp_secure_exec=no
 lt_cv_sys_max_cmd_len=786432
 fi # macos values
+
+if test "$site_os" = windows; then
+# inline in winpthreads' pthread.h
+gl_cv_func_pthread_mutex_timedlock_in_LIBMULTITHREAD=yes
+gl_cv_func_strcasecmp_works=yes
+fi # windows
 
 # tools by name: configure substitutes their build PATH location into what gets installed
 # (python _sysconfigdata, ruby rbconfig.rb), a build machine reference
