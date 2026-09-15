@@ -51,6 +51,7 @@ export def configure []: nothing -> nothing {
   let opts = ({
     prefix: $c.out
     libdir: "lib"
+    sbindir: "bin"
     buildtype: (if ($c.spec.profile? | default "release") == "debug" { "debug" } else { "plain" })  # plain: cc brings -O2 -g itself
     default_library: "shared"
     wrap_mode: "nodownload"

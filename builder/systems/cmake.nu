@@ -26,6 +26,7 @@ export def configure []: nothing -> nothing {
     CMAKE_INSTALL_PREFIX: $c.out
     CMAKE_BUILD_TYPE: (if ($c.spec.profile? | default "release") == "debug" { "Debug" } else { "Release" })
     CMAKE_INSTALL_LIBDIR: "lib"
+    CMAKE_INSTALL_SBINDIR: "bin"
     CMAKE_PREFIX_PATH: ($c.deps | get root | str join ";")
     CMAKE_SYSTEM_PREFIX_PATH: $c.platform.sysroot
     BUILD_SHARED_LIBS: true
