@@ -9,12 +9,7 @@
 }:
 package {
   name = "rust";
-  dependencies = [
-    pkgs.llvm22 # the major rustc bundles and is tested with; ours is one ahead
-    pkgs.zlib
-    pkgs.openssl # cargo
-  ];
-  env.OPENSSL_NO_VENDOR = "1"; # cargo's openssl-sys: ours via pkg-config, not a vendored build
+  dependencies = [ pkgs.llvm22 ]; # the major rustc bundles and is tested with. Ours is one ahead
   # cross: stage1 runs here and links the build machine's libLLVM
   buildDependencies = on platform.cross [ buildPkgs.llvm22 ] ++ [
     buildPkgs.rust-bootstrap

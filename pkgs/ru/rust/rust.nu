@@ -1,5 +1,6 @@
 # rust's own phases (package.nix `modules.rust`): bootstrap.toml for x.py, then build and install through it
 use core.nu *
+use sys-libs.nu
 
 # fix-env-shebangs edited vendored scripts: keep the crate checksums, drop the per-file ones
 def vendor-checksums []: nothing -> nothing {
@@ -12,9 +13,11 @@ def vendor-checksums []: nothing -> nothing {
 # std for these needs no libc or linker, so it ships with the compiler (as in nixpkgs)
 const FREESTANDING = [wasm32-unknown-unknown wasm32v1-none bpfel-unknown-none bpfeb-unknown-none]
 
-# x.py reads bootstrap.toml: our llvm, the rust-bootstrap binaries as stage0, one host triple
-export def configure []: nothing -> nothing {
+# x.py reads bootstrap.toml: our llvm, the rust-bootstrap binaries as stage0, one host triple.
+# --env: what cargo.nu sets for the [pin] sys libraries stays for x.py's cargo runs
+export def --env configure []: nothing -> nothing {
   let c = (ctx)
+  load-env ({PKG_CONFIG_ALLOW_CROSS: "1"} | merge (sys-libs env-for cargo $c.deps))
   vendor-checksums
   let triple = $c.platform.rustTriple
   let rb = (tool rustc | path dirname | path dirname) # rust-bootstrap, a build tool
