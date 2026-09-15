@@ -111,7 +111,7 @@ export def stdConfigure []: nothing -> nothing {
       optimized-compiler-builtins: false
     }
     install: {prefix: $c.out, sysconfdir: "etc"}
-    rust: {channel: "stable", remap-debuginfo: true, frame-pointers: true, lld: false, llvm-tools: false}
+    rust: {channel: "stable", debuginfo-level-std: (if $c.spec.debug { 1 } else { 0 }), remap-debuginfo: true, frame-pointers: true, lld: false, llvm-tools: false}
     llvm: {download-ci-llvm: false}
     target: ({$triple: {cc: (tool cc), cxx: (tool c++), linker: (tool cc), ar: (tool llvm-ar), ranlib: (tool llvm-ranlib), crt-static: false}}
       | merge (host-target $c $host))
