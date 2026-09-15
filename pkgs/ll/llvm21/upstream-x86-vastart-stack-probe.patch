@@ -1,0 +1,42 @@
+From: Joerg Thalheim <joerg@thalheim.io>
+Subject: [X86] Expand VASTART_SAVE_XMM_REGS outside the entry block
+
+X86ExpandPseudo only looked for VASTART_SAVE_XMM_REGS in the function's entry
+block. With -fstack-clash-protection (or any inline stack probe) and a frame
+larger than the probe size, X86FrameLowering::emitStackProbeInlineGenericLoop
+splits the entry block and the pseudo ends up in the loop's tail block. It was
+then never expanded: the XMM argument registers of a variadic function were not
+stored to the register save area and va_arg(ap, double) read garbage.
+
+  double f(int n, ...) {   // -O2 -fstack-clash-protection
+    char big[70000]; va_list ap; va_start(ap, n);
+    double d = va_arg(ap, double); va_end(ap); use(big); return d; // 0.0
+  }
+
+Found by MPFR's tsprintf test.
+
+diff --git a/llvm/lib/Target/X86/X86ExpandPseudo.cpp b/llvm/lib/Target/X86/X86ExpandPseudo.cpp
+index 017686b..729a835 100644
+--- a/llvm/lib/Target/X86/X86ExpandPseudo.cpp
++++ b/llvm/lib/Target/X86/X86ExpandPseudo.cpp
+@@ -1086,10 +1086,13 @@
+ bool X86ExpandPseudo::expandPseudosWhichAffectControlFlow(MachineFunction &MF) {
+   // Currently pseudo which affects control flow is only
+-  // X86::VASTART_SAVE_XMM_REGS which is located in Entry block.
+-  // So we do not need to evaluate other blocks.
+-  for (MachineInstr &Instr : MF.front().instrs()) {
+-    if (Instr.getOpcode() == X86::VASTART_SAVE_XMM_REGS) {
+-      expandVastartSaveXmmRegs(&(MF.front()), Instr);
+-      return true;
++  // X86::VASTART_SAVE_XMM_REGS. It starts out in the entry block, but the
++  // prologue's inline stack probing loop may have split that block, leaving
++  // it in a successor.
++  for (MachineBasicBlock &MBB : MF) {
++    for (MachineInstr &Instr : MBB.instrs()) {
++      if (Instr.getOpcode() == X86::VASTART_SAVE_XMM_REGS) {
++        expandVastartSaveXmmRegs(&MBB, Instr);
++        return true;
++      }
+     }
+   }
+ 

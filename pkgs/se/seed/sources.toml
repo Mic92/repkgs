@@ -4,23 +4,23 @@ purl = "pkg:github/Mic92/repkgs"
 [[source]]
 key = "x86_64-linux"
 url = "https://github.com/Mic92/repkgs/releases/download/seed-{version}/seed-{version}-x86_64-linux.nar.xz"
-hash = "sha256-vdBeJq/0WB0QBwNe1GY00VJviN8eiay0o9v4L/Mr1C8="
+hash = "sha256-SeXFfroI8UhfUiw2fpx/0UL/ZbuxRwYpK0aMSZ8e7NA="
 unpack = true
 name = "seed"
 
 [[source]]
 key = "aarch64-linux"
 url = "https://github.com/Mic92/repkgs/releases/download/seed-{version}/seed-{version}-aarch64-linux.nar.xz"
-hash = "sha256-xrzeHkMfrCqJgKPW2f7+qaLGUg33ZGfmBtyHwSFQ7ls="
+hash = "sha256-r7/5oMnwIjWD5BnNpIbK46ux4GnYI9esD+fpCXEwuP4="
 unpack = true
 name = "seed"
 
 [[source]]
 key = "riscv64-linux"
 url = "https://github.com/Mic92/repkgs/releases/download/seed-{version}/seed-{version}-riscv64-linux.nar.xz"
-hash = "sha256-1Rau4KwWur06mI7oquN/Z7vSHx5lUgUj7/C0ssDpzRE="
+hash = "sha256-KjyA8Xkw4ZHqdnZRFoO0Bi+BN6rlGkJZpmUzNrIWwa8="
 unpack = true
 name = "seed"
 
 [pin]
-version = "3"
+version = "4"

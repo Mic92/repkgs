@@ -3,7 +3,15 @@
 # runs, `buildSystem` where it is built: static musl is a cross build to nixpkgs either way.
 #   ./upload.nu builds -A nar per system, uploads to the GitHub release and rewrites ./sources.toml
 {
-  nixpkgs ? <nixpkgs>,
+  # the flake's pin: the seed's nu must be the version builder/ is written for
+  nixpkgs ?
+    let
+      locked = (builtins.fromJSON (builtins.readFile ../../../flake.lock)).nodes.nixpkgs.locked;
+    in
+    fetchTarball {
+      url = "https://github.com/NixOS/nixpkgs/archive/${locked.rev}.tar.gz";
+      sha256 = locked.narHash;
+    },
   system ? builtins.currentSystem,
   buildSystem ? builtins.currentSystem,
 }:
@@ -41,6 +49,7 @@ let
     pname = "seed-llvm";
     inherit (llvmSource) version;
     src = llvmSource.default;
+    patches = [ ../../ll/llvm/upstream-x86-vastart-stack-probe.patch ];
     nativeBuildInputs = [
       pkgs.cmake
       pkgs.ninja
@@ -159,7 +168,7 @@ let
     dontFixup = true;
   };
 
-  seed = pkgs.runCommand "seed-3-${system}" { } ''
+  seed = pkgs.runCommand "seed-4-${system}" { } ''
     mkdir -p $out/bin $out/lib $out/share
     cp ${nu}/bin/nu ${bsdtar}/bin/bsdtar ${toybox}/bin/toybox ${dash}/bin/dash $out/bin/
     ln -s dash $out/bin/sh
@@ -170,7 +179,8 @@ let
     cp -r ${tools.bison}/share/bison $out/share/bison
     cp -L ${python}/bin/python3 $out/bin/python3
     cp -r ${python}/lib/python3.* $out/lib/
-    for a in $(${pkgs.toybox}/bin/toybox); do [ -e $out/bin/$a ] || ln -s toybox $out/bin/$a; done
+    # its applet links, without replacing the GNU tools already there
+    cp -dn ${toybox}/bin/* $out/bin/
     ln -s ld.lld $out/bin/ld  # configure scripts probe for plain `ld`
     cp -a ${llvm}/bin/. $out/bin/
     cp -a ${llvm}/lib/clang $out/lib/
