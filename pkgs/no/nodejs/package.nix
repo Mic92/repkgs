@@ -27,29 +27,9 @@ package {
     ./upstream-highway-rvv-baseline.patch
   ];
   phases = [
-    {
-      name = "configure";
-      run = ''
-        # configure.py, not autoconf. Cross: code generators like mksnapshot are built for the
-        # target and run under qemu (--emulator). The alternative, gyp's host toolset, generates
-        # a broken ninja file (two rules for js_protocol.stamp)
-        let emulator = (if ($c.platform.emulator | is-empty) { [] } else { [$"--emulator=($c.platform.emulator | str join ' ')"] })
-        let cross = (if $c.platform.cross { [$"--dest-cpu=($c.platform.names.gyp)" --dest-os=linux ...$emulator] } else { [] })
-        x python3 configure.py --prefix=/ --ninja --shared-zlib --shared-openssl --shared-zstd --shared-brotli --shared-libuv --shared-nghttp2 --shared-cares --shared-sqlite --with-intl=small-icu --without-corepack ...$cross
-      '';
-    }
-    {
-      name = "build";
-      run = ''
-        x ninja -C out/Release $"-j($c.njobs)"
-      '';
-    }
-    {
-      name = "install";
-      run = ''
-        x python3 tools/install.py install --dest-dir "" --prefix $c.out --build-dir out/Release
-      '';
-    }
+    "nodejs.configure"
+    "nodejs.build"
+    "nodejs.install"
   ];
   tests.run = false; # hours
   bin = [

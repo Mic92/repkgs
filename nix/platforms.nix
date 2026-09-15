@@ -5,7 +5,8 @@
 # hardening. `hardening` is the cpu's verdict on builder/hardening.nu names it cannot take.
 # `names`: what other ecosystems call the cpu (kernel ARCH=, GOARCH, rust triple prefix, meson
 # cpu_family, qemu-user binary, gyp/V8 dest-cpu, apple's clang arch) where it differs from ours,
-# and `osNames` the same for the os (cmake CMAKE_SYSTEM_NAME, meson system and kernel, GOOS).
+# and `osNames` the same for the os (cmake CMAKE_SYSTEM_NAME, meson system and kernel, GOOS,
+# gyp/node --dest-os).
 let
   # file name pieces per binary format (and import library convention). Versioned shared
   # library names order differently per format: `shlib` / `linklib` in builder/core.nu
@@ -33,18 +34,21 @@ let
       meson = "linux";
       mesonKernel = "linux";
       go = "linux";
+      gyp = "linux";
     };
     windows.osNames = {
       cmake = "Windows";
       meson = "windows";
       mesonKernel = "nt";
       go = "windows";
+      gyp = "win";
     };
     macos.osNames = {
       cmake = "Darwin";
       meson = "darwin";
       mesonKernel = "xnu";
       go = "darwin";
+      gyp = "mac";
     };
   };
   cpus = {
