@@ -35,6 +35,7 @@ let
       mesonKernel = "linux";
       go = "linux";
       gyp = "linux";
+      uname = "Linux";
     };
     windows.osNames = {
       cmake = "Windows";
@@ -42,6 +43,7 @@ let
       mesonKernel = "nt";
       go = "windows";
       gyp = "win";
+      uname = "Windows_NT";
     };
     macos.osNames = {
       cmake = "Darwin";
@@ -49,6 +51,7 @@ let
       mesonKernel = "xnu";
       go = "darwin";
       gyp = "mac";
+      uname = "Darwin";
     };
   };
   cpus = {
