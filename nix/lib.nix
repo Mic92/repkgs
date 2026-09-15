@@ -19,6 +19,9 @@ rec {
       { }
     else
       [ ];
+  # `per platform.os { linux = "linux"; macos = "macosx"; default = null; }`: the entry for
+  # `key`, else `default`, else an error naming the key
+  per = key: table: table.${key} or table.default or (throw "no entry for ${key}");
   # space separated is `toString list`
   join = concatStringsSep;
   lines = join "\n";
