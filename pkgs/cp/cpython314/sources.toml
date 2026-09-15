@@ -7,5 +7,26 @@ key = "default"
 url = "https://www.python.org/ftp/python/{version}/Python-{version}.tar.xz"
 hash = "sha256-lJP052bZrUsDASpKauL7Xa6pI3QMQW1Ho3o7Dsr062Y="
 
+# PCbuild compiles its externals in from source (get_externals.bat's pins). bzip2, mpdecimal and
+# zstd are our packages' sources; liblzma.vcxproj is written against xz 5.2's file list,
+# sqlite3.vcxproj wants the amalgamation, and zlib-ng is not zlib
+[[source]]
+key = "zlib-ng"
+url = "https://github.com/python/cpython-source-deps/archive/refs/tags/zlib-ng-{zlib_ng}.tar.gz"
+hash = "sha256-eOw3CjdO5EHMofsgHRtH7fuydXZxrwpVzNvjmNeIQqQ="
+
+[[source]]
+key = "xz"
+url = "https://github.com/python/cpython-source-deps/archive/refs/tags/xz-{xz}.tar.gz"
+hash = "sha256-DbocrojDc5hEyJ6YAP7iLuGnURgMLIHUFU6gJOzQgRM="
+
+[[source]]
+key = "sqlite"
+url = "https://github.com/python/cpython-source-deps/archive/refs/tags/sqlite-{sqlite}.tar.gz"
+hash = "sha256-7S+QPa5C+lQrmNEQFyqO+yvF47voia2z4vTJ2rEIpIY="
+
 [pin]
 version = "3.14.7"
+zlib_ng = "2.2.4"
+xz = "5.2.5"
+sqlite = "3.50.4.0"

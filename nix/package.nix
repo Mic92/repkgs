@@ -198,11 +198,12 @@ let
     ++ map (d: "buildDependencies: ${d.pname} is built for ${d.platform}") (
       filter (d: (d.platform or platform.system) != platform.system) (args.buildDependencies or [ ])
     );
-  # `supported` without forcing the derivation (docs/design.md): platforms.{cpu,os,abi,posix,cross},
+  # `supported` without forcing the derivation (docs/design.md): platforms.{cpu,os,abi,libc,posix,cross},
   # a per-cpu tarball in sources.toml, and the dependencies' own verdicts
   badCpu = args ? platforms.cpu && !(elem platform.cpu args.platforms.cpu);
   badOs = args ? platforms.os && !(elem platform.os args.platforms.os);
   badAbi = args ? platforms.abi && !(elem platform.abi args.platforms.abi);
+  badLibc = args ? platforms.libc && !(elem platform.libc args.platforms.libc);
   needsPosix = (args.platforms.posix or false) && !platform.posix;
   nativeOnly = (args.platforms.cross or true) == false && platform.cross;
   bsReasons = filter (r: r != null) (map (u: buildSystems.${u}.unsupported) uses);
@@ -227,6 +228,8 @@ let
       "${name}: not for ${platform.os} (platforms.os)"
     else if badAbi then
       "${name}: not for the ${platform.abi} ABI (platforms.abi)"
+    else if badLibc then
+      "${name}: not on ${platform.libc} (platforms.libc)"
     else if needsPosix then
       "${name}: needs a POSIX system (platforms.posix)"
     else if nativeOnly then
@@ -245,6 +248,7 @@ let
       "cpu"
       "os"
       "abi"
+      "libc"
       "posix"
       "cross"
     ]
