@@ -11,5 +11,5 @@ def main []: nothing -> nothing {
   (x c++ -std=c++23 -O2 -Wall -Wextra -Werror -fno-exceptions -fno-rtti -static-pie
     -isystem $jsn -o $"($out)/bin/launch" $env.launch)
   x llvm-strip --strip-all $"($out)/bin/launch"
-  say $"launch: (ls $"($out)/bin/launch" | first | get size)"
+  note launch $"(ls $"($out)/bin/launch" | first | get size)"
 }

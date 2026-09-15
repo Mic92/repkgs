@@ -4,16 +4,9 @@
 # This module is what build systems and inline phases import: ctx, options, x, tool, note, exports.
 
 export use glob.nu *
+export use log.nu *
 export use exports.nu *
 use names.nu
-
-# One log line per event, in Nix's own structured-log form ("@nix {json}", libutil/logging.cc) so
-# `nix build`/nom show the current phase and `nix log` keeps the text. `phase` events become the
-# derivation's phase, everything else an info-level message. nix/package.nix emits one per phase
-export def note [kind: string, msg: string = ""]: nothing -> nothing {
-  let ev = if $kind == "phase" { {action: setPhase, phase: $msg} } else { {action: msg, level: 3, msg: $"($kind): ($msg)"} }
-  print -e $"@nix ($ev | to json -r)"
-}
 
 # what build-system and inline phases get to see: {spec out deps njobs src build platform testsRun}
 export def ctx []: nothing -> record<spec: record, out: string, dest: string, deps: list<record<name: string, root: string>>, roots: list<string>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool> { $env.PKGS_CTX }

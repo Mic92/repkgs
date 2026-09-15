@@ -30,5 +30,5 @@ def main []: nothing -> nothing {
   # clang adds -lssp -lssp_nonshared for -fstack-protector, mingw-w64 has that in libmingwex
   for l in [ssp ssp_nonshared] { x llvm-ar rcs $"($out)/lib/lib($l).a" }
   configure-make $src mingw-w64-libraries/winpthreads [--enable-static --enable-shared] {CC: $cc, CPPFLAGS: $"-I($out)/include", RCFLAGS: $"-I($out)/include", LDFLAGS: $"-L($out)/lib"}
-  say $"mingw-w64: (ls $'($out)/lib' | length) files in lib/"
+  note mingw-w64 $"(ls $'($out)/lib' | length) files in lib/"
 }

@@ -127,7 +127,7 @@ def main []: nothing -> nothing {
   # LIBCXX{,ABI}_STATICALLY_LINK_UNWINDER_IN_STATIC_LIBRARY), so `-static -lc++` needs no -lc++abi -lunwind
   $LIBS | reduce -f {} {|l, built|
     let items = (lib-items $l $obj $p.posix)
-    say $"lib($l.name): ($items | length) files"
+    note $"lib($l.name)" $"($items | length) files"
     let flags = ($common ++ $l.flags ++ (if $p.posix { $l.posixFlags } else { [] }))
     let objs = (compile ($flags ++ $static_only) $items)
     let dllobjs = (if $coff and $l.dll != null { compile $flags ($items | update obj { $"($in).dll.o" }) } else { $objs })

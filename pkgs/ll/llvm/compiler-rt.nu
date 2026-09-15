@@ -81,7 +81,7 @@ def main []: nothing -> nothing {
   ]
 
   let items = (read-list $env.list | each {|f| builtin-item $b $obj $f })
-  say $"compiler-rt builtins ($env.cpu): ($items | length) objects"
+  note builtins $"($env.cpu): ($items | length) objects"
   let lib = (rt-lib $out builtins)
   mkdir ($lib | path dirname)
   archive $lib (compile $common $items)

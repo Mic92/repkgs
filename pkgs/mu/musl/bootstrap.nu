@@ -74,7 +74,7 @@ def main []: nothing -> nothing {
     let rel = ($s | path relative-to $src)
     {src: $s, rel: $rel, kind: ($rel | path split | first), flags: (file-flags $rel)}
   })
-  say $"musl: ($items | where kind == src | length) libc sources, (cores) jobs"
+  note musl $"($items | where kind == src | length) libc sources, (cores) jobs"
   mkdir $"($out)/lib"
   # everything is -fPIC, so one object set serves libc.a and libc.so (musl's Makefile builds .o and .lo
   # separately only to allow a non-PIC static lib)
@@ -91,5 +91,5 @@ def main []: nothing -> nothing {
      $"-Wl,--dynamic-list=($src)/dynamic.list" -o $"($out)/lib/libc.so" $"@($rsp)"
      $"($env.'compiler-rt')/lib/($env.clangTarget)/libclang_rt.builtins.a")
   x ln -s libc.so $"($out)/lib/ld-musl-($arch).so.1"
-  say $"musl: (ls $'($out)/lib' | length) files in lib/"
+  note musl $"(ls $'($out)/lib' | length) files in lib/"
 }
