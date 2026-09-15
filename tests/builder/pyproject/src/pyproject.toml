@@ -1,0 +1,10 @@
+[project]
+name = "tproj"
+version = "1.0"
+description = "fixture"
+requires-python = ">=3.12"
+[project.scripts]
+tproj-hello = "tproj:main"
+[build-system]
+requires = ["flit_core"]
+build-backend = "flit_core.buildapi"

@@ -121,6 +121,18 @@ let
     platform = plat;
     pkgs = self;
     inherit lib on;
+    # cpython's package.nix adds .env/.project with this (nix/python.nix)
+    pythonProject =
+      package: python:
+      import ./python.nix {
+        inherit
+          package
+          fetch
+          python
+          buildPkgs
+          ;
+        pkgs = self;
+      };
   };
   readSources = import ./sources.nix {
     unpacker = bootstrap.seed;

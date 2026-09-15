@@ -20,15 +20,23 @@ def args [o: record<features: list<string>, noDefaultFeatures: bool, flags: list
 
 # CARGO_HOME + config.toml (vendored registry, offline, linker=cc), path remaps
 export def --env setup []: nothing -> nothing {
-  let c = (ctx); let o = (options cargo)
-  load-env {CARGO_HOME: $"($c.build)/cargo-home", CARGO_TARGET_DIR: $"($c.build)/target", RUSTC: (tool rustc)}
+  let o = (options cargo)
+  let vendor = (if ($o.cratePatches | is-empty) { $o.deps } else { patched-vendor $o.deps $o.cratePatches })
+  sys-libs check (project-dir cargo) (ctx).spec.sys
+  configure $vendor $"((ctx).build)/cargo-home"
+}
+
+# Also used for a cargo run inside another build system (pyapp's Rust sdists). `vendor` is null
+# when the source vendors its own crates, `home` becomes CARGO_HOME
+export def --env configure [vendor: any, home: string]: nothing -> nothing {
+  let c = (ctx)
+  load-env {CARGO_HOME: $home, CARGO_TARGET_DIR: $"($c.build)/target", RUSTC: (tool rustc)}
   mkdir $env.CARGO_HOME
   let host = (^rustc -vV | lines | parse "host: {t}" | get t.0)
   let target = $c.platform.rustTriple
   $env.CARGO_BUILD_TARGET = $target
   # -sys crates: link our libraries (builder/sys-libs.nu). pkg-config, their usual probe,
   # refuses to answer under --target without ALLOW_CROSS
-  sys-libs check (project-dir cargo) $c.spec.sys
   let sys = (sys-libs env-for cargo $c.deps)
   load-env ({PKG_CONFIG_ALLOW_CROSS: "1"} | merge $sys)
   if ($sys | is-not-empty) { note sys-libs ($sys | columns | str join " ") }
@@ -47,10 +55,9 @@ export def --env setup []: nothing -> nothing {
   # rustflags in config (RUSTFLAGS from the environment would replace them): panic strings embed
   # source paths, map build tree, cargo home and vendor dir away. Frame pointers like the C side
   # `deps` null: the source vendors (or has no) dependencies. An empty FROM would match every path
-  let remap = ({"/src": $c.src, "/cargo": $env.CARGO_HOME, "/vendor": $o.deps} | items {|to, from| if $from != null { $"--remap-path-prefix=($from)=($to)" } } | compact)
+  let remap = ({"/src": $c.src, "/cargo": $env.CARGO_HOME, "/vendor": $vendor} | items {|to, from| if $from != null { $"--remap-path-prefix=($from)=($to)" } } | compact)
   let rustflags = ($remap ++ ["-Cforce-frame-pointers=yes"] ++ $sysroot)
-  let vendor = (if ($o.cratePatches | is-empty) { $o.deps } else { patched-vendor $o.deps $o.cratePatches })
-  let source = (if $o.deps == null { {} } else { {source: {crates-io: {replace-with: vendored}, vendored: {directory: $vendor}}} })
+  let source = (if $vendor == null { {} } else { {source: {crates-io: {replace-with: vendored}, vendored: {directory: $vendor}}} })
   $source | merge {
     net: {offline: true}
     build: {jobs: $c.njobs}

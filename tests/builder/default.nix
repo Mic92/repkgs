@@ -58,6 +58,7 @@ mapAttrs (
         rec {
           pkg = set.pkgs."test-${name}";
           inherit (pkg) debug;
+          src = "${dir}/src";
         }
       else
         { }

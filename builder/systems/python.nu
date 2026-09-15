@@ -28,6 +28,11 @@ export def --env setup []: nothing -> nothing {
 
 export def workdir []: nothing -> string { project-dir python }
 
+# pythonX.Y: cross, maturin does not run the interpreter and wants the version in the name
+export def maturin-interpreter []: nothing -> string {
+  $"python(^python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
+}
+
 # build one wheel into the build dir: `python -m build` for PEP 517 backends, `maturin build` for maturin
 export def build []: nothing -> nothing {
   let c = (ctx); let o = (options python)
@@ -35,9 +40,7 @@ export def build []: nothing -> nothing {
   if $o.backend == "maturin" {
     # maturin's PEP 517 backend only shells out to `maturin`. Call it directly. cargo setup came from `uses`.
     # auditwheel=skip: the wheel is installed into this closure, not shipped to PyPI. Bundling our libunwind is wrong.
-    # pythonX.Y: cross, maturin does not run the interpreter and wants the version in the name
-    let py = $"python(^python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
-    x maturin build --release --offline $"-j($c.njobs)" --interpreter $py --auditwheel skip -o $dist
+    x maturin build --release --offline $"-j($c.njobs)" --interpreter (maturin-interpreter) --auditwheel skip -o $dist
   } else if $o.backend == "flit_core" {
     # flit_core builds wheels stand-alone: no `build`/`pyproject_hooks` needed (bootstraps the stack)
     x python3 -m flit_core.wheel --outdir $dist .
