@@ -180,6 +180,7 @@ let
   msvc =
     cpu:
     given cpu rec {
+      name = "${cpu}-windows-msvc";
       os = "windows";
       binfmt = "coff";
       libc = "msvc";
@@ -217,17 +218,24 @@ let
       march = [ "-mcpu=apple-m1" ];
     };
 in
-{
+rec {
   forSystem = system: libc: mk (builtins.head (builtins.split "-" system)) libc;
-  glibc = builtins.mapAttrs (cpu: _: mk cpu "glibc") cpus;
-  musl = builtins.mapAttrs (cpu: _: mk cpu "musl") cpus;
-  msvc = {
-    x86_64 = msvc "x86_64";
-    aarch64 = msvc "aarch64";
-  };
-  mingw = {
-    x86_64 = mingw "x86_64";
-    aarch64 = mingw "aarch64";
-  };
-  macos.aarch64 = macos "aarch64";
+  # every target platform by its name. glibc linux for all cpus, the rest as listed
+  byName = builtins.listToAttrs (
+    map
+      (p: {
+        inherit (p) name;
+        value = p;
+      })
+      (
+        map (cpu: mk cpu "glibc") (builtins.attrNames cpus)
+        ++ [
+          (msvc "x86_64")
+          (msvc "aarch64")
+          (mingw "x86_64")
+          (mingw "aarch64")
+          (macos "aarch64")
+        ]
+      )
+  );
 }

@@ -14,36 +14,21 @@ let
   feat = import ./features.nix;
   bootstrap = import ../bootstrap { inherit seed system; };
 
-  parts = builtins.match "([^-]+)-([^-]+)(-(msvc|gnu))?" platform;
-  cpu = builtins.head parts;
-  os = builtins.elemAt parts 1;
-  abi = builtins.elemAt parts 3;
-  unknown = throw "no platform ${platform}";
-  # <cpu>-windows[-msvc]: the msvc toolchain over the SDK the build machine's set fetches,
-  # <cpu>-windows-gnu: mingw-w64
-  stage =
-    if parts == null || (abi != null && os != "windows") then
-      unknown
-    else
-      {
-        windows =
-          if abi == "gnu" then
-            bootstrap.mingw cpu
-          else
-            bootstrap.msvc cpu (
-              fetch.windowsSdk {
-                manifest = (readSources ../pkgs/wi/windows-sdk/sources.toml).fetch "default";
-                arch = cpu;
-              }
-            );
-        macos = bootstrap.macos cpu;
-        linux = bootstrap.stage1.${cpu} or unknown;
-      }
-      .${os} or unknown;
+  platforms = import ./platforms.nix;
+  target = platforms.byName.${platform} or (throw "no platform ${platform}");
+  stage = bootstrap.toolchain.${platform} (
+    lib.on (target.libc == "msvc") {
+      sdk = fetch.windowsSdk {
+        manifest = (readSources ../pkgs/wi/windows-sdk/sources.toml).fetch "default";
+        arch = target.cpu;
+      };
+    }
+  );
+  inherit (target) os;
   plat = stage.platform // rec {
     inherit system;
     cross = platform != system;
-    buildRustTriple = bootstrap.stage1.${builtins.head (builtins.split "-" system)}.platform.rustTriple;
+    buildRustTriple = (platforms.forSystem system "glibc").rustTriple;
     # its address cap is $QEMU_RESERVED_VA (builder/prepare.nu), build systems want one word here
     emulator =
       if cross && os == "linux" then

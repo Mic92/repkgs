@@ -2,7 +2,7 @@
 
 The command line for working on the package set. With direnv it is on PATH; otherwise
 `tools/repkgs/repkgs`. Every subcommand has `--help`, and `--for <platform>` where a platform
-makes sense (`aarch64-linux`, `aarch64-macos`, `x86_64-windows`, …).
+makes sense (`aarch64-linux`, `aarch64-macos`, `x86_64-windows-msvc`, …).
 
 ## Everyday
 

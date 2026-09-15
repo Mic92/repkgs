@@ -288,12 +288,11 @@ let
     {
       prebuilt = stage0.jig;
     }
-    // (if platform == buildPlatform then { } else { native = (stage1 buildPlatform.cpu).cc; });
+    // (if platform == buildPlatform then { } else { native = (linuxChain buildPlatform).cc; });
 
-  stage1 =
-    cpu:
+  linuxChain =
+    platform:
     let
-      platform = platforms.glibc.${cpu};
       run = cross platform;
       linux-headers = run "linux-headers" { src = source "linux"; };
       c = chain {
@@ -325,45 +324,46 @@ let
       dlaudit = mkStage platform (cached stage0.jig) [ c.cc ] "dlaudit" { };
     };
 
-  # The non-Linux chains: libc, C++ library and SDK stubs come fetched (`sdk`), compiler-rt
-  # builtins are ours, no runtimes step. windows-sdk needs the native set's 7zip, so nix/set.nix
-  # passes it in. apple-sdk unpacks with the seed alone.
-  sdkChain =
-    platform: sdk:
-    chain {
-      inherit platform;
-      run = cross platform;
-      libcGiven = sdk;
-      ccArgs = crossCc platform;
-    };
-  msvc = cpu: sdkChain platforms.msvc.${cpu};
-  mingw =
-    cpu:
+  # The non-Linux chains: an SDK brings libc and C++ library (windows-sdk needs the native set's
+  # 7zip, so nix/set.nix passes it in as `sdk`), mingw-w64 is a libc recipe like glibc.
+  chainFor =
+    platform:
+    {
+      sdk ? null,
+    }:
     let
-      platform = platforms.mingw.${cpu};
-    in
-    chain {
-      inherit platform;
       run = cross platform;
-      libcRecipe = "mingw-w64";
-      libcArgs.src = source "mingw-w64";
-      ccArgs = crossCc platform;
-    };
-  macos =
-    cpu:
-    let
-      platform = platforms.macos.${cpu};
+      given =
+        g:
+        chain {
+          inherit platform run;
+          libcGiven = g;
+          ccArgs = crossCc platform;
+        };
     in
-    sdkChain platform (cross platform "apple-sdk" { src = source "apple-sdk"; });
+    {
+      glibc = linuxChain platform;
+      msvc = given sdk;
+      apple = given (run "apple-sdk" { src = source "apple-sdk"; });
+      mingw = chain {
+        inherit platform run;
+        libcRecipe = "mingw-w64";
+        libcArgs.src = source "mingw-w64";
+        ccArgs = crossCc platform;
+      };
+    }
+    .${platform.libc};
 in
-{
+rec {
   seed = seedPath;
-  inherit
-    stage0
-    source
-    msvc
-    mingw
-    macos
-    ;
-  stage1 = builtins.mapAttrs (cpu: _: stage1 cpu) platforms.glibc;
+  inherit stage0 source;
+  # toolchain.<platform name> {sdk?} -> {platform, cc, sysroot, libc, ...}
+  toolchain = builtins.mapAttrs (_: chainFor) platforms.byName;
+  # the build machine's and the other linux cpus', by cpu (README, tools/upload-bootstrap.nu)
+  stage1 = builtins.listToAttrs (
+    map (p: {
+      name = p.cpu;
+      value = toolchain.${p.name} { };
+    }) (builtins.filter (p: p.os == "linux") (builtins.attrValues platforms.byName))
+  );
 }
