@@ -1,0 +1,34 @@
+intltest SSearchTest: printOffsets/printOrders passed the whole buffer size to snprintf
+while advancing the write pointer. _FORTIFY_SOURCE=3 knows the remaining object size and
+aborts ("buffer overflow detected") even though nothing overflowed yet.
+
+diff --git a/source/test/intltest/ssearch.cpp b/source/test/intltest/ssearch.cpp
+index a13df7f..99d2727 100644
+--- a/source/test/intltest/ssearch.cpp
++++ b/source/test/intltest/ssearch.cpp
+@@ -533,10 +533,10 @@ static char *printOffsets(char *buffer, size_t n, OrderList &list)
+         const Order *order = list.get(i);
+ 
+         if (i != 0) {
+-            s += snprintf(s, n, ", ");
++            s += snprintf(s, buffer + n - s, ", ");
+         }
+ 
+-        s += snprintf(s, n, "(%d, %d)", order->lowOffset, order->highOffset);
++        s += snprintf(s, buffer + n - s, "(%d, %d)", order->lowOffset, order->highOffset);
+     }
+ 
+     return buffer;
+@@ -551,10 +551,10 @@ static char *printOrders(char *buffer, size_t n, OrderList &list)
+         const Order *order = list.get(i);
+ 
+         if (i != 0) {
+-            s += snprintf(s, n, ", ");
++            s += snprintf(s, buffer + n - s, ", ");
+         }
+ 
+-        s += snprintf(s, n, "%8.8X", order->order);
++        s += snprintf(s, buffer + n - s, "%8.8X", order->order);
+     }
+ 
+     return buffer;

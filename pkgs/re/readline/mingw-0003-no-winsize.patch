@@ -1,0 +1,17 @@
+No struct winsize / TIOCGWINSZ on Windows (msys2 MINGW-packages).
+
+diff -ur a/rlwinsize.h b/rlwinsize.h
+--- a/rlwinsize.h	2026-09-15 22:33:11.516832985 +0000
++++ b/rlwinsize.h	2026-09-15 22:33:11.549832563 +0000
+@@ -55,6 +55,11 @@
+ #  define tcflow(fd, action)	ioctl(fd, TCXONC, action)
+ #endif
+ 
++#if defined (__MINGW32__)
++// On Windows, define dummy struct with no fields.
++struct winsize {};
++#endif
++
+ extern int _rl_tcgetwinsize (int, struct winsize *);
+ extern void _rl_tcsetwinsize (int, struct winsize *);
+ 

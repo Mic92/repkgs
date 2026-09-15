@@ -1,0 +1,14 @@
+[upstream]
+purl = "pkg:generic/libxml2"
+
+[watch]
+url = "https://download.gnome.org/sources/libxml2/cache.json"
+regex = 'libxml2-([0-9]+\.[0-9]+\.[0-9]+)\.tar'
+
+[[source]]
+key = "default"
+url = "https://download.gnome.org/sources/libxml2/{major}.{minor}/libxml2-{version}.tar.xz"
+hash = "sha256-4N3UrekDuHMtY2ZnUxWjJSfrOiAof3IaHKxtbRcznRo="
+
+[pin]
+version = "2.15.4"

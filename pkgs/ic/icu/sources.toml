@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/unicode-org/icu"
+
+[[source]]
+key = "default"
+url = "https://github.com/unicode-org/icu/releases/download/release-{version}/icu4c-{version}-sources.tgz"
+hash = "sha256-CjbI8c8Pve+icym3bZ3MB5CNlFq9dCeDcavrKhelb9o="
+
+[pin]
+version = "78.3"
+date = "2026-03-17"
+tag = "release-78.3"
