@@ -1,0 +1,30 @@
+From: =?UTF-8?q?J=C3=B6rg=20Thalheim?= <joerg@thalheim.io>
+Date: Wed, 16 Sep 2026 11:59:44 +0000
+Subject: [PATCH] Makefile: give the Darwin libgif an install name
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Without -install_name the dylib's LC_ID_DYLIB is the -o argument,
+libgif.dylib, so everything linked against it records that bare name and
+dyld only finds the library in the current directory. Use the installed
+major-version path, the counterpart of the ELF soname.
+
+Signed-off-by: Jörg Thalheim <joerg@thalheim.io>
+---
+ Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Makefile b/Makefile
+index f347162..9282964 100644
+--- a/Makefile
++++ b/Makefile
+@@ -123,7 +123,7 @@ static-lib: $(STATIC_LIBS)
+ 
+ $(LIBGIFSO): $(OBJECTS) $(HEADERS)
+ ifeq ($(UNAME), Darwin)
+-	$(CC) $(CFLAGS) -dynamiclib -current_version $(LIBVER) $(OBJECTS) -o $(LIBGIFSO)
++	$(CC) $(CFLAGS) -dynamiclib -current_version $(LIBVER) -install_name $(LIBDIR)/$(LIBGIFSOMAJOR) $(OBJECTS) -o $(LIBGIFSO)
+ else
+ 	$(CC) $(CFLAGS) $(CPPFLAGS) -shared $(LDFLAGS) -Wl,-soname -Wl,$(LIBGIFSOMAJOR) -o $(LIBGIFSO) $(OBJECTS)
+ endif

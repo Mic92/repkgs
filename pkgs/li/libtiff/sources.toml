@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:gitlab/libtiff/libtiff"
+
+[[source]]
+key = "default"
+url = "https://download.osgeo.org/libtiff/tiff-{version}.tar.xz"
+hash = "sha256-bjxZ2NgH6ZwOL2hj72gQ1Q/9KDqK8WkYY8f3etoQtgM="
+
+[pin]
+version = "4.7.2"
+date = "2026-06-27"
+tag = "v4.7.2"
