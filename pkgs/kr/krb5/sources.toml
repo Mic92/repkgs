@@ -1,0 +1,10 @@
+[upstream]
+purl = 'pkg:generic/krb5?url=https://kerberos.org/dist/&regex=krb5-([0-9.]+)\.tar'
+
+[[source]]
+key = "default"
+url = "https://kerberos.org/dist/krb5/{major}.{minor}/krb5-{version}.tar.gz"
+hash = "sha256-hbb3S5Ddh1MMShrmjmkEimcBi1dmxIvc2mfgYAdvMSU="
+
+[pin]
+version = "1.22.2"

@@ -47,7 +47,7 @@ export def scrub []: nothing -> nothing {
   # -Dprefix in config_args and initialinstalllocation (by design, "where it was first
   # installed"): the same notation there
   for f in [$"($arch)/Config.pm" $"($arch)/Config_heavy.pl" $"($arch)/CORE/config.h"] {
-    edit $f { str replace -ar '/nix/store/[a-z0-9]{32}-seed[^/]*/bin/' "" | str replace -ar $foreign "" | str replace -a $c.out ".../.." }
+    edit $f { tools-by-name | str replace -ar $foreign "" | str replace -a $c.out ".../.." }
   }
   let left = (open --raw $"($arch)/Config_heavy.pl" | lines | where { $in =~ '/nix/store/' and $in !~ $c.out })
   if ($left | is-not-empty) { error make {msg: $"Config_heavy.pl still names foreign store paths: ($left | first)"} }

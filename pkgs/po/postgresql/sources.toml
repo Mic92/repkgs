@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:generic/postgresql?url=https://ftp.postgresql.org/pub/source/&regex=v([0-9.]+)/"
+
+[[source]]
+key = "default"
+url = "https://ftp.postgresql.org/pub/source/v{version}/postgresql-{version}.tar.bz2"
+hash = "sha256-ySffxlG7jlNyzx++BmIN+WuaQ9TMAJt/qER9wIjd6B8="
+
+[pin]
+version = "18.6"

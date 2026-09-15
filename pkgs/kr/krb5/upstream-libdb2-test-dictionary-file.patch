@@ -1,0 +1,31 @@
+From: =?UTF-8?q?J=C3=B6rg=20Thalheim?= <joerg@thalheim.io>
+Date: Wed, 16 Sep 2026 09:02:52 +0000
+Subject: [PATCH] libdb2 tests: fall back to the dictionary as test 8's big
+ data file
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+In a minimal build sandbox none of /bin/csh, /bin/ls, /usr/bin/ls,
+/bin/cat, /usr/bin/cat exist and run.test aborts with "No suitable file
+for testing purposes". The dictionary the other tests already use is
+always there.
+
+Signed-off-by: Jörg Thalheim <joerg@thalheim.io>
+---
+ src/plugins/kdb/db2/libdb2/test/run.test | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/plugins/kdb/db2/libdb2/test/run.test b/src/plugins/kdb/db2/libdb2/test/run.test
+index ebce8e2..aa15960 100644
+--- a/src/plugins/kdb/db2/libdb2/test/run.test
++++ b/src/plugins/kdb/db2/libdb2/test/run.test
+@@ -416,7 +416,7 @@ test8()
+ 	# /bin/csh is no longer ubiquitous - find a substitute
+ 	# The test stores contents of a known file
+ 	tfile=""
+-	for tp in /bin/csh /bin/ls /usr/bin/ls /bin/cat /usr/bin/cat; do
++	for tp in /bin/csh /bin/ls /usr/bin/ls /bin/cat /usr/bin/cat $DICT; do
+ 	    if [ "x$tfile" = "x" -a -f $tp ]; then
+ 		tfile=$tp
+ 	    fi

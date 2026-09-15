@@ -88,6 +88,10 @@ export def edit [f: path, change: closure]: nothing -> nothing {
   $text | save -f $f
 }
 
+# Build records (Config.pm, Makefile.global) name the tools configure found by store path. As
+# bare names they resolve to whatever is on PATH where the record is later used
+export def tools-by-name []: string -> string { $in | str replace -ar '/nix/store/[a-z0-9]{32}-[^/]+/bin/' "" }
+
 # starts with \x7fELF
 export def is-elf [f: path]: nothing -> bool { (open --raw $f | first 4) == 0x[7f 45 4c 46] }
 

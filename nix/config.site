@@ -142,6 +142,9 @@ gl_cv_func_strcasecmp_works=yes
 ac_cv_iconv_omits_bom=no # git
 ac_cv_fread_reads_directories=yes # git
 ac_cv_snprintf_returns_bogus=no # git
+ac_cv_func_regcomp=yes # krb5 runs a regcomp program
+ac_cv_printf_positional=yes # krb5: %1$s
+krb5_cv_attr_constructor_destructor=yes,yes # clang
 
 # libtool: the toolchain is fixed
 lt_cv_deplibs_check_method=pass_all

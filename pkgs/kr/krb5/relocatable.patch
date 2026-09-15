@@ -1,0 +1,244 @@
+diff --git a/src/include/osconf.hin b/src/include/osconf.hin
+index c142975..fbf510f 100644
+--- a/src/include/osconf.hin
++++ b/src/include/osconf.hin
+@@ -58,7 +58,7 @@
+ #ifdef _WIN32
+ #define DEFAULT_PLUGIN_BASE_DIR "%{LIBDIR}\\plugins"
+ #else
+-#define DEFAULT_PLUGIN_BASE_DIR "@LIBDIR/krb5/plugins"
++#define DEFAULT_PLUGIN_BASE_DIR "%{LIBDIR}/krb5/plugins"
+ #endif
+ 
+ #if defined(_WIN64)
+@@ -84,7 +84,7 @@
+ #if TARGET_OS_MAC
+ #define DEFAULT_KDB_LIB_PATH    { KDB5_PLUGIN_BUNDLE_DIR, "@MODULEDIR/kdb", NULL }
+ #else
+-#define DEFAULT_KDB_LIB_PATH    { "@MODULEDIR/kdb", NULL }
++#define DEFAULT_KDB_LIB_DIR     RELOC("krb5/plugins/kdb")
+ #endif
+ 
+ #define DEFAULT_KDC_ENCTYPE     ENCTYPE_AES256_CTS_HMAC_SHA1_96
+@@ -126,8 +126,8 @@
+ 
+ #define KPROP_DEFAULT_FILE KDC_DIR "/replica_datatrans"
+ #define KPROPD_DEFAULT_FILE KDC_DIR "/from_master"
+-#define KPROPD_DEFAULT_KDB5_UTIL "@SBINDIR/kdb5_util"
+-#define KPROPD_DEFAULT_KPROP "@SBINDIR/kprop"
++#define KPROPD_DEFAULT_KDB5_UTIL RELOC("kdb5_util")
++#define KPROPD_DEFAULT_KPROP RELOC("kprop")
+ #define KPROPD_DEFAULT_KRB_DB DEFAULT_KDB_FILE
+ #define KPROPD_ACL_FILE KDC_DIR "/kpropd.acl"
+ 
+@@ -135,6 +135,10 @@
+  * GSS mechglue
+  */
+ #define MECH_CONF "@SYSCONFDIR/gss/mech"
+-#define MECH_LIB_PREFIX "@GSSMODULEDIR/"
++#define MECH_LIB_PREFIX RELOC("gss/")
++
++#ifndef _WIN32
++#include <reloc.h>
++#endif
+ 
+ #endif /* KRB5_OSCONF__ */
+diff --git a/src/kadmin/server/ovsec_kadmd.c b/src/kadmin/server/ovsec_kadmd.c
+index 234d9e2..92cc6e5 100644
+--- a/src/kadmin/server/ovsec_kadmd.c
++++ b/src/kadmin/server/ovsec_kadmd.c
+@@ -68,8 +68,8 @@ int daemon(int, int);
+ gss_name_t gss_changepw_name = NULL, gss_oldchangepw_name = NULL;
+ void *global_server_handle;
+ int nofork = 0;
+-char *kdb5_util = KPROPD_DEFAULT_KDB5_UTIL;
+-char *kprop = KPROPD_DEFAULT_KPROP;
++char *kdb5_util = NULL;
++char *kprop = NULL;
+ char *dump_file = KPROP_DEFAULT_FILE;
+ char *kprop_port = NULL;
+ 
+@@ -433,6 +433,10 @@ main(int argc, char *argv[])
+ 
+     if (argc != 0)
+         usage();
++    if (kdb5_util == NULL)
++        kdb5_util = (char *)KPROPD_DEFAULT_KDB5_UTIL;
++    if (kprop == NULL)
++        kprop = (char *)KPROPD_DEFAULT_KPROP;
+ 
+     ret = kadm5_init_krb5_context(&context);
+     if (ret) {
+diff --git a/src/kprop/kpropd.c b/src/kprop/kpropd.c
+index 2762132..80e7df7 100644
+--- a/src/kprop/kpropd.c
++++ b/src/kprop/kpropd.c
+@@ -132,7 +132,7 @@ static char *realm = NULL;      /* Our realm */
+ static char *def_realm = NULL;  /* Ref pointer for default realm */
+ static char *file = KPROPD_DEFAULT_FILE;
+ static char *temp_file_name;
+-static char *kdb5_util = KPROPD_DEFAULT_KDB5_UTIL;
++static char *kdb5_util = NULL;
+ static char *kerb_database = NULL;
+ static char *acl_file_name = KPROPD_ACL_FILE;
+ 
+@@ -1131,6 +1131,8 @@ parse_args(int argc, char **argv)
+     }
+     if (optind != argc)
+         usage();
++    if (kdb5_util == NULL)
++        kdb5_util = (char *)KPROPD_DEFAULT_KDB5_UTIL;
+ 
+     openlog("kpropd", LOG_PID | LOG_ODELAY, SYSLOG_CLASS);
+     if (!debug)
+diff --git a/src/lib/gssapi/mechglue/g_initialize.c b/src/lib/gssapi/mechglue/g_initialize.c
+index 7e36c4a..3d8d3d6 100644
+--- a/src/lib/gssapi/mechglue/g_initialize.c
++++ b/src/lib/gssapi/mechglue/g_initialize.c
+@@ -1491,7 +1491,7 @@ addConfigEntry(const char *oidStr, const char *oid, const char *sharedLib,
+ #if defined(_WIN32)
+ 	const char *sharedPath;
+ #else
+-	char sharedPath[sizeof (MECH_LIB_PREFIX) + BUFSIZ];
++	char sharedPath[PATH_MAX + BUFSIZ];
+ #endif
+ 	char *tmpStr;
+ 	gss_OID mechOid;
+diff --git a/src/lib/kdb/kdb5.c b/src/lib/kdb/kdb5.c
+index b6db28d..f6cbd96 100644
+--- a/src/lib/kdb/kdb5.c
++++ b/src/lib/kdb/kdb5.c
+@@ -392,8 +392,7 @@ cleanup:
+ 
+ #else /* KDB5_STATIC_LINK*/
+ 
+-static char *db_dl_location[] = DEFAULT_KDB_LIB_PATH;
+-#define db_dl_n_locations (sizeof(db_dl_location) / sizeof(db_dl_location[0]))
++#define db_dl_n_locations 2
+ 
+ static krb5_error_code
+ load_library(krb5_context kcontext, const char *lib_name, db_library *lib)
+@@ -439,7 +438,8 @@ load_library(krb5_context kcontext, const char *lib_name, db_library *lib)
+     }
+     if (ndx)
+         memcpy(path, profpath, ndx * sizeof(profpath[0]));
+-    memcpy(path + ndx, db_dl_location, db_dl_n_locations * sizeof(char *));
++    path[ndx] = (char *)DEFAULT_KDB_LIB_DIR;
++    path[ndx + 1] = NULL;
+     status = 0;
+ 
+     if ((status = krb5int_open_plugin_dirs ((const char **) path,
+diff --git a/src/lib/krb5/krb/authdata.c b/src/lib/krb5/krb/authdata.c
+index b5659c2..0481a13 100644
+--- a/src/lib/krb5/krb/authdata.c
++++ b/src/lib/krb5/krb/authdata.c
+@@ -37,8 +37,7 @@ static const char *objdirs[] = {
+ #if TARGET_OS_MAC
+     KRB5_AUTHDATA_PLUGIN_BUNDLE_DIR,
+ #endif
+-    LIBDIR "/krb5/plugins/authdata",
+-    NULL
++    NULL, NULL
+ }; /* should be a list */
+ 
+ /* Internal authdata systems */
+@@ -390,6 +389,8 @@ krb5_authdata_context_init(krb5_context kcontext,
+     }
+     internal_count = n_tables;
+ 
++    objdirs[sizeof(objdirs) / sizeof(*objdirs) - 2] =
++        RELOC("krb5/plugins/authdata");
+     if (PLUGIN_DIR_OPEN(&plugins) == 0 &&
+         krb5int_open_plugin_dirs(objdirs, NULL,
+                                  &plugins,
+diff --git a/src/lib/krb5/os/Makefile.in b/src/lib/krb5/os/Makefile.in
+index 9a0d286..9f6a0f1 100644
+--- a/src/lib/krb5/os/Makefile.in
++++ b/src/lib/krb5/os/Makefile.in
+@@ -259,8 +259,6 @@ check-unix-trace: t_trace
+ 
+ check-unix-expand: t_expand_path
+ 	$(RUN_TEST) ./t_expand_path '%{null}' ''
+-	$(RUN_TEST) ./t_expand_path ' %{BINDIR}%{LIBDIR} ' \
+-		' $(CLIENT_BINDIR)$(KRB5_LIBDIR) '
+ 	$(RUN_TEST) ./t_expand_path \
+ 		'the %{animal}%{s} on the %{place}%{s}' \
+ 		'the frogs on the pads'
+diff --git a/src/lib/krb5/os/expand_path.c b/src/lib/krb5/os/expand_path.c
+index 5cbccf0..e6ace19 100644
+--- a/src/lib/krb5/os/expand_path.c
++++ b/src/lib/krb5/os/expand_path.c
+@@ -273,6 +273,17 @@ expand_path(krb5_context context, PTYPE param, const char *postfix, char **ret)
+     return 0;
+ }
+ 
++/* relative to this libkrb5 */
++static krb5_error_code
++expand_reloc(krb5_context context, PTYPE param, const char *postfix,
++             char **ret)
++{
++    *ret = strdup(RELOC(postfix));
++    if (*ret == NULL)
++        return ENOMEM;
++    return 0;
++}
++
+ static krb5_error_code
+ expand_temp_folder(krb5_context context, PTYPE param, const char *postfix,
+                    char **ret)
+@@ -379,9 +390,9 @@ static const struct {
+     {"SBINDIR", 0, NULL, expand_bin_dir},
+     {"euid", 0, NULL, expand_userid},
+ #else
+-    {"LIBDIR", 0, LIBDIR, expand_path},
+-    {"BINDIR", 0, BINDIR, expand_path},
+-    {"SBINDIR", 0, SBINDIR, expand_path},
++    {"LIBDIR", 0, "", expand_reloc},
++    {"BINDIR", 0, "../bin", expand_reloc},
++    {"SBINDIR", 0, "../bin", expand_reloc},
+     {"euid", 0, NULL, expand_euid},
+     {"username", 0, NULL, expand_username},
+ #endif
+diff --git a/src/lib/krb5/os/locate_kdc.c b/src/lib/krb5/os/locate_kdc.c
+index d1df04a..0e98a4f 100644
+--- a/src/lib/krb5/os/locate_kdc.c
++++ b/src/lib/krb5/os/locate_kdc.c
+@@ -403,7 +403,7 @@ static const char *objdirs[] = { KRB5_PLUGIN_BUNDLE_DIR,
+                                  LIBDIR "/krb5/plugins/libkrb5",
+                                  NULL }; /* should be a list */
+ #else
+-static const char *objdirs[] = { LIBDIR "/krb5/plugins/libkrb5", NULL };
++static const char *objdirs[2]; /* filled on first use: RELOC is a call */
+ #endif
+ 
+ struct module_callback_data {
+@@ -454,7 +454,7 @@ module_locate_server(krb5_context ctx, const krb5_data *realm,
+     Tprintf("in module_locate_server\n");
+     cbdata.list = serverlist;
+     if (!PLUGIN_DIR_OPEN(&ctx->libkrb5_plugins)) {
+-
++        objdirs[0] = RELOC("krb5/plugins/libkrb5");
+         code = krb5int_open_plugin_dirs(objdirs, NULL, &ctx->libkrb5_plugins,
+                                         &ctx->err);
+         if (code)
+diff --git a/src/util/profile/prof_init.c b/src/util/profile/prof_init.c
+index 783efbd..847200b 100644
+--- a/src/util/profile/prof_init.c
++++ b/src/util/profile/prof_init.c
+@@ -5,6 +5,7 @@
+  */
+ 
+ #include "prof_int.h"
++#include <reloc.h>
+ 
+ #include <stdio.h>
+ #include <string.h>
+@@ -78,7 +79,7 @@ parse_modspec(const char *modspec, char **ret_path, char **ret_residual)
+     path[p - modspec] = '\0';
+ 
+     /* Compose the path with LIBDIR if it's not absolute. */
+-    ret = k5_path_join(LIBDIR, path, &fullpath);
++    ret = k5_path_join(RELOC(""), path, &fullpath);
+     free(path);
+     if (ret)
+         return ret;

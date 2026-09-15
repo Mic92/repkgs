@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:generic/tzdb?url=https://data.iana.org/time-zones/releases/"
+
+[[source]]
+key = "default"
+url = "https://data.iana.org/time-zones/releases/tzdb-{version}.tar.lz"
+hash = "sha256-TjXA+l6ZZva71ZabS5c3V0Pk6UvD2R0/lSGMa8idJJM="
+
+[pin]
+version = "2026d"
+date = "2026-09-16"
