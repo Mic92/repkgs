@@ -15,9 +15,10 @@ package {
   ];
   phases = [
     {
-      # X11 AWT and its dependents would fail the implant for want of libX11 & co
+      # X11 AWT and its dependents would fail the implant for want of libX11 & co. The riscv64
+      # tarball is headless and has none
       name = "prune";
-      run = "rm lib/libawt_xawt.so lib/libsplashscreen.so lib/libjawt.so";
+      run = "rm -f lib/libawt_xawt.so lib/libsplashscreen.so lib/libjawt.so";
     }
   ];
   install."." = [
