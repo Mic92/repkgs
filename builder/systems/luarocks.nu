@@ -18,7 +18,9 @@ export def install []: nothing -> nothing {
   let c = (ctx)
   let o = (options luarocks)
   let lua = (dep-root lua "rocks run on the target lua")
-  x luarocks make --tree $c.out $"--only-server=($o.deps)" --deps-mode one --no-doc $"LUA_DIR=($lua)" "CFLAGS=-O2 -fPIC" ...$o.flags ...([$o.rockspec] | compact)
+  # luarocks picks link flags for the os it runs on
+  let libflag = (if $c.platform.os == "macos" { ["LIBFLAG=-bundle -undefined dynamic_lookup"] } else { [] })
+  x luarocks make --tree $c.out $"--only-server=($o.deps)" --deps-mode one --no-doc $"LUA_DIR=($lua)" "CFLAGS=-O2 -fPIC" ...$libflag ...$o.flags ...([$o.rockspec] | compact)
   # the bin wrappers name luarocks' own config dir (a build tool, nothing reads it at run time)
   # and the tree by absolute path: the tree is where the wrapper is
   for f in (files $"($c.out)/bin/*") {
