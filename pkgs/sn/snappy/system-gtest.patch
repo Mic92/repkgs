@@ -1,0 +1,28 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 1cab614..651ca59 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -388,17 +388,20 @@ if(SNAPPY_BUILD_TESTS)
+   set(build_gmock ON)
+ 
+   # This project is tested using GoogleTest.
+-  add_subdirectory("third_party/googletest")
++  find_package(GTest REQUIRED)
++  add_library(gtest ALIAS GTest::gtest)
++  add_library(gmock ALIAS GTest::gmock)
++  add_library(gmock_main ALIAS GTest::gmock_main)
+ 
+   # GoogleTest triggers a missing field initializers warning.
+-  if(SNAPPY_HAVE_NO_MISSING_FIELD_INITIALIZERS)
++  if(SNAPPY_HAVE_NO_MISSING_FIELD_INITIALIZERS AND NOT GTest_FOUND)
+     set_property(TARGET gtest
+         APPEND PROPERTY COMPILE_OPTIONS -Wno-missing-field-initializers)
+     set_property(TARGET gmock
+         APPEND PROPERTY COMPILE_OPTIONS -Wno-missing-field-initializers)
+   endif(SNAPPY_HAVE_NO_MISSING_FIELD_INITIALIZERS)
+ 
+-  if(SNAPPY_HAVE_NO_IMPLICIT_INT_FLOAT_CONVERSION)
++  if(SNAPPY_HAVE_NO_IMPLICIT_INT_FLOAT_CONVERSION AND NOT GTest_FOUND)
+     set_property(TARGET gtest
+         APPEND PROPERTY COMPILE_OPTIONS -Wno-implicit-int-float-conversion)
+   endif(SNAPPY_HAVE_NO_IMPLICIT_INT_FLOAT_CONVERSION)

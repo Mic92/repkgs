@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/google/snappy"
+
+[[source]]
+key = "default"
+url = "https://github.com/google/snappy/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-IcV8068It2E3lrOYb7dJ7PI2czPM7lT4UNNFiKk126o="
+
+[pin]
+version = "1.3.0"
+date = "2026-09-14"
+tag = "1.3.0"
