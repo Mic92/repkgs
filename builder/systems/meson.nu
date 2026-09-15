@@ -1,6 +1,12 @@
 use ../core.nu *
 
 # meson setup / compile / test / install.
+export const OPTIONS = {
+  defs: {default: {}, doc: "-D options, merged over prefix/libdir/buildtype defaults"}
+  flags: {default: [], doc: "extra arguments for meson setup"}
+  skipTests: {default: [], doc: "regexes on `meson test --list` names"}
+}
+
 export def setup []: nothing -> nothing { }
 
 # out-of-tree

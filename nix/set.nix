@@ -1,5 +1,5 @@
 # The package set for one platform and what it is made from: { pkgs, bootstrap, buildSystems }.
-# default.nix is `pkgs` alone; nix/options.nix and nix/checks.nix read the rest.
+# default.nix is `pkgs` alone; nix/checks.nix reads the rest.
 {
   system ? builtins.currentSystem,
   platform ? system,

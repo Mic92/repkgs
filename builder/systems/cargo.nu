@@ -2,6 +2,14 @@ use ../core.nu *
 use ../sys-libs.nu
 
 # cargo build/test/install, offline against a vendored registry snapshot. rustc goes through jig's cache.
+export const OPTIONS = {
+  features: {default: [], doc: "--features"}
+  noDefaultFeatures: {default: false, doc: "--no-default-features"}
+  flags: {default: [], doc: "extra arguments for cargo build and cargo test"}
+  skipTests: {default: [], doc: "cargo test --skip filters (substring of the test path)"}
+  cratePatches: {default: {}, doc: "crate name -> patches applied to its vendored copy (-p1 inside the crate)"}
+}
+
 # features and `cargo.flags`, for build and test alike
 def args [o: record<features: list<string>, noDefaultFeatures: bool, flags: list<string>>]: nothing -> list<string> {
   [

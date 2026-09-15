@@ -6,6 +6,12 @@ use ../sys-libs.nu
 # compiler version and the dependency closure, the key adds the ghc build, so a unit built
 # once on this host (by any package) is fetched from jigd instead of compiled. The store
 # directory is the same fixed path in every sandbox so the paths inside cached units agree.
+export const OPTIONS = {
+  flags: {default: [], doc: "extra arguments for every cabal subcommand (--flags=…, --allow-newer)"}
+  exes: {default: [], doc: "exe components to build and install"}
+  project: {default: "", doc: "extra cabal.project text (allow-newer:, constraints:)"}
+}
+
 def --wrapped cabal [...args: string]: nothing -> any {
   print -e $"+ cabal ($args | str join ' ')"
   ^cabal ...$args

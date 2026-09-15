@@ -3,6 +3,17 @@ use ../probe-cache.nu
 use ./make.nu
 
 # autoconf configure, then make.nu's build/test/install
+export const OPTIONS = {
+  flags: {default: [], doc: "extra arguments for configure"}
+  makeFlags: {default: [], doc: "arguments for every make invocation (build, test, install)"}
+  configureScript: {default: configure, doc: "configure script relative to the project"}
+  outOfTree: {default: true, doc: "configure from a separate build directory"}
+  installFlags: {default: [], doc: "arguments for `make install` only"}
+  buildTarget: {default: [], doc: "make goals for build (empty: the makefile's default goal)"}
+  testTarget: {default: [check], doc: "make goals for test"}
+  installTarget: {default: [install], doc: "make goals for install"}
+}
+
 export def --env setup []: nothing -> nothing { make setup }
 
 export def workdir []: nothing -> string { if (options autotools).outOfTree { (ctx).build } else { project-dir autotools } }

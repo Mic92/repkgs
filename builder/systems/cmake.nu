@@ -1,7 +1,14 @@
 use ../core.nu *
 use ../probe-cache.nu
 
-# cmake configure / build / ctest / install with Ninja.
+# cmake configure / build / ctest / install with Ninja
+export const OPTIONS = {
+  defs: {default: {}, doc: "-D cache entries. true/false render ON/OFF, packages their store path"}
+  generator: {default: Ninja, doc: "cmake -G"}
+  flags: {default: [], doc: "extra arguments for cmake at configure time"}
+  skipTests: {default: [], doc: "ctest -E regexes"}
+}
+
 # -D values: bools as ON/OFF, everything else as written
 def render [v: oneof<bool, int, string>]: nothing -> string {
   match $v { true => "ON", false => "OFF", _ => ($v | into string) }

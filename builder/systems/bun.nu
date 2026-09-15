@@ -4,6 +4,12 @@ use ../node-common.nu
 # A bun project: `bun install --offline` from fetch.bunDeps, optional `bun run <script>`, `bun test`,
 # then either standalone executables (`bun.compile = { <bin> = "<entry.ts>"; }`) or the package
 # tree under lib/node_modules/<name> with its package.json `bin` entries linked into bin/.
+export const OPTIONS = {
+  script: {default: build, nullable: true, doc: "package.json script `build` runs (null: none)"}
+  flags: {default: [], doc: "extra arguments for bun install"}
+  compile: {default: {}, doc: "bin name -> entry module: `bun build --compile` single executables instead of installing the tree"}
+}
+
 
 const LINK_CACHE = path self bun-cache.ts
 

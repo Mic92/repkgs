@@ -3,6 +3,16 @@ use ../sys-libs.nu
 
 # go build/test/install, modules from a GOPROXY=file:// tree (fetch.goModules, `go.deps`) or,
 # with `go.deps = null`, the source's own vendor/.
+export const OPTIONS = {
+  tags: {default: [], doc: "-tags"}
+  ldflags: {default: [], doc: "-ldflags words (-X main.version=…)"}
+  packages: {default: [./...], doc: "packages to build"}
+  testPackages: {default: null, type: list, doc: "packages to test (null: `packages`)"}
+  skipTests: {default: [], doc: "go test -skip regexes"}
+  cgo: {default: true, doc: "CGO_ENABLED and external linking"}
+  flags: {default: [], doc: "extra arguments for go build and go test"}
+}
+
 # offline module resolution, cgo per `go.cgo`
 export def --env setup []: nothing -> nothing {
   let c = (ctx); let o = (options go)

@@ -55,10 +55,11 @@ def --env restore [from_tree: string, src: path]: nothing -> nothing {
 }
 
 export def --env main [
+  systems: record # build system name -> its OPTIONS table, from the generated script
   --from-tree: string = ""  # tests derivation: restore the package's tree instead of unpacking
 ]: nothing -> nothing {
   let a = (attrs)
-  let spec = $a.spec
+  let spec = ($systems | transpose bs table | reduce -f $a.spec {|it, acc| $acc | upsert $it.bs (merge-options $it.bs $it.table ($acc | get -o $it.bs | default {})) })
   # the build installs outside the store, finish moves it (docs/design.md, Relocatable). In the
   # tests derivation $out is the built package and our own output just the log
   let out = (if $from_tree == "" { $"($env.NIX_BUILD_TOP)/prefix" } else { $a.package })
