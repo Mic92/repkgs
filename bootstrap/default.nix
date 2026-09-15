@@ -102,6 +102,7 @@ let
         ++ [
           "musl"
           "glibc"
+          "mingw-w64"
           "jig"
           "launch"
           "dlaudit"
@@ -207,10 +208,9 @@ let
           parts = builtins.filter (p: p != null) parts;
           resource = compiler-rt;
         };
-      # builtins-<cpu>.txt for Linux, builtins-<cpu>-<os>.txt otherwise (pkgs/ll/llvm/update.nu)
+      # builtins-<cpu>.txt for Linux, builtins-<platform>.txt otherwise (pkgs/ll/llvm/update.nu)
       list =
-        pkg "llvm"
-        + "/builtins-${platform.cpu}${if platform.os == "linux" then "" else "-${platform.os}"}.txt";
+        pkg "llvm" + "/builtins-${if platform.os == "linux" then platform.cpu else platform.name}.txt";
       compiler-rt = run "compiler-rt" (
         {
           src = source "llvm";
@@ -337,6 +337,18 @@ let
       ccArgs = crossCc platform;
     };
   msvc = cpu: sdkChain platforms.msvc.${cpu};
+  mingw =
+    cpu:
+    let
+      platform = platforms.mingw.${cpu};
+    in
+    chain {
+      inherit platform;
+      run = cross platform;
+      libcRecipe = "mingw-w64";
+      libcArgs.src = source "mingw-w64";
+      ccArgs = crossCc platform;
+    };
   macos =
     cpu:
     let
@@ -350,6 +362,7 @@ in
     stage0
     source
     msvc
+    mingw
     macos
     ;
   stage1 = builtins.mapAttrs (cpu: _: stage1 cpu) platforms.glibc;

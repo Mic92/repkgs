@@ -99,8 +99,10 @@ let
         buildRustTriple
         cross
         emulator
-        exe
-        sharedLib
+        abi
+        libc
+        posix
+        ext
         ;
       inherit (toolchain) sysroot;
       probe = if platform.cross then "${toolchain.sysroot}/lib/${platform.interp}" else "";
@@ -117,7 +119,7 @@ let
       enabled = hardening.forPlatform platform;
     };
   };
-  phaseRe = "([a-z][a-z0-9]*)\\.([a-zA-Z]+)";
+  phaseRe = "([a-z][a-z0-9]*)\\.([a-zA-Z][a-zA-Z-]*)";
 in
 # sources: the package's sources.toml (nix/sources.nix) or null. It supplies version and source
 # unless package.nix sets them (local trees, demos)
@@ -136,8 +138,8 @@ let
       else
         {
           inherit (sources) version;
-          # one tarball for all, or one per cpu (prebuilt toolchains keyed "x86_64", "aarch64")
-          source = if sources.has "default" then "default" else platform.cpu;
+          # one tarball for all, or one per platform ("x86_64-linux", "aarch64-macos")
+          source = if sources.has "default" then "default" else "${platform.cpu}-${platform.os}";
         }
     )
     // (
@@ -188,8 +190,9 @@ let
       ) (attrNames set)
     else
       [ ];
+  # `<bs> = on cond { … }` for a build system used on some platforms only leaves { } on the others
   unknownFields =
-    attrNames (removeAttrs args (reserved ++ uses))
+    filter (k: args.${k} != { }) (attrNames (removeAttrs args (reserved ++ uses)))
     ++ (if args ? tests then subKeys "tests" args.tests else [ ])
     ++ (if args ? cc then subKeys "cc" args.cc else [ ]);
   # one message per option the package sets that its build system does not declare, or declares
@@ -222,10 +225,12 @@ let
     ++ map (d: "buildDependencies: ${d.pname} is built for ${d.platform}") (
       filter (d: (d.platform or platform.system) != platform.system) (args.buildDependencies or [ ])
     );
-  # `supported` without forcing the derivation (docs/design.md): platforms.{cpu,os,cross},
+  # `supported` without forcing the derivation (docs/design.md): platforms.{cpu,os,abi,posix,cross},
   # a per-cpu tarball in sources.toml, and the dependencies' own verdicts
   badCpu = args ? platforms.cpu && !(elem platform.cpu args.platforms.cpu);
   badOs = args ? platforms.os && !(elem platform.os args.platforms.os);
+  badAbi = args ? platforms.abi && !(elem platform.abi args.platforms.abi);
+  needsPosix = (args.platforms.posix or false) && !platform.posix;
   nativeOnly = (args.platforms.cross or true) == false && platform.cross;
   bsReasons = filter (r: r != null) (map (u: buildSystems.${u}.unsupported) uses);
   # `source` as a plain string names a sources.toml key; a cpu the file has no tarball for is
@@ -247,6 +252,10 @@ let
       "${name}: not for ${platform.cpu} (platforms.cpu)"
     else if badOs then
       "${name}: not for ${platform.os} (platforms.os)"
+    else if badAbi then
+      "${name}: not for the ${platform.abi} ABI (platforms.abi)"
+    else if needsPosix then
+      "${name}: needs a POSIX system (platforms.posix)"
     else if nativeOnly then
       "${name}: runs its own binaries while installing, cannot be cross-built (platforms.cross)"
     else if bsReasons != [ ] then
@@ -262,6 +271,8 @@ let
     removeAttrs (args.platforms or { }) [
       "cpu"
       "os"
+      "abi"
+      "posix"
       "cross"
     ]
   );
@@ -316,7 +327,7 @@ let
   # `phases` is the whole list, or edits to the first build system's list (README):
   # { before.<phase> = [..]; after.<phase> = [..]; replace.<phase> = phase | [..]; remove = [..]; }
   phases =
-    if !(args ? phases) then
+    if (args.phases or [ ]) == [ ] then
       if length uses == 1 then
         buildSystems.${head uses}.phases
       else if uses == [ ] && (args ? install || args ? links) then
@@ -329,9 +340,11 @@ let
       let
         e = args.phases;
         known = buildSystems.${head uses}.phases;
+        # an edit gated off with `on cond [ … ]` names a phase of the other platform's build system
+        nonEmpty = set: filter (n: set.${n} != [ ]) (attrNames set);
         named =
-          attrNames (e.before or { })
-          ++ attrNames (e.after or { })
+          nonEmpty (e.before or { })
+          ++ nonEmpty (e.after or { })
           ++ attrNames (e.replace or { })
           ++ (e.remove or [ ]);
         unknown = filter (n: !elem n known) named;

@@ -19,5 +19,5 @@ export def build []: nothing -> nothing {
   let obj = {|src| $"($src | path parse | get stem).o" }
   $cxx_srcs | par-each {|s| x c++ ...$flags -c $s -o (do $obj $s) } | ignore
   $c_srcs | each {|s| x cc ...$flags -c $s -o (do $obj $s) } | ignore
-  x c++ ...($cxx_srcs ++ $c_srcs | each $obj) -o $"ninja($c.platform.exe)"
+  x c++ ...($cxx_srcs ++ $c_srcs | each $obj) -o $"ninja($c.platform.ext.exe)"
 }

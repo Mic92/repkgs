@@ -2,5 +2,5 @@
 package {
   name = "ninja";
   phases = [ "ninja.build" ];
-  install."bin/ninja${platform.exe}" = "../build/ninja${platform.exe}";
+  install."bin/ninja${platform.ext.exe}" = "../build/ninja${platform.ext.exe}";
 }

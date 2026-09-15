@@ -13,7 +13,7 @@ export def --env main [
   if $keep_tree { save-tree (attrs).outputs.tree $c.njobs }
   if not ($c.out | path exists) { error make {msg: "nothing was installed into $out"} }
   for b in (bins $c) {
-    if not ($"($c.out)/bin/($b)($c.platform.exe)" | path exists) { error make {msg: $"bin/($b)($c.platform.exe) missing in output"} }
+    if not ($"($c.out)/bin/($b)($c.platform.ext.exe)" | path exists) { error make {msg: $"bin/($b)($c.platform.ext.exe) missing in output"} }
   }
   let inv = (prune $c.out (inventory $c.out))
   layout-check $c.out
@@ -21,7 +21,7 @@ export def --env main [
   fix-env-shebangs $c.out $c.njobs --undo
   mkdir (attrs).outputs.debug
   relocate $c $inv
-  write-exports $c.out $c.spec $c.deps
+  write-exports $c.out $c.spec $c.platform $c.deps
   note exports (open --raw $"($c.out)/exports.json" | from json | to json -r)
   cd $env.NIX_BUILD_TOP
   to-store $c.out $c.dest $inv
@@ -95,7 +95,7 @@ export def tests []: nothing -> nothing {
 }
 
 # spec.install {"<dest under $out>": glob | [globs]} relative to the source tree, a dest ending
-# in / is a directory. spec.links {"<path>": "<target>"}
+# in / is a directory. spec.links {"<path>": "<target>"}, bin/ entries get the platform's exe suffix
 def install-map [c: record]: nothing -> nothing {
   for e in ($c.spec.install? | default {} | transpose dest from) {
     let to = $"($c.out)/($e.dest)"
@@ -110,8 +110,9 @@ def install-map [c: record]: nothing -> nothing {
     }
   }
   for e in ($c.spec.links? | default {} | transpose path target) {
+    let exe = (if ($e.path | str starts-with "bin/") { $c.platform.ext.exe } else { "" })
     mkdir ($"($c.out)/($e.path)" | path dirname)
-    ^ln -sfn $e.target $"($c.out)/($e.path)"
+    ^ln -sfn $"($e.target)($exe)" $"($c.out)/($e.path)($exe)"
   }
 }
 
@@ -124,7 +125,7 @@ def save-tree [tree: path, njobs: int]: nothing -> nothing {
 
 # `bin`, defaulting to the package's name when bin/<name> got installed
 def bins [c: record]: nothing -> list<string> {
-  $c.spec.bin? | default (if ($"($c.out)/bin/($c.spec.name)($c.platform.exe)" | path exists) { [$c.spec.name] } else { [] })
+  $c.spec.bin? | default (if ($"($c.out)/bin/($c.spec.name)($c.platform.ext.exe)" | path exists) { [$c.spec.name] } else { [] })
 }
 
 # the tree walked once, later steps filter it (toybox find has no %y)
@@ -230,7 +231,7 @@ def version-check [c: record]: nothing -> nothing {
     rm -f $audit_out
     # empty environment but for HOME, which any real session has (rebar3 crashes without).
     # bzip2 --version goes on to compress stdin: stdout can be binary
-    let r = (^env -i $"HOME=($env.NIX_BUILD_TOP)" ...($c.platform.emulator) ...$audit $"($root)/bin/($cmd.0)($c.platform.exe)" ...($cmd | skip 1) | complete)
+    let r = (^env -i $"HOME=($env.NIX_BUILD_TOP)" ...($c.platform.emulator) ...$audit $"($root)/bin/($cmd.0)($c.platform.ext.exe)" ...($cmd | skip 1) | complete)
     if $r.exit_code != 0 or not ($"($r.stdout)($r.stderr)" | str contains $want) {
       error make {msg: $"version check: `($cmd | str join ' ')` did not print ($want) \(exit ($r.exit_code))\n($r.stdout)($r.stderr)"}
     }

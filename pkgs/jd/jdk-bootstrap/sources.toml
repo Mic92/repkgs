@@ -2,17 +2,17 @@
 purl = "pkg:github/adoptium/temurin25-binaries"
 
 [[source]]
-key = "x86_64"
+key = "x86_64-linux"
 url = "https://github.com/adoptium/temurin25-binaries/releases/download/{path}/OpenJDK25U-jdk_x64_linux_hotspot_{file}.tar.gz"
 hash = "sha256-SUUM2/zU6yzZU5HP26VcaOZOeTVOnpOWH8BdNrK2m00="
 
 [[source]]
-key = "aarch64"
+key = "aarch64-linux"
 url = "https://github.com/adoptium/temurin25-binaries/releases/download/{path}/OpenJDK25U-jdk_aarch64_linux_hotspot_{file}.tar.gz"
 hash = "sha256-dyESeembVdBD65bEp3TswedOR55jpgSmtFbg9OiC/TE="
 
 [[source]]
-key = "riscv64"
+key = "riscv64-linux"
 url = "https://github.com/adoptium/temurin25-binaries/releases/download/{path}/OpenJDK25U-jdk_riscv64_linux_hotspot_{file}.tar.gz"
 hash = "sha256-j0YxRbvXEPicQowRpHoPrYiFLkDCj5ac2u0DAF0cVMI="
 

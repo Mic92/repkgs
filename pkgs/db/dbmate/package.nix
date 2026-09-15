@@ -6,10 +6,10 @@
 }:
 package {
   name = "dbmate";
-  # cgo -lsqlite3: our windows sqlite installs sqlite3.dll without an import library yet
-  platforms.os = [
-    "linux"
-    "macos"
+  # cgo has no msvc support
+  platforms.abi = [
+    "gnu"
+    "apple"
   ];
   uses = [ "go" ];
   go.packages = [ "." ];

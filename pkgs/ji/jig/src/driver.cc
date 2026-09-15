@@ -271,11 +271,18 @@ void MachOLink(const DriverConf& /*conf*/, bool /*cxx*/, UserArgs& /*user*/, std
   out.emplace_back("-Wl,-headerpad_max_install_names");
 }
 
-// COFF: PE is position independent by construction and clang rejects the flags. MSVC's STL has
-// no C++11 mode: older -std requests mean c++14
+// COFF: PE is position independent by construction and clang rejects the PIC flags. MSVC's STL
+// has no C++11 mode, older -std requests mean c++14. Library names are case-insensitive on
+// Windows and build files spell them any way (-lWS2_32). Ours are lower-case, and the build
+// host's file system compares bytes
 auto CoffArg(const std::string& arg) -> std::optional<std::string> {
   if (IsPicArg(arg)) {
     return std::nullopt;
+  }
+  if (arg.starts_with("-l") && arg.find('/') == std::string::npos) {
+    std::string lower = arg;
+    std::transform(lower.begin() + 2, lower.end(), lower.begin() + 2, [](unsigned char c) { return std::tolower(c); });
+    return lower;
   }
   for (const std::string_view old : {"++98", "++03", "++0x", "++11"}) {
     if ((arg.starts_with("-std=c") || arg.starts_with("-std=gnu")) && arg.ends_with(old)) {

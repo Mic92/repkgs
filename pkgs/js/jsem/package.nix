@@ -3,10 +3,7 @@
 package {
   name = "jsem";
   # POSIX semaphores and flock
-  platforms.os = [
-    "linux"
-    "macos"
-  ];
+  platforms.posix = true;
   version = "1";
   source = ./src;
   phases = [
