@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:generic/acl?url=https://download.savannah.nongnu.org/releases/acl/"
+
+[[source]]
+key = "default"
+url = "https://download.savannah.nongnu.org/releases/acl/acl-{version}.tar.gz"
+hash = "sha256-lcJpvXO1O3G7vvtdda8sb2lFesvEnmzqZZLIzhmZDiM="
+
+[pin]
+version = "2.4.0"

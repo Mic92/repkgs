@@ -1,0 +1,15 @@
+diff --git a/libattr/attr_copy_action.c b/libattr/attr_copy_action.c
+index d41dd2e..0dbd906 100644
+--- a/libattr/attr_copy_action.c
++++ b/libattr/attr_copy_action.c
+@@ -27,8 +27,9 @@
+ #include "attr/libattr.h"
+ #define ERROR_CONTEXT_MACROS
+ #include "error_context.h"
++#include <reloc.h>
+ 
+-#define ATTR_CONF SYSCONFDIR "/xattr.conf"
++#define ATTR_CONF RELOC("../etc/xattr.conf")
+ 
+ struct attr_action {
+ 	struct attr_action *next;

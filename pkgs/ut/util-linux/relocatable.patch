@@ -1,0 +1,19 @@
+--- a/term-utils/agetty.c
++++ b/term-utils/agetty.c
+@@ -39,6 +39,7 @@
+ #include "all-io.h"
+ #include "nls.h"
+ #include "pathnames.h"
++#include <reloc.h>
+ #include "c.h"
+ #include "cctype.h"
+ #include "widechar.h"
+@@ -1958,7 +1959,7 @@
+ 			     NULL,
+ 			     _PATH_SYSCONFDIR,
+ 			     _PATH_RUNSTATEDIR,
+-			     _PATH_SYSCONFSTATICDIR,
++			     RELOC("../lib"),
+ 			     "issue",
+ 			     ISSUEDIR_EXT);
+ 
