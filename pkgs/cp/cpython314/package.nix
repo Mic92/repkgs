@@ -1,34 +1,46 @@
 # CPython itself, the interpreter package. The python *build system* module is what builds wheels.
 {
   package,
+  sources,
   pkgs,
   platform,
   buildPkgs,
   on,
+  lib,
 }:
+let
+  msvc = platform.abi == "msvc";
+in
 package {
   name = "cpython314";
-  # configure: "cross build not supported" for mingw. upstream Windows builds are PCbuild/ (msvc)
-  platforms.posix = true;
-  uses = [ "autotools" ];
-  autotools.flags = [
-    "--disable-test-modules"
-    "--without-ensurepip"
-    "--with-openssl=${pkgs.openssl}"
-    "--with-system-libmpdec"
-    "ac_cv_file__dev_ptmx=yes"
-    "ac_cv_file__dev_ptc=no"
-  ]
-  # cross: configure needs a same-version build-machine python and cannot run test programs
-  ++ (
-    if platform.cross then
-      [
-        "--with-build-python=python3" # by name: _sysconfigdata records CONFIG_ARGS
-        "ac_cv_buggy_getaddrinfo=no"
-      ]
-    else
-      [ ]
-  );
+  # configure: "cross build not supported" for mingw
+  platforms.libc = [
+    "glibc"
+    "musl"
+    "apple"
+    "msvc"
+  ];
+  uses = [ (if msvc then "vcxproj" else "autotools") ];
+  autotools = lib.on (!msvc) {
+    flags = [
+      "--disable-test-modules"
+      "--without-ensurepip"
+      "--with-openssl=${pkgs.openssl}"
+      "--with-system-libmpdec"
+      "ac_cv_file__dev_ptmx=yes"
+      "ac_cv_file__dev_ptc=no"
+    ]
+    # cross: configure needs a same-version build-machine python and cannot run test programs
+    ++ (
+      if platform.cross then
+        [
+          "--with-build-python=python3" # by name: _sysconfigdata records CONFIG_ARGS
+          "ac_cv_buggy_getaddrinfo=no"
+        ]
+      else
+        [ ]
+    );
+  };
   # no compiled-in PREFIX: an installed python is where its binary (/proc/self/exe, as macOS
   # asks the OS) or libpython is, a build tree one uses the source dir. sysconfig data and .pyc
   # paths relative, python-config from $0. LIBPL gets no copy of the build Makefile and
@@ -37,25 +49,37 @@ package {
     ./relocatable.patch
     ./upstream-darwin-cross-xopen.patch
   ];
-  # build-details.json (PEP 739) records the paths of the python that ran the generator, under
-  # cross the build machine's: ours by layout, relative as --relative-paths would write them
-  phases.after."autotools.install" = [
-    {
-      name = "build-details";
-      run = ''
-        let f = (files $"($c.out)/lib/python3.*/build-details.json" | first)
-        let py = ($f | path dirname | path basename)
-        open $f | reject libpython.static | merge deep {
-          base_prefix: "../.."
-          base_interpreter: $"./bin/($py)"
-          libpython: {dynamic: $"./lib/lib($py).so", dynamic_stableabi: "./lib/libpython3.so"}
-          c_api: {headers: $"./include/($py)", pkgconfig_path: "./lib/pkgconfig"}
-        } | save -f $f
-      '';
-    }
+  # pcbuild.proj is the solution's traversal project. _freeze_module is a build-machine tool
+  # (cpython.frozen-modules stands in), the py launcher and shell extension are installer material
+  vcxproj = lib.on msvc {
+    projects = [ "PCbuild/pcbuild.proj" ];
+    exclude = [
+      "_freeze_module"
+      "pylauncher"
+      "pywlauncher"
+      "pyshellext"
+    ];
+    # PCbuild compiles these libraries in from source directories it is pointed at
+    properties = {
+      bz2Dir = "${pkgs.bzip2.src}/";
+      mpdecimalDir = "${pkgs.mpdecimal.src}/";
+      lzmaDir = "${sources.fetch "xz"}/";
+      sqlite3Dir = "${sources.fetch "sqlite"}/";
+      zstdDir = "${pkgs.zstd.src}/";
+      zlibNgDir = "${sources.fetch "zlib-ng"}/";
+    };
+    install.DynamicLibrary = "DLLs";
+    install.Application = ".";
+  };
+  phases.before."vcxproj.configure" = lib.on msvc [
+    "cpython.properties"
+    "cpython.frozen-modules"
+    "cpython.zlib-ng-headers"
   ];
+  phases.after."vcxproj.install" = lib.on msvc [ "cpython.windows-layout" ];
+  phases.after."autotools.install" = lib.on (!msvc) [ "cpython.build-details" ];
   tests.run = false; # hours
-  dependencies = [
+  dependencies = lib.on (!msvc) [
     pkgs.zlib
     pkgs.xz
     pkgs.bzip2
@@ -66,5 +90,7 @@ package {
     pkgs.mpdecimal
   ];
   buildDependencies = on platform.cross [ buildPkgs.cpython ];
-  bin = [ "python3" ];
+  bin = [ (if msvc then "python" else "python3") ];
+  # bin/ is where finish.nu looks; the Windows layout has python.exe at the root
+  links = lib.on msvc { "bin/python" = "python"; };
 }

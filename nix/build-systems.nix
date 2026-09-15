@@ -112,6 +112,16 @@ builtins.mapAttrs
         sh
       ];
     };
+    vcxproj = {
+      unsupported =
+        if platform.libc != "msvc" then "Visual Studio projects describe an MSVC-ABI build" else null;
+      phases = [
+        "configure"
+        "build"
+        "install"
+      ];
+      tools = [ buildPkgs.ninja ];
+    };
     meson = {
       phases = [
         "configure"

@@ -46,7 +46,7 @@ reads one file. `buildPkgs` is the build machine's set. Another platform is anot
 
 Every package exists on every platform. `pkg.supported` says whether it is *for* it, without
 forcing the derivation: prebuilts are for the platforms their `sources.toml` has tarballs for (keys `x86_64-linux`, `aarch64-macos`), a
-recipe can narrow with `platforms.{cpu,os,abi}` lists, `platforms.posix = true` or `platforms.cross = false`, and unsupported
+recipe can narrow with `platforms.{cpu,os,abi,libc}` lists, `platforms.posix = true` or `platforms.cross = false`, and unsupported
 dependencies propagate. Only the store paths throw (`bun: sources.toml has no 'riscv64-linux' source`), so CI filters on a boolean instead of
 `tryEval`, which would also hide real errors.
 
