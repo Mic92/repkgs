@@ -21,7 +21,9 @@ export def merge-options [bs: string, table: record, given: record]: nothing -> 
   let unknown = ($given | columns | where { $in not-in $known })
   if ($unknown | is-not-empty) { error make {msg: $"unknown option ($bs).($unknown | first) \(have: ($known | str join ' ')\)"} }
   $table | transpose name o | reduce -f $given {|it, acc|
-    let v = ($acc | get -o $it.name)
+    if $it.name not-in ($acc | columns) { return ($acc | upsert $it.name $it.o.default) }
+    let v = ($acc | get $it.name)
+    if $v == null and ($it.o.nullable? == true) { return $acc }
     if $v == null { return ($acc | upsert $it.name $it.o.default) }
     let want = ($it.o.type? | default ($it.o.default | describe | str replace -r '<.*' ""))
     let got = ($v | describe | str replace -r '<.*' "")
