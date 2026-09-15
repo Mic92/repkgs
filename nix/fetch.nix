@@ -22,7 +22,8 @@ let
     # fetch/ plus the helpers it imports from its parent. Build systems and the build pipeline stay
     # out, so editing them does not refetch every lock
     filter =
-      p: _: builtins.match ".*/builder/(fetch(/.*)?|sys-libs\\.nu|pep508\\.nu|glob\\.nu)" p != null;
+      p: _:
+      builtins.match ".*/builder/(fetch(/.*)?|sys-libs\\.(nu|json)|pep508\\.nu|glob\\.nu)" p != null;
   };
 
   dynamic' =
@@ -115,21 +116,33 @@ in
     }:
     twoStage "deno-deps" "fetch/deno.nu" { inherit source root; };
 
-  # uv.lock -> { dist/, plan.json }: one artefact per package of the application's runtime closure,
-  # a compatible wheel if the lock has one, else the sdist (sys-libs.nu and pyproject's
-  # `tool.uv.no-binary-package` force sdists). `python`: the interpreter wheels must match.
-  # Installed by builder/systems/pyapp.nu.
+  # uv.lock -> { dist/, vendor/, plan.json }: one artefact per package of the project's runtime
+  # closure, installed by builder/systems/pyapp.nu
   pythonDeps =
     {
       source,
-      python,
+      python, # the interpreter wheels must match
       root ? ".",
       extras ? [ ],
+      groups ? [ ], # PEP 735 dependency groups of the project
+      prefer ? "wheel", # or "sdist": which artefact when the lock has both
+      sdist ? [ ], # names always built from sdist (plus sys-libs.nu's and tool.uv.no-binary-package)
+      git ? [ ], # { name, path } for the lock's git sources, fetched by the caller (nix/python.nix)
+      environ ? "{}", # JSON PEP 508 marker environment overrides
     }:
-    dynamic "python-deps" "fetch/pypi.nu" {
-      inherit source root cpu;
+    twoStage "python-deps" "fetch/pypi.nu" {
+      inherit
+        source
+        root
+        cpu
+        prefer
+        environ
+        ;
       pythonVersion = python.version;
       extras = builtins.concatStringsSep "," extras;
+      groups = builtins.concatStringsSep "," groups;
+      sdist = builtins.concatStringsSep "," sdist;
+      git = builtins.concatStringsSep "\n" (map (g: "${g.name}=${g.path}") git);
     };
 
   # Gemfile.lock (with a CHECKSUMS section, Bundler >= 2.6) -> { vendor/cache/*.gem, Gemfile.lock }

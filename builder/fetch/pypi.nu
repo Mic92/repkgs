@@ -1,12 +1,8 @@
 #!/usr/bin/env nu
-# Producer for fetch.pythonDeps { source, python, root?, extras? }.
-#
-# Walks the application's runtime dependency graph in uv.lock (markers evaluated for our platform
-# and python) and picks one artefact per package the way uv2nix does with sourcePreference =
-# "wheel": a compatible wheel when the lock has one, else the sdist. Packages that must link one of
-# our libraries (sys-libs.nu) and pyproject's `tool.uv.no-binary-package` are built from sdist.
-# Output: { dist/<file>…, plan.json [{name, version, file, kind}] }, installed by
-# builder/pyapp.nu.
+# Producer for fetch.pythonDeps (arguments: nix/fetch.nix). Walks the project's runtime closure
+# in uv.lock and picks a wheel or sdist per package; path and git sources become source trees.
+# Second stage pypi-vendor.nu vendors crates for sdists that ship a Cargo.lock.
+# Output: dist/<file>…, vendor/<name>/…, plan.json [{name, version, file, kind: wheel|sdist|tree, path}]
 use dyn-drv.nu
 use ../pep508.nu
 use ../sys-libs.nu
@@ -16,33 +12,51 @@ const NO_MATCH = 999
 def main []: nothing -> nothing {
   let root = ([$env.source $env.root] | path join)
   let lock = (open --raw $"($root)/uv.lock" | from toml)
-  let pyproject = (open --raw $"($root)/pyproject.toml" | from toml)
+  let pp = $"($root)/pyproject.toml"
+  let pyproject = (if ($pp | path exists) { open --raw $pp | from toml } else { {} })
   if ($lock.version? | default 0) < 1 { error make {msg: "pythonDeps: uv.lock has no `version`, too old"} }
+  let csv = {|v| $v | split row "," | where $it != "" }
 
   let packages = ($lock.package | group-by name)
-  let marker_env = {
+  let marker_env = ({
     python_full_version: $env.pythonVersion
     python_version: ($env.pythonVersion | split row "." | take 2 | str join ".")
     sys_platform: linux, platform_system: Linux, platform_machine: $env.cpu, os_name: posix
     implementation_name: cpython, implementation_cap: CPython, implementation_version: $env.pythonVersion
     platform_release: "", platform_version: "", extra: ""
-  }
-  let needed = (runtime-closure $lock.package (project-entry $lock $pyproject) ($env.extras | split row "," | where $it != "") $marker_env)
-  let force_sdist = (($pyproject.tool?.uv?.no-binary-package? | default []) ++ (sys-libs sdist-packages))
+  } | merge ($env.environ | from json))
+  let git = ($env.git | lines | where $it != "" | parse "{name}={path}" | transpose -rd | default {})
+  let project = (project-entry $lock $pyproject)
+  let grouped = ($project | upsert dependencies (($project.dependencies? | default []) ++ (do $csv $env.groups | each {|g| $project.dev-dependencies? | default {} | get -o $g | default [] } | flatten)))
+  let needed = (runtime-closure $lock.package $grouped (do $csv $env.extras) $marker_env)
+  let force_sdist = (($pyproject.tool?.uv?.no-binary-package? | default []) ++ (sys-libs sdist-packages) ++ (do $csv $env.sdist))
 
-  let plan = ($needed | par-each --keep-order {|package|
+  let local = {|p| let s = ($p.source? | default {}); $s.editable? | default $s.directory? | default $s.virtual? }
+  let trees = ($needed | where {|p| (do $local $p) != null or $p.source?.git? != null } | each {|p|
+    let dir = (do $local $p)
+    if $dir != null { return {name: $p.name, version: $p.version, kind: tree, file: "", path: $dir} }
+    let g = ($git | get -o $p.name)
+    if $g == null { error make {msg: $"pythonDeps: ($p.name) is a git source nix/python.nix did not fetch"} }
+    {name: $p.name, version: $p.version, kind: tree, file: $"dist/($p.name)", path: $g}
+  })
+  let plan = ($needed | where {|p| (do $local $p) == null and $p.source?.git? == null } | par-each --keep-order {|package|
     let name = $package.name
-    let artefact = (choose-artefact $package ($name in $force_sdist))
+    let artefact = (choose-artefact $package ($name in $force_sdist) ($env.prefer == "sdist"))
     let file = ($artefact.url | path basename | url decode)
     {name: $name, version: $package.version, file: $file, kind: $artefact.kind, url: $artefact.url, sha256: ($artefact.hash | str replace "sha256:" "")}
   } | dyn-drv fetchurls)
-  print -e $"pythonDeps: ($plan | length) packages, ($plan | where kind == sdist | get name | str join ' ') from sdist"
+  print -e $"pythonDeps: ($plan | length) packages, ($plan | where kind == sdist | get name | str join ' ') from sdist, ($trees | get name | str join ' ') from trees"
 
   let layout = [
     ...($plan | each {|p| {link: $p.out, to: $"dist/($p.file)"} })
-    (dyn-drv json-file plan.json ($plan | select name version file kind))
+    ...($trees | where file != "" | each {|t| {link: $t.path, to: $t.file} })
+    (dyn-drv json-file plan.json (($plan | select name version file kind | insert path "") ++ ($trees | select name version file kind path)))
   ]
-  dyn-drv collect python-deps $layout ($plan | get drv)
+  let sdists = ($plan | where kind == sdist)
+  dyn-drv stage python-deps pypi-vendor.nu {
+    layout: $layout, drvs: ($plan | get -o drv | default []), srcs: ($trees | where file != "" | get path)
+    sdists: ($sdists | select name out), trees: ($trees | each {|t| {name: $t.name, dir: (if $t.file == "" { $"($env.source)/($t.path)" } else { $t.path })} })
+  } ($sdists | get -o drv | default [])
 }
 
 # runtime closure from the project's entry over `dependencies` whose markers hold. uv may fork
@@ -86,13 +100,13 @@ export def runtime-closure [lock_packages: table, project: record, extras: list<
 
 # the lock entry for the project being built (source editable/virtual ".", or by normalised name)
 def project-entry [lock: record, pyproject: record]: nothing -> record {
-  let name = ($pyproject.project.name | str lowercase | str replace -ar '[-_.]+' "-")
+  let name = ($pyproject.project?.name? | default "" | str lowercase | str replace -ar '[-_.]+' "-")
   $lock.package | where { $in.name == $name or $in.source?.editable? == "." or $in.source?.virtual? == "." } | first
 }
 
-# {url, hash, kind} for one package: best-ranked compatible wheel unless an sdist is forced (a
-# pure wheel still wins then: nothing to link), else the sdist
-def choose-artefact [package: record, force_sdist: bool]: nothing -> record {
+# {url, hash, kind}: the sdist when preferred or forced (a forced package still takes a pure
+# wheel: nothing to link), otherwise the best-ranked compatible wheel, otherwise the sdist
+def choose-artefact [package: record, force_sdist: bool, prefer_sdist: bool]: nothing -> record {
   if $package.source?.registry? == null {
     error make {msg: $"pythonDeps: ($package.name) comes from ($package.source? | to nuon), not a registry; uv.lock records no hash for that"}
   }
@@ -100,10 +114,13 @@ def choose-artefact [package: record, force_sdist: bool]: nothing -> record {
     | insert rank {|w| wheel-rank ($w.url | path basename) }
     | where rank < $NO_MATCH | sort-by rank)
   let best = ($wheels | get -o 0)
-  if $best != null and (not $force_sdist or $best.rank == 0) {
+  let sdist = $package.sdist?
+  if $prefer_sdist and $sdist != null {
+    $sdist | insert kind sdist
+  } else if $best != null and (not $force_sdist or $best.rank == 0 or $sdist == null) {
     $best | insert kind wheel
-  } else if $package.sdist? != null {
-    $package.sdist | insert kind sdist
+  } else if $sdist != null {
+    $sdist | insert kind sdist
   } else {
     error make {msg: $"pythonDeps: ($package.name) ($package.version): no wheel for cp($env.pythonVersion) linux/($env.cpu) and no sdist"}
   }

@@ -7,16 +7,22 @@ use dyn-drv.nu
 const CRATES_IO = "registry+https://github.com/rust-lang/crates.io-index"
 
 def main []: nothing -> nothing {
-  # workspace members have no `source`, everything else must be crates.io
-  let packages = (open --raw $"($env.source)/Cargo.lock" | from toml | get package)
+  let v = (vendor-layout (open --raw $"($env.source)/Cargo.lock") "")
+  dyn-drv collect cargo-vendor $v.layout $v.drvs
+}
+
+# fetchurl derivations plus collect layout for one Cargo.lock, under `prefix`/ (fetch/pypi-vendor.nu
+# puts several side by side). Workspace members have no `source`, everything else must be crates.io
+export def vendor-layout [lock: string, prefix: string]: nothing -> record<layout: list<any>, drvs: list<string>> {
+  let packages = ($lock | from toml | get package)
   let foreign = ($packages | where {|p| $p.source? != null and $p.source? != $CRATES_IO })
   if ($foreign | is-not-empty) {
     error make {msg: $"cargoVendor: unsupported sources: ($foreign | select name source | to nuon)"}
   }
   let crates = ($packages | where {|p| $p.source? == $CRATES_IO } | each {|c|
-    {dir: $"($c.name)-($c.version)", checksum: $c.checksum, file: $"($c.name)-($c.version).tar.gz"
+    {dir: $"($prefix)($c.name)-($c.version)", checksum: $c.checksum, file: $"($c.name)-($c.version).tar.gz"
       url: $"https://static.crates.io/crates/($c.name)/($c.name)-($c.version).crate", sha256: $c.checksum}
   } | dyn-drv fetchurls)
   let layout = ($crates | each {|c| [{unpack: $c.out, to: $c.dir} (dyn-drv json-file $"($c.dir)/.cargo-checksum.json" {files: {}, package: $c.checksum})] } | flatten)
-  dyn-drv collect cargo-vendor $layout ($crates | get drv)
+  {layout: $layout, drvs: ($crates | get -o drv | default [])}
 }
