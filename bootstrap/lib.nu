@@ -1,8 +1,7 @@
 # Helpers shared by all bootstrap recipes. Only nu builtins + the seed (clang, llvm-ar, bsdtar, toybox).
 
 export use ../builder/glob.nu *
-
-export def say [msg: string]: nothing -> nothing { print -e $"(ansi green)==(ansi reset) ($msg)" }
+export use ../builder/log.nu *
 
 # parallelism granted by Nix (NIX_BUILD_CORES, 0 = all)
 export def cores []: nothing -> int {

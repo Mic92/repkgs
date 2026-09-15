@@ -54,7 +54,7 @@ def smoke-test [out: string]: nothing -> nothing {
   "#include <print>\nint main() { std::println(\"c++ ok\"); }\n" | save -f hello.cc
   x $"($out)/bin/cc" hello.c -o $"hello($exe)"
   x $"($out)/bin/c++" -std=c++23 hello.cc -o $"hello++($exe)"
-  if $env.os == "linux" and $env.cpu == $nu.os-info.arch { say $"(x ./hello)(x ./hello++)" }
+  if $env.os == "linux" and $env.cpu == $nu.os-info.arch { note hello $"(x ./hello)(x ./hello++)" }
 }
 
 def main []: nothing -> nothing {

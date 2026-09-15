@@ -67,13 +67,20 @@ let
     };
     dlaudit.dlaudit = pkg "dlaudit" + "/src/dlaudit.cc";
   };
-  # run.nu + lib.nu + builder/glob.nu + the one recipe, laid out as in the tree (bootstrap/, pkgs/x/x/) so the recipe's
-  # relative `use ../../bootstrap/lib.nu` resolves, and an edit to one recipe rebuilds only its step
+  # the recipe plus what it imports, laid out as in the tree (bootstrap/, builder/, pkgs/x/x/) so
+  # `use ../../bootstrap/lib.nu` resolves and an edit to one recipe rebuilds only its step
   recipe' =
     name:
     let
       file = recipes.${name} or (pkg name + "/bootstrap.nu");
       rel = if name == "sysroot" then "bootstrap/${name}.nu" else "pkgs/x/x/${name}.nu";
+      layout = {
+        "bootstrap/run.nu" = ./run.nu;
+        "bootstrap/lib.nu" = ./lib.nu;
+        "builder/glob.nu" = ../builder/glob.nu;
+        "builder/log.nu" = ../builder/log.nu;
+        ${rel} = file;
+      };
     in
     {
       inherit rel;
@@ -81,10 +88,11 @@ let
         name = "recipe-${name}";
         inherit system;
         builder = "${seedPath}/bin/nu";
+        layout = builtins.toJSON layout;
         args = [
           "--no-config-file"
           "-c"
-          "mkdir $\"($env.out)/bootstrap\" $\"($env.out)/builder\" $\"($env.out)/pkgs/x/x\"; cp ${./run.nu} $\"($env.out)/bootstrap/run.nu\"; cp ${./lib.nu} $\"($env.out)/bootstrap/lib.nu\"; cp ${../builder/glob.nu} $\"($env.out)/builder/glob.nu\"; cp ${file} $\"($env.out)/${rel}\""
+          "$env.layout | from json | items {|rel, src| mkdir ($\"($env.out)/($rel)\" | path dirname); cp $src $\"($env.out)/($rel)\" }"
         ];
         preferLocalBuild = true;
       };

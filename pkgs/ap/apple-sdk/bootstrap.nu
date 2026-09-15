@@ -26,7 +26,7 @@ def main []: nothing -> nothing {
   $PBZX | save pbzx.py
   ^python3 pbzx.py Payload | ^bsdtar -xf - "*/SDKs/MacOSX*.*.sdk/*"
   let sdk = (files --dirs "Library/Developer/CommandLineTools/SDKs/MacOSX*.*.sdk" | first)
-  say $"($sdk | path basename) -> ($env.out)"
+  note sdk $"($sdk | path basename) -> ($env.out)"
   # perl/man/bin are for running on a Mac
   rm -rf $"($sdk)/usr/share" $"($sdk)/usr/bin" $"($sdk)/System/Library/Perl"
   mv $sdk $env.out

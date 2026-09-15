@@ -45,5 +45,5 @@ def main []: nothing -> nothing {
   x llvm-strip $"($out)/bin/jig"
   # symlinks keep /proc/self/exe = jig (no etc/ conf here -> JIG_CC mode) "++" in the name selects C++
   for n in [clang clang++] { x ln -s jig $"($out)/bin/($n)" }
-  say $"jig: (ls $"($out)/bin" | length) entries in bin/"
+  note jig $"(ls $"($out)/bin" | length) entries in bin/"
 }
