@@ -1,6 +1,6 @@
 # Everything after the last phase, in the order `main` lists it.
 use core.nu *
-use debug.nu split-debug
+use debug.nu [split-debug strip-archives]
 use implant.nu
 use launchers.nu
 
@@ -55,11 +55,10 @@ def relativize-scripts [prefix: string]: nothing -> nothing {
   }
 }
 
-# Mach-O: reloc-fixup made every LC_ID_DYLIB @rpath/<name>, cmake's exported targets still
-# record the install_name the project chose (taglib: INSTALL_NAME_DIR $libdir)
 def relativize-sonames [prefix: string, cmakes: list<string>]: nothing -> nothing {
   if ($cmakes | is-empty) { return }
   for f in (^grep -lF $"IMPORTED_SONAME" ...$cmakes | complete | get stdout | lines) {
+    ^chmod u+w $f
     let re = (['(IMPORTED_SONAME_\w+ )"' $prefix '/[^"]*/([^/"]+)"'] | str join)
     let text = (open --raw $f | str replace -ar $re '${1}"@rpath/${2}"')
     $text | save -f $f
@@ -70,7 +69,6 @@ def relativize-sonames [prefix: string, cmakes: list<string>]: nothing -> nothin
 export def to-store [prefix: string, dest: string, inv: table]: nothing -> nothing {
   ^chmod -R u+w $prefix # some install -m 0444
   relativize-pc $prefix ($inv | where type == f and rel =~ '\.pc$' | get path)
-  if (ctx).platform.os == "macos" { relativize-sonames $prefix ($inv | where type == f and rel =~ '\.cmake$' | get path) }
   relativize-scripts $prefix
   relativize-links $prefix $dest
   let hits = (^grep -rlF $prefix $prefix | complete | get stdout | lines)
@@ -181,19 +179,34 @@ def relative-link [from: string, to: string]: nothing -> string {
   $f | skip $common | each { ".." } | append ($t | skip $common) | path join
 }
 
-# prebuilt `true` implants interp + stub, "ldso" stays byte-identical behind a launcher.
-# --deny: a cross output must not mention build-machine packages. Debug split, implant and
-# launchers are ELF only so far, reloc-fixup does ELF and Mach-O
+# What the binaries of each format need before reloc-fixup. prebuilt `true` implants interp +
+# stub, "ldso" stays byte-identical behind a launcher
+def binaries-elf [c: record, inv: table]: nothing -> nothing {
+  if $c.spec.debug { split-debug $c.out (attrs).outputs.debug $c.njobs ($inv | where type == f) }
+  if $c.spec.prebuilt? == true { implant $c }
+  launchers $c
+}
+
+# cmake records the install_name the project chose, reloc-fixup makes the dylib's own @rpath
+def binaries-macho [c: record, inv: table]: nothing -> nothing {
+  relativize-sonames $c.out ($inv | where type == f and rel =~ '\.cmake$' | get path)
+}
+
+# no debug output yet, but CodeView LF_BUILDINFO in static libraries names the compiler's store path
+def binaries-coff [c: record, inv: table]: nothing -> nothing {
+  strip-archives $c.out ($inv | where type == f and rel =~ '\.(lib|obj|a)$')
+}
+
+# --deny: a cross output must not mention build-machine packages
 def relocate [c: record, inv: table]: nothing -> nothing {
-  let prebuilt = ($c.spec.prebuilt? | default false)
-  if $c.platform.binfmt == "elf" {
-    if $c.spec.debug { split-debug $c.out (attrs).outputs.debug $c.njobs ($inv | where type == f) }
-    if $prebuilt == true { implant $c }
-    launchers $c
+  match $c.platform.binfmt {
+    "elf" => { binaries-elf $c $inv }
+    "macho" => { binaries-macho $c $inv }
+    "coff" => { binaries-coff $c $inv }
   }
   let a = (attrs)
   let deny = (if $c.platform.cross { $a.buildDependencies | where { $in not-in $a.dependencies } | each { [--deny $in] } | flatten } else { [] })
-  if $prebuilt != "ldso" { x reloc-fixup $c.out --dest $c.dest ...$deny }
+  if $c.spec.prebuilt? != "ldso" { x reloc-fixup $c.out --dest $c.dest ...$deny }
 }
 
 # tests.version: a command whose output must contain the pinned version (true = --version), its

@@ -29,7 +29,7 @@ export def split-debug [out: path, debug: path, njobs: int, files: table]: nothi
 }
 
 # objcopy fails on archives with non-object members (LTO bitcode, lib.rmeta): those keep DWARF
-def strip-archives [out: path, archives: table]: nothing -> nothing {
+export def strip-archives [out: path, archives: table]: nothing -> nothing {
   if ($archives | is-empty) { return }
   ^chmod u+w ...$archives.path
   for f in $archives {
