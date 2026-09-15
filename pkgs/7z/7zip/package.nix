@@ -3,6 +3,11 @@
 { package }:
 package {
   name = "7zip";
+  # the clang makefiles are the unix build, windows has its own nmake ones
+  platforms.os = [
+    "linux"
+    "macos"
+  ];
   phases = [
     {
       name = "build";

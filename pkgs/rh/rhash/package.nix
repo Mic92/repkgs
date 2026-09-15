@@ -3,6 +3,11 @@
 package {
   name = "rhash";
   uses = [ "make" ];
+  # its configure knows linux, darwin, mingw. Not msvc
+  platforms.os = [
+    "linux"
+    "macos"
+  ];
   make.configureFlags = [
     "--enable-lib-shared"
     "--disable-gettext"

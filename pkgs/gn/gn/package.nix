@@ -6,6 +6,11 @@ let
 in
 package {
   name = "gn";
+  # gen.py picks posix sources unless the host is windows
+  platforms.os = [
+    "linux"
+    "macos"
+  ];
   buildDependencies = [
     buildPkgs.cpython
     buildPkgs.ninja

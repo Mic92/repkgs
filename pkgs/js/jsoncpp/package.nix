@@ -4,6 +4,11 @@
 }:
 package {
   name = "jsoncpp";
+  # cmake sets MSVC only for cl-style drivers, the project keys windows specifics on it (docs/plan.md)
+  platforms.os = [
+    "linux"
+    "macos"
+  ];
   uses = [ "cmake" ];
   cmake.tool = buildPkgs.cmake-bootstrap; # cmake links this
   cmake.defs = {

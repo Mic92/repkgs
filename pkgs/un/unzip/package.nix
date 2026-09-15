@@ -2,6 +2,11 @@
 { package }:
 package {
   name = "unzip";
+  # unix/Makefile
+  platforms.os = [
+    "linux"
+    "macos"
+  ];
   phases = [
     {
       name = "build";
