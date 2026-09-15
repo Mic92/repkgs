@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:gnu/gsl"
+
+[[source]]
+key = "default"
+url = "https://ftpmirror.gnu.org/gsl/gsl-{version}.tar.gz"
+hash = "sha256-myv5jZ1P53qobHQPKU3f6EaDTR3ilb7qidjDWY0KzSM="
+
+[pin]
+version = "2.8"
+date = "2024-05-25"

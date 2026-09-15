@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/OpenMathLib/OpenBLAS"
+
+[[source]]
+key = "default"
+url = "https://github.com/OpenMathLib/OpenBLAS/releases/download/{tag}/OpenBLAS-{version}.tar.gz"
+hash = "sha256-usCAvjNUua91vBd1aXjsTyx8YrpuAkKGOpiQ58fT8Hc="
+
+[pin]
+version = "0.3.34"
+date = "2026-07-16"
+tag = "v0.3.34"
