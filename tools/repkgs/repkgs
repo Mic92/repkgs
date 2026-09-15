@@ -8,7 +8,7 @@ def main []: nothing -> nothing { help main }
 
 # build packages through the compile cache
 def "main build" [
-  --for: string # platform, e.g. aarch64-linux, x86_64-windows
+  --for: string # platform, e.g. aarch64-linux, x86_64-windows-gnu
   ...attrs: string # package attributes (jq, jq.tests)
 ]: nothing -> nothing {
   if ($attrs | is-empty) { fail "repkgs build <attr>…, or nix-build -A ci for the whole set" }
