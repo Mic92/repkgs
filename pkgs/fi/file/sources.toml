@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:generic/file?url=https://astron.com/pub/file/"
+
+[[source]]
+key = "default"
+url = "https://astron.com/pub/file/file-{version}.tar.gz"
+hash = "sha256-9OtdGy2HegeyiCVUuDo75A0REr+Z0ReR3jk2ORVAgp0="
+
+[pin]
+version = "5.48"
+date = "2026-06-07"

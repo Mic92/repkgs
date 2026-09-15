@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/akheron/jansson"
+
+[[source]]
+key = "default"
+url = "https://github.com/akheron/jansson/releases/download/{tag}/jansson-{version}.tar.bz2"
+hash = "sha256-IBXI6R9uvZBBoztKHs6WkcrWMA/zv3XZjenC4l4DPBY="
+
+[pin]
+version = "2.15.1"
+date = "2026-07-01"
+tag = "v2.15.1"

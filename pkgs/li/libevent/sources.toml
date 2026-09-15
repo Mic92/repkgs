@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/libevent/libevent"
+
+[[source]]
+key = "default"
+url = "https://github.com/libevent/libevent/releases/download/release-{version}/libevent-{version}.tar.gz"
+hash = "sha256-0m8UZJ81kgJ5Yz8ip/iKAPwGsxGJLLG/Zki4VZGHgj8="
+
+[pin]
+version = "2.1.13-stable"
+date = "2026-07-01"
+tag = "release-2.1.13-stable"
