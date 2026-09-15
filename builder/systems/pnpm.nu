@@ -4,6 +4,11 @@ use ../node-common.nu
 # pnpm install --offline against fetch.pnpmDeps as a file:// registry (`pnpm.deps`, pnpm checks each
 # tarball against pnpm-lock.yaml's integrity), `pnpm run <script>`, `pnpm test`, and the pruned
 # package as lib/node_modules/<name> with its bin links.
+export const OPTIONS = {
+  script: {default: build, nullable: true, doc: "package.json script `build` runs (null: none)"}
+  flags: {default: [], doc: "extra arguments for pnpm install"}
+}
+
 
 # pnpm 10 reads npm_config_*, 11 only pnpm_config_*
 def conf [settings: record]: nothing -> record {

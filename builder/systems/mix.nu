@@ -5,6 +5,11 @@ use ../probe-cache.nu
 # mix at MIX_ENV=prod with deps/ unpacked from fetch.hexDeps, the way `mix deps.get` leaves it:
 # deps/<app>/ plus a .hex manifest Hex.SCM.lock_status accepts ("name,version,inner,repo").
 # deps.get itself would want registry entries offline. Compiled deps round-trip through the cache
+export const OPTIONS = {
+  escript: {default: [], doc: "escripts `mix escript.build` writes, installed into bin/. Empty: a mix release"}
+  flags: {default: [], doc: "extra arguments for mix compile"}
+}
+
 export def --env setup []: nothing -> nothing {
   let c = (ctx)
   let o = (options mix)

@@ -4,6 +4,10 @@ use ../probe-cache.nu
 
 # rebar3 with the locked Hex packages as _checkouts/, which it takes over the lock without
 # asking a registry. Compiled deps round-trip through the cache
+export const OPTIONS = {
+  flags: {default: [], doc: "extra arguments for rebar3 compile"}
+}
+
 export def --env setup []: nothing -> nothing {
   let c = (ctx)
   let o = (options rebar3)

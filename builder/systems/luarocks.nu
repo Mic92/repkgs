@@ -4,6 +4,11 @@ use ../core.nu *
 # dependencies from the set's rock server (fetch.luaRocksSet, locks/luarocks.toml). luarocks'
 # bin wrappers start our lua with their tree on package.path. C modules compile with the cc on PATH
 # (luarocks takes CC from the environment) against the target lua.
+export const OPTIONS = {
+  rockspec: {default: null, type: string, doc: "rockspec file when the source has several (null: luarocks picks)"}
+  flags: {default: [], doc: "extra arguments for luarocks make"}
+}
+
 export def setup []: nothing -> nothing { }
 
 export def workdir []: nothing -> string { project-dir luarocks }

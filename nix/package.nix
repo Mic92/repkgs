@@ -189,27 +189,6 @@ let
     filter (k: args.${k} != { }) (attrNames (removeAttrs args (reserved ++ uses)))
     ++ (if args ? tests then subKeys "tests" args.tests else [ ])
     ++ (if args ? cc then subKeys "cc" args.cc else [ ]);
-  # one message per option the package sets that its build system does not declare, or declares
-  # with another type. Shallow (`typeOf`) on set options only, so it costs nothing per default.
-  badOptions = concatMap (
-    u:
-    let
-      declared = buildSystems.${u}.options;
-    in
-    concatMap (
-      k:
-      let
-        got = builtins.typeOf args.${u}.${k};
-        want = declared.${k}.type;
-      in
-      if !(declared ? ${k}) then
-        [ "unknown option ${u}.${k} (have: ${toString (attrNames declared)})" ]
-      else if !(elem got want) then
-        [ "option ${u}.${k} is a ${got}, expected ${join " or " want}" ]
-      else
-        [ ]
-    ) (attrNames (args.${u} or { }))
-  ) (filter (u: buildSystems ? ${u}) uses);
   # a library among the build tools or a tool among the libraries: natively both platforms
   # coincide and nothing would notice, so it is checked here
   wrongPlatform =
@@ -310,8 +289,6 @@ let
       fail "unknown build systems ${toString unknownUses} (have: ${toString (attrNames buildSystems)})"
     else if unknownFields != [ ] || unknownPlatformKeys != [ ] then
       fail "unknown fields ${toString (unknownFields ++ map (k: "platforms.${k}") unknownPlatformKeys)}"
-    else if badOptions != [ ] then
-      fail (join "; " badOptions)
     else if wrongPlatform != [ ] then
       fail (join "; " wrongPlatform)
     else
@@ -470,6 +447,8 @@ let
   ]
   ++ map (u: "use ${tree}/${buildSystems.${u}.module}") uses
   ++ map (m: "use ${storeModule m}") modules;
+  # each build system's OPTIONS table for prepare.nu to merge the spec over
+  systemsArg = "{${join ", " (map (u: "${u}: $" + u + ".OPTIONS") uses)}}";
   # every phase starts in a known directory: `<bs> workdir` for a build system's phases, the first
   # build system's for inline phases and package modules. setup exports env, hence --env
   workdir = if uses == [ ] then "(ctx).src" else "${builtins.head uses} workdir";
@@ -477,14 +456,14 @@ let
   # also `pkg.script`: lints/package-scripts.nu has nu parse it before anything builds
   script = lines (
     prelude
-    ++ [ "prepare" ]
+    ++ [ "prepare ${systemsArg}" ]
     ++ setups
     ++ map phaseLine phases
     ++ [ (if separate then "finish --keep-tree" else "finish") ]
   );
   testScript = lines (
     prelude
-    ++ [ "prepare --from-tree ${drv.tree}" ]
+    ++ [ "prepare ${systemsArg} --from-tree ${drv.tree}" ]
     ++ setups
     ++ map (p: p.body) (filter (p: p.test) (map phase phases))
     ++ [ "finish tests" ]

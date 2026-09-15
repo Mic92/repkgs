@@ -1,6 +1,12 @@
 use ../core.nu *
 
 # PEP 517 wheel build + install (setuptools/flit/hatch via `build`, maturin directly), import check, optional pytest.
+export const OPTIONS = {
+  backend: {default: setuptools, doc: "PEP 517 backend when pyproject.toml names none: setuptools, flit_core, maturin"}
+  module: {default: null, type: string, doc: "module the import test loads (null: the package name with - as _)"}
+  pytest: {default: false, doc: "also run pytest on tests/"}
+}
+
 def site-packages [roots: list<string>]: nothing -> list<string> { $roots | each {|r| files --dirs $"($r)/lib/python3*/site-packages" } | flatten }
 
 # those of the python build tools on PATH (PEP 517 backends and friends) and of what they

@@ -18,8 +18,24 @@ export def note [kind: string, msg: string = ""]: nothing -> nothing {
 # what build-system and inline phases get to see: {spec out deps njobs src build platform testsRun}
 export def ctx []: nothing -> record<spec: record, out: string, dest: string, deps: list<record<name: string, root: string>>, roots: list<string>, njobs: int, src: string, build: string, platform: record, testsRun: bool, cache: bool> { $env.PKGS_CTX }
 
-# a build system's options: nix/build-systems.nix defaults merged with the package's `<bs>.*`
+# a build system's options: its OPTIONS defaults merged with the package's `<bs>.*` (prepare.nu)
 export def options [bs: string]: nothing -> record { (ctx).spec | get $bs }
+
+# `given` (the package's `<bs>.*` plus nix/build-systems.nix's root/tool/deps) over a system's
+# OPTIONS table: unknown names and wrong types fail here, before any phase runs
+export def merge-options [bs: string, table: record, given: record]: nothing -> record {
+  let known = (($table | columns) ++ [root tool deps])
+  let unknown = ($given | columns | where { $in not-in $known })
+  if ($unknown | is-not-empty) { error make {msg: $"unknown option ($bs).($unknown | first) \(have: ($known | str join ' ')\)"} }
+  $table | transpose name o | reduce -f $given {|it, acc|
+    let v = ($acc | get -o $it.name)
+    if $v == null { return ($acc | upsert $it.name $it.o.default) }
+    let want = ($it.o.type? | default ($it.o.default | describe | str replace -r '<.*' ""))
+    let got = ($v | describe | str replace -r '<.*' "")
+    if $want != nothing and $got != $want { error make {msg: $"option ($bs).($it.name) is a ($got), expected ($want)"} }
+    $acc
+  }
+}
 
 # the directory a build system works in: the source, or `<bs>.root` below it for monorepos
 export def project-dir [bs: string]: nothing -> string {

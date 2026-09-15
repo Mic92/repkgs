@@ -70,19 +70,23 @@ def "main info" [
   }
 }
 
-# the options every build system accepts (<name>.* in a package.nix)
+# the options every build system accepts (<name>.* in a package.nix): builder/systems/<name>.nu OPTIONS
 def "main options" [
-  --json (-j) # machine-readable: { <system> = { <option> = { type, default, doc } } }
+  --json (-j) # machine-readable: { <system> = { <option> = { default, doc, type? } } }
   ...systems: string # build systems, default all
 ]: nothing -> any {
-  let all = (eval $"\(import (root)/nix/options.nix {}\).options")
-  let names = (if ($systems | is-empty) { $all | columns } else { $systems | uniq })
-  let unknown = ($names | where $it not-in ($all | columns))
-  if ($unknown | is-not-empty) { fail $"no build system '($unknown | str join ' ')', have: ($all | columns | str join ' ')" }
-  if $json { return ($all | select ...$names | to json) }
+  let dir = $"(root)/builder/systems"
+  let have = (ls --short-names $dir | get name | where { $in ends-with .nu } | each { str replace .nu "" })
+  let names = (if ($systems | is-empty) { $have } else { $systems | uniq })
+  let unknown = ($names | where $it not-in $have)
+  if ($unknown | is-not-empty) { fail $"no build system '($unknown | str join ' ')', have: ($have | str join ' ')" }
+  let all = ($names | each {|bs| {$bs: (^$nu.current-exe --no-config-file -c $"use ($dir)/($bs).nu; $($bs).OPTIONS | to nuon" | from nuon)} } | into record)
+  if $json { return ($all | to json) }
+  let common = "every system also takes `root` (directory below the source), those with a tool `tool` (the package providing it) and those with lock files `deps` (the fetched dependencies, by default from the package's own lock file)"
+  print $"($common)\n"
   for bs in $names {
     print $"## ($bs)\n"
-    print ($all | get $bs | transpose option v | each {|r| {option: $"`($bs).($r.option)`", type: ($r.v.type | str join " | " | str replace "set | string" package), default: (if ($r.v.type | str join " " | str contains "set string") { "lock file" } else { $r.v.default | to nuon }), meaning: $r.v.doc} } | to md --pretty)
+    print ($all | get $bs | transpose option v | each {|r| {option: $"`($bs).($r.option)`", type: ($r.v.type? | default ($r.v.default | describe | str replace -r '<.*' "")), default: ($r.v.default | to nuon), meaning: $r.v.doc} } | to md --pretty)
     print ""
   }
 }

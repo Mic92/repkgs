@@ -5,6 +5,11 @@ use ../node-common.nu
 # tarballs; npm checks each against the lock's integrity), `npm run <script>`, `npm test`, and the
 # pruned package as lib/node_modules/<name> with its bin links.
 # offline `npm ci` against the rewritten lock
+export const OPTIONS = {
+  script: {default: build, nullable: true, doc: "package.json script `build` runs (null: none)"}
+  flags: {default: [], doc: "extra arguments for npm ci"}
+}
+
 export def --env setup []: nothing -> nothing {
   let c = (ctx)
   let o = (options npm)

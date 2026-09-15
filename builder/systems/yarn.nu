@@ -5,6 +5,11 @@ use ../node-common.nu
 # yarn checks each tarball against yarn.lock's integrity), `yarn run <script>`, `yarn test`, and
 # the pruned package as lib/node_modules/<name> with its bin links.
 # `yarn install --offline --frozen-lockfile` against the mirror
+export const OPTIONS = {
+  script: {default: build, nullable: true, doc: "package.json script `build` runs (null: none)"}
+  flags: {default: [], doc: "extra arguments for yarn install"}
+}
+
 export def --env setup []: nothing -> nothing {
   let c = (ctx)
   let o = (options yarn)

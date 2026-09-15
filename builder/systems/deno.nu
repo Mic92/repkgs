@@ -6,6 +6,13 @@ use ../core.nu *
 # a dependency. No `deno compile` yet: it splices into upstream's denort ELF, which would need
 # relinking first.
 # DENO_DIR: a writable copy of deno.deps (deno adds gen/ and *_cache_v2 next to npm/ and remote/)
+export const OPTIONS = {
+  entry: {default: {}, doc: "bin name -> module path: each becomes bin/<name> running `deno run` on it"}
+  permissions: {default: [-A], doc: "permission flags for run and test"}
+  check: {default: true, doc: "deno check the entry points"}
+  flags: {default: [], doc: "extra arguments for deno run and deno test"}
+}
+
 export def --env setup []: nothing -> nothing {
   let c = (ctx)
   let o = (options deno)

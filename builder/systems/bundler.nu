@@ -7,6 +7,12 @@ use ../sys-libs.nu
 # Native extensions compile with the cc on PATH (mkmf takes CC from rbconfig, which says "cc").
 # Gems that can link one of our libraries (a dependency, from [pin] sys) get `bundle config
 # build.<gem>` flags and env from sys-libs.nu.
+export const OPTIONS = {
+  without: {default: [development test], doc: "Gemfile groups to leave out"}
+  test: {default: null, type: list, doc: "command run under `bundle exec` as the test (null: none, test gems are usually in `without`)"}
+  flags: {default: [], doc: "extra arguments for bundle install"}
+}
+
 def app-dir []: nothing -> string { let c = (ctx); $"($c.out)/lib/($c.spec.name)" }
 
 # mkmf runs on the host ruby but must describe the target: its rbconfig.rb first on RUBYLIB,
