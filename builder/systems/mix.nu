@@ -1,6 +1,6 @@
 use ../core.nu *
 use ../beam.nu
-use ../probe-cache.nu
+use ../build-cache.nu
 
 # mix at MIX_ENV=prod with deps/ unpacked from fetch.hexDeps, the way `mix deps.get` leaves it:
 # deps/<app>/ plus a .hex manifest Hex.SCM.lock_status accepts ("name,version,inner,repo").
@@ -25,10 +25,10 @@ export def --env setup []: nothing -> nothing {
     beam unpack $"($o.deps)/packages/hexpm/($d.name)-($d.version).tar" $"deps/($d.app)"
     $"($d.name),($d.version),($d.inner),hexpm" | save $"deps/($d.app)/.hex"
   }
-  let key = (probe-cache key $"mix-deps/($o.deps | path basename)" [])
-  note mix-deps (if (probe-cache restore-dir $key _build/prod/lib) { "restored" } else { "cold" })
+  let key = (build-cache key $"mix-deps/($o.deps | path basename)" [])
+  note mix-deps (if (build-cache restore-dir $key _build/prod/lib) { "restored" } else { "cold" })
   x mix deps.compile --skip-umbrella-children
-  probe-cache store-dir $key _build/prod/lib
+  build-cache store-dir $key _build/prod/lib
 }
 
 export def workdir []: nothing -> string { project-dir mix }
