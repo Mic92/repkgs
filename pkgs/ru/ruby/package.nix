@@ -29,6 +29,15 @@ package {
     pkgs.libyaml
     pkgs.libffi
   ];
+  # rbinstall copies each script's own #! line (libexec/, .bundle/gems/*/exe) under its sh
+  # prolog. When cross compiling a build ruby is on PATH, so prepare's shebang rewrite had
+  # pointed those lines at it: undo that before install
+  phases.before."autotools.install" = on platform.cross [
+    {
+      name = "script-shebangs";
+      run = "fix-shebangs $c.src --undo";
+    }
+  ];
   phases.after."autotools.install" = [
     {
       # rbconfig.rb describes the build machine: configure's bash and clang's InstalledDir line
