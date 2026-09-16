@@ -234,11 +234,12 @@ __attribute__((used)) static u64 reloc_main(u64* sp, u64 pagesz_unused) {
     if (map_len && sys(SYS_mmap, bias + seg_start, map_len, prot, MAP_PRIVATE | MAP_FIXED, fd, off) < 0)
       die("mmap segment failed");
     if (mem_end > file_end) {
-      // zero tail of last file page, then anonymous pages for the rest of bss
+      // zero the last file page to its end (not just to mem_end: ld.so uses the slack past its
+      // bss as heap and expects it zeroed, as the kernel leaves it), then anonymous pages
       if (prot & PROT_WRITE) {
         u8* z = (u8*)(bias + file_end);
         u64 e = (file_end + PG - 1) & ~(PG - 1);
-        while ((u64)z < bias + e && (u64)z < bias + mem_end) *z++ = 0;
+        while ((u64)z < bias + e) *z++ = 0;
       }
       u64 anon_start = (file_end + PG - 1) & ~(PG - 1);
       u64 anon_end = (mem_end + PG - 1) & ~(PG - 1);
