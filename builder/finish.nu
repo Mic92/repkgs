@@ -1,6 +1,6 @@
 # Everything after the last phase, in the order `main` lists it.
 use core.nu *
-use debug.nu [split-debug strip-archives]
+use debug.nu [split-debug split-debug-macho strip-archives]
 use implant.nu
 use launchers.nu
 
@@ -29,14 +29,27 @@ export def --env main [
   cache-summary
 }
 
-# prefix -> ${pcfiledir}/../..
-def relativize-pc [prefix: string, pcs: list<string>]: nothing -> nothing {
-  if ($pcs | is-empty) { return }
-  for f in (^grep -lF $prefix ...$pcs | complete | get stdout | lines) {
+# Rewrite the absolute prefix in `files` as `<var>/../..`, i.e. relative to the file itself:
+# ${pcfiledir} for .pc files, ${CMAKE_CURRENT_LIST_DIR} for autoconf-substituted FooConfig.cmake
+# (fftw), which is what cmake-generated ones use
+def relativize-text [prefix: string, var: string, files: list<string>]: nothing -> nothing {
+  if ($files | is-empty) { return }
+  for f in (^grep -lF $prefix ...$files | complete | get stdout | lines) {
     let up = ($f | path dirname | path relative-to $prefix | path split | each { ".." } | str join "/")
-    let text = (open --raw $f | str replace -a $prefix $"${pcfiledir}/($up)")
+    let text = (open --raw $f | str replace -a $prefix $"${($var)}/($up)")
     $text | save -f $f
   }
+}
+
+# documentation quoting the configured prefix has no relative form
+def generic-man-prefix [prefix: string, pages: list<string>]: nothing -> nothing {
+  if ($pages | is-empty) { return }
+  let hits = (^grep -lF $prefix ...$pages | complete | get stdout | lines)
+  for f in $hits {
+    let text = (open --raw $f | str replace -a $prefix "/usr")
+    $text | save -f $f
+  }
+  if ($hits | is-not-empty) { note man $"($hits | length) pages named the prefix, now /usr" }
 }
 
 # foo-config style sh scripts: prefix from $0
@@ -68,7 +81,9 @@ def relativize-sonames [prefix: string, cmakes: list<string>]: nothing -> nothin
 # prefix -> store, anything still naming the prefix is an error
 export def to-store [prefix: string, dest: string, inv: table]: nothing -> nothing {
   ^chmod -R u+w $prefix # some install -m 0444
-  relativize-pc $prefix ($inv | where type == f and rel =~ '\.pc$' | get path)
+  relativize-text $prefix pcfiledir ($inv | where type == f and rel =~ '\.pc$' | get path)
+  relativize-text $prefix CMAKE_CURRENT_LIST_DIR ($inv | where type == f and rel =~ '\.cmake$' | get path)
+  generic-man-prefix $prefix ($inv | where type == f and rel starts-with share/man/ | get path)
   relativize-scripts $prefix
   relativize-links $prefix $dest
   let hits = (^grep -rlF $prefix $prefix | complete | get stdout | lines)
@@ -137,11 +152,12 @@ export def inventory [out: path]: nothing -> table {
   } | flatten | update size { into int } | insert rel { $in.path | str substring $n.. }
 }
 
-# docs, junk with absolute paths or timestamps. Returns the inventory minus what it removed
+# docs, junk with absolute paths or timestamps. Returns the inventory minus what it removed.
+# x.dSYM is what `clang -g a.c -o x` leaves on Darwin. split-debug-macho makes its own
 export def prune [out: path, inv: table]: nothing -> table {
-  const DOCS = [share/doc/ share/info/ share/gtk-doc/]
-  for d in $DOCS { rm -rf $"($out)/($d)" }
-  let inv = ($inv | where {|e| not ($DOCS | any {|d| $"($e.rel)/" | str starts-with $d }) })
+  let dirs = ([share/doc share/info share/gtk-doc] ++ ($inv | where type == d and rel =~ '\.dSYM$' | get rel))
+  for d in $dirs { rm -rf $"($out)/($d)" }
+  let inv = ($inv | where {|e| not ($dirs | any {|d| $e.rel == $d or ($e.rel | str starts-with $"($d)/") }) })
   let files = ($inv | where type == f)
   let junk = ($files | where { $in.rel =~ '(\.la|/perllocal\.pod|/\.packlist|^lib/charset\.alias)$' })
   if ($junk | is-not-empty) { rm ...$junk.path }
@@ -190,6 +206,7 @@ def binaries-elf [c: record, inv: table]: nothing -> nothing {
 
 # cmake records the install_name the project chose, reloc-fixup makes the dylib's own @rpath
 def binaries-macho [c: record, inv: table]: nothing -> nothing {
+  if $c.spec.debug { split-debug-macho $c.out (attrs).outputs.debug $c.njobs ($inv | where type == f) }
   relativize-sonames $c.out ($inv | where type == f and rel =~ '\.cmake$' | get path)
 }
 
