@@ -58,8 +58,8 @@ package {
         for l in ([ncurses form panel menu] ++ (if $c.platform.os == "windows" { [] } else { [tinfo] })) {
           ^ln -sf (linklib $"($l)w") $"($lib)/(linklib $l)"
           if $c.platform.binfmt != "coff" { ^ln -sf (shlib $"($l)w" 6) $"($lib)/(shlib $l 6)" }
+          ^ln -sf $"($l)w.pc" $"($lib)/pkgconfig/($l).pc"
         }
-        ^ln -sf ncursesw.pc $"($lib)/pkgconfig/ncurses.pc"
         # a #!$SHELL script duplicating the .pc files
         rm $"($c.out)/bin/ncursesw6-config"
       '';
