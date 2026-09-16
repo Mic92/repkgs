@@ -127,7 +127,7 @@ def item-paths [spec: string, st: record, dir: string]: nothing -> list<record> 
   split-list (expand (item-refs $spec $st.items) $st.props)
   | each {|p|
     let f = (win-path $p $dir)
-    let matches = (if $p =~ '[*?]' { glob $f } else { [$f] })
+    let matches = (if $p =~ '[*?]' { files $f } else { [$f] })
     $matches | each {|m| {include: $p, path: $m} }
   }
   | flatten
