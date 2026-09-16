@@ -13,6 +13,13 @@ const CPU_FLAGS = {
 
 const BINUTILS = {LD: "ld.lld", AR: "llvm-ar", NM: "llvm-nm", OBJCOPY: "llvm-objcopy", OBJDUMP: "llvm-objdump", READELF: "llvm-readelf", STRIP: "llvm-strip"}
 
+# A constant prefix compiled in: the output's bytes must not depend on $out (lld orders merged
+# strings by content hash, so a CA rebuild under another scratch path would differ).
+# glibc-prefix-relative.patch finds the data directories from the loaded libc.so instead. This
+# path never exists at run time. Not builder/prepare.nu's /build/prefix: libc.a carries the
+# literal into every static binary, where finish would take it for an unrelocated install path
+const PREFIX = "/build/glibc"
+
 def patched-source []: nothing -> path {
   let src = (unpack glibc)
   cd $src
@@ -31,11 +38,27 @@ def configure [src: path, rt: string, sh: path]: nothing -> nothing {
   let vars = {CONFIG_SHELL: $sh, CC: $cc, CXX: "false", BUILD_CC: "cc", LDFLAGS: $"-L($rt)/lib/($env.clangTarget)"} | merge $BINUTILS
   "with-clang = yes\n" | save configparms # sysdeps Makefiles branch on it
   with-env $vars {
-    (x sh $"($src)/configure" $"--prefix=($env.out)" $"--host=($env.clangTarget)" --build=x86_64-build-linux-gnu
+    (x sh $"($src)/configure" $"--prefix=($PREFIX)" --sysconfdir=/etc $"--host=($env.clangTarget)" --build=x86_64-build-linux-gnu
       $"--with-headers=($env.linuxHeaders)/include" --enable-kernel=5.10 --disable-werror --disable-nscd
       --enable-bind-now --enable-fortify-source --enable-stack-protector=strong
-      $"libc_cv_slibdir=($env.out)/lib" $"libc_cv_rtlddir=($env.out)/lib"
+      $"libc_cv_slibdir=($PREFIX)/lib" $"libc_cv_rtlddir=($PREFIX)/lib"
       ...($CPU_FLAGS | get -o $env.cpu | default []))
+  }
+}
+
+# `make install` went to DESTDIR/PREFIX: that tree becomes $out. The shell scripts (ldd, sotruss,
+# xtrace, tzselect) and the libc.so/libm.so linker scripts name PREFIX: relative to the script,
+# and bare library names the linker looks up next to the script
+def install-tree [dest: path, out: path]: nothing -> nothing {
+  mkdir $out
+  for f in (ls -a $"($dest)($PREFIX)" | get name) { mv $f $out }
+  for f in (glob $"($out)/bin/{ldd,sotruss,xtrace,tzselect}") {
+    open --raw $f | str replace -a $PREFIX '${0%/*}/..' | save -f $f
+  }
+  for f in (glob $"($out)/lib/lib{c,m}.{so,a}") {
+    if (open --raw $f | into binary | bytes starts-with ("/* GNU ld script" | into binary)) {
+      open --raw $f | decode | str replace -a $"($PREFIX)/lib/" "" | save -f $f
+    }
   }
 }
 
@@ -62,13 +85,16 @@ def main []: nothing -> nothing {
   let make = [-j (cores | into string) $"SHELL=($sh)"
     $"sysincludes=-nostdinc -isystem ($rt)/include -isystem ($env.linuxHeaders)/include"
     "gnulib-extralibdir="]
-  cc-facts $out {include-dirs: [include]}
+  let dest = $"($env.NIX_BUILD_TOP)/dest"
   if "headersOnly" in $env {
-    x make ...$make install-headers
+    x make ...$make install-headers $"DESTDIR=($dest)"
+    install-tree $dest $out
     touch $"($out)/include/gnu/stubs.h"
   } else {
     x make ...$make
-    x make ...$make install -j1 # parallel install races on the .dt -> .d depfile moves
+    x make ...$make install -j1 $"DESTDIR=($dest)" # parallel install races on the .dt -> .d depfile moves
+    install-tree $dest $out
     if $env.locale == "true" { c-utf8-locale $src $out }
   }
+  cc-facts $out {include-dirs: [include]}
 }

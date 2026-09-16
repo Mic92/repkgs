@@ -1,0 +1,540 @@
+glibc: find libraries and data directories relative to the loaded ld.so/libc.so
+
+The dynamic linker resolves its own path at startup (PT_INTERP or argv[0],
+symlinks followed) and searches that directory instead of the configured
+system directories, so DT_NEEDED without a RUNPATH and libc's own
+dlopens (NSS, libresolv, libgcc_s) find the libraries installed next to
+it wherever the installation was copied.
+
+gconv modules, locales, the locale archive, message catalogs and zoneinfo
+are looked up under the prefix libc.so.6 was loaded from (dladdr, two
+levels up) instead of the configured one, so its bytes do not depend on
+where it was built for. Environment overrides and paths outside $(prefix)
+are unchanged. The static libc has no libc.so to anchor on and gets no
+default directories rather than the configured prefix, which may not
+exist at run time and could be planted.
+
+Signed-off-by: Jörg Thalheim <joerg@thalheim.io>
+---
+diff --git a/elf/dl-load.c b/elf/dl-load.c
+--- a/elf/dl-load.c
++++ b/elf/dl-load.c
+@@ -688,11 +688,61 @@ _dl_init_paths (const char *llp, const char *source,
+   /* Get the capabilities.  */
+   capstr = _dl_important_hwcaps (glibc_hwcaps_prepend, glibc_hwcaps_mask,
+ 				 &ncapstr, &max_capstrlen);
++
++  /* Where this ld.so lives, symlinks resolved: libc.so and the rest of
++     $(slibdir) are next to it wherever the installation was copied.  */
++  const char *rtld_name = (_dl_rtld_map.l_name != NULL ? _dl_rtld_map.l_name
++			   : _dl_rtld_map.l_libname != NULL
++			   ? _dl_rtld_map.l_libname->name : NULL);
++  if (rtld_name != NULL && rtld_name[0] != '\0')
++    {
++      /* A relative PT_INTERP is relative to the executable.  */
++      char *buf = NULL;
++      if (rtld_name[0] != '/')
++	{
++	  const char *origin = _dl_get_origin ();
++	  if (origin != NULL && origin != (const char *) -1)
++	    {
++	      size_t olen = strlen (origin);
++	      buf = malloc (olen + 1 + strlen (rtld_name) + 1);
++	      if (buf != NULL)
++		{
++		  char *p = __mempcpy (buf, origin, olen);
++		  *p++ = '/';
++		  strcpy (p, rtld_name);
++		  rtld_name = buf;
++		}
++	    }
++	}
++      int fd = __open64_nocancel (rtld_name, O_PATH | O_CLOEXEC);
++      free (buf);
++      if (fd >= 0)
++	{
++	  char *self = _dl_canonicalize (fd);
++	  __close_nocancel (fd);
++	  size_t n = self == NULL || self[0] != '/' ? 0 : strlen (self);
++	  while (n > 0 && self[n - 1] != '/')
++	    --n;
++	  if (n > 0)
++	    {
++	      self[n] = '\0';
++	      GLRO(dl_rtld_dir) = self;
++	      GLRO(dl_rtld_dirlen) = n;
++	    }
++	  else
++	    free (self);
++	}
++    }
+ #endif
++  /* The configured directories only stand in when that failed: they need
++     not exist where this libc runs and would be a place to plant.  */
++  size_t nrtld_dir = GLRO(dl_rtld_dir) != NULL;
++  size_t nconf_dirs = nrtld_dir ? 0 : nsystem_dirs_len;
+ 
+   /* First set up the rest of the default search directory entries.  */
+   aelem = __rtld_search_dirs.dirs = (struct r_search_path_elem **)
+-    malloc ((nsystem_dirs_len + 1) * sizeof (struct r_search_path_elem *));
++    malloc ((nrtld_dir + nconf_dirs + 1)
++	    * sizeof (struct r_search_path_elem *));
+   if (__rtld_search_dirs.dirs == NULL)
+     {
+       errstring = N_("cannot create search path array");
+@@ -705,7 +755,7 @@ _dl_init_paths (const char *llp, const char *source,
+ 		/ sizeof (struct r_search_path_elem));
+ 
+   __rtld_search_dirs.dirs[0]
+-    = malloc (nsystem_dirs_len * round_size
++    = malloc ((nrtld_dir + nconf_dirs) * round_size
+ 	      * sizeof (*__rtld_search_dirs.dirs[0]));
+   if (__rtld_search_dirs.dirs[0] == NULL)
+     {
+@@ -718,7 +768,20 @@ _dl_init_paths (const char *llp, const char *source,
+   strp = system_dirs;
+   idx = 0;
+ 
+-  do
++  if (nrtld_dir)
++    {
++      *aelem++ = pelem;
++      pelem->what = "system search path";
++      pelem->where = NULL;
++      pelem->dirname = GLRO(dl_rtld_dir);
++      pelem->dirnamelen = GLRO(dl_rtld_dirlen);
++      for (size_t cnt = 0; cnt < ncapstr; ++cnt)
++	pelem->status[cnt] = unknown;
++      pelem->next = NULL;
++      pelem += round_size;
++    }
++
++  while (idx < nconf_dirs)
+     {
+       size_t cnt;
+ 
+@@ -736,13 +799,12 @@ _dl_init_paths (const char *llp, const char *source,
+       for (cnt = 0; cnt < ncapstr; ++cnt)
+ 	pelem->status[cnt] = unknown;
+ 
+-      pelem->next = (++idx == nsystem_dirs_len ? NULL : (pelem + round_size));
++      pelem->next = (++idx == nconf_dirs ? NULL : (pelem + round_size));
+ 
+       pelem += round_size;
+     }
+-  while (idx < nsystem_dirs_len);
+ 
+-  max_dirnamelen = SYSTEM_DIRS_MAX_LEN;
++  max_dirnamelen = MAX (SYSTEM_DIRS_MAX_LEN, GLRO(dl_rtld_dirlen));
+   *aelem = NULL;
+ 
+   /* This points to the map of the main object.  If there is no main
+diff --git a/elf/dl-support.c b/elf/dl-support.c
+--- a/elf/dl-support.c
++++ b/elf/dl-support.c
+@@ -141,6 +141,9 @@ size_t _dl_minsigstacksize = CONSTANT_MINSIGSTKSZ;
+ 
+ int _dl_inhibit_cache;
+ 
++const char *_dl_rtld_dir;
++size_t _dl_rtld_dirlen;
++
+ /* All known directories in sorted order.  */
+ struct r_search_path_elem *_dl_all_dirs;
+ 
+diff --git a/iconv/gconv_cache.c b/iconv/gconv_cache.c
+--- a/iconv/gconv_cache.c
++++ b/iconv/gconv_cache.c
+@@ -58,7 +58,13 @@ __gconv_load_cache (void)
+     return -1;
+ 
+   /* See whether the cache file exists.  */
+-  fd = __open_nocancel (GCONV_MODULES_CACHE, O_RDONLY | O_CLOEXEC, 0);
++  {
++    const char *dir = __gconv_default_path ();
++    size_t dirlen = strlen (dir);
++    char *cache_file = alloca (dirlen + sizeof "/gconv-modules.cache");
++    strcpy (mempcpy (cache_file, dir, dirlen), "/gconv-modules.cache");
++    fd = __open_nocancel (cache_file, O_RDONLY | O_CLOEXEC, 0);
++  }
+   if (__builtin_expect (fd, 0) == -1)
+     /* Not available.  */
+     return -1;
+diff --git a/iconv/gconv_conf.c b/iconv/gconv_conf.c
+--- a/iconv/gconv_conf.c
++++ b/iconv/gconv_conf.c
+@@ -31,11 +31,16 @@
+ #include <sys/param.h>
+ 
+ #include <libc-lock.h>
++#include <libc-prefix.h>
+ #include <gconv_int.h>
+ #include <gconv_parseconfdir.h>
+ 
+ /* This is the default path where we look for module lists.  */
+-static const char default_gconv_path[] = GCONV_PATH;
++const char *
++__gconv_default_path (void)
++{
++  return LIBC_PREFIX_PATH (GCONV_PATH);
++}
+ 
+ /* Type to represent search path.  */
+ struct path_elem
+@@ -370,13 +375,15 @@ __gconv_get_path (void)
+   int nelems;
+   char *cwd;
+   size_t cwdlen;
++  const char *default_gconv_path = __gconv_default_path ();
++  size_t default_gconv_path_size = strlen (default_gconv_path) + 1;
+ 
+   if (__gconv_path_envvar == NULL)
+     {
+       /* No user-defined path.  Make a modifiable copy of the
+          default path.  */
+       gconv_path = strdupa (default_gconv_path);
+-      gconv_path_len = sizeof (default_gconv_path);
++      gconv_path_len = default_gconv_path_size;
+       cwd = NULL;
+       cwdlen = 0;
+     }
+@@ -385,12 +392,12 @@ __gconv_get_path (void)
+       /* Append the default path to the user-defined path.  */
+       size_t user_len = strlen (__gconv_path_envvar);
+ 
+-      gconv_path_len = user_len + 1 + sizeof (default_gconv_path);
++      gconv_path_len = user_len + 1 + default_gconv_path_size;
+       gconv_path = alloca (gconv_path_len);
+       __mempcpy (__mempcpy (__mempcpy (gconv_path, __gconv_path_envvar,
+                                        user_len),
+                             ":", 1),
+-                 default_gconv_path, sizeof (default_gconv_path));
++                 default_gconv_path, default_gconv_path_size);
+       cwd = __getcwd (NULL, 0);
+       cwdlen = __glibc_unlikely (cwd == NULL) ? 0 : strlen (cwd);
+     }
+diff --git a/iconv/gconv_int.h b/iconv/gconv_int.h
+--- a/iconv/gconv_int.h
++++ b/iconv/gconv_int.h
+@@ -132,6 +132,9 @@ extern void *__gconv_alias_db attribute_hidden;
+ /* Array with available modules.  */
+ extern struct gconv_module *__gconv_modules_db attribute_hidden;
+ 
++/* Default module directory, under the running libc's prefix.  */
++extern const char *__gconv_default_path (void) attribute_hidden;
++
+ /* Value of the GCONV_PATH environment variable.  */
+ extern const char *__gconv_path_envvar attribute_hidden;
+ 
+diff --git a/include/libc-prefix.h b/include/libc-prefix.h
+new file mode 100644
+--- /dev/null
++++ b/include/libc-prefix.h
+@@ -0,0 +1,18 @@
++#ifndef _LIBC_PREFIX_H
++#define _LIBC_PREFIX_H
++
++#include <stddef.h>
++#include <limits.h>
++
++/* CONFIGURED with $(prefix) replaced by where the running libc.so is
++   installed, cached in BUF.  Other paths come back as is; the static libc
++   gets a directory that cannot exist.  */
++extern const char *__libc_prefix_path (const char *configured,
++				       char *buf, size_t len)
++  attribute_hidden;
++
++#define LIBC_PREFIX_PATH(configured) \
++  ({ static char __buf[PATH_MAX];					\
++     __libc_prefix_path (configured, __buf, sizeof __buf); })
++
++#endif
+diff --git a/intl/dcigettext.c b/intl/dcigettext.c
+--- a/intl/dcigettext.c
++++ b/intl/dcigettext.c
+@@ -76,6 +76,11 @@ extern int errno;
+ # include "localcharset.h"
+ #endif
+ 
++#ifdef _LIBC
++# include <libc-prefix.h>
++#else
++# define LIBC_PREFIX_PATH(p) (p)
++#endif
+ #include "gettextP.h"
+ #include "plural-exp.h"
+ #ifdef _LIBC
+@@ -527,7 +532,7 @@ DCIGETTEXT (const char *domainname, const char *msgid1, const char *msgid2,
+     }
+ 
+   if (binding == NULL)
+-    dirname = _nl_default_dirname;
++    dirname = LIBC_PREFIX_PATH (_nl_default_dirname);
+   else
+     {
+       dirname = binding->dirname;
+diff --git a/intl/localealias.c b/intl/localealias.c
+--- a/intl/localealias.c
++++ b/intl/localealias.c
+@@ -58,6 +58,11 @@ char *alloca ();
+ #include <stdlib.h>
+ #include <string.h>
+ 
++#ifdef _LIBC
++# include <libc-prefix.h>
++#else
++# define LIBC_PREFIX_PATH(p) (p)
++#endif
+ #include "gettextP.h"
+ 
+ #ifdef ENABLE_RELOCATABLE
+@@ -152,7 +157,7 @@ _nl_expand_alias (const char *name)
+   __libc_lock_lock (lock);
+ 
+   if (locale_alias_path == NULL)
+-    locale_alias_path = LOCALE_ALIAS_PATH;
++    locale_alias_path = LIBC_PREFIX_PATH (LOCALE_ALIAS_PATH);
+ 
+   do
+     {
+diff --git a/locale/findlocale.c b/locale/findlocale.c
+--- a/locale/findlocale.c
++++ b/locale/findlocale.c
+@@ -25,6 +25,7 @@
+ # include <sys/mman.h>
+ #endif
+ 
++#include <libc-prefix.h>
+ #include "localeinfo.h"
+ #include "../iconv/gconv_charset.h"
+ #include "../iconv/gconv_int.h"
+@@ -55,7 +56,11 @@ struct __locale_data *const _nl_C[] attribute_hidden =
+    which are somehow addressed.  */
+ struct loaded_l10nfile *_nl_locale_file_list[__LC_LAST];
+ 
+-const char _nl_default_locale_path[] attribute_hidden = COMPLOCALEDIR;
++const char *
++_nl_default_locale_path (void)
++{
++  return LIBC_PREFIX_PATH (COMPLOCALEDIR);
++}
+ 
+ /* Checks if the name is actually present, that is, not NULL and not
+    empty.  */
+@@ -164,8 +169,8 @@ _nl_find_locale (const char *locale_path, size_t locale_path_len,
+ 	}
+ 
+       /* Nothing in the archive.  Set the default path to search below.  */
+-      locale_path = _nl_default_locale_path;
+-      locale_path_len = sizeof _nl_default_locale_path;
++      locale_path = _nl_default_locale_path ();
++      locale_path_len = strlen (locale_path) + 1;
+     }
+   else
+     /* We really have to load some data.  First see whether the name is
+diff --git a/locale/loadarchive.c b/locale/loadarchive.c
+--- a/locale/loadarchive.c
++++ b/locale/loadarchive.c
+@@ -30,6 +30,7 @@
+ #include <sys/stat.h>
+ #include <sys/param.h>
+ 
++#include <libc-prefix.h>
+ #include "localeinfo.h"
+ #include "locarchive.h"
+ #include <not-cancel.h>
+@@ -42,7 +43,7 @@
+ 
+ 
+ /* Name of the locale archive file.  */
+-static const char archfname[] = COMPLOCALEDIR "/locale-archive";
++#define archfname LIBC_PREFIX_PATH (COMPLOCALEDIR "/locale-archive")
+ 
+ /* Size of initial mapping window, optimal if large enough to
+    cover the header plus the initial locale.  */
+diff --git a/locale/localeinfo.h b/locale/localeinfo.h
+--- a/locale/localeinfo.h
++++ b/locale/localeinfo.h
+@@ -346,7 +346,7 @@ _nl_lookup_word (locale_t l, int category, int item)
+ }
+ 
+ /* Default search path if no LOCPATH environment variable.  */
+-extern const char _nl_default_locale_path[] attribute_hidden;
++extern const char *_nl_default_locale_path (void) attribute_hidden;
+ 
+ /* Load the locale data for CATEGORY from the file specified by *NAME.
+    If *NAME is "", use environment variables as specified by POSIX, and
+diff --git a/locale/newlocale.c b/locale/newlocale.c
+--- a/locale/newlocale.c
++++ b/locale/newlocale.c
+@@ -111,7 +111,7 @@ __newlocale_1 (int category_mask, const char *locale, locale_t base,
+ 	return NULL;
+ 
+       if (__argz_add_sep (locale_path_ptr, &locale_path_len,
+-			  _nl_default_locale_path, ':') != 0)
++			  _nl_default_locale_path (), ':') != 0)
+ 	return NULL;
+ 
+       assert (*locale_path_ptr != NULL);
+diff --git a/locale/setlocale.c b/locale/setlocale.c
+--- a/locale/setlocale.c
++++ b/locale/setlocale.c
+@@ -255,7 +255,7 @@ setlocale (int category, const char *locale)
+       if (__argz_create_sep (locpath_var, ':',
+ 			     &locale_path, &locale_path_len) != 0
+ 	  || __argz_add_sep (&locale_path, &locale_path_len,
+-			     _nl_default_locale_path, ':') != 0)
++			     _nl_default_locale_path (), ':') != 0)
+ 	{
+ 	  __libc_rwlock_unlock (__libc_setlocale_lock);
+ 	  return NULL;
+diff --git a/misc/Makefile b/misc/Makefile
+--- a/misc/Makefile
++++ b/misc/Makefile
+@@ -83,6 +83,7 @@ headers := \
+ 
+ routines := \
+   acct \
++  libc-prefix \
+   allocate_once \
+   atomic_wide_counter \
+   brk \
+@@ -318,6 +319,7 @@ tests-container := \
+   tst-syslog-long-progname \
+   # tests-container
+ 
++CFLAGS-libc-prefix.c += -DPREFIX='"$(prefix)"'
+ CFLAGS-select.c += -fexceptions -fasynchronous-unwind-tables
+ CFLAGS-tsearch.c += $(uses-callbacks)
+ CFLAGS-lsearch.c += $(uses-callbacks)
+diff --git a/misc/libc-prefix.c b/misc/libc-prefix.c
+new file mode 100644
+--- /dev/null
++++ b/misc/libc-prefix.c
+@@ -0,0 +1,81 @@
++/* Installation directories relative to the loaded libc.so.
++   Copyright (C) 2026 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <atomic.h>
++#include <dlfcn.h>
++#include <limits.h>
++#include <stdlib.h>
++#include <string.h>
++#include <libc-prefix.h>
++
++/* Not the configured $(prefix): it may not exist at run time and could be
++   planted, and gconv modules are dlopen'ed from it.  */
++#define NO_PREFIX "/dev/null"
++
++/* Two components up from the canonical path of lib/libc.so.6.  */
++static size_t
++runtime_prefix (char *buf, size_t len)
++{
++#ifdef SHARED
++  Dl_info info;
++  char real[PATH_MAX];
++  if (!_dl_addr ((const void *) &runtime_prefix, &info, NULL, NULL)
++      || info.dli_fname == NULL || __realpath (info.dli_fname, real) == NULL)
++    return 0;
++  char *end = real + strlen (real);
++  for (int up = 0; up < 2; ++up)
++    while (end > real && *--end != '/')
++      ;
++  size_t n = end - real;
++  if (n == 0 || n >= len)
++    return 0;
++  memcpy (buf, real, n);
++  buf[n] = '\0';
++  return n;
++#else
++  return 0;
++#endif
++}
++
++const char *
++__libc_prefix_path (const char *configured, char *buf, size_t len)
++{
++  size_t plen = strlen (PREFIX);
++  if (strncmp (configured, PREFIX, plen) != 0
++      || (configured[plen] != '/' && configured[plen] != '\0'))
++    return configured;
++
++  /* buf[0] is written last.  */
++  if (atomic_load_acquire (&buf[0]) != '\0')
++    return buf;
++
++  char tmp[PATH_MAX];
++  size_t n = runtime_prefix (tmp, sizeof tmp);
++  if (n == 0)
++    {
++      n = strlen (NO_PREFIX);
++      memcpy (tmp, NO_PREFIX, n + 1);
++    }
++  size_t rest = strlen (configured + plen);
++  if (n + rest >= len || n + rest >= sizeof tmp)
++    return NO_PREFIX;
++  memcpy (tmp + n, configured + plen, rest + 1);
++  memcpy (buf + 1, tmp + 1, n + rest);
++  atomic_store_release (&buf[0], tmp[0]);
++  return buf;
++}
+diff --git a/sysdeps/generic/ldsodefs.h b/sysdeps/generic/ldsodefs.h
+--- a/sysdeps/generic/ldsodefs.h
++++ b/sysdeps/generic/ldsodefs.h
+@@ -589,6 +589,12 @@ struct rtld_global_ro
+   /* Location of the binary.  */
+   EXTERN const char *_dl_origin_path;
+ 
++  /* Canonical directory of the running dynamic linker, "/"-terminated,
++     or NULL: the first system search directory, and $(slibdir) for the
++     libc data directories derived from it.  */
++  EXTERN const char *_dl_rtld_dir;
++  EXTERN size_t _dl_rtld_dirlen;
++
+   /* Size of the static TLS block.  */
+   EXTERN size_t _dl_tls_static_size;
+ 
+diff --git a/time/tzfile.c b/time/tzfile.c
+--- a/time/tzfile.c
++++ b/time/tzfile.c
+@@ -28,6 +28,7 @@
+ #include <alloc_buffer.h>
+ #include <set-freeres.h>
+ 
++#include <libc-prefix.h>
+ #include <timezone/tzfile.h>
+ 
+ int __use_tzfile;
+@@ -105,7 +106,7 @@ decode64 (const void *ptr)
+ void
+ __tzfile_read (const char *file, size_t extra, char **extrap)
+ {
+-  static const char default_tzdir[] = TZDIR;
++  const char *default_tzdir = LIBC_PREFIX_PATH (TZDIR);
+   size_t num_isstd, num_isgmt;
+   FILE *f;
+   struct tzhead tzhead;
+@@ -135,7 +136,7 @@ __tzfile_read (const char *file, size_t extra, char **extrap)
+       if (__libc_enable_secure
+ 	  && ((*file == '/'
+ 	       && strcmp (file, TZDEFAULT) != 0
+-	       && (strncmp (file, default_tzdir, sizeof (default_tzdir) - 1)
++	       && (strncmp (file, default_tzdir, strlen (default_tzdir))
+ 		   != 0))
+ 	      || strstr (file, "../") != NULL))
+ 	/* This test is certainly a bit too restrictive but it should
