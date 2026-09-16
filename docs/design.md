@@ -146,7 +146,8 @@ knows relative to the final location, fails if any file still names the prefix, 
 tree into the store last. An output's bytes cannot depend on where it lands, which also keeps
 content-addressed rebuilds stable (lld hashes `$out` into build ids and string order;
 [NixOS/nix#16465](https://github.com/NixOS/nix/pull/16465) covers derivations that do see
-`$out`, like `bootstrap/`).
+`$out`, and [#16477](https://github.com/NixOS/nix/pull/16477) lets a rebuild that still differs
+replace the build trace of a collected output instead of failing).
 
 Ambient data (CA bundle, zoneinfo, fonts) is an environment variable or system path, never a
 store path.
