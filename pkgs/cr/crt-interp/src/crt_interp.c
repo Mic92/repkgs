@@ -132,6 +132,10 @@ static u64 slen(const char* s) {
   while (s[n]) n++;
   return n;
 }
+static int prot_of(u32 p_flags) {
+  return ((p_flags & 4) ? PROT_READ : 0) | ((p_flags & 2) ? PROT_WRITE : 0) | ((p_flags & 1) ? PROT_EXEC : 0);
+}
+
 static void die(const char* m) {
   sys(SYS_write, 2, (i64) "reloc-interp: ", 14, 0, 0, 0);
   sys(SYS_write, 2, (i64)m, slen(m), 0, 0, 0);
@@ -169,6 +173,13 @@ __attribute__((used)) static u64 reloc_main(u64* sp, u64 pagesz_unused) {
     if (self_ph[i].p_type == PT_NULL && self_ph[i].p_filesz > 1) interp_ph = &self_ph[i];
   }
   if (!interp_ph) die("no disabled PT_INTERP (PT_NULL with contents) found");
+  // the phdrs may share an r-x segment with .text (GNU ld's aarch64 default, -z noseparate-code),
+  // so step 4 must restore this rather than PROT_READ
+  int phdr_prot = PROT_READ;
+  u64 phdr_vaddr = (u64)interp_ph - self_bias;
+  for (u64 i = 0; i < self_phnum; i++)
+    if (self_ph[i].p_type == PT_LOAD && phdr_vaddr - self_ph[i].p_vaddr < self_ph[i].p_memsz)
+      phdr_prot = prot_of(self_ph[i].p_flags);
 #ifdef RELOC_STUB
   // reloc-fixup always leaves a PT_PHDR in implanted files, so the bias is exact for ET_EXEC too
   if (!have_phdr) die("no PT_PHDR");
@@ -228,8 +239,7 @@ __attribute__((used)) static u64 reloc_main(u64* sp, u64 pagesz_unused) {
     u64 off = ph[i].p_offset & ~(PG - 1);
     u64 file_end = ph[i].p_vaddr + ph[i].p_filesz;
     u64 mem_end = ph[i].p_vaddr + ph[i].p_memsz;
-    int prot = ((ph[i].p_flags & 4) ? PROT_READ : 0) | ((ph[i].p_flags & 2) ? PROT_WRITE : 0) |
-               ((ph[i].p_flags & 1) ? PROT_EXEC : 0);
+    int prot = prot_of(ph[i].p_flags);
     u64 map_len = ((file_end + PG - 1) & ~(PG - 1)) - seg_start;
     if (map_len && sys(SYS_mmap, bias + seg_start, map_len, prot, MAP_PRIVATE | MAP_FIXED, fd, off) < 0)
       die("mmap segment failed");
@@ -252,9 +262,9 @@ __attribute__((used)) static u64 reloc_main(u64* sp, u64 pagesz_unused) {
 
   // 4. re-enable PT_INTERP in our in-memory phdrs, patch auxv
   u64 pg_lo = (u64)interp_ph & ~(PG - 1), pg_hi = ((u64)interp_ph + sizeof(Phdr) + PG - 1) & ~(PG - 1);
-  if (sys(SYS_mprotect, pg_lo, pg_hi - pg_lo, PROT_READ | PROT_WRITE, 0, 0, 0) < 0) die("mprotect phdr rw");
+  if (sys(SYS_mprotect, pg_lo, pg_hi - pg_lo, phdr_prot | PROT_WRITE, 0, 0, 0) < 0) die("mprotect phdr rw");
   interp_ph->p_type = PT_INTERP;
-  sys(SYS_mprotect, pg_lo, pg_hi - pg_lo, PROT_READ, 0, 0, 0);
+  sys(SYS_mprotect, pg_lo, pg_hi - pg_lo, phdr_prot, 0, 0, 0);
   int have_base = 0, have_entry = 0;
   for (u64* a = auxv; a[0] != AT_NULL; a += 2) {
     if (a[0] == AT_BASE) {
