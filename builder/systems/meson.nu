@@ -34,10 +34,12 @@ def cross-files [c: record]: nothing -> list<string> {
   let p = $c.platform
   let host = (machine-file $"($c.build)/cross.ini" {
     binaries: ({c: "cc", cpp: "c++", ar: "llvm-ar", nm: "llvm-nm", strip: "llvm-strip", objcopy: "llvm-objcopy", pkg-config: "pkg-config", cmake: "cmake"}
+      | merge (if $p.os == "macos" { {objc: "cc", objcpp: "c++"} } else { {} })
       | merge (if ($p.emulator | is-empty) { {} } else { {exe_wrapper: $p.emulator} }))
-    properties: {needs_exe_wrapper: true, sizeof_void_p: 8, sizeof_long: 8, sizeof_size_t: 8, alignment_void_p: 8, alignment_double: 8
+    properties: {needs_exe_wrapper: true, sizeof_void_p: 8, sizeof_long: (if $p.os == "windows" { 4 } else { 8 }), sizeof_size_t: 8, alignment_void_p: 8, alignment_double: 8
       sys_root: ($env.PKGS_SYSROOT? | default ""), pkg_config_libdir: ($env.PKG_CONFIG_PATH? | default "")}
-    host_machine: {system: $p.osNames.meson, kernel: $p.osNames.mesonKernel, cpu_family: $p.names.meson, cpu: $p.cpu, endian: "little"}
+    host_machine: ({system: $p.osNames.meson, kernel: $p.osNames.mesonKernel, cpu_family: $p.names.meson, cpu: $p.cpu, endian: "little"}
+      | merge (if $p.os == "macos" { {subsystem: "macos"} } else { {} }))
   })
   let native = (machine-file $"($c.build)/native.ini" {
     binaries: {c: $env.CC_FOR_BUILD, cpp: $env.CXX_FOR_BUILD, ar: "llvm-ar", strip: "llvm-strip", pkg-config: $env.PKG_CONFIG_FOR_BUILD}
