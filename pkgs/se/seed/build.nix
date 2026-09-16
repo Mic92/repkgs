@@ -3,15 +3,7 @@
 # runs, `buildSystem` where it is built: static musl is a cross build to nixpkgs either way.
 #   ./upload.nu builds -A nar per system, uploads to the GitHub release and rewrites ./sources.toml
 {
-  # the flake's pin: the seed's nu must be the version builder/ is written for
-  nixpkgs ?
-    let
-      locked = (builtins.fromJSON (builtins.readFile ../../../flake.lock)).nodes.nixpkgs.locked;
-    in
-    fetchTarball {
-      url = "https://github.com/NixOS/nixpkgs/archive/${locked.rev}.tar.gz";
-      sha256 = locked.narHash;
-    },
+  nixpkgs ? import ../../../nix/nixpkgs.nix,
   system ? builtins.currentSystem,
   buildSystem ? builtins.currentSystem,
 }:

@@ -5,7 +5,7 @@
 # `nix-build nix/checks.nix` without flakes, `-A pkg-jq` for one.
 {
   system ? builtins.currentSystem,
-  nixpkgs ? <nixpkgs>,
+  nixpkgs ? import ./nixpkgs.nix,
   platforms ? [
     "x86_64-linux"
     "aarch64-linux"
@@ -35,14 +35,20 @@ lib.mergeAttrsList (map forPlatform platforms)
   treefmt =
     pkgs.runCommand "treefmt-check"
       {
-        nativeBuildInputs = [ (import ../treefmt.nix { inherit pkgs; }) ];
+        nativeBuildInputs = [
+          (import ../treefmt.nix {
+            inherit pkgs;
+            evaluates = false;
+          })
+        ];
       }
       "cp -r ${
         builtins.path {
           path = ../.;
           name = "source";
+          filter = p: t: baseNameOf p != ".jj" && lib.cleanSourceFilter p t;
         }
-      } src && chmod -R u+w src && cd src && treefmt --ci && touch $out";
+      } src && chmod -R u+w src && cd src && treefmt --ci --tree-root . && touch $out";
   inherit
     (import ../pkgs/se/seed/build.nix {
       inherit nixpkgs system;

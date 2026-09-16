@@ -1,14 +1,7 @@
 # Development shell: `treefmt` (treefmt.nix) and what uptrack shells out to. Not part of the
-# package set. Plain nixpkgs, pinned via flake.lock so `nix-shell` matches `nix develop`.
+# package set. Plain nixpkgs (nix/nixpkgs.nix).
 {
-  pkgs ?
-    let
-      locked = (builtins.fromJSON (builtins.readFile ./flake.lock)).nodes.nixpkgs.locked;
-    in
-    import (fetchTarball {
-      url = "https://github.com/NixOS/nixpkgs/archive/${locked.rev}.tar.gz";
-      sha256 = locked.narHash;
-    }) { },
+  pkgs ? import (import ./nix/nixpkgs.nix) { },
 }:
 pkgs.mkShell {
   packages = [
