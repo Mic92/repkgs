@@ -10,7 +10,7 @@ export def --env main [
 ]: nothing -> nothing {
   let c = (ctx)
   install-map $c
-  if $keep_tree { save-tree (attrs).outputs.tree $c.njobs }
+  if $keep_tree { save-tree (attrs).outputs.tree }
   if not ($c.out | path exists) { error make {msg: "nothing was installed into $out"} }
   for b in (bins $c) {
     if not ($"($c.out)/bin/($b)($c.platform.ext.exe)" | path exists) { error make {msg: $"bin/($b)($c.platform.ext.exe) missing in output"} }
@@ -131,11 +131,13 @@ def install-map [c: record]: nothing -> nothing {
   }
 }
 
-# source and build tree, mtimes kept so the tests derivation rebuilds nothing
-def save-tree [tree: path, njobs: int]: nothing -> nothing {
+# source and build tree as a plain directory: the store and binary caches compress and dedup
+# files, a tarball would defeat both. The store sets every mtime to 1, and with all of them
+# equal make has nothing to rebuild
+def save-tree [tree: path]: nothing -> nothing {
   mkdir $tree
   cd $env.NIX_BUILD_TOP
-  x bsdtar -c --zstd --options $"zstd:threads=($njobs)" -f $"($tree)/tree.tar.zst" source build
+  x cp -a source build $tree
 }
 
 # `bin`, defaulting to the package's name when bin/<name> got installed

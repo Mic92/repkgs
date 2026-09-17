@@ -50,7 +50,8 @@ def --env unpack [a: record, src: path, njobs: int]: nothing -> nothing {
 # paths inside it stay valid
 def --env restore [from_tree: string, src: path]: nothing -> nothing {
   note restore $from_tree
-  ^bsdtar -xf $"($from_tree)/tree.tar.zst" -C $env.NIX_BUILD_TOP
+  for d in [source build] { ^cp -a $"($from_tree)/($d)" $env.NIX_BUILD_TOP }
+  ^chmod -R u+w $"($env.NIX_BUILD_TOP)/source" $"($env.NIX_BUILD_TOP)/build"
   cd $src
 }
 
