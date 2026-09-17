@@ -1,4 +1,7 @@
-{ package }:
+{
+  package,
+  buildPkgs,
+}:
 package {
   name = "sed";
   uses = [ "autotools" ];
@@ -7,6 +10,6 @@ package {
     "--disable-acl"
     "--without-selinux"
   ];
-  # testsuite wants perl + valgrind bits
-  tests.run = false;
+  tests.separate = true;
+  tests.dependencies = [ buildPkgs.perl ];
 }
