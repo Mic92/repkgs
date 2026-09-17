@@ -4,7 +4,8 @@ purl = "pkg:pypi/pyproject-hooks"
 [[source]]
 key = "default"
 url = "https://files.pythonhosted.org/packages/source/p/pyproject_hooks/pyproject_hooks-{version}.tar.gz"
-hash = "sha256-pbJnyulRjihBzjrrjnG39MiBNn9Z0+yKn9/oDiqIYo0="
+hash = "sha256-ezjPkORBOMvLR0OItGPF8954barqRHUVfgkguST3kKE="
 
 [pin]
-version = "1.2.0"
+version = "1.3.3"
+date = "2026-09-16"
