@@ -505,18 +505,24 @@ let
     }
     # resolved values, for phases: `(ctx).spec.features.tls`
     // (if features == { } then { } else { inherit features; });
+  # PATH order. Build systems name the seed as their `sh`, it goes last so GNU tools shadow toybox
+  buildDeps =
+    base:
+    filter (d: !(elem d base)) (
+      [ toolchain ]
+      ++ (args.buildDependencies or [ ])
+      ++ (if prebuilt == true then relocTools else [ ])
+      ++ concatMap (u: buildSystems.${u}.tools spec ++ stackBefore buildSystems.${u}.stack) uses
+    )
+    ++ base;
   common = setCommon // {
     inherit src;
     inherit (args) version;
     patches = args.patches or [ ];
     inherit spec;
-    buildDependencies = [
-      toolchain
-    ]
-    ++ (args.buildDependencies or [ ])
-    ++ (if prebuilt == true then relocTools else [ ])
-    ++ concatMap (u: buildSystems.${u}.tools spec ++ stackBefore buildSystems.${u}.stack) uses
-    ++ (if args.bootstrapTools or false then baseTools.bootstrap else baseTools.full);
+    buildDependencies = buildDeps (
+      if args.bootstrapTools or false then baseTools.bootstrap else baseTools.full
+    );
     # [pin] sys: libraries the lock files can link (builder/sys-libs.nu). Those the set lacks
     # here are left to the locked package (vendored copy or feature off)
     dependencies =

@@ -47,7 +47,8 @@ def backports [src: string]: nothing -> nothing {
 
 # configure's INSTALL: the seed's path would be a store reference in rbconfig.rb and python's
 # sysconfig, a bare name gets ../ prepended per subdirectory. So a copy in the build dir, and
-# after `make install` the files that recorded it say plain `install` (found on PATH)
+# after `make install` the files that recorded it say plain `install` (found on PATH). The copy
+# is the seed's static one, coreutils' would lose its interpreter away from its prefix
 def install-tool []: nothing -> string { $"((ctx).build)/install" }
 
 def unrecord-install-tool [out: string]: nothing -> nothing {
@@ -67,7 +68,7 @@ export def --env configure []: nothing -> nothing {
   let key = (build-cache key autoconf [$script] [...$host_flags ...$o.flags])
   note config.cache (if (build-cache restore $key $cache) { "restored" } else { "cold" })
   backports $c.src
-  cp (tool install) (install-tool)
+  cp ($nu.current-exe | path dirname | path join install) (install-tool)
   with-env {PKGS_PREFIX: $c.out, PKGS_CONFIG_CACHE: $cache, INSTALL: $"(install-tool) -c"} {
     (x $env.CONFIG_SHELL $script --disable-nls --disable-dependency-tracking --disable-static --enable-shared
       ...$host_flags ...$o.flags)
