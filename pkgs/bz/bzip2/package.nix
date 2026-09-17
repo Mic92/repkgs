@@ -25,5 +25,4 @@ package {
     "bzip2"
     "bzip2recover"
   ];
-  tests.run = false;
 }
