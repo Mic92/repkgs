@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/nih-at/libzip"
+
+[[source]]
+key = "default"
+url = "https://libzip.org/download/libzip-{version}.tar.xz"
+hash = "sha256-+ekbD3PWAGhBJGIqqa9AnWcG7hToeFPRr6kkmxJHOaY="
+
+[pin]
+version = "1.11.4"
+date = "2025-05-23"
+tag = "v1.11.4"

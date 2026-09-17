@@ -1,0 +1,28 @@
+diff --git a/doc/Makefile.in b/doc/Makefile.in
+index e817199..1922bfb 100644
+--- a/doc/Makefile.in
++++ b/doc/Makefile.in
+@@ -285,7 +285,7 @@ target_alias = @target_alias@
+ top_build_prefix = @top_build_prefix@
+ top_builddir = @top_builddir@
+ top_srcdir = @top_srcdir@
+-MAGIC = $(pkgdatadir)/magic
++MAGIC = ../share/misc/magic
+ @FSECT5_FALSE@man_MAGIC = magic.4
+ @FSECT5_TRUE@man_MAGIC = magic.5
+ man_MANS = file.1 $(man_MAGIC) libmagic.3
+diff --git a/src/magic.c b/src/magic.c
+index 0f1d909..8f2c327 100644
+--- a/src/magic.c
++++ b/src/magic.c
+@@ -31,6 +31,10 @@
+ #endif
+ 
+ #include "file.h"
++#include <reloc.h>
++/* the compiled database next to libmagic, wherever it is */
++#undef MAGIC
++#define MAGIC RELOC("../share/misc/magic")
+ 
+ #ifndef	lint
+ FILE_RCSID("@(#)$File: magic.c,v 1.128 2026/05/09 22:34:30 christos Exp $")
