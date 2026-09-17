@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/libusb/libusb"
+
+[[source]]
+key = "default"
+url = "https://github.com/libusb/libusb/releases/download/{tag}/libusb-{version}.tar.bz2"
+hash = "sha256-u3eCsukcn4uZAV18eHaFxha20xbUO6YYA24lNmcafVI="
+
+[pin]
+version = "1.0.30"
+date = "2026-05-17"
+tag = "v1.0.30"

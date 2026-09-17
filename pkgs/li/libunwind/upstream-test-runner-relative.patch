@@ -1,0 +1,16 @@
+The installed test-runner lives in $(pkglibexecdir) = $(libdir)/../libexec/libunwind:
+find the libraries relative to itself so the installed tree can move.
+
+--- a/tests/test-runner.in	2026-09-15 23:05:32.642806900 +0000
++++ b/tests/test-runner.in	2026-09-15 23:05:32.658806696 +0000
+@@ -23,8 +23,8 @@
+ 
+ test_dir="$(dirname $0)"
+ 
+-: ${LIBUNWIND:=@LIBDIR@/libunwind.so}
+-: ${LIBUNWIND_GENERIC:=@LIBDIR@/libunwind-@ARCH@.so}
++: ${LIBUNWIND:=$test_dir/../../lib/libunwind.so}
++: ${LIBUNWIND_GENERIC:=$test_dir/../../lib/libunwind-@ARCH@.so}
+ 
+ count=0
+ printf "TAP version 14\n"
