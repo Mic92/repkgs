@@ -45,9 +45,11 @@ def backports [src: string]: nothing -> nothing {
   }
 }
 
-# configure's INSTALL: the seed's path would be a store reference in rbconfig.rb and python's
-# sysconfig, a bare name gets ../ prepended per subdirectory. So a copy in the build dir, and
-# after `make install` the files that recorded it say plain `install` (found on PATH)
+# configure's INSTALL. Some packages record it in installed files (ruby's rbconfig.rb, python's
+# sysconfig): the seed's store path there would be a runtime reference, and a bare `install`
+# gets ../ prepended per subdirectory by configure. So INSTALL is a copy in the build directory,
+# and unrecord-install-tool rewrites that path to plain `install` in the output afterwards. The
+# copy is the seed's static binary (next to this nu), which runs from anywhere
 def install-tool []: nothing -> string { $"((ctx).build)/install" }
 
 def unrecord-install-tool [out: string]: nothing -> nothing {
@@ -67,7 +69,7 @@ export def --env configure []: nothing -> nothing {
   let key = (build-cache key autoconf [$script] [...$host_flags ...$o.flags])
   note config.cache (if (build-cache restore $key $cache) { "restored" } else { "cold" })
   backports $c.src
-  cp (tool install) (install-tool)
+  cp ($nu.current-exe | path dirname | path join install) (install-tool)
   with-env {PKGS_PREFIX: $c.out, PKGS_CONFIG_CACHE: $cache, INSTALL: $"(install-tool) -c"} {
     (x $env.CONFIG_SHELL $script --disable-nls --disable-dependency-tracking --disable-static --enable-shared
       ...$host_flags ...$o.flags)
