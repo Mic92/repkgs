@@ -1,6 +1,10 @@
 # `nix-shell --run treefmt` formats, `treefmt --ci` is the check. Built with nixpkgs'
 # `treefmt.withConfig` so every tool is pinned here and shell.nix only carries the wrapper.
-{ pkgs }:
+{
+  pkgs,
+  # nix/checks.nix: inside a build there is no evaluator for package-scripts (it instantiates the set)
+  evaluates ? true,
+}:
 let
   llvm = pkgs.llvmPackages_23;
   # nu's own parser/type checker over each file (authoritative). Fails on any error diagnostic.
@@ -114,7 +118,7 @@ pkgs.treefmt.withConfig {
         includes = nuFiles;
       };
       # the nu that package.nix assembles from package.nix, its modules and the build systems
-      package-scripts = {
+      package-scripts = pkgs.lib.mkIf evaluates {
         command = "${pkgs.nushell}/bin/nu";
         options = [
           "--no-config-file"

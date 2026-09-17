@@ -6,7 +6,7 @@
 #   https://github.com/NixOS/nix/pull/16477 recommended: a CA rebuild that differs from a
 #     garbage-collected earlier output replaces its build trace instead of failing
 {
-  pkgs ? import <nixpkgs> { },
+  pkgs ? import (import ../nixpkgs.nix) { },
 }:
 pkgs.nixVersions.git.overrideSource (
   pkgs.fetchFromGitHub {

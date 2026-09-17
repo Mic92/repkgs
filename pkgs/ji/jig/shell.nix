@@ -1,7 +1,7 @@
 # `nix-shell` for the Makefile: libc++ clang and nixpkgs' builds of the three libraries (the
 # bootstrap compiles them from vendored sources instead).
 {
-  pkgs ? import <nixpkgs> { },
+  pkgs ? import (import ../../../nix/nixpkgs.nix) { },
 }:
 pkgs.mkShell.override { stdenv = pkgs.llvmPackages_23.libcxxStdenv; } {
   packages = [
