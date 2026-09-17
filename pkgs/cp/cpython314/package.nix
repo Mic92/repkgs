@@ -30,6 +30,11 @@ let
         "--with-system-libmpdec"
         "ac_cv_file__dev_ptmx=yes"
         "ac_cv_file__dev_ptc=no"
+        # by name: AC_PATH_TOOL would record the toolchain's store path in _sysconfigdata
+        "ac_cv_path_LLVM_PROFDATA=llvm-profdata"
+        "ac_cv_path_ac_pt_LLVM_PROFDATA=llvm-profdata"
+        "ac_cv_path_LLVM_AR=llvm-ar"
+        "ac_cv_path_ac_pt_LLVM_AR=llvm-ar"
       ]
       # cross: configure needs a same-version build-machine python and cannot run test programs
       ++ (

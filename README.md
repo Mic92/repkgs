@@ -44,7 +44,7 @@ Then:
 $ nix-build -A jq                                   # for this machine
 $ nix-build -A jq --argstr platform aarch64-linux   # cross
 $ nix-build -A ripgrep -A fd -A deno -A pandoc      # cargo, prebuilt, haskell …
-$ nix-build bootstrap -A stage1.x86_64.cc           # just the toolchain
+$ nix-build bootstrap -A stage2.x86_64.cc           # just the toolchain
 ```
 
 The first build fetches the seed and builds the toolchain. Everything after that is incremental.
@@ -188,7 +188,7 @@ More in [docs/uptrack.md](docs/uptrack.md).
 ```
 pkgs/xx/<name>/   the packages, xx being the first two letters. Some hold more than
                   package.nix: bootstrap.nu (a toolchain recipe), src/ (in-tree programs), patches
-bootstrap/        seed → stage0 (musl cc) → stage1 (glibc cc, one per platform)
+bootstrap/        seed → stage0 (musl cc) → stage1 (llvm) → stage2 (cc, one per platform)
 nix/              evaluation. package.nix turns a spec into a derivation, build-systems.nix
                   defines each `uses` entry, fetch.nix the lock-file fetchers
 builder/          build time. prepare, finish, and one nu module per build system
@@ -209,7 +209,8 @@ run from any path. **uptrack** (nu) does the updates.
 ```
 seed        static nu, clang, lld, bsdtar, toybox, make …
 → stage0    musl + libc++ + jig: a C/C++ compiler for the build machine
-→ stage1    glibc + compiler-rt + libc++: cc-<platform>, one per target
+→ stage1    glibc + libc++, cmake, then clang + lld for all targets: the set's compiler
+→ stage2    compiler-rt + libc + libc++: cc-<platform>, one per target, built by that clang
 → pkgs/*
 → rust, go, zig, ghc, jdk: the upstream binary as <lang>-bootstrap, then built from source
 ```
