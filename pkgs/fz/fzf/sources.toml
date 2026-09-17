@@ -4,11 +4,12 @@ purl = "pkg:github/junegunn/fzf"
 [[source]]
 key = "default"
 url = "https://github.com/junegunn/fzf/archive/refs/tags/{tag}.tar.gz"
-hash = "sha256-DIz3Nudiov2uwxAtq6++rt2zwz0adOlv9W+c0SW3EHc="
+hash = "sha256-QQ4hwbTeZ6MSojjCFn7dlISz1aGQbewGq4wnfs3/4K0="
 
 [pin]
-version = "0.74.3"
-tag = "v0.74.3"
+version = "0.74.4"
+date = "2026-09-12"
+tag = "v0.74.4"
 
 [locks]
 go = "."
