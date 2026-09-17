@@ -199,16 +199,25 @@ builtins.mapAttrs
       # prebuilt package (after split-debug, llvm-objcopy crashes on formatelf's layout)
       prebuilt = true;
       deps = args: fetch.pythonDeps (args // { python = pkgs.cpython; });
-      tools = with buildPkgs; [
-        cpython
-        python-build
-        python-installer
-        python-pyproject-hooks
-        python-packaging
-        python-flit-core
-        python-setuptools
-        python-hatchling
-      ];
+      # uv.lock does not lock build backends: every one the set has
+      tools =
+        with buildPkgs;
+        [
+          cpython
+          python-build
+          python-installer
+          python-pyproject-hooks
+          python-packaging
+          python-flit-core
+          python-setuptools
+          python-setuptools-scm
+          python-hatchling
+          python-hatch-vcs
+          python-cython
+          maturin
+          rust
+        ]
+        ++ lib.on platform.cross [ pkgs.rust-std ];
     };
     bundler = {
       tool = buildPkgs.ruby;

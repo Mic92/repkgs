@@ -59,6 +59,7 @@ let
     "phases"
     "buildDependencies"
     "dependencies"
+    "sys"
     "bin"
     "tests"
     "exports"
@@ -478,7 +479,7 @@ let
   # DWARF goes to the `debug` output (finish.nu). false when the build cannot be made to keep it
   debug = args.debug or (prebuilt == false);
   # [pin] sys of sources.toml. null: no sources.toml, dependencies are all by hand
-  sys = if sources == null then null else sources.sys;
+  sys = args.sys or (if sources == null then null else sources.sys);
   spec =
     removeAttrs args [
       "source"
