@@ -1,5 +1,6 @@
 # What CI builds for one build machine: every supported package of the set as `pkg-<name>`
-# and per other platform as `<platform>-<name>`, tests/builder as `builder-*`, treefmt and the
+# and per other platform as `<platform>-<name>`, separate test suites (tests.separate) as
+# `tests-<name>`, tests/builder as `builder-*`, treefmt and the
 # seed. x86_64-windows-msvc is not in the default list: the SDK under its toolchain is unfree
 # and stays out of the public cache. flake.nix maps this over its systems as `checks`;
 # `nix-build nix/checks.nix` without flakes, `-A pkg-jq` for one.
@@ -28,8 +29,12 @@ let
   supported = set: lib.filterAttrs (_: p: p.supported) set;
   prefixed = prefix: lib.mapAttrs' (n: v: lib.nameValuePair "${prefix}${n}" v);
   forPlatform = p: prefixed (if p == system then "pkg-" else "${p}-") (supported (setFor p));
+  separateTests = lib.concatMapAttrs (n: p: if p ? tests then { ${n} = p.tests; } else { }) (
+    supported (setFor system)
+  );
 in
 lib.mergeAttrsList (map forPlatform platforms)
+// prefixed "tests-" separateTests
 // prefixed "builder-" (import ../tests/builder { inherit system; })
 // {
   treefmt =
