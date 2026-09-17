@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/google/googletest"
+
+[[source]]
+key = "default"
+url = "https://github.com/google/googletest/releases/download/{tag}/googletest-{version}.tar.gz"
+hash = "sha256-rXsn2L0xeWvfxTjMAoWEu0UFZ7xOSfYmhbKgRF5J9co="
+
+[pin]
+version = "1.18.0"
+date = "2026-08-10"
+tag = "v1.18.0"
