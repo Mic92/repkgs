@@ -1,0 +1,36 @@
+From d2ed694d1cf3a794d27fa2303b6574cc05272ce0 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?J=C3=B6rg=20Thalheim?= <joerg@thalheim.io>
+Date: Thu, 17 Sep 2026 11:19:11 +0200
+Subject: [PATCH] glibc: look for zone files in /etc/zoneinfo when
+ /usr/share/zoneinfo lacks them
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The time zone database is the machine's, like /etc/localtime, and is
+updated independently of libc. TZDIR stays /usr/share/zoneinfo, where
+nearly every system keeps it. NixOS only has /etc/zoneinfo (and exports
+TZDIR for its own programs, which does not reach ours under a clean
+environment), and musl, Go and Python already fall back to it. Do the
+same when $TZDIR is unset and the zone is not found under the default.
+
+Signed-off-by: Jörg Thalheim <joerg@thalheim.io>
+
+diff --git a/time/tzfile.c b/time/tzfile.c
+--- a/time/tzfile.c
++++ b/time/tzfile.c
+@@ -152,6 +152,14 @@ __tzfile_read (const char *file, size_t extra, char **extrap)
+ 	tzdir = default_tzdir;
+       if (__asprintf (&new, "%s/%s", tzdir, file) == -1)
+ 	goto ret_free_transitions;
++      /* No TZDIR given and the zone is not under the default directory:
++	 try /etc/zoneinfo, where systems without /usr/share keep it.  */
++      if (tzdir == default_tzdir && __access (new, R_OK) != 0)
++	{
++	  free (new);
++	  if (__asprintf (&new, "/etc/zoneinfo/%s", file) == -1)
++	    goto ret_free_transitions;
++	}
+       file = new;
+     }
+ 

@@ -83,10 +83,11 @@ def main []: nothing -> nothing {
   configure $src $rt $sh
 
   # sysincludes: configure derives it from a GCC layout. gnulib-extralibdir: Makeconfig otherwise
-  # runs `$(CC) -print-file-name=libgcc_s.so.1` ~600 times for an empty answer
+  # runs `$(CC) -print-file-name=libgcc_s.so.1` ~600 times for an empty answer. zonedir: the time
+  # zone database is the machine's and updated apart from libc (glibc-tzdir-etc-zoneinfo.patch)
   let make = [-j (cores | into string) $"SHELL=($sh)"
     $"sysincludes=-nostdinc -isystem ($rt)/include -isystem ($env.linuxHeaders)/include"
-    "gnulib-extralibdir="]
+    "gnulib-extralibdir=" "zonedir=/usr/share/zoneinfo"]
   let dest = $"($env.NIX_BUILD_TOP)/dest"
   if "headersOnly" in $env {
     x make ...$make install-headers $"DESTDIR=($dest)"
