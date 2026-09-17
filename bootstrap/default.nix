@@ -306,7 +306,7 @@ let
         libcArgs = {
           src = source "glibc";
           patches = [
-            (pkg "glibc" + "/glibc-gconv-relative.patch")
+            (pkg "glibc" + "/glibc-prefix-relative.patch")
             (pkg "glibc" + "/upstream-ppc64le-clang.patch")
             (pkg "glibc" + "/upstream-debug-after-misc.patch")
             (pkg "glibc" + "/upstream-verneed-dst.patch")
