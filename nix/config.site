@@ -23,7 +23,8 @@ esac
 case "${host:-linux}" in
   *windows* | *mingw*) site_os=windows ;;
   *darwin*) site_os=macos ;;
-  *) site_os=linux ;;
+  *musl*) site_os=linux site_libc=musl ;;
+  *) site_os=linux site_libc=${site_libc:-glibc} ;; # bootstrap/default.nix sets it for stage0's native musl
 esac
 
 if test "$site_os" != windows; then
@@ -203,6 +204,13 @@ gl_cv_C_locale_sans_EILSEQ=yes
 lt_cv_sys_max_cmd_len=1572864
 lt_cv_shlibpath_overrides_runpath=yes
 fi # linux
+
+if test "$site_libc" = glibc; then
+# glibc >= 2.39 declares these as asm redirects to the _np symbols: AC_CHECK_FUNCS' link test
+# fails, and gnulib's fallback then compiles to _np calling itself
+ac_cv_func_posix_spawn_file_actions_addchdir=yes
+ac_cv_func_posix_spawn_file_actions_addfchdir=yes
+fi
 
 if test "$site_os" = macos; then
 # where libSystem differs from the linux answers above
