@@ -67,10 +67,11 @@ def npm [p: record<type: string, namespace: string, name: string, qualifiers: re
 # a directory index or download page: <name>-<version>.tar.* links, date from the same line if any
 def listing [url: string, name: string, --regex: oneof<string, nothing>]: nothing -> table<version: string> {
   let re = ($regex | default ('(?:^|[/">])' + $name + '-(\d[0-9a-z.]*?)\.(?:tar\.(?:xz|lz|bz2|gz|zst)|zip|tgz)'))
+  # every match on a line: JSON listings (download.gnome.org cache.json) are a single line
   fetch $url $name --max-age 6hr | to text | lines | each {|l|
-    let m = $l | parse -r $re
-    if ($m | is-not-empty) { {version: $m.0.capture0, date: ($l | parse -r '(\d{4}-\d{2}-\d{2})' | get -o 0.capture0)} }
-  } | compact | uniq-by version
+    let date = ($l | parse -r '(\d{4}-\d{2}-\d{2})' | get -o 0.capture0)
+    $l | parse -r $re | each {|m| {version: $m.capture0, date: $date} }
+  } | flatten | uniq-by version
 }
 
 # pkg:generic/<name>?url=…[&regex=…]
