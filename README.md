@@ -98,6 +98,7 @@ package {
   dependencies = [ pkgs.openssl pkgs.zlib pkgs.zstd ];   # linked, target platform
   buildDependencies = [ buildPkgs.perl ];                # run during the build, build platform
   tests.run = false;                                     # the suite wants python and minutes
+  # tests.dependencies = [ buildPkgs.perl ];             # tools only the suite needs
 }
 ```
 

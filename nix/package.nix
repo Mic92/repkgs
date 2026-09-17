@@ -160,6 +160,7 @@ let
       "parallel"
       "version"
       "dlopen"
+      "dependencies"
     ];
     cc = [
       "cflags"
@@ -366,6 +367,9 @@ let
   # `<pkg>.tests` restores it and runs only the test phases: a test failure fails that derivation,
   # not the package, and a retry does not rebuild
   separate = args.tests.separate or false;
+  # tools only the suite runs. With tests.separate they stay off the build derivation, which is
+  # how the base tools test with perl (built with them) without a cycle
+  testDeps = if testsRun then args.tests.dependencies or [ ] else [ ];
 
   # same flags as treefmt's nu-typecheck, so what lints clean parses the same way here
   # include path: a package's own module says `use core.nu *` wherever it lives
@@ -488,6 +492,7 @@ let
       "dependencies"
       "bootstrapTools"
     ]
+    // (if args ? tests then { tests = removeAttrs args.tests [ "dependencies" ]; } else { })
     // listToAttrs (
       map (u: {
         name = u;
@@ -507,10 +512,11 @@ let
     // (if features == { } then { } else { inherit features; });
   # PATH order. Build systems name the seed as their `sh`, it goes last so GNU tools shadow toybox
   buildDeps =
-    base:
+    { tests, base }:
     filter (d: !(elem d base)) (
       [ toolchain ]
       ++ (args.buildDependencies or [ ])
+      ++ tests
       ++ (if prebuilt == true then relocTools else [ ])
       ++ concatMap (u: buildSystems.${u}.tools spec ++ stackBefore buildSystems.${u}.stack) uses
     )
@@ -520,9 +526,10 @@ let
     inherit (args) version;
     patches = args.patches or [ ];
     inherit spec;
-    buildDependencies = buildDeps (
-      if args.bootstrapTools or false then baseTools.bootstrap else baseTools.full
-    );
+    buildDependencies = buildDeps {
+      tests = if separate then [ ] else testDeps;
+      base = if args.bootstrapTools or false then baseTools.bootstrap else baseTools.full;
+    };
     # [pin] sys: libraries the lock files can link (builder/sys-libs.nu). Those the set lacks
     # here are left to the locked package (vendored copy or feature off)
     dependencies =
@@ -547,6 +554,10 @@ let
     // {
       name = "${drv.name}-tests";
       outputs = [ "out" ];
+      buildDependencies = buildDeps {
+        tests = testDeps;
+        base = baseTools.full;
+      };
       package = drv.out;
       args = nuArgs ++ [ testScript ];
     }
