@@ -1,6 +1,7 @@
 #include "driver.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstddef>
 #include <cstdlib>
 #include <filesystem>
@@ -279,9 +280,10 @@ auto CoffArg(const std::string& arg) -> std::optional<std::string> {
   if (IsPicArg(arg)) {
     return std::nullopt;
   }
-  if (arg.starts_with("-l") && arg.find('/') == std::string::npos) {
+  if (arg.starts_with("-l") && !arg.contains('/')) {
     std::string lower = arg;
-    std::transform(lower.begin() + 2, lower.end(), lower.begin() + 2, [](unsigned char c) { return std::tolower(c); });
+    std::transform(lower.begin() + 2, lower.end(), lower.begin() + 2,
+                   [](unsigned char chr) -> char { return static_cast<char>(std::tolower(chr)); });
     return lower;
   }
   for (const std::string_view old : {"++98", "++03", "++0x", "++11"}) {
