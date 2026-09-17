@@ -43,7 +43,12 @@ class Conn {
       return nullptr;
     }
     std::ranges::copy(socket_path, std::begin(addr.sun_path));
-    auto conn = std::make_shared<Conn>(::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0));
+    // macOS has no SOCK_CLOEXEC
+    auto conn = std::make_shared<Conn>(::socket(AF_UNIX, SOCK_STREAM, 0));
+    if (conn->fd_ >= 0) {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg): fcntl(2)
+      ::fcntl(conn->fd_, F_SETFD, FD_CLOEXEC);
+    }
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): the sockets API is defined this way
     if (conn->fd_ < 0 || ::connect(conn->fd_, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) != 0) {
       return nullptr;
