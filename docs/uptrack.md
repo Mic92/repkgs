@@ -151,6 +151,7 @@ compiler-rt source lists from the new tarball, `pkgs/ru/rust-bootstrap/update.nu
 uptrack list [names]                     parse and validate every sources.toml
 uptrack check [names] [--json]           poll upstreams, print pending updates and problems (exit 10 if pending)
 uptrack apply [names] [--plan f]         write hash + [pin] (+ hook files, locks) for pending updates
+              [--commit]                 one commit per update, `name: 1.2 -> 1.3` (jj, else git)
 uptrack verify [names]                   nix-build at the current pin
 uptrack rehash [names]                   re-prefetch at the current pin, after editing a url
 uptrack lock [names] [--prune]           fill locks/<eco>.toml for packages with [locks]

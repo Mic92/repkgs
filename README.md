@@ -174,7 +174,7 @@ for new versions, and rewrites pin and hash:
 
 ```console
 $ uptrack check          # what is outdated
-$ uptrack apply zlib     # bump, prefetch, update the hash
+$ uptrack apply zlib     # bump, prefetch, update the hash (--commit: one commit per bump)
 $ uptrack lock fzf       # refresh locks/go.toml from its go.sum
 ```
 

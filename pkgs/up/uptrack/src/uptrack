@@ -42,11 +42,28 @@ def "main check" [
   if ($ups | is-not-empty) { exit 10 }
 }
 
+# One commit per applied update, nixpkgs style `name: 1.2 -> 1.3`, so a bad bump reverts on its
+# own. Only the package directory and locks/ go in, other working-copy changes stay put
+def commit-update [e: record]: nothing -> nothing {
+  let root = (pipeline root)
+  let paths = [($e.dir | path relative-to $root) locks] | where { ($root | path join $in | path exists) }
+  let body = ($e.sources | get url) ++ (if $e.pin.date? != null { [$"released ($e.pin.date)"] } else { [] })
+  let msg = ([$"($e.name): ($e.from) -> ($e.to)" ""] ++ $body | str join "\n") + "\n"
+  cd $root
+  if ($root | path join .jj | path exists) {
+    ^jj commit --quiet -m $msg ...$paths
+  } else {
+    ^git add -A -- ...$paths
+    ^git commit --quiet -m $msg --only -- ...$paths
+  }
+}
+
 # prefetch and write hash + [pin] (+ hook files, locks) for pending updates. `verify` builds them
 def "main apply" [
   ...names: string # packages, default all
   --plan: path # apply a saved `check --json` instead of resolving
   --prerelease # accept pre-releases
+  --commit # one commit per update (`name: from -> to`), jj or git
 ]: nothing -> table {
   let plan = if $plan != null { open $plan } else { planned $names $prerelease }
   $plan | where to != null | each {|e|
@@ -57,6 +74,7 @@ def "main apply" [
     for eco in ($e.upstream.relocks? | default []) {
       for p in (selected --all [] | where { $in.locks | get -o $eco | is-not-empty }) { print -e $"  relock ($p.name)"; locks add $p | ignore }
     }
+    if $commit { commit-update $e }
     $e | select name from to
   }
 }
