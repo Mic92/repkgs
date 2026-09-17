@@ -18,7 +18,7 @@ export def configure []: nothing -> nothing {
   # startperl/perlpath: the scripts perl installs name it by PATH, finish's launchers bind them
   let common = [$"-Dprefix=($c.out)" -Dcc=cc -Uinstallusrbinperl -Dinstallstyle=lib/perl5 -Duserelocatableinc ...$self_exe
     "-Dstartperl=#!/usr/bin/env perl" -Dperlpath=perl
-    -Dman1dir=none -Dman3dir=none "-Accflags=-D_GNU_SOURCE -fno-strict-aliasing"]
+    $"-Dman1dir=($c.out)/share/man/man1" $"-Dman3dir=($c.out)/share/man/man3" "-Accflags=-D_GNU_SOURCE -fno-strict-aliasing"]
   if $c.platform.cross {
     x cp -r $"($env.PERL_CROSS)/." .
     x patch -p1 -F0 -i $env.PERL_CROSS_PATCH

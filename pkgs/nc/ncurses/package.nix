@@ -23,7 +23,7 @@ package {
     "--enable-pc-files"
     "--disable-stripping"
     "--with-terminfo-dirs=/etc/terminfo:/lib/terminfo:/usr/share/terminfo"
-    "--without-manpages"
+    "--with-manpage-format=normal"
   ]
   # the win32 terminal driver cannot live in a separate libtinfo
   ++ on (platform.os != "windows") [ "--with-termlib" ]

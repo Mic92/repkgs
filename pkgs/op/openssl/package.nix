@@ -17,13 +17,13 @@ package {
     "--libdir=lib"
     "--openssldir=/etc/ssl"
     "shared"
-    "no-docs"
     "no-tests"
   ]
   ++ on (platform.os == "linux") [ "enable-ktls" ];
   make.installTarget = [
     "install_sw"
     "install_ssldirs"
+    "install_man_docs" # not install_docs: the HTML copy of the same pages
   ];
   make.installFlags = [ "OPENSSLDIR=$(prefix)/etc/ssl" ];
   # c_rehash is a perl script: perl would become a runtime dependency
