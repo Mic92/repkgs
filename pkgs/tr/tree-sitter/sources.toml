@@ -1,0 +1,13 @@
+[upstream]
+purl = "pkg:github/tree-sitter/tree-sitter"
+
+[[source]]
+key = "default"
+url = "https://github.com/tree-sitter/tree-sitter/archive/refs/tags/{tag}.tar.gz"
+hash = "sha256-X5Hd0zcw7hxj7w7Jp1QBxLzsRSH9NgV2KquEvGdo3pE="
+
+[pin]
+version = "0.27.0"
+date = "2026-08-30"
+tag = "v0.27.0"
+sys = ["clang"]
