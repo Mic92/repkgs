@@ -4,8 +4,9 @@ purl = "pkg:github/ip7z/7zip"
 [[source]]
 key = "default"
 url = "https://github.com/ip7z/7zip/archive/refs/tags/{tag}.tar.gz"
-hash = "sha256-MmnsCM4guQ5DuWDE5MslI8QIIbkUtZnddVPgAuCRWQU="
+hash = "sha256-HuiF/kKfkNA14P/YTrCds7QDXXEKmilME9Z3c/Ft0DE="
 
 [pin]
-version = "26.02"
-tag = "26.02"
+version = "26.03"
+date = "2026-09-04"
+tag = "26.03"
