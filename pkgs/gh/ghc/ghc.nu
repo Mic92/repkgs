@@ -1,5 +1,5 @@
 use core.nu *
-use probe-cache.nu
+use build-cache.nu
 use ghc-bindist.nu
 
 def --wrapped hadrian [...args: string]: nothing -> nothing {
@@ -23,14 +23,14 @@ export def configure []: nothing -> nothing {
 # only matters from the bindist's configure on
 def key []: nothing -> string {
   let a = (attrs)
-  probe-cache key --no-out $"hadrian/($a.src | path basename)" $a.patches
+  build-cache key --no-out $"hadrian/($a.src | path basename)" $a.patches
 }
 
 export def build []: nothing -> nothing {
   let dir = $"((ctx).src)/_build"
-  note hadrian-cache (if (probe-cache restore-dir (key) $dir) { "restored" } else { "cold" })
+  note hadrian-cache (if (build-cache restore-dir (key) $dir) { "restored" } else { "cold" })
   hadrian binary-dist-dir
-  probe-cache store-dir (key) $dir
+  build-cache store-dir (key) $dir
 }
 
 export def install []: nothing -> nothing {

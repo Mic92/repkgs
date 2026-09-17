@@ -1,5 +1,5 @@
 use ../core.nu *
-use ../probe-cache.nu
+use ../build-cache.nu
 
 # cmake configure / build / ctest / install with Ninja
 export const OPTIONS = {
@@ -39,17 +39,20 @@ export def configure []: nothing -> nothing {
     {CMAKE_OSX_SYSROOT: $c.platform.sysroot}
   } else { {} }) | merge (if ($c.platform.emulator | is-empty) { {} } else { {CMAKE_CROSSCOMPILING_EMULATOR: ($c.platform.emulator | str join ";")} }) | merge $o.defs)
   let srcdir = (project-dir cmake)
-  # results of check_*/try_compile (the project's INTERNAL cache entries) carried across builds
-  let key = (probe-cache key cmake (files $"($srcdir)/**/{CMakeLists.txt,*.cmake}"))
+  # build cache: CMakeCache.txt's INTERNAL entries (check_*, try_compile, pkg_check_modules) become
+  # the next same-key build's initial cache. The key pins sources, flags, dependencies and prefix,
+  # so they are carried whole, paths included
+  let key = (build-cache key cmake (files $"($srcdir)/**/{CMakeLists.txt,*.cmake}"))
   let init = $"($c.build)/probe-init.cmake"
-  let had = (probe-cache restore $key $init)
+  let had = (build-cache restore $key $init)
   note cmake-probes (if $had { "restored" } else { "cold" })
   x cmake -S $srcdir -B . -G $o.generator ...(if $had { [-C $init] } else { [] }) ...($defs | items {|k, v| $"-D($k)=(render $v)" }) ...$o.flags
   if not $had {
-    open --raw CMakeCache.txt | lines | parse -r '^(?<k>[A-Za-z0-9_]+):INTERNAL=(?<v>.*)$'
-      | where { not ($in.k | str starts-with "CMAKE_") and not ($in.k | str ends-with "-ADVANCED") and ($in.v !~ '/') }
-      | each {|e| $"set\(($e.k) \"($e.v)\" CACHE INTERNAL \"\"\)" } | str join "\n" | save -f $init
-    probe-cache store $key $init
+    internal-entries (open --raw CMakeCache.txt)
+      # not cmake's own: those follow from our -D flags and toolchain file
+      | where { not ($in.k | str starts-with "CMAKE_") and ($in.k !~ '-(ADVANCED|STRINGS|MODIFIED)$') }
+      | each {|e| $"set\([[($e.k)]] [==[($e.v)]==] CACHE INTERNAL \"\"\)" } | str join "\n" | save -f $init
+    build-cache store $key $init
   }
 }
 
@@ -63,3 +66,13 @@ export def test []: nothing -> nothing {
 }
 # cmake --install
 export def install []: nothing -> nothing { x cmake --install . }
+
+# the INTERNAL entries of a CMakeCache.txt, parsed as cmState::ParseCacheEntry does
+# (`"key":` when the key has a colon, trailing blanks dropped, 'quoted ' values unwrapped)
+export def internal-entries [text: string]: nothing -> table<k: string, v: string> {
+  $text | lines
+    | each {|l| $l | parse -r '^(?:"(?<q>[^"]*)"|(?<k>[^=:]*)):(?<t>[^=]*)=(?<v>.*[^\r\t ]|[\r\t ]*)[\r\t ]*$' | get -o 0 }
+    | compact
+    | where t == INTERNAL
+    | each {|e| {k: ($e.k | default $e.q), v: (if $e.v =~ "^'.*'$" { $e.v | str substring 1..<-1 } else { $e.v })} }
+}

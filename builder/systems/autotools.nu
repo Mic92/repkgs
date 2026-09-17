@@ -1,5 +1,5 @@
 use ../core.nu *
-use ../probe-cache.nu
+use ../build-cache.nu
 use ./make.nu
 
 # autoconf configure, then make.nu's build/test/install
@@ -64,15 +64,15 @@ export def --env configure []: nothing -> nothing {
   # --host: configure stops running test programs. --build only has to differ from it
   let host_flags = (if $c.platform.cross { [$"--host=($c.platform.gnuTriple)" "--build=x86_64-build-linux-gnu"] } else { [] })
   let cache = $"($c.build)/config.cache"
-  let key = (probe-cache key autoconf [$script])
-  note config.cache (if (probe-cache restore $key $cache) { "restored" } else { "cold" })
+  let key = (build-cache key autoconf [$script] [...$host_flags ...$o.flags])
+  note config.cache (if (build-cache restore $key $cache) { "restored" } else { "cold" })
   backports $c.src
   cp (tool install) (install-tool)
   with-env {PKGS_PREFIX: $c.out, PKGS_CONFIG_CACHE: $cache, INSTALL: $"(install-tool) -c"} {
     (x $env.CONFIG_SHELL $script --disable-nls --disable-dependency-tracking --disable-static --enable-shared
       ...$host_flags ...$o.flags)
   }
-  probe-cache store $key $cache
+  build-cache store $key $cache
   if not $c.platform.posix { stub-gnulib-tests (workdir) }
 }
 
