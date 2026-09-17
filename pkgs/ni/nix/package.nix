@@ -13,6 +13,7 @@ package {
     functional-tests = false;
     json-schema-checks = false;
     doc-gen = false;
+    "nix:mimalloc" = "enabled";
   }
   // on (platform.cpu == "x86_64") { "libutil:cpuid" = "enabled"; }
   // on (platform.os == "linux") { "libstore:seccomp-sandboxing" = "enabled"; };
@@ -35,6 +36,7 @@ package {
     pkgs.libgit2
     pkgs.toml11
     pkgs.editline
+    pkgs.mimalloc
   ]
   ++ on (platform.cpu == "x86_64") [ pkgs.libcpuid ]
   ++ on (platform.os == "linux") [ pkgs.libseccomp ];
