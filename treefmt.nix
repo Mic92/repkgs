@@ -1,4 +1,4 @@
-# `nix-shell --run treefmt` formats, `treefmt --ci` is the check. Built with nixpkgs'
+# `nix fmt` or `nix-shell --run treefmt` formats, `treefmt --ci` is the check. Built with nixpkgs'
 # `treefmt.withConfig` so every tool is pinned here and shell.nix only carries the wrapper.
 {
   pkgs,
