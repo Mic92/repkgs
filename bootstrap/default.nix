@@ -311,6 +311,7 @@ let
             (pkg "glibc" + "/upstream-debug-after-misc.patch")
             (pkg "glibc" + "/upstream-verneed-dst.patch")
             (pkg "glibc" + "/glibc-unwind-origin.patch")
+            (pkg "glibc" + "/glibc-tzdir-etc-zoneinfo.patch")
             (pkg "glibc" + "/upstream-const-generic-extension.patch")
           ];
           linuxHeaders = linux-headers;

@@ -56,9 +56,9 @@ export def windows-layout []: nothing -> nothing {
   for f in (files $"($c.out)/lib/*.lib") { mv $f $"($c.out)/libs/" }
   rm -rf $"($c.out)/lib"
   x cp -r $"($c.src)/Lib" $"($c.out)/Lib"
-  rm -rf $"($c.out)/Lib/test" ...(glob $"($c.out)/Lib/**/__pycache__")
+  rm -rf $"($c.out)/Lib/test" ...(files --dirs $"($c.out)/Lib/**/__pycache__")
   mkdir $"($c.out)/include"
-  x cp -r ...(glob $"($c.src)/Include/*") $"($c.src)/PC/pyconfig.h" $"($c.out)/include/"
+  x cp -r ...(files --any $"($c.src)/Include/*") $"($c.src)/PC/pyconfig.h" $"($c.out)/include/"
 }
 
 # build-details.json (PEP 739) records the paths of the python that ran the generator, under

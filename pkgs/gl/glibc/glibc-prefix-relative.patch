@@ -6,7 +6,7 @@ system directories, so DT_NEEDED without a RUNPATH and libc's own
 dlopens (NSS, libresolv, libgcc_s) find the libraries installed next to
 it wherever the installation was copied.
 
-gconv modules, locales, the locale archive, message catalogs and zoneinfo
+gconv modules, locales, the locale archive and message catalogs
 are looked up under the prefix libc.so.6 was loaded from (dladdr, two
 levels up) instead of the configured one, so its bytes do not depend on
 where it was built for. Environment overrides and paths outside $(prefix)
@@ -509,32 +509,3 @@ diff --git a/sysdeps/generic/ldsodefs.h b/sysdeps/generic/ldsodefs.h
    /* Size of the static TLS block.  */
    EXTERN size_t _dl_tls_static_size;
  
-diff --git a/time/tzfile.c b/time/tzfile.c
---- a/time/tzfile.c
-+++ b/time/tzfile.c
-@@ -28,6 +28,7 @@
- #include <alloc_buffer.h>
- #include <set-freeres.h>
- 
-+#include <libc-prefix.h>
- #include <timezone/tzfile.h>
- 
- int __use_tzfile;
-@@ -105,7 +106,7 @@ decode64 (const void *ptr)
- void
- __tzfile_read (const char *file, size_t extra, char **extrap)
- {
--  static const char default_tzdir[] = TZDIR;
-+  const char *default_tzdir = LIBC_PREFIX_PATH (TZDIR);
-   size_t num_isstd, num_isgmt;
-   FILE *f;
-   struct tzhead tzhead;
-@@ -135,7 +136,7 @@ __tzfile_read (const char *file, size_t extra, char **extrap)
-       if (__libc_enable_secure
- 	  && ((*file == '/'
- 	       && strcmp (file, TZDEFAULT) != 0
--	       && (strncmp (file, default_tzdir, sizeof (default_tzdir) - 1)
-+	       && (strncmp (file, default_tzdir, strlen (default_tzdir))
- 		   != 0))
- 	      || strstr (file, "../") != NULL))
- 	/* This test is certainly a bit too restrictive but it should

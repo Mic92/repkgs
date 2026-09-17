@@ -43,7 +43,7 @@ def with-programs [programs: list<string>, install: closure]: nothing -> nothing
   let c = (ctx)
   let exe = $c.platform.ext.exe
   if $exe == "" { do $install; return }
-  for f in ($programs | each {|p| glob $"**/($p)($exe)" } | flatten) { ^cp $f ($f | str replace -r $'\($exe)$' "") }
+  for f in ($programs | each {|p| files $"**/($p)($exe)" } | flatten) { ^cp $f ($f | str replace -r $'\($exe)$' "") }
   do $install
   for f in ($programs | each {|p| $"($c.out)/bin/($p)" } | where { $in | path exists }) { ^mv $f $"($f)($exe)" }
 }

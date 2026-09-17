@@ -52,12 +52,14 @@ def configure [src: path, rt: string, sh: path]: nothing -> nothing {
 def install-tree [dest: path, out: path]: nothing -> nothing {
   mkdir $out
   for f in (ls -a $"($dest)($PREFIX)" | get name) { mv $f $out }
-  for f in (glob $"($out)/bin/{ldd,sotruss,xtrace,tzselect}") {
-    open --raw $f | str replace -a $PREFIX '${0%/*}/..' | save -f $f
+  for f in (files $"($out)/bin/{ldd,sotruss,xtrace,tzselect}") {
+    let text = (open --raw $f)
+    $text | str replace -a $PREFIX '${0%/*}/..' | save -f $f
   }
-  for f in (glob $"($out)/lib/lib{c,m}.{so,a}") {
-    if (open --raw $f | into binary | bytes starts-with ("/* GNU ld script" | into binary)) {
-      open --raw $f | decode | str replace -a $"($PREFIX)/lib/" "" | save -f $f
+  for f in (files $"($out)/lib/lib{c,m}.{so,a}") {
+    let text = (open --raw $f | into binary)
+    if ($text | bytes starts-with ("/* GNU ld script" | into binary)) {
+      $text | decode | str replace -a $"($PREFIX)/lib/" "" | save -f $f
     }
   }
 }
@@ -81,10 +83,11 @@ def main []: nothing -> nothing {
   configure $src $rt $sh
 
   # sysincludes: configure derives it from a GCC layout. gnulib-extralibdir: Makeconfig otherwise
-  # runs `$(CC) -print-file-name=libgcc_s.so.1` ~600 times for an empty answer
+  # runs `$(CC) -print-file-name=libgcc_s.so.1` ~600 times for an empty answer. zonedir: the time
+  # zone database is the machine's and updated apart from libc (glibc-tzdir-etc-zoneinfo.patch)
   let make = [-j (cores | into string) $"SHELL=($sh)"
     $"sysincludes=-nostdinc -isystem ($rt)/include -isystem ($env.linuxHeaders)/include"
-    "gnulib-extralibdir="]
+    "gnulib-extralibdir=" "zonedir=/usr/share/zoneinfo"]
   let dest = $"($env.NIX_BUILD_TOP)/dest"
   if "headersOnly" in $env {
     x make ...$make install-headers $"DESTDIR=($dest)"
