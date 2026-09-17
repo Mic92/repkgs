@@ -1,0 +1,34 @@
+From: =?UTF-8?q?J=C3=B6rg=20Thalheim?= <joerg@thalheim.io>
+Date: Wed, 16 Sep 2026 12:34:55 +0000
+Subject: [PATCH] tests: only follow batch logs with a tail that has --pid
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+tail --pid is a GNU extension. With busybox or toybox tail the -f never
+returns and the regression run hangs after the first batch. Probe for it
+and otherwise print the log once the batch has finished.
+
+Signed-off-by: Jörg Thalheim <joerg@thalheim.io>
+---
+ tests/regression | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/tests/regression b/tests/regression
+index c08a328..10bb2dc 100755
+--- a/tests/regression
++++ b/tests/regression
+@@ -994,7 +994,12 @@ function tail_log() {
+ 	local pid=$2
+ 
+ 	# dump the output
+-	tail -n +0 --pid=$pid -f $log
++	if tail --pid=$$ -n 0 /dev/null >/dev/null 2>&1; then
++		tail -n +0 --pid=$pid -f $log
++	else
++		wait $pid
++		cat $log
++	fi
+ 
+ 	# accumulate the stats
+ 	local stats=$(echo $log | sed 's/\.log$/.stats/')
