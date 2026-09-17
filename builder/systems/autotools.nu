@@ -60,7 +60,7 @@ def unrecord-install-tool [out: string]: nothing -> nothing {
 # configure's recorded argv has no build paths
 export def --env configure []: nothing -> nothing {
   let c = (ctx); let o = (options autotools)
-  let script = $"($c.src)/($o.configureScript)"
+  let script = $"(project-dir autotools)/($o.configureScript)"
   # --host: configure stops running test programs. --build only has to differ from it
   let host_flags = (if $c.platform.cross { [$"--host=($c.platform.gnuTriple)" "--build=x86_64-build-linux-gnu"] } else { [] })
   let cache = $"($c.build)/config.cache"
