@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:gnu/mpfr"
+
+[[source]]
+key = "default"
+url = "https://ftpmirror.gnu.org/mpfr/mpfr-{version}.tar.xz"
+hash = "sha256-pN2M08L5zUTEBC6X753qGVlfBSp118jFWGbGA6mwYzA="
+
+[pin]
+version = "4.2.2"
+date = "2025-03-20"
