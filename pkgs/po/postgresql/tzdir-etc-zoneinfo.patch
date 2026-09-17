@@ -1,0 +1,48 @@
+From b74ba11e5a69a98de7563e12828155b1554cb41a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?J=C3=B6rg=20Thalheim?= <joerg@thalheim.io>
+Date: Thu, 17 Sep 2026 11:19:35 +0200
+Subject: [PATCH] timezone: fall back to /etc/zoneinfo when
+ --with-system-tzdata's directory is missing
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Built with --with-system-tzdata=/usr/share/zoneinfo the server reads the
+machine's time zone database, which is updated apart from PostgreSQL.
+NixOS keeps it in /etc/zoneinfo only (musl, Go and Python look there
+too), so try that before giving up on named zones.
+
+Signed-off-by: Jörg Thalheim <joerg@thalheim.io>
+
+diff --git a/src/timezone/pgtz.c b/src/timezone/pgtz.c
+--- a/src/timezone/pgtz.c
++++ b/src/timezone/pgtz.c
+@@ -14,6 +14,7 @@
+ 
+ #include <ctype.h>
+ #include <fcntl.h>
++#include <sys/stat.h>
+ #include <time.h>
+ 
+ #include "common/file_utils.h"
+@@ -56,8 +57,18 @@ pg_TZDIR(void)
+ 	done_tzdir = true;
+ 	return tzdir;
+ #else
+-	/* we're configured to use system's timezone database */
+-	return SYSTEMTZDIR;
++	/*
++	 * we're configured to use system's timezone database.  Systems without
++	 * /usr/share (NixOS) keep it in /etc/zoneinfo: use that when the
++	 * configured directory is missing.
++	 */
++	static const char *tzdir = NULL;
++	struct stat st;
++
++	if (tzdir == NULL)
++		tzdir = (stat(SYSTEMTZDIR, &st) != 0 &&
++				 stat("/etc/zoneinfo", &st) == 0) ? "/etc/zoneinfo" : SYSTEMTZDIR;
++	return tzdir;
+ #endif
+ }
+ 

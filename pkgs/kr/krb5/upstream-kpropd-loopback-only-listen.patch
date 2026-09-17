@@ -1,0 +1,39 @@
+From: =?UTF-8?q?J=C3=B6rg=20Thalheim?= <joerg@thalheim.io>
+Date: Wed, 16 Sep 2026 10:35:52 +0000
+Subject: [PATCH] kpropd: listen on a loopback-only host
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+get_wildcard_addr() passes AI_ADDRCONFIG, which makes getaddrinfo()
+ignore loopback addresses when deciding whether IPv4 or IPv6 is
+configured. On a host whose only interface is lo (containers, build
+sandboxes running the test suite) both lookups fail with EAI_NONAME, the
+do_standalone() child exits, and in iprop mode the parent keeps
+requesting full resyncs that can never be delivered: t_iprop.py hangs.
+
+Retry without AI_ADDRCONFIG before giving up.
+
+Signed-off-by: Jörg Thalheim <joerg@thalheim.io>
+---
+ src/kprop/kpropd.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/src/kprop/kpropd.c b/src/kprop/kpropd.c
+index 4b36752..2762132 100644
+--- a/src/kprop/kpropd.c
++++ b/src/kprop/kpropd.c
+@@ -373,6 +373,13 @@ get_wildcard_addr(struct addrinfo **res)
+     if (error == 0)
+         return 0;
+     hints.ai_family = AF_INET;
++    error = getaddrinfo(NULL, port, &hints, res);
++    if (error == 0)
++        return 0;
++    /* AI_ADDRCONFIG disregards loopback addresses: a host with no other
++     * interface configured (a container or build sandbox) has none left. */
++    hints.ai_flags = AI_PASSIVE;
++    hints.ai_family = AF_UNSPEC;
+     return getaddrinfo(NULL, port, &hints, res);
+ }
+ 
