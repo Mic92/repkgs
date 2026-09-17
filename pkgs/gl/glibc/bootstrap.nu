@@ -1,4 +1,4 @@
-# glibc via its own configure/make under stage0 dash + make, compiled by the seed clang with this
+# glibc via its own configure/make under the seed's dash + make, compiled by clang with this
 # platform's compiler-rt. With $env.headersOnly it stops after install-headers (compiler-rt needs
 # libc headers before libc can be linked against compiler-rt).
 use ../../../bootstrap/lib.nu *
@@ -75,7 +75,7 @@ def c-utf8-locale [src: path, out: path]: nothing -> nothing {
 def main []: nothing -> nothing {
   let out = $env.out
   let src = (patched-source)
-  # the headers-only pass runs before compiler-rt exists: the seed's resource dir has the headers
+  # the headers-only pass runs before compiler-rt exists: the compiler's resource dir has the headers
   let rt = ($env."compiler-rt"? | default { ^clang --print-resource-dir | str trim })
   let sh = (tool sh)
   mkdir $"($env.NIX_BUILD_TOP)/build"
