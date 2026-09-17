@@ -57,7 +57,7 @@ export def build []: nothing -> nothing {
   x bundle install --local --no-cache ...((options bundler).flags)
   # the .gem archives, bundler's download cache and extension build logs and mkmf Makefiles (which embed the build dir)
   rm -rf vendor/cache ...(files --dirs vendor/bundle/ruby/*/cache) ...(files vendor/bundle/ruby/*/extensions/**/{gem_make.out,mkmf.log}) ...(files vendor/bundle/ruby/*/gems/*/ext/**/Makefile)
-  fix-env-shebangs vendor/bundle (ctx).njobs
+  fix-shebangs vendor/bundle (ctx).njobs
 }
 
 # `bundler.test`: a command run with `bundle exec` (off by default: test gems are in `without`)

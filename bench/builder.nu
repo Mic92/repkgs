@@ -8,8 +8,8 @@ export def benches [tmp: path]: nothing -> table<name: string, note: string, run
   let out = (fixtures prefix $"($tmp)/store/('' | fill -w 32 -c o)-out")
   let log = (fixtures jig-log $"($tmp)/jig.log")
   [
-    {name: "prepare/fix-env-shebangs", note: "3000 files, 120 env scripts", run: {||
-      ^cp -rp $src $"($src).run"; fix-env-shebangs $"($src).run" 8; rm -rf $"($src).run" }}
+    {name: "prepare/fix-shebangs", note: "3000 files, 120 env scripts", run: {||
+      ^cp -rp $src $"($src).run"; fix-shebangs $"($src).run" 8; rm -rf $"($src).run" }}
     {name: "prepare/dep-closure", note: "8 roots, 60 store paths via propagate", run: {|| dep-closure ($deps | first 8) | length }}
     {name: "core/exports-of", note: "one dependency, defaults from the tree", run: {|| exports-of ($deps | last) }}
     {name: "finish/elf-scan", note: "380 files under bin+lib, is-elf each", run: {||

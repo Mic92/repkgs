@@ -5,7 +5,7 @@ use core.nu *
 # node_modules/.bin on PATH, its #!/usr/bin/env lines made runnable, libgcc_s.so.1 findable for
 # the prebuilt .node addons in there (rollup, esbuild)
 export def --env after-install [dir: string]: nothing -> nothing {
-  fix-env-shebangs $"($dir)/node_modules" (ctx).njobs  # installed after prepare fixed the source tree
+  fix-shebangs $"($dir)/node_modules" (ctx).njobs  # installed after prepare fixed the source tree
   $env.PATH = ($env.PATH | prepend $"($dir)/node_modules/.bin")
   $env.LD_LIBRARY_PATH = $"(tool-root libgcc-shim)/lib"
 }

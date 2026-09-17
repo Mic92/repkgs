@@ -43,7 +43,7 @@ def --env unpack [a: record, src: path, njobs: int]: nothing -> nothing {
   cd $src
   # -F0: a hunk whose context does not match is an error, not applied somewhere similar
   for p in $a.patches { note patch $p; ^patch -p1 -F0 -i $p }
-  fix-env-shebangs . $njobs
+  fix-shebangs . $njobs
 }
 
 # tests derivation: the kept source+build tree back at the same absolute paths, so configured

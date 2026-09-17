@@ -2,7 +2,7 @@
 use core.nu *
 use sys-libs.nu
 
-# fix-env-shebangs edited vendored scripts: keep the crate checksums, drop the per-file ones
+# fix-shebangs edited vendored scripts: keep the crate checksums, drop the per-file ones
 def vendor-checksums []: nothing -> nothing {
   for f in (files vendor/*/.cargo-checksum.json) {
     let j = (open $f | update files {{}} | to json -r)
