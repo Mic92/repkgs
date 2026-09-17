@@ -96,6 +96,7 @@ export def tools-by-name []: string -> string { $in | str replace -ar '/nix/stor
 
 # starts with \x7fELF
 export def is-elf [f: path]: nothing -> bool { (open --raw $f | first 4) == 0x[7f 45 4c 46] }
+export def is-macho [f: path]: nothing -> bool { let m = (open --raw $f | first 4); $m == 0x[cf fa ed fe] or $m == 0x[ca fe ba be] }
 
 # store paths -> {root}/{store} templates launch expands
 export def storerel [p: string, out: string]: nothing -> string {

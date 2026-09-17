@@ -1,4 +1,4 @@
-# The `debug` output: DWARF split off what jig linked, by build-id. ELF only so far
+# The `debug` output: DWARF split off what was linked here. ELF by build-id, Mach-O as .dSYM by UUID
 use core.nu *
 
 # Moves the DWARF of every ELF jig linked here (marked by its package note) to `debug` under
@@ -53,3 +53,26 @@ def elf-table [candidates: list<string>, njobs: int]: nothing -> table<file: str
   } | flatten
 }
 
+
+# Mach-O: DWARF stays in the .o files, the binary has a debug map (N_OSO) naming them. dsymutil
+# links it into lib/debug/<UUID>.dSYM while they exist. The map names /build and is stripped
+export def split-debug-macho [out: path, debug: path, njobs: int, files: table]: nothing -> nothing {
+  strip-archives $out ($files | where rel =~ '\.[ao]$')
+  let machos = ($files | where size > 3072 and rel !~ '\.(a|o|rlib)$' | get path | where { is-macho $in })
+  let ours = ($machos | par-each --threads $njobs {|f|
+    if (^llvm-nm -ap $f | complete | get stdout | str contains " OSO ") {
+      let uuid = (^llvm-objdump --macho --private-headers $f | parse -r 'uuid (?<u>[0-9A-F-]+)' | get -o u.0)
+      if $uuid != null { {file: $f, uuid: $uuid} }
+    }
+  } | compact)
+  if ($ours | is-empty) { return }
+  ^chmod u+w ...$ours.file
+  $ours | group-by uuid --to-table | par-each --threads $njobs {|g|
+    let f = $g.items.0.file
+    x dsymutil $f -o $"($debug)/lib/debug/($g.uuid).dSYM"
+    # names the binary by absolute path
+    rm -rf $"($debug)/lib/debug/($g.uuid).dSYM/Contents/Resources/Relocations"
+    for b in $g.items.file { ^llvm-strip -S $b }
+  } | ignore
+  note debug $"($ours.uuid | uniq | length) files, (du $debug | get 0.apparent)"
+}
