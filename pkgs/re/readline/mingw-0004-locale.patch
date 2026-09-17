@@ -1,0 +1,49 @@
+setlocale based charset detection on Windows (msys2 MINGW-packages).
+
+diff -ur a/nls.c b/nls.c
+--- a/nls.c	2026-09-15 22:33:13.123812412 +0000
++++ b/nls.c	2026-09-15 22:33:13.164811887 +0000
+@@ -49,6 +49,11 @@
+ 
+ #include <ctype.h>
+ 
++#if defined (_WIN32)
++#  include <windows.h>
++#  include <versionhelpers.h>
++#endif
++
+ #include "rldefs.h"
+ #include "readline.h"
+ #include "rlshell.h"
+@@ -108,7 +113,11 @@
+ {
+   char *cp;
+ 
+-#if HAVE_LANGINFO_CODESET
++#if defined (_WIN32)
++  /* On Windows, the relevant "locale" is the selected codepage of the used
++     console. */
++  return (IsWindows7OrGreater () && (GetConsoleCP () == 65001));
++#elif HAVE_LANGINFO_CODESET
+   cp = nl_langinfo (CODESET);
+   return (STREQ (cp, "UTF-8") || STREQ (cp, "utf8"));
+ #else
+@@ -139,11 +148,18 @@
+ #if defined (HAVE_SETLOCALE)
+   if (lspec == 0 || *lspec == 0)
+     lspec = setlocale (LC_CTYPE, (char *)NULL);
++#if defined (_WIN32)
++  /* Setting an UTF-8 locale is not a no-op on Windows.  Instead the
++     information about the locale is lost.  Use whatever we got at this
++     point. */
++  ret = lspec;
++#else
+   if (lspec == 0)
+     lspec = "";
+   ret = setlocale (LC_CTYPE, lspec);	/* ok, since it does not change locale */
+   if (ret == 0 || *ret == 0)
+     ret = setlocale (LC_CTYPE, (char *)NULL);
++#endif
+   if (ret == 0 || *ret == 0)
+     ret = RL_DEFAULT_LOCALE;
+ #else
