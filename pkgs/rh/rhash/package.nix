@@ -21,5 +21,4 @@ package {
     "install-lib-headers"
   ]
   ++ (if platform.os == "windows" then [ ] else [ "install-so-link" ]);
-  tests.run = false;
 }
