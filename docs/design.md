@@ -217,14 +217,19 @@ bit-identical. The cost is trust: a cache writer can inject code, hence per user
 
 ```
 seed      static musl: nu, LLVM multicall (clang, lld, llvm-ar …), bsdtar, toybox, dash, make, python
-→ stage0  musl headers → compiler-rt → musl → linux headers → libc++ → jig → cc     (build machine, PATH = seed)
-→ stage1  linux headers → glibc → compiler-rt → libc++ → cc-<platform>              (per target, via stage0 cc + jig)
+→ stage0  musl headers → compiler-rt → musl → linux headers → libc++ → jig → cc     (build machine, seed clang)
+→ stage1  the same chain with glibc → cc-boot → cmake → llvm: clang, lld, libLLVM.so  (build machine, seed clang)
+→ stage2  linux headers → glibc → compiler-rt → libc++ → cc-<platform>              (per target, stage1's clang)
 → pkgs/*
 ```
 
-Recipes are nu (`pkgs/*/bootstrap.nu`). musl, compiler-rt and the C++ runtimes compile from file
-lists without cmake, so stage0 needs only the seed (the one vendored generated file is
-compiler-rt's per-cpu builtins list). A target is five minutes. What differs per target is keyed
+The seed's clang compiles stage0 and stage1 and nothing that reaches a package: stage1 exists to
+give our own clang (pkgs/ll/llvm/toolchain.nu, all targets, dynamically linked so plugins can load)
+a glibc and libc++ to link against, and every target's runtime is then built by it. cmake, by its
+`./bootstrap`, is the one tool LLVM's build needs beyond the seed. Recipes are nu
+(`pkgs/*/bootstrap.nu`). musl, compiler-rt and the C++ runtimes compile from file lists without
+cmake (the one vendored generated file is compiler-rt's per-cpu builtins list). A target is five
+minutes, stage1's llvm thirty once. What differs per target is keyed
 on object format (`platform.binfmt`: elf, macho, coff), and a libc or SDK tells compiler-rt and
 cc its header dirs and driver flags through `etc/cc/` files. RISC-V needed `-mno-relax`.
 

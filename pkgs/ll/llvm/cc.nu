@@ -3,10 +3,10 @@
 # $env.sysroot and crt_interp.o. From here on packages just say `cc` / `c++`.
 use ../../../bootstrap/lib.nu *
 
-# absolute seed paths: `cc` must work with an empty PATH, and `clang` on PATH is the cache shim
-def seed-bin [name: string]: nothing -> string { $"($env.seed)/bin/($name)" }
+# absolute: `cc` must work with an empty PATH, and `clang` on PATH is the cache shim
+def llvm-bin [name: string]: nothing -> string { $"($env.llvm)/bin/($name)" }
 
-def lld []: nothing -> string { seed-bin (target-profile).lld }
+def lld []: nothing -> string { llvm-bin (target-profile).lld }
 
 # What jig prepends for `cc` (flags) and additionally for `c++` (cxxflags). An SDK states its
 # own in etc/cc/{flags,cxxflags} (bootstrap/lib.nu cc-facts, merged into the sysroot), SYSROOT
@@ -69,31 +69,31 @@ def main []: nothing -> nothing {
   for n in [cc c++ gcc g++ reloc-fixup gocacheprog rustcwrap] { x ln -s jig $"($out)/bin/($n)" }
   # lld picks its personality from argv[0], and "ld" means ELF: spell the target out where it differs
   let p = (target-profile)
-  let ldargs = (if $p.ldFlavor != null { $"(seed-bin lld) -flavor ($p.ldFlavor)" } else if "ldEmulation" in $p { $"(lld) -m ($p.ldEmulation)" })
+  let ldargs = (if $p.ldFlavor != null { $"(llvm-bin lld) -flavor ($p.ldFlavor)" } else if "ldEmulation" in $p { $"(lld) -m ($p.ldEmulation)" })
   if $ldargs == null { x ln -s (lld) $"($out)/bin/ld" } else {
     $"#!/bin/sh\nexec ($ldargs) \"$@\"\n" | save $"($out)/bin/ld"
     chmod +x $"($out)/bin/ld"
   }
   # binutils that mingw build files call unprefixed and that need the target spelled out
   if "bfd" in $p {
-    $"#!/bin/sh\nexec (seed-bin llvm-windres) --target=($p.bfd) --preprocessor-arg=--sysroot=($sysroot) \"$@\"\n" | save $"($out)/bin/windres"
-    $"#!/bin/sh\nexec (seed-bin llvm-dlltool) -m ($p.dlltoolMachine) \"$@\"\n" | save $"($out)/bin/dlltool"
+    $"#!/bin/sh\nexec (llvm-bin llvm-windres) --target=($p.bfd) --preprocessor-arg=--sysroot=($sysroot) \"$@\"\n" | save $"($out)/bin/windres"
+    $"#!/bin/sh\nexec (llvm-bin llvm-dlltool) -m ($p.dlltoolMachine) \"$@\"\n" | save $"($out)/bin/dlltool"
     chmod +x $"($out)/bin/windres" $"($out)/bin/dlltool"
   }
   # CC_FOR_BUILD when cross: jig locates its conf via /proc/self/exe, so symlinks to the native cc suffice
   if "native" in $env { for n in [cc c++] { x ln -s $"($env.native)/bin/($n)" $"($out)/bin/($n)-build" } }
 
-  # etc/roots: store dirs a depfile can name (sysroot members, seed resource headers). builder/core.nu
+  # etc/roots: store dirs a depfile can name (sysroot members, clang's resource headers). builder/core.nu
   # hands them to the content-identity compile cache as JIG_STORE_ROOTS
   let members = (if ($"($sysroot)/roots" | path exists) { open --raw $"($sysroot)/roots" | str trim } else { "" })
-  $"($sysroot) ($env.seed) ($members)\n" | save $"($out)/etc/roots"
+  $"($sysroot) ($env.llvm) ($members)\n" | save $"($out)/etc/roots"
 
   # etc/jig.conf
   let d = (driver-flags $sysroot)
   # -B: `cc -print-prog-name=ld` (libtool's with_gnu_ld probe) answers bin/ld, the target's lld
-  # flavour, not the ELF ld.lld beside the seed clang
+  # flavour, not the ELF ld.lld beside our clang
   let conf = {
-    cc: (seed-bin clang)
+    cc: (llvm-bin clang)
     binfmt: $env.binfmt
     flags: ([$"-B($out)/bin" $"-isystem($out)/include"] ++ $d.flags | str join " ")
     cxxflags: $d.cxxflags

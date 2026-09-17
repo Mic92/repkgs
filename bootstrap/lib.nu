@@ -1,4 +1,4 @@
-# Helpers shared by all bootstrap recipes. Only nu builtins + the seed (clang, llvm-ar, bsdtar, toybox).
+# Helpers shared by all bootstrap recipes. Only nu builtins + clang, llvm-ar, bsdtar, toybox from PATH.
 
 export use ../builder/glob.nu *
 export use ../builder/log.nu *
@@ -100,8 +100,8 @@ export def target-profile []: nothing -> record {
 # --target plus the platform's -march/hardening flags (nix/platforms.nix).
 export def target []: nothing -> list<string> { [$"--target=($env.clangTarget)"] ++ ($env.flags | split row " ") }
 
-# Compile/link against $env.sysroot with the raw seed clang (recipes that run before `cc` exists,
-# or that build the things `cc` is made of). -unwindlib=none because the seed clang defaults to
+# Compile/link against $env.sysroot with the raw clang (recipes that run before `cc` exists,
+# or that build the things `cc` is made of). -unwindlib=none because our clang defaults to
 # libunwind, which is built last. Plain C needs no unwinder.
 export def ccflags []: nothing -> list<string> {
   (target) ++ [$"--sysroot=($env.sysroot)" $"-resource-dir=($env.sysroot)/lib/clang" -rtlib=compiler-rt -unwindlib=none -fuse-ld=lld]

@@ -38,7 +38,7 @@ def main []: nothing -> nothing {
     $"-DJIG_STORE_DIR=\"($env.storeDir)\"" "-isystem" $b3 "-isystem" $jsn "-isystem" $zstd $"-I($env.jig)"]
   let objs = (compile $cxxflags (files $"($env.jig)/*.cc" | each {|f| {src: $f, obj: $"obj/($f | path parse | get stem).o"} }))
   let common = ($objs | where { ($in | path basename) not-in [main.o jig_test.o] }) ++ $b3objs ++ $zobjs
-  let link = [$"($env.seed)/bin/clang++" ...(ccflags | where { $in != "-unwindlib=none" }) -unwindlib=libunwind -stdlib=libc++ -static-pie]
+  let link = [$"($env.llvm)/bin/clang++" ...(ccflags | where { $in != "-unwindlib=none" }) -unwindlib=libunwind -stdlib=libc++ -static-pie]
   x ...$link -o jig_test obj/jig_test.o ...$common
   print -e (x ./jig_test)
   x ...$link -o $"($out)/bin/jig" obj/main.o ...$common

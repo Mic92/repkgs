@@ -63,9 +63,8 @@ let
     sh = bootstrap.seed;
   };
   # On PATH after the toolchain and the build systems' tools. GNU userland precedes the seed because
-  # build scripts in the wild need more than toybox. The seed contributes llvm-*, bsdtar, nu, sh.
-  # `bootstrap` is what the base userland packages themselves are built with (`bootstrapTools =
-  # true` in package.nix): only the seed's static tools, so the set has no cycle and no nixpkgs.
+  # build scripts in the wild need more than toybox. llvm brings the object tools, the seed bsdtar,
+  # nu, sh. `bootstrap` is what the base userland itself is built with (`bootstrapTools = true`).
   baseTools = {
     full =
       (with buildPkgs; [
@@ -80,8 +79,14 @@ let
         bash
         pkgconf
       ])
-      ++ [ bootstrap.seed ];
-    bootstrap = [ bootstrap.seed ];
+      ++ [
+        bootstrap.llvm
+        bootstrap.seed
+      ];
+    bootstrap = [
+      bootstrap.llvm
+      bootstrap.seed
+    ];
   };
 
   package = import ./package.nix {

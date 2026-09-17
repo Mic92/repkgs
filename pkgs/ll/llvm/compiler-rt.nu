@@ -86,7 +86,7 @@ def main []: nothing -> nothing {
   mkdir ($lib | path dirname)
   archive $lib (compile $common $items)
 
-  # resource dir = these libs + clang's own intrinsics headers (shipped in the seed)
+  # resource dir = these libs + clang's own intrinsics headers (shipped with the compiler)
   copy-tree (^clang --print-resource-dir | str trim | path join include) $"($out)/include"
   if $env.binfmt == "elf" { elf-extras $src $out $common }
   profile-runtime $src $out
