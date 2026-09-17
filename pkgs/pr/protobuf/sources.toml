@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/protocolbuffers/protobuf"
+
+[[source]]
+key = "default"
+url = "https://github.com/protocolbuffers/protobuf/releases/download/{tag}/protobuf-{version}.tar.gz"
+hash = "sha256-SB17YwMdkCp4jPcX5Csf13IUGVNLaqwH5YJXugAeqMY="
+
+[pin]
+version = "36.1"
+date = "2026-08-31"
+tag = "v36.1"

@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/abseil/abseil-cpp"
+
+[[source]]
+key = "default"
+url = "https://github.com/abseil/abseil-cpp/releases/download/{tag}/abseil-cpp-{tag}.tar.gz"
+hash = "sha256-CEtLO4il9/jk+bFDDV0rXeX1OkirA0u6nxrSiWq0NPM="
+
+[pin]
+version = "20260817.0"
+date = "2026-08-18"
+tag = "20260817.0"
