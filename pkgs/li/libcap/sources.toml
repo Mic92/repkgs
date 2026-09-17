@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:generic/libcap?url=https://kernel.org/pub/linux/libs/security/linux-privs/libcap2/"
+
+[[source]]
+key = "default"
+url = "https://kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-{version}.tar.xz"
+hash = "sha256-j9JumpYzLJnMbKADOt6ADub8SAad8y55aWsFxtytPqg="
+
+[pin]
+version = "2.78"

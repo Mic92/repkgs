@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:generic/attr?url=https://download.savannah.nongnu.org/releases/attr/"
+
+[[source]]
+key = "default"
+url = "https://download.savannah.nongnu.org/releases/attr/attr-{version}.tar.gz"
+hash = "sha256-BuZ7xjt6QmRyHtaINPmGb+pFss4eLSocn4K2znPOx3A="
+
+[pin]
+version = "2.6.0"
