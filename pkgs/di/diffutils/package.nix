@@ -1,4 +1,7 @@
-{ package }:
+{
+  package,
+  buildPkgs,
+}:
 package {
   name = "diffutils";
   uses = [ "autotools" ];
@@ -6,7 +9,8 @@ package {
   patches = [ ./upstream-strptime-prototypes.patch ];
   # man/ regenerates *.1 with help2man (perl)
   autotools.makeFlags = [ "SUBDIRS=lib src" ];
-  tests.run = false; # perl
+  tests.separate = true;
+  tests.dependencies = [ buildPkgs.perl ];
   bin = [
     "diff"
     "cmp"

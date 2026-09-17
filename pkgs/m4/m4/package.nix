@@ -3,5 +3,5 @@ package {
   name = "m4";
   uses = [ "autotools" ];
   bootstrapTools = true;
-  tests.run = false; # gnulib test-float-h.c wants C23 *_IS_IEC_60559 from clang's <float.h>
+  tests.separate = true; # the suite wants a real awk and diff, m4 is built with the seed only
 }
