@@ -281,6 +281,9 @@ case "$site_cpu" in
     ac_cv_unaligned_access=yes
     ;;
 esac
+# clang's <float.h> has no C23 *_IS_IEC_60559 and gnulib's probe does not look for them, so its
+# own tests fail to compile. Have gnulib generate its replacement header
+gl_cv_header_float_h_isoc23=no
 # all of them: little endian IEEE double/float
 gl_cv_cc_double_expbit0='word 1 bit 20'
 gl_cv_cc_float_expbit0='word 0 bit 23'
