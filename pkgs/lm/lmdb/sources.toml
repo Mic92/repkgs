@@ -1,0 +1,14 @@
+[upstream]
+purl = "pkg:github/LMDB/lmdb"
+
+[watch]
+url = "https://github.com/LMDB/lmdb/tags"
+regex = 'LMDB_(0\.9\.[0-9]+)\.tar\.gz'
+
+[[source]]
+key = "default"
+url = "https://github.com/LMDB/lmdb/archive/refs/tags/LMDB_{version}.tar.gz"
+hash = "sha256-iOwjUqR2ChCEUDsIFEetVktCD7Mx3R5JgHE+qIhBd5I="
+
+[pin]
+version = "0.9.36"
