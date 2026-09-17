@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:gnu/which"
+
+[[source]]
+key = "default"
+url = "https://ftpmirror.gnu.org/which/which-{version}.tar.gz"
+hash = "sha256-7/SgnjK2oNQEk9qUDw565HBzapGLs5ygEiAiavGDu3c="
+
+[pin]
+version = "2.25"
+date = "2026-05-21"
