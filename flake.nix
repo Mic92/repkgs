@@ -19,6 +19,7 @@
         }
       );
       checks = each (system: import ./nix/checks.nix { inherit system nixpkgs; });
+      formatter = each (system: import ./treefmt.nix { pkgs = nixpkgs.legacyPackages.${system}; });
       devShells = each (system: {
         default = import ./shell.nix { pkgs = nixpkgs.legacyPackages.${system}; };
       });
