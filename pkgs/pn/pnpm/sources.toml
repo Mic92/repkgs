@@ -5,8 +5,8 @@ allow = "==11.*"
 [[source]]
 key = "default"
 url = "https://registry.npmjs.org/pnpm/-/pnpm-{version}.tgz"
-hash = "sha256-F6Lphh565QpyTfdgO2t7CEQc7Sdx9CJKwVd6BV+Mqlg="
+hash = "sha256-ozYOdiSkiznawo8tWvBz4EWvGaIwsPYIbHoLoMv0Euc="
 
 [pin]
-version = "11.26.0"
-date = "2026-09-06"
+version = "11.27.0"
+date = "2026-09-12"

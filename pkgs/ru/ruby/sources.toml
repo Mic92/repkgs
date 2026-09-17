@@ -4,9 +4,9 @@ purl = "pkg:github/ruby/ruby"
 [[source]]
 key = "default"
 url = "https://cache.ruby-lang.org/pub/ruby/{major}.{minor}/ruby-{version}.tar.xz"
-hash = "sha256-YJXbqhn6zL2FPkio4wA3gCoJFPYEdsztyFH7aj1YjW0="
+hash = "sha256-2iG4H3UV+BZvqXtz73tDYjNgWRs1+UmB5bGf6ftHjTI="
 
 [pin]
-version = "4.0.6"
-tag = "v4.0.6"
-date = "2026-07-14"
+version = "4.0.7"
+date = "2026-09-15"
+tag = "v4.0.7"

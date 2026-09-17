@@ -4,8 +4,8 @@ purl = "pkg:gnu/coreutils"
 [[source]]
 key = "default"
 url = "https://ftp.gnu.org/gnu/coreutils/coreutils-{version}.tar.xz"
-hash = "sha256-jLnM1Xpw8pYLf8ICDF/EstxqkM46M2yxAx7mgESibXw="
+hash = "sha256-Me7KhfG1FwcGTEXzLj/STDtkOyCIxdRFoD8WEZt8Oh4="
 
 [pin]
-version = "9.11"
-date = "2026-04-20"
+version = "9.12"
+date = "2026-09-14"

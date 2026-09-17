@@ -1,14 +1,14 @@
 --- a/src/stdbuf.c
 +++ b/src/stdbuf.c
-@@ -28,6 +28,7 @@
- #include "xreadlink.h"
+@@ -29,6 +29,7 @@
+ #include "xstrtol-error.h"
  #include "xstrtol.h"
  #include "c-ctype.h"
 +#include <reloc.h>
  
  /* The official name of this program (e.g., no 'g' prefix).  */
  #define PROGRAM_NAME "stdbuf"
-@@ -222,7 +223,7 @@
+@@ -217,7 +218,7 @@ set_LD_PRELOAD (void)
       system (and that of stdbuf itself).  */
    char const *const search_path[] = {
      program_path,
@@ -17,7 +17,7 @@
      NULL
    };
  
-@@ -385,7 +386,7 @@
+@@ -385,7 +386,7 @@ main (int argc, char **argv)
       stdbuf is running from.  */
    set_program_path (program_name);
    if (!program_path)

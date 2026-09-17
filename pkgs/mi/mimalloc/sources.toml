@@ -4,9 +4,9 @@ purl = "pkg:github/microsoft/mimalloc"
 [[source]]
 key = "default"
 url = "https://github.com/microsoft/mimalloc/archive/refs/tags/{tag}.tar.gz"
-hash = "sha256-jHM19nZabrQHvyEUiCXuMmlgjKK8N4MAO4o/KYrOsXQ="
+hash = "sha256-GmLMWdUR2/VXJY7A8dZtwoV9FJIx0sxj8KWI4kG8IrU="
 
 [pin]
-version = "3.5.2"
-date = "2026-09-12"
-tag = "v3.5.2"
+version = "3.5.3"
+date = "2026-09-17"
+tag = "v3.5.3"
