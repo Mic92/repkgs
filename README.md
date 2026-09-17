@@ -25,8 +25,9 @@ is what comes next.
 
 ## Try it
 
-The daemon needs Nix master with [NixOS/nix#16459](https://github.com/NixOS/nix/pull/16459),
-[#16465](https://github.com/NixOS/nix/pull/16465) recommended. [nix/nix](nix/nix/default.nix)
+The daemon needs Nix master with [NixOS/nix#16459](https://github.com/NixOS/nix/pull/16459);
+[#16465](https://github.com/NixOS/nix/pull/16465) and
+[#16477](https://github.com/NixOS/nix/pull/16477) recommended (CA rebuilds after gc). [nix/nix](nix/nix/default.nix)
 builds it (`nix-build nix/nix`, flake `packages.x86_64-linux.nix`). On NixOS:
 
 ```nix
