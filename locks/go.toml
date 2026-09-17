@@ -195,6 +195,7 @@
 "github.com/OneOfOne/xxhash@v1.2.2" = { mod = "sha256-l7ZeMrMlElrr6MN8KHCeMIxaHGZOGnfd98SxsLltdzs=" }
 "github.com/andybalholm/brotli@v1.2.1" = { mod = "sha256-mDbtcFnmtr6dQuZmyGbe6oZG1YFSFvz2IWlmB0dEyx8=", zip = "sha256-g9Vw7H8Yner4c3a6TzbS6YGg3E9wa/TYTPEcxO+xqFc=" }
 "github.com/andybalholm/cascadia@v1.3.4" = { mod = "sha256-dOeUvIG999zFftkDmitRw/uixJZxOdI6SVAS/dMDlkA=", zip = "sha256-ucMjFG8pTzIAmpXt1o01E5EYWKoY3d6QPM/yOUq+kKQ=" }
+"github.com/andybalholm/cascadia@v1.3.5" = { mod = "sha256-dOeUvIG999zFftkDmitRw/uixJZxOdI6SVAS/dMDlkA=", zip = "sha256-VIt1/d19H0kQpolRinpJ99ITMNDXUucleVnLFt6j5as=" }
 "github.com/antihax/optional@v1.0.0" = { mod = "sha256-0sIhN/ViECf4dLEiVGzxWHIp34YY+WFbqf5OYw4oC+s=" }
 "github.com/apache/arrow/go/v15@v15.0.2" = { mod = "sha256-X90qLaW1zAa+Y5+AXSyi9D+4KI/rvR9iNwKUuH5t85s=", zip = "sha256-h7darCezlfZR8jK0uJwYSmqyOmVZasxGtO+ssRb5it8=" }
 "github.com/atombender/go-jsonschema@v0.20.0" = { mod = "sha256-eEZldRz+TTzYIyir0Qi4PllSn9waTcu6PLpJX4QkQ94=", zip = "sha256-PWRzBQWVDfbZJYjx3UIDpU2p+bhvnIZngRUqoPZ0NnE=" }
@@ -203,6 +204,7 @@
 "github.com/bmatcuk/doublestar/v4@v4.10.0" = { mod = "sha256-Tu6kWg0dlVdqyZya3d7Nd4eLmERb9nnT8ZOlFmm9FFA=", zip = "sha256-OBiCdi1jrTVwmmpCa+M21rcUsm8To5H95SkR+t7AeUk=" }
 "github.com/census-instrumentation/opencensus-proto@v0.2.1" = { mod = "sha256-2uZGOSlkAiNbVVh9FNJkBhXrNzb6hA5DJ9PBXbY8w0U=" }
 "github.com/cespare/reflex@v0.3.1" = { mod = "sha256-i7lJvtK5H8lf6rNNrVx4le/itH24kGQbFiwcs81JMhY=", zip = "sha256-f7LSGqOvyfDoFBBZDCV9nrscwlZn/YLCDqhiUrO8XvA=" }
+"github.com/cespare/reflex@v0.3.2" = { mod = "sha256-KPlctmsjL8ThY4stwtPEG7E+BQhANQ86hnwGgInvzkw=", zip = "sha256-DuR42JHTdsA4LtkOi/iEdHUIIXaieTJwvX9KPzC4KI0=" }
 "github.com/cespare/xxhash/v2@v2.1.1" = { mod = "sha256-oJD46q9ZzCrfFjKZ6+/nl+Hco/at0sjoimo7kLpTiwI=" }
 "github.com/cespare/xxhash/v2@v2.3.0" = { mod = "sha256-oJD46q9ZzCrfFjKZ6+/nl+Hco/at0sjoimo7kLpTiwI=", zip = "sha256-FFomzcfEnbVmAXuAfEmJ7n993rVpQj6cuZ+ZX6w2IdM=" }
 "github.com/cespare/xxhash@v1.1.0" = { mod = "sha256-muRWUaFaZlzaeE26AxagBDqhmWWY5u+7kcGwk2G+UaU=" }
@@ -232,17 +234,22 @@
 "github.com/davecgh/go-spew@v1.1.2-0.20180830191138-d8f796af33cc" = { mod = "sha256-vLKTkyUSN7eaF7bBm/KRNPQ+j0OMMZiYj81GGhzfBcw=", zip = "sha256-tNCSOxabGU8AFuxG898asMaOJ5mXQ+Q/4t5Z7LJIQSg=" }
 "github.com/decred/dcrd/dcrec/secp256k1/v4@v4.4.1" = { mod = "sha256-K5x+0s5XzSrbTBCQLhDRdVTczMmSnuOmUzxtg+vZ89E=", zip = "sha256-AP81dW13r/S+Ikh6SzWBn/I1NxdFswR1Jk6o3LBMN8o=" }
 "github.com/deluan/go-taglib@v0.0.0-20260619222856-1975cb12f59d" = { mod = "sha256-xYLb5V/cLYN+aK/vySQVYIOV1aJwBN+VK78bnz7B8Co=", zip = "sha256-fsJVGOb1vKAG0vVYYzeGeSKLKmO+kdwljNy+iDWQYis=" }
+"github.com/deluan/go-taglib@v0.0.0-20260910183509-2ca9506dd7ec" = { mod = "sha256-xYLb5V/cLYN+aK/vySQVYIOV1aJwBN+VK78bnz7B8Co=", zip = "sha256-IkkBu0BcDoL4bVffI+UyNvOwA8VhQjIpvCTf60Kiwbc=" }
 "github.com/deluan/rest@v0.0.0-20211102003136-6260bc399cbf" = { mod = "sha256-HjQ2ZZVtQmdmI3NceV3mP0wKdim2U5yFvf+NzYV9dqI=", zip = "sha256-O+k7NsBqSW5zp/G8IOoIKFu2k882M1XA01iRKu1KYUQ=" }
 "github.com/deluan/sanitize@v0.0.0-20241120162836-fdfd8fdfaa55" = { mod = "sha256-UnkKwRjKUaN9+rcIVNdtj4tW/bUhofTUgC/wr2acrTo=", zip = "sha256-9hUYBNxl8QufERl/Xg23IjEtv33EQjKYVThDn10y78s=" }
 "github.com/dexterlb/mpvipc@v0.0.0-20241005113212-7cdefca0e933" = { mod = "sha256-bzK42QKDnxrxFoelQ7K5dIVReSk4S1DCKmbOR8KvwI0=", zip = "sha256-I7OQ91bbJMRdop+Q5ERxitAveH4gpcZo2ZT2L6eOZEY=" }
+"github.com/dexterlb/mpvipc@v0.0.0-20260722094525-0cf47d745b36" = { mod = "sha256-bzK42QKDnxrxFoelQ7K5dIVReSk4S1DCKmbOR8KvwI0=", zip = "sha256-5RzO8mRZ6iaeZKq+k1UIe05QweYS4+iNtjPcmqX0Yq0=" }
 "github.com/djherbis/atime@v1.1.0" = { mod = "sha256-eeTo1yaP0hOZYOMTL2GJFTpskpSMtwZRii7NChkrb6I=", zip = "sha256-GVzrzOttdjKPXl03MVS1xGpqm/ayeoj5wBWCdqB8fEE=" }
 "github.com/djherbis/fscache@v0.10.2-0.20231127215153-442a07e326c4" = { mod = "sha256-IsRm76ISknHvBFnhqMOK5UD9cjFz6l0ad7ANy9V9DjQ=", zip = "sha256-CELmhKVT8MsXdDTU3+MZZtSCoe92nGyZAb5wVsYOE1w=" }
+"github.com/djherbis/fscache@v0.10.2-0.20260829235704-6d85d5878c22" = { mod = "sha256-lsdIbpAkSU1ZlJkCwdurI8f3JATFZZTtcX0vogFGJSI=", zip = "sha256-6IS8DT0t7HR0SCmfjVdD5f7bPd1a560THVGvBb7TXIU=" }
 "github.com/djherbis/stream@v1.4.0" = { mod = "sha256-rDr8lJFR+tnOavg2ers299AbN0bfVJ2utRGK3OQ6brU=", zip = "sha256-mtbQsER+3rjuQmWJlIRJZb/XddqLGIJ4fgsgXrHNqNU=" }
+"github.com/djherbis/stream@v1.5.1" = { mod = "sha256-rDr8lJFR+tnOavg2ers299AbN0bfVJ2utRGK3OQ6brU=", zip = "sha256-SB4gHXi0cvBw39JBl3YHlNNIjQf7AsuwcVrUm+Ab+kk=" }
 "github.com/djherbis/times@v1.6.0" = { mod = "sha256-7MB94w6lYbIca6xhdg8www2oqoZn15As+x9btZdDgIo=", zip = "sha256-IdaQYJZ7wD6jw5/4wLGpVRHpbszTdJotrvGgKvG8CoU=" }
 "github.com/dlclark/regexp2@v1.11.0" = { mod = "sha256-cBfoH7n6kiejGApi4yMVi0UjxnBi8KiqCGN8CSuNSqc=", zip = "sha256-KpNDJgD+rLhmZpeJu3kQ/yg+Gvdk/NA9cMZZL5YZrrQ=" }
 "github.com/dustin/go-humanize@v1.0.1" = { mod = "sha256-QyWZnQpoQQMSWKJWHCKHnZ+993q8azKhexy27fCBD7I=", zip = "sha256-MZQE6oTIpOLT2D8wmIsAbn3QSXbePhoakEhK2UZ5+kY=" }
 "github.com/dylibso/observe-sdk/go@v0.0.0-20240828172851-9145d8ad07e1" = { mod = "sha256-jaYLi66EWNS0vg+e5aoOB7xoyfhXdNxe1mn4ake95Pw=", zip = "sha256-IydwjMkudFQxGSVnTBJDYnO6xhsvSs/sth2f1kDZRmc=" }
 "github.com/ebitengine/purego@v0.10.1" = { mod = "sha256-SSDsxSOdeURtm2FULDdJxzidIXjToULlV+A3kFGGZRQ=", zip = "sha256-NiL7lAy2yZmx6dExRfyseUAdOovyypr3HeSGUzEZoSA=" }
+"github.com/ebitengine/purego@v0.10.2" = { mod = "sha256-SSDsxSOdeURtm2FULDdJxzidIXjToULlV+A3kFGGZRQ=", zip = "sha256-57O+Ff9V9DJE8JYqbP0O7EqYiWxE3OC1cOwFziKxpQQ=" }
 "github.com/envoyproxy/go-control-plane/envoy@v1.37.0" = { mod = "sha256-/1AWyH7DqTuAgm3uzHtxwhbpf6SpRlJf2TjGsvsfXKw=", zip = "sha256-3qlt1GqkSA9vXa1rUrkFnQiNBqCQloVX2vqM1jP2KaI=" }
 "github.com/envoyproxy/go-control-plane@v0.10.2-0.20220325020618-49ff273808a1" = { mod = "sha256-2Hi72MmVwWYTnxFqNMPcL4olU3i2WXg8exfJwinT9NU=" }
 "github.com/envoyproxy/go-control-plane@v0.14.0" = { mod = "sha256-2KS5SPGD2/XJio5Ymm5rwWSwlRRnRTjh2+PWSGn0OpA=", zip = "sha256-eUJKdcAF7gmBYB5ERJNHxio/NbOy6leveaicHzHYCQY=" }
@@ -270,6 +277,7 @@
 "github.com/gkampitakis/go-diff@v1.3.2" = { mod = "sha256-qTKf7D6TiBiejVKKZSqPGMG528Fd1zjkXuHPZKJgMKI=", zip = "sha256-R0q2xm5qvE+ll5s/tIvCUf2yN+UtnwoodGy0ws1cAoY=" }
 "github.com/gkampitakis/go-snaps@v0.5.15" = { mod = "sha256-E4Wvj+JELE3RytUOG+qyoW56Zw3P1BHqwwp09SB0nlk=", zip = "sha256-CoHgZMRrrxQoDp4KCcfO9o3T2jvpkq+fooauBsMSj/A=" }
 "github.com/go-chi/chi/v5@v5.3.1" = { mod = "sha256-TYjWkXhTu7QnFGuiZmG1GiH4eA9SQWLJeXpXaUZOFII=", zip = "sha256-6l90fFCVWnARIk2oNH6AK2XQWACvORBGcOqpUAEbeU8=" }
+"github.com/go-chi/chi/v5@v5.3.2" = { mod = "sha256-TYjWkXhTu7QnFGuiZmG1GiH4eA9SQWLJeXpXaUZOFII=", zip = "sha256-AaVQESXJpFeC25n8Di0FT3VYcdZpDsfHWvSUwsj8tYk=" }
 "github.com/go-chi/cors@v1.2.2" = { mod = "sha256-q5CH/ds7BJ5Jk1ouZVRzmB2qRB1/DTViA/c/UFYQC9o=", zip = "sha256-Yilz9jxGUZeN2yIudkrUcCq0FN91BSSlz/5A5D2d688=" }
 "github.com/go-chi/httprate@v0.16.0" = { mod = "sha256-gf1BaBDXwz9uVHY4ZOW+mc906GijD2SY2W3NdMEZTEM=", zip = "sha256-feuaR8t46/++aBPhYzceJvIQ8icUHGqIgKHUMGi9Cwo=" }
 "github.com/go-chi/jwtauth/v5@v5.4.0" = { mod = "sha256-su8k2srrZqC93meRqxf+YPLN9/ng2uj6nuKHPF+T6Ck=", zip = "sha256-0ai5kcx87PlJNLmDEjyduEc1rTUs5W3NgXupxClgHMs=" }
@@ -281,6 +289,7 @@
 "github.com/go-jose/go-jose/v4@v4.1.4" = { mod = "sha256-4GnmAC0pSVuMLcbPDTtWoHXsW+ertsLrGhwIRctmuLM=", zip = "sha256-BqN7ZmgBKi3RCaX3H2rhU4fcgIs1089z9eQG54oXsCc=" }
 "github.com/go-logr/logr@v1.2.2" = { mod = "sha256-UZsdbaXu72dbShhX1ijwXxEKK4yzxCO3Ff6oDQl1pRg=" }
 "github.com/go-logr/logr@v1.4.3" = { mod = "sha256-xJbzDXAPArSaG1C8JIaifC903z3OddnbbS1Dl1s4Fyc=", zip = "sha256-Uj16NYf+c/Ye9ByLxif31/ON6BBNRieBVLMH5gdwrXA=" }
+"github.com/go-logr/logr@v1.4.4" = { mod = "sha256-xJbzDXAPArSaG1C8JIaifC903z3OddnbbS1Dl1s4Fyc=", zip = "sha256-OrEHwdKAznmOqnRO/VlZgvpwnUAj8/ONJBiYJ0g8FxA=" }
 "github.com/go-logr/stdr@v1.2.2" = { mod = "sha256-CBIWD3dHTY2/aSt8qu5/1VCESMcF2bVLWjSWrERGjCw=", zip = "sha256-ndaJO/cAGYSFrmmWQLSbwe+8bHOzfLV5KgR24f2Pf+8=" }
 "github.com/go-sql-driver/mysql@v1.10.0" = { mod = "sha256-uFpGNjRjrc4RE1T5YkuceEd5MNZDdfiBSIbtnqWWx/I=", zip = "sha256-3JP1dwVWQG6Cv3UKmA0jFviCoZ2IOjaJ6tuCBwjCtlE=" }
 "github.com/go-sql-driver/mysql@v1.4.1" = { mod = "sha256-uN8Y0MFmOv8jKVzLVF8ko+bIjw4ch53/eFK9bhhPfWk=" }
@@ -292,6 +301,7 @@
 "github.com/goccy/go-json@v0.10.6" = { mod = "sha256-kCfIPvweseH039wOzQPW3oncto7K5B1EJIUCjzZvqYs=", zip = "sha256-IpbnfMRPrPNZbd16WGZXioRQtZrRWDy7cL+/p3/g2tw=" }
 "github.com/goccy/go-yaml@v1.19.2" = { mod = "sha256-i/zTA8dzFCB3tOm/JriRqL+/nzHY/LdcvPq26nMVRac=", zip = "sha256-nqi0ZjhcHs9h+lW2jkCeoEiz1/sReOumbB4kp6MN//s=" }
 "github.com/gohugoio/hashstructure@v0.6.0" = { mod = "sha256-Jr1mdAjgLs1pnMPZ0VEYSoZ9szBvhR7bCzECzRK+ObQ=", zip = "sha256-S9goCcRiUn4+4qGx7vD1ZBiyqCCCIx4xXWuxDNaRqDY=" }
+"github.com/gohugoio/hashstructure@v1.1.0" = { mod = "sha256-NRE2/KoFTjkq+fcrOtm+9gL6b0G8QRrofibQAb7qEsQ=", zip = "sha256-rWp5hqVYrnZ6XPkbeLeqYfALYSkUXR9L1rMebBzn3Z4=" }
 "github.com/golang/glog@v0.0.0-20160126235308-23def4e6c14b" = { mod = "sha256-nJuvwPUpBa+qcWSFizoBoMw9wH2iMDAXfOSH9ydDiVg=" }
 "github.com/golang/groupcache@v0.0.0-20190702054246-869f871628b6" = { mod = "sha256-URfiu4bxzHzHSJ+fJYD6F7LvHjoKNGv2TtgGPKe4dmM=" }
 "github.com/golang/groupcache@v0.0.0-20191227052852-215e87163ea7" = { mod = "sha256-URfiu4bxzHzHSJ+fJYD6F7LvHjoKNGv2TtgGPKe4dmM=" }
@@ -365,6 +375,7 @@
 "github.com/google/pprof@v0.0.0-20210609004039-a478d1d731e9" = { mod = "sha256-1S8e7jMu3iY7xH3tdAOtp/y9x5oSu4J+mCdjtHACdqg=" }
 "github.com/google/pprof@v0.0.0-20210720184732-4bb14d4b1be1" = { mod = "sha256-1S8e7jMu3iY7xH3tdAOtp/y9x5oSu4J+mCdjtHACdqg=" }
 "github.com/google/pprof@v0.0.0-20260604005048-7023385849c0" = { mod = "sha256-7QFAPGwgtkE1V01091HVwW8bsL1m0g117f8TjOt8yvU=", zip = "sha256-WVqgbQ9OJcy+jGEj05nxAiTENu+spiFAckegfsmd8zc=" }
+"github.com/google/pprof@v0.0.0-20260825171938-4d453200e7d9" = { mod = "sha256-a+BolpeJkSAco0VrNQQTPJskWrjABUHB528FPGE4gnQ=", zip = "sha256-AENniyCx2sFtbCBQnvZ6WVL8jAQnGxffYOOAQ16iHHc=" }
 "github.com/google/renameio@v0.1.0" = { mod = "sha256-uptesIeACKiR4WsIwXkisD+Sx2oD57/hgyY16tocGjU=" }
 "github.com/google/s2a-go@v0.1.9" = { mod = "sha256-R9QlcgCnTDIQ9L8HJk86J+s5gX/wHiTZLMBp37QhMls=", zip = "sha256-v49LFZ0/wgFHeCLtJRTk8F9Yx2S3j/7XPsCszOX7fwc=" }
 "github.com/google/subcommands@v1.2.0" = { mod = "sha256-+pD1NbBQ9Ml6BZJsbf3qZuwszkFSm7mxNg43MUUhorE=", zip = "sha256-6fc11t23JqPKEk2JlgQYgHJuVd72kJsZ4ULAeCmZEXk=" }
@@ -399,6 +410,7 @@
 "github.com/ianlancetaylor/demangle@v0.0.0-20181102032728-5e5cf60278f6" = { mod = "sha256-HQqdl3m4dISvT9ubWW5mMpicgooCehbOuqTSHJvbPeo=" }
 "github.com/ianlancetaylor/demangle@v0.0.0-20200824232613-28f6c0f3b639" = { mod = "sha256-HQqdl3m4dISvT9ubWW5mMpicgooCehbOuqTSHJvbPeo=" }
 "github.com/ianlancetaylor/demangle@v0.0.0-20260505044615-1ff4bf46051f" = { mod = "sha256-EF1NDHjIIF+F1TvIayvdxYQwzg+d03tyWCu6f/jeOLw=", zip = "sha256-twgRhOyZPT6FOSGdwXQUH7N/cebnJyV0Z9A8BWHaxPs=" }
+"github.com/ianlancetaylor/demangle@v0.0.0-20260724033716-83e58baca724" = { mod = "sha256-EF1NDHjIIF+F1TvIayvdxYQwzg+d03tyWCu6f/jeOLw=", zip = "sha256-+r3VLNdKc3YyYArqUW9HP03SM7yKbnrIO6YDWZm/jRo=" }
 "github.com/inconshreveable/mousetrap@v1.1.0" = { mod = "sha256-HBsVkRqooL1c0PZnDsI9EIZJbzYV/fUzBq/ytHbOm+E=", zip = "sha256-UmZ03mJNfbEIz+dlPvEQzN/Ze8hQJiVCJIFVZ5KO0kM=" }
 "github.com/jellydator/ttlcache/v3@v3.4.1" = { mod = "sha256-3qFw1HSLsyuqRg2POK/2uz184C+8bRArCR2i/gx1kco=", zip = "sha256-SGIjuZkaoAJRLoe2jy23T62Gr/kAK/LuBLGfGURs4xs=" }
 "github.com/jinzhu/inflection@v1.0.0" = { mod = "sha256-uuDj/QZt58y7X8C66TlblH8tZK/ujGHxwA5GIcfNn6k=", zip = "sha256-zxCHpvZlPtXzZvhc8BELu/WB1Om8ik0am1Z2XZS1RsM=" }
@@ -414,6 +426,7 @@
 "github.com/kballard/go-shellquote@v0.0.0-20180428030007-95032a82bc51" = { mod = "sha256-SaLWxz9mfcD0YyKg1qz8uhQgm/t2735iLWHhCRli/zQ=", zip = "sha256-rky3sJfcTrDCSN/wDtO78PNphMQWKtHWFSZghOWL1sw=" }
 "github.com/kisielk/gotool@v1.0.0" = { mod = "sha256-d6ynv/wOwp/J8IjVliqzEo9AXXsQx865aT/3oIlYlV0=" }
 "github.com/klauspost/compress@v1.18.5" = { mod = "sha256-DWbWBp2eL7h1xbRk0VssgCMs/ImR5viDNs5GHKgQ4M8=", zip = "sha256-4f3eldl5eBRiQ/Hnk84YoJsQfWzWAyNH/LW5EVGBSX0=" }
+"github.com/klauspost/compress@v1.19.2" = { mod = "sha256-DWbWBp2eL7h1xbRk0VssgCMs/ImR5viDNs5GHKgQ4M8=", zip = "sha256-Ozo1QBJa2bOuGrD13wasMtEbgzDDFA+XfSE+D230guk=" }
 "github.com/klauspost/cpuid/v2@v2.0.9" = { mod = "sha256-ZhgLxWPIiQ4otpumT75uHSh5qFdKP/zn5ZfxkV94vGw=", zip = "sha256-UscWQTKW3OKxaYxs28TFOSfOSu4qYJgNr5Zy5rajtMs=" }
 "github.com/klauspost/cpuid/v2@v2.3.0" = { mod = "sha256-/2HUfyVPIzO/RKj/QYei8ulzaTgHwQAlAzuzcUNXcjc=", zip = "sha256-5nZvdez63xL9BF5L3ZOD8qW9P5vUyIpttyhhyEz0FIY=" }
 "github.com/klauspost/cpuid/v2@v2.4.0" = { mod = "sha256-S9cffAmdv2qoaYfGKrSQBDZiAKzoK4z1V2lMyz3b7S0=", zip = "sha256-TgwSgVWFFO/Mwsw6t41DBCZIb+kQHW3MmhsJDgXCbGk=" }
@@ -429,9 +442,11 @@
 "github.com/lestrrat-go/blackmagic@v1.0.4" = { mod = "sha256-TMOFXjcDAvHlF7DUN8g8KJQ6MGxhIrTVvJMd58lMRJE=", zip = "sha256-R3XKjqtEOogswXcsJXFoEKiJ1Hh0bGpAX1WXUN5C3OY=" }
 "github.com/lestrrat-go/dsig-secp256k1@v1.0.0" = { mod = "sha256-eoSLo6w251z/3LFmf5/cE1PwjP/ES/MHbXp5+0foEdk=", zip = "sha256-HR296NRfcxtJH+HeEu6xjO6gs7syWSwp8vVF+Bzc82Q=" }
 "github.com/lestrrat-go/dsig@v1.3.0" = { mod = "sha256-IQ+9TnBwR2E02xLUrRfTRVI1KJ08r1H3Hh+qnQQtt2I=", zip = "sha256-Dj3V0Hx4DSXrTMgVnYX0axXKihYrao2y6V1LZp6F0ok=" }
+"github.com/lestrrat-go/dsig@v1.4.0" = { mod = "sha256-frzyJ0QvCBKU4ZDczvJ9M2vj6zG2dwF3bhUBYUcsFIY=", zip = "sha256-X/sL1W2O5qRyz3/yFHK3kqNnnIx2k0xYZh7wXKLsaSo=" }
 "github.com/lestrrat-go/httpcc@v1.0.1" = { mod = "sha256-XxMmFMcipFsWdT78Nmf42+JFh+mAjz/XcpkXUro7CDs=", zip = "sha256-11Ey+AXqXPYnXZrwKl/zwRatkqx/wo4qIrj9LgKaP0w=" }
 "github.com/lestrrat-go/httprc/v3@v3.0.6" = { mod = "sha256-6gVp2APzBPAk8LgZppokq1mAPTWWgCc8GnK/PhDwzzM=", zip = "sha256-6cckglAC58JcVPvR1zedZT3/SnQlzwvwiBTYZHlexmQ=" }
 "github.com/lestrrat-go/jwx/v3@v3.1.1" = { mod = "sha256-zNbHlaDCM0k4uHku1dVpLUHQ3MxOkBJjCBz8V8c8SOk=", zip = "sha256-aCIx/123SXabcUwJteZGpCBDSb6vgk6PVhEsGMSqOkQ=" }
+"github.com/lestrrat-go/jwx/v3@v3.3.0" = { mod = "sha256-D/eDta3BusuqniVjDoA1lU3uZCzjSyBRcbg3NJCsLFg=", zip = "sha256-Ezj43YwWfzh9I7YHZIL5ay9spMg1WT4ePUAI2YQC9kU=" }
 "github.com/lestrrat-go/option/v2@v2.0.0" = { mod = "sha256-lfKwxWDs3ZQnwTYlDLVL1p7EGTZZNgMxADfqja6yTYs=", zip = "sha256-NFa9AWOMZ9piVwEj89EvWZbQoB7VIZWcL8haqD0+6Uo=" }
 "github.com/lib/pq@v1.12.3" = { mod = "sha256-laoM/j8/pYIYBczP2IVZXrhi6Ro764AtqG3BVxTB0ik=", zip = "sha256-/vDgTGO63PulEnLs+h1VXjk65TkBxYNOngtao55eFR4=" }
 "github.com/lucasb-eyer/go-colorful@v1.2.0" = { mod = "sha256-hPnDjpiEqwE8g3yxau4TlQDT1cbMqwJDmIHbLs8o9mA=", zip = "sha256-eNXQ4HN/D1S77Xe236hH2MhxvtJmip3EQyjHw0Ea2hA=" }
@@ -441,6 +456,7 @@
 "github.com/mattn/go-runewidth@v0.0.16" = { mod = "sha256-IWyT0ZMQYSyB1cdBAkmJ+DiX0jM8Op+We1ixMXWH9Rk=", zip = "sha256-F50tkAx27jVg++2mDQI3o75qy3NNDLdCO1XlzLDO28o=" }
 "github.com/mattn/go-sqlite3@v1.14.42" = { mod = "sha256-GZ8O9lCLuqP+SQNpl4BmLolx06RjiNcI0SiZ5q+0Hfk=", zip = "sha256-XQCBIKBJfHvNGgT+LqYVyzk+P7QmLTihxEx5WM/HUZo=" }
 "github.com/mattn/go-sqlite3@v1.14.47" = { mod = "sha256-TAhZfhTJLZ7SXxvRSiJCGY8OMBGWTnmAGKvOssy+gr8=", zip = "sha256-z/WZqlHrl3Mbm2DkXUbh/RiYLXtXCa2UxAhc+vwvJtk=" }
+"github.com/mattn/go-sqlite3@v1.14.52" = { mod = "sha256-TAhZfhTJLZ7SXxvRSiJCGY8OMBGWTnmAGKvOssy+gr8=", zip = "sha256-69H++OlDT73CyU41uZkd9i1HLAAXD1f8T3Xapp9lihs=" }
 "github.com/mfridman/interpolate@v0.0.2" = { mod = "sha256-ghAsjE8pHHYr35VEBC+/DXo3edkeY6IoUkt3ZexcS/A=", zip = "sha256-QbAgiA5IxoPeQMWMbK+tHWSgPghO85FOt6BdaGiAJSM=" }
 "github.com/mfridman/tparse@v0.18.0" = { mod = "sha256-0rcyvcT83FBkn/d9FkfXXGP6O26STiDuaJLbjCGgnVg=", zip = "sha256-PSPJsiaA/bJzIkkPB7LKu6V34Fakg/vlT+M4iYyrRTs=" }
 "github.com/microcosm-cc/bluemonday@v1.0.27" = { mod = "sha256-TgQt0+FehH9l6Pq702Ac/AY6WOhAYF+C//IukIMHyOA=", zip = "sha256-27xisGYAMx4ppNRTuLPpWxukjlC63f2YGjgl+NAEMBE=" }
@@ -451,7 +467,9 @@
 "github.com/niemeyer/pretty@v0.0.0-20200227124842-a10e7caefd8e" = { mod = "sha256-jxQBiQgBFlu9PaF1jGyWQ48SqjJIZmrBWBwYqGQkTUc=" }
 "github.com/ogier/pflag@v0.0.1" = { mod = "sha256-1JyxIwWdXfFxUCbprR8WDIV389stDlBHvPWHUETjoJw=", zip = "sha256-xNsOz/Mt6zIFxwXXKmFrzgHh9qGUjIUdMLUt7uw/v5E=" }
 "github.com/onsi/ginkgo/v2@v2.32.0" = { mod = "sha256-tN+igiGXir1FOAKFUknopytjo/GY0ZIZaRb1xWaf6e4=", zip = "sha256-LRpCt7OH1L69xEnp9nlegElmtyMLYmWzdWd5xlFFjrI=" }
+"github.com/onsi/ginkgo/v2@v2.32.2" = { mod = "sha256-tN+igiGXir1FOAKFUknopytjo/GY0ZIZaRb1xWaf6e4=", zip = "sha256-lT1hEhi6AAaM43rzMbuXYpbEkbQXZtgjm9/gvnhPudk=" }
 "github.com/onsi/gomega@v1.42.1" = { mod = "sha256-4SeuYygzdwi1KaM4O58ykKNsPk5/OvxRp8AX9OsPTNg=", zip = "sha256-HqRcBu8VBuwxfsKLuI/mBMrVvO+33yvjzY6BtQz20kE=" }
+"github.com/onsi/gomega@v1.43.0" = { mod = "sha256-4SeuYygzdwi1KaM4O58ykKNsPk5/OvxRp8AX9OsPTNg=", zip = "sha256-hMOjRGpu6oanHh2mi90Z3Q/WukwKBZ2jOP3va+dQQ78=" }
 "github.com/paulmach/orb@v0.13.0" = { mod = "sha256-1rWcVn3+mJrxNYeKmemNexNPoZCxE+Bnh/VmY8ldnNI=", zip = "sha256-YOUJ6q+rSH6ZTH2v45SEgyVIiakCSY2AyJCMGcqFusU=" }
 "github.com/pelletier/go-toml/v2@v2.4.3" = { mod = "sha256-crLd0gWDA50RClAUfGP9HkGaXErMG6jyiIHx30SGq64=", zip = "sha256-vA3hbUlC34UDvhO94ER+C3zhaU87sbhA9IXOg5+JdM8=" }
 "github.com/pierrec/lz4/v4@v4.1.26" = { mod = "sha256-0yMpUF1a8ERJ/muiJ6l9Fw4MmKmcEjv3kIrE/0SuD0s=", zip = "sha256-z2f5nY1O2Ed1pR3jFntwkH5UNt0vUB833v+sRsClGuE=" }
@@ -462,11 +480,15 @@
 "github.com/pmezard/go-difflib@v1.0.0" = { mod = "sha256-dLLnZushU3eGTVh7rfV+lVIfaS0qeGCzx3WQk/nJvsI=", zip = "sha256-3gTOzBpLjVPkNXBRAmeUvLxU8uaiYM+sUIzmnV1kV6A=" }
 "github.com/pocketbase/dbx@v1.12.0" = { mod = "sha256-zmHh651pCdig5yRtxb/i5x04mz84818Y0Tqr6EBynsI=", zip = "sha256-esqutQCtg9Bpeqfi1l588qoclwTsTHz7hXjtCsm6lEU=" }
 "github.com/pressly/goose/v3@v3.27.2" = { mod = "sha256-QIZQeFqU9WbVs8X4dEjX05DFbl8766rLkP0km/22TOQ=", zip = "sha256-IriHhq9+BmhPPsWiX6jjSV0Dkpbb9dIMYhT9MVCQawg=" }
+"github.com/pressly/goose/v3@v3.28.0" = { mod = "sha256-Ie1YCrThtaRCRtDnOlt42KeeRkvTGGsIrzR/fN56KJk=", zip = "sha256-CjRJ9QEJubhapL9OGR1f5wG24lCZchMYSXGjWzGiBNU=" }
 "github.com/prometheus/client_golang@v1.23.2" = { mod = "sha256-4O3CDOFVtbqk/BnevikmJuKC7woSFeA4Go+PEtcQxEw=", zip = "sha256-38xsUq0J49Dcoun0Hef40cDd57quS4ZzU9ESkYoVEd4=" }
+"github.com/prometheus/client_golang@v1.24.1" = { mod = "sha256-cYL1uA/VahsGMllQAs2cuCueoqjCfNr72rzEIPsu6B0=", zip = "sha256-kLYn45LZk2z0EO0jBm1hmP7MERMLurLhfdpifaOob8M=" }
 "github.com/prometheus/client_model@v0.0.0-20190812154241-14fe0d1b01d4" = { mod = "sha256-iuJH+LHO10L7xKp+vGtsk1Fy6q+mGivlK6C9QShtsDE=" }
 "github.com/prometheus/client_model@v0.6.2" = { mod = "sha256-ipcoxBRyR6VygI7yLplyZf6afFRkpg1O2kjcNfncJiY=", zip = "sha256-ZwF7GfIgxquR7P3RCpOCTiqLCfy2OQBU29xJ3zNUqco=" }
 "github.com/prometheus/common@v0.67.5" = { mod = "sha256-7JW643pGniog2IjgSEdZAcog+hWppwdhHIjDsIPjXm8=", zip = "sha256-m68IvBONcJevgPYVcrMu6sQHJ9keKepEfLBZ0M5X4aY=" }
+"github.com/prometheus/common@v0.70.1" = { mod = "sha256-75vgrDmC8lz2H2cIX1DBS1gOYp+Ga8FGyCVryisvmG8=", zip = "sha256-WH1tCJBkLn+e8s5qds323L1x9wxZQ3KCouGcmM9owrg=" }
 "github.com/prometheus/procfs@v0.20.1" = { mod = "sha256-Si4FaR5BA1UZL/+Jsi2Gc/FcISswesP11KSLYCZ2kZM=", zip = "sha256-d2N2GAow554tN0SmGVsZiXsVYbDK3lO3MKD0z+IMqHE=" }
+"github.com/prometheus/procfs@v0.22.0" = { mod = "sha256-i+17hQtCU/kBYJVKwNJ3oC67vzq5x8n7X8IVYtlk5zs=", zip = "sha256-4T1D2kqXc87N+ouG50W72O/aB7AFQCxnOh6IK227aAQ=" }
 "github.com/remyoudompheng/bigfft@v0.0.0-20230129092748-24d4a6f8daec" = { mod = "sha256-ZAHavO2OA3eWEI0oVZv/wG0TUwXNYiLDzqFTdn6pVoA=", zip = "sha256-m+FsMsOE1V0Pe9ewPx/x6aTkuRsADwqoelZ6Abm4I5g=" }
 "github.com/rivo/uniseg@v0.2.0" = { mod = "sha256-bHMYonqNVHOo62YedfsAUoF24O/FkxDtJ3yhO9EqU/E=" }
 "github.com/rivo/uniseg@v0.4.7" = { mod = "sha256-oeF0iQ/J8lJFAhH63rU3VvnPWrexlpd2X5+yVfgeqJg=", zip = "sha256-uZXkqgzB5XecxhE4rJJcuMHpY+QMgOS5PuhVOBLrt5I=" }
@@ -475,6 +497,7 @@
 "github.com/rogpeppe/fastuuid@v1.2.0" = { mod = "sha256-bfE4kdZzRMoMjW6NfTkvJGdL89mznZOTtAc+SQl1Wgw=" }
 "github.com/rogpeppe/go-internal@v1.14.1" = { mod = "sha256-UUaFAiOkYNe/tePkyvMjM390WQPoKclgg70smnIsr40=", zip = "sha256-qz0YKDzvL0bd/UibaxS5cOt9u7ZCeG8CXuGsUpHcTnA=" }
 "github.com/rogpeppe/go-internal@v1.15.0" = { mod = "sha256-H/o/PB0q2dQFE69mEMIdUq4oOWKGeYVN9CEhL2op7Cc=", zip = "sha256-yE2VgYFhhAfmHw+DfAoiYBbMe7DebSbS2C/UduO/H3A=" }
+"github.com/rogpeppe/go-internal@v1.16.0" = { mod = "sha256-H/o/PB0q2dQFE69mEMIdUq4oOWKGeYVN9CEhL2op7Cc=", zip = "sha256-AgSNijruKtD5vN5a5mWaGbaMJEg9I1jLKl8PQdQttcY=" }
 "github.com/rogpeppe/go-internal@v1.3.0" = { mod = "sha256-M7Veg5sHVCg8Pu7B8z4WzGZDLf+4uKltJPU20B5RSVs=" }
 "github.com/rogpeppe/go-internal@v1.9.0" = { mod = "sha256-kFmpfaKZDIGaCXZ6XpvYeEtFpXt6JeKQVbvRsKqhRP8=" }
 "github.com/russross/blackfriday/v2@v2.1.0" = { mod = "sha256-w5VHzOboZujPo5XSk3vOMIAc0H8LkBwhMySPH7oS9Y0=", zip = "sha256-eFJ1DVigU844sB8sIDIIgXVk9VLr83GytjAIHXAExq4=" }
@@ -482,9 +505,12 @@
 "github.com/sagikazarmark/locafero@v0.12.0" = { mod = "sha256-1JthR6VC6OqPy1/dHLoNBgzzMLnTltMi1bWpr/mC0fs=", zip = "sha256-5CdRrlM+T3ZC31ULL6+3Cg5dFtwc4FUcgAsHuGQH/RE=" }
 "github.com/sanity-io/litter@v1.5.8" = { mod = "sha256-kgLEtD1iopGzemzsqxCj2ER2eCbCLpr0vqmARmf+Bgs=", zip = "sha256-SID89Y9NL3Eic7/RI6FNkxYWWQVGhcyxGroxVh4bsXs=" }
 "github.com/santhosh-tekuri/jsonschema/v6@v6.0.2" = { mod = "sha256-SPXhOGM9TYW+n2zUR+LbMqq9AOUwoApFmFaVr14DcuU=", zip = "sha256-/l64hhTlYNIHLR+VcIrCF7bLBHeJUxrWMxFOwnczhjU=" }
+"github.com/santhosh-tekuri/jsonschema/v6@v6.0.3" = { mod = "sha256-SPXhOGM9TYW+n2zUR+LbMqq9AOUwoApFmFaVr14DcuU=", zip = "sha256-eSglg4iN5v0UblE/AeCb07Iol2lC0hFGiOl2CCebHr4=" }
 "github.com/segmentio/asm@v1.2.1" = { mod = "sha256-XiZO8PwJJTIrPvi822NMmjsICQ+Qf1DObfxkj6noPyw=", zip = "sha256-BO4D7QlyMpw8j6HNV6MDl743uC8+K6IlHVa6nG+8HZk=" }
 "github.com/sethvargo/go-retry@v0.3.0" = { mod = "sha256-iVRUQcygI0BPp8ZCAJCZfhKrI5s9Fn/ntncDwtELuUs=", zip = "sha256-VOxtid2Fe1ta2ixEao5W61Y3iCmp9qAxMzaP+Dz4sAU=" }
+"github.com/sethvargo/go-retry@v0.4.0" = { mod = "sha256-Z2aL6nzuyMFgYzvoo3oQnVJvK9iONvZUO9127seZwrk=", zip = "sha256-q6peyrrUATZROLSZv592q0Ym53OX16EIhaSbsEkdrkE=" }
 "github.com/shopspring/decimal@v1.4.0" = { mod = "sha256-/IqOH6FOSYhOyfliVjpO9R+gqbv7fbyy7IlY4fAJiMk=", zip = "sha256-dR1M00YJhK/HKXPSoN9W7ZsQSZxc0FCNfyIHJF2eMxU=" }
+"github.com/sirupsen/logrus@v1.10.2" = { mod = "sha256-CuHo8uaQgH/VTjwuPLgyaBW6pU27Kwv3eYxz8+wGHEg=", zip = "sha256-c6QHN9qGaC3VNuwsh9/w9Ynu7tgYczYrCO0AmBh0e1I=" }
 "github.com/sirupsen/logrus@v1.4.2" = { mod = "sha256-bGu7yl+tfqm4Y9nsmcMMqneAV4VAWyHnDXV4O1GUxng=" }
 "github.com/sirupsen/logrus@v1.9.0" = { mod = "sha256-AeghItVH0SKBUaYj/mysxNepyzGKD2aM4Iu2tn/bKLE=" }
 "github.com/sirupsen/logrus@v1.9.4" = { mod = "sha256-Zb1ZE7gY1IO9DJIEHjmk7Bd2b4kHMYrqAt+GWPRjJOg=", zip = "sha256-OEfQDF7mlI8f8NASC8NDxVzoUr7LdyD48I9T7s/p5Dc=" }
@@ -507,6 +533,7 @@
 "github.com/stretchr/objx@v0.5.3" = { mod = "sha256-Z5G17fe9CtEvU6BGcY0ks6OVGRQZFnqgvaYE6GaJLMU=", zip = "sha256-zcgEBRsG787qde6bC2NJ0vkvF81Gxhk8So37D1FGWkQ=" }
 "github.com/stretchr/testify@v0.0.0-20161117074351-18a02ba4a312" = { mod = "sha256-SrRj9ow3AEH5UMEMq1EEkD1FmMUM+CT5qtG3t/aSVa8=" }
 "github.com/stretchr/testify@v1.11.1" = { mod = "sha256-WEavIEBD8p3yhQJhCb8y22UZw9fh1cOmX++xdPnYHTM=", zip = "sha256-tzJbVh6tUwS3K58yrryHH/SbOCNmfVMKSf1sjzrfyW4=" }
+"github.com/stretchr/testify@v1.12.1" = { mod = "sha256-pqqSHqbe3By7OE08G3nFi25dbOJtE7eG7GCpmAmuHao=", zip = "sha256-aHTtHEsLfp/rJ5ibFsF5s2WQAgYzQ2riYM78X1VlWJ8=" }
 "github.com/stretchr/testify@v1.2.2" = { mod = "sha256-SrRj9ow3AEH5UMEMq1EEkD1FmMUM+CT5qtG3t/aSVa8=" }
 "github.com/stretchr/testify@v1.4.0" = { mod = "sha256-awx7cQMNT8VdTm5uJMC/wCViE0H3YUHjrsAETEzomVA=" }
 "github.com/stretchr/testify@v1.5.1" = { mod = "sha256-46EcKmxf4G+KIh5yiWhJF6xJrQEjP4G1HINgdzcH5wA=" }
@@ -554,10 +581,13 @@
 "go.opentelemetry.io/otel@v1.43.0" = { mod = "sha256-hMnLKsfzmD9GW0M1rEqaA3stm08iU8u3SsRUjUBaAe0=", zip = "sha256-F30kx551aVDEMaqHwcYTu4B8x/5DUmC3LF9nWwFlGSE=" }
 "go.opentelemetry.io/proto/otlp@v0.7.0" = { mod = "sha256-TRmnT/vVpzXXjXH7vjeM1+iXpQdloNIYpwHE6O1pRUo=" }
 "go.opentelemetry.io/proto/otlp@v1.10.0" = { mod = "sha256-8UBxP6E31PWsYYLfyfFZgztVxxXBWXOJ3VvRG1yaYiE=", zip = "sha256-GZJ4ND+aZpUwIyeGAThNvJ9CiWwuBYG/vWW9XwRKmmY=" }
+"go.opentelemetry.io/proto/otlp@v1.11.0" = { mod = "sha256-HGTFdYvBZyH47g8UBb5ozEZCUt4x8S66cruKcyKP5yA=", zip = "sha256-eQuY1HLnCVUR+n/t3QTh2FvYRCJuA7pIK9QQXvIhfgk=" }
 "go.uber.org/goleak@v1.3.0" = { mod = "sha256-PxXcY1Sq6P5C08vRMCMHMdXGquaqZRympz9MZGzaj+w=", zip = "sha256-cO3vDOfYMNmS8CTlJ/00UgabiE+UoneHpxi9aN1iBwI=" }
 "go.uber.org/multierr@v1.11.0" = { mod = "sha256-WKMN3nMKuldXZxXZCEF3T2NEqHn+xWM6LGazfsMMEfA=", zip = "sha256-Ikm10v3OYfbuZhpnnYVSWZrwhKdhy7yHHad2Qb3c4MM=" }
 "go.yaml.in/yaml/v2@v2.4.3" = { mod = "sha256-1B/qCsng33FUnvHyy/3t00t3yrqDPeuSve/bNGQeNL0=", zip = "sha256-uswaye1gC+LfWPiLiNXBtvZHNSb6QGn2FUn2S4Gwn0E=" }
+"go.yaml.in/yaml/v2@v2.4.4" = { mod = "sha256-S7o0NYioqB9cxIhNPXrH9d1hKyGvWdPy6+o37Edgebs=", zip = "sha256-G5impJjPJVxfKYLTLHRjO8eWl3CVfpgQOsHhQ0WqRXY=" }
 "go.yaml.in/yaml/v3@v3.0.4" = { mod = "sha256-KYn4uABgWJCtQM9JEJsLapcr2nnZLfI21A3beYCTEn4=", zip = "sha256-Axfa5W6qnplURnyHaP1qibogBfFTTiwm/OUWOtjS7zE=" }
+"go.yaml.in/yaml/v3@v3.0.5" = { mod = "sha256-S/neiJHU1xUH2SVoAi+CQfuCjY0KbJIEwTC/Aw8+Oy8=", zip = "sha256-8tcMqjX2YoOuxYuImvjF8Hw3TFk0vienOMEhUmPhkgU=" }
 "golang.org/x/crypto@v0.0.0-20190308221718-c2843e01d9a2" = { mod = "sha256-M+0HClpm4JYGhaxThkQOG1mJnnTYo4oRgGhecqIZXe0=" }
 "golang.org/x/crypto@v0.0.0-20190510104115-cbcb75029529" = { mod = "sha256-OrnwH0YQ/ns5vYXWjo2XglNR5+KCw5zaQUV8KidvO+M=" }
 "golang.org/x/crypto@v0.0.0-20190605123033-f99c8df09eb5" = { mod = "sha256-OrnwH0YQ/ns5vYXWjo2XglNR5+KCw5zaQUV8KidvO+M=" }
@@ -566,6 +596,7 @@
 "golang.org/x/crypto@v0.0.0-20210921155107-089bfa567519" = { mod = "sha256-zWMRYSoqpNDX4DxBs6ofvC1fiVqz9hCJ+rgL/p+PVIU=" }
 "golang.org/x/crypto@v0.52.0" = { mod = "sha256-khN8FoJxn9CPGhAv/88/RSddHDqrgVpeEQ1YxC/LDkk=", zip = "sha256-pNykT0Z6PYdFrvQRR8e8apDNz9qcQq4FhYiL8EbHlB4=" }
 "golang.org/x/crypto@v0.53.0" = { mod = "sha256-5kGfR2USqPXZDMufxx4i30hJ7/Ixbg+Tjcgs9PEbvl8=", zip = "sha256-kO+ZZ14Ws+UQWoDZMAf6r13picIfpaRzObUGLnIyDJ4=" }
+"golang.org/x/crypto@v0.57.0" = { mod = "sha256-k0OPyQzKFbGyU76d9kjKVPuAg4QAI5zClPeUyi8kJXU=", zip = "sha256-hWyRa5Lx/FtTmDwE9iSfYy9WxH68ADu838UDUA37WLg=" }
 "golang.org/x/exp@v0.0.0-20190121172915-509febef88a4" = { mod = "sha256-n/HQfKjAlFhFDrX0B2qgOQ71x9sMepQhUOiCWKeLU4M=" }
 "golang.org/x/exp@v0.0.0-20190306152737-a1d7652674e8" = { mod = "sha256-n/HQfKjAlFhFDrX0B2qgOQ71x9sMepQhUOiCWKeLU4M=" }
 "golang.org/x/exp@v0.0.0-20190510132918-efd6b22b2522" = { mod = "sha256-ek5Zmvq0IQ2nxD5mNEEfLjs0WPkJhpB201EKjkS6JHw=" }
@@ -580,6 +611,7 @@
 "golang.org/x/image@v0.0.0-20190227222117-0694c2d4d067" = { mod = "sha256-m5BaeoyEzp4WR2DAkHG5UwHo09QC7ZYhc/EvkritYvw=" }
 "golang.org/x/image@v0.0.0-20190802002840-cff245a6509b" = { mod = "sha256-T6lK1B2cSwlwRLC3/CHKA9eOBw6ewQpsnDEfBdDVHQA=" }
 "golang.org/x/image@v0.43.0" = { mod = "sha256-9d8ov+PbeeMKmDD9xDj7TA5fz47Pzgd3xNAnjSMkLss=", zip = "sha256-LIBE09Mj/y0U3iKFkZiTC2Hj6ax+cm3O8dwyzmK1T0M=" }
+"golang.org/x/image@v0.46.0" = { mod = "sha256-70Sfws6BJht7QW+ONUe93ct75C2qsrlwLhZ//jdlh84=", zip = "sha256-EEWaF8NTPMnKTRrHqGZ0vwwFFLe6xyFTGzwReM/NqC4=" }
 "golang.org/x/lint@v0.0.0-20181026193005-c67002cb31c3" = { mod = "sha256-FpsFIlyOJylyfgZ5rjkRkY3+HEsYvtXuD64p+e13sgc=" }
 "golang.org/x/lint@v0.0.0-20190227174305-5b3e6a55c961" = { mod = "sha256-joa1hp21inZZ5IWwfbzjvrEXChU2MVeeUPTL9US7E0I=" }
 "golang.org/x/lint@v0.0.0-20190301231843-5614ed5bae6f" = { mod = "sha256-FpsFIlyOJylyfgZ5rjkRkY3+HEsYvtXuD64p+e13sgc=" }
@@ -605,6 +637,7 @@
 "golang.org/x/mod@v0.4.0" = { mod = "sha256-sojwiP2FGIWm00gzni9YjlipTmx25eY0rh1nwnSetBM=" }
 "golang.org/x/mod@v0.4.1" = { mod = "sha256-sojwiP2FGIWm00gzni9YjlipTmx25eY0rh1nwnSetBM=" }
 "golang.org/x/mod@v0.4.2" = { mod = "sha256-sojwiP2FGIWm00gzni9YjlipTmx25eY0rh1nwnSetBM=" }
+"golang.org/x/mod@v0.41.0" = { mod = "sha256-/Ftk71H9kvS4dj671vqVpwBp0pnH3g98ZmYe8kKD6ww=", zip = "sha256-IB5njQo1sYskar5Y2AAXt11gviHLr0y7npY7SIclZak=" }
 "golang.org/x/mod@v0.6.0-dev.0.20220419223038-86c51ed26bb4" = { mod = "sha256-QtGQI/+PLq5wC8VJXzcezZmKItGbqYXQr19pkAslQIM=" }
 "golang.org/x/mod@v0.8.0" = { mod = "sha256-YkVnRZxumUesSr3gtwNO5h3Ltqk3P1lwCUwLs+gSGWQ=" }
 "golang.org/x/net@v0.0.0-20180724234803-3673e40ba225" = { mod = "sha256-Pgj0h93aGFG4kd9bHQS7GgG4TW1wKqgtnvvM3gqn34E=" }
@@ -656,6 +689,7 @@
 "golang.org/x/net@v0.0.0-20221014081412-f15817d10f9b" = { mod = "sha256-RchlScbaiI0Gy5B2u6/uyZ9PtWwlnLbilO0+gEM9vKA=" }
 "golang.org/x/net@v0.55.0" = { mod = "sha256-ulbc60K/erTu6nYD2qQWKukgXUggiyq7xlsM29+eYns=", zip = "sha256-IcKc1Yt6At5go8tRItj1m8PJbUdQ+cG7d6Jwpk60LmE=" }
 "golang.org/x/net@v0.56.0" = { mod = "sha256-EHKRUjOmYXpgOjaZaJLKiq/MfYuNwPQ+cUbYPH6knEM=", zip = "sha256-u8l1s+yc2GiSz8UVutwSVlfhNcABYtDaXeM/bQeTBGQ=" }
+"golang.org/x/net@v0.59.0" = { mod = "sha256-9wNFh/oBLEPeZtjCdt2rFhAykxq/EWpinaqNZvHIACM=", zip = "sha256-HcO/Mfzr6A05Moisj+XKx/DoLps6JjACHc31/7+j9gE=" }
 "golang.org/x/net@v0.6.0" = { mod = "sha256-Qex26iFy8+4wMeOPmlNZOaWE1rs170gIVP3LjCAmcBs=" }
 "golang.org/x/oauth2@v0.0.0-20180821212333-d2e6202438be" = { mod = "sha256-y7thjah9T5Q7VL/U9NOi//NhApjwT77rPbOIywdfNRo=" }
 "golang.org/x/oauth2@v0.0.0-20190226205417-e64efc72b421" = { mod = "sha256-hp9E5OzVzaUxZVEKMIUVZw3X7ckgBegHnKClyGRSmys=" }
@@ -700,6 +734,7 @@
 "golang.org/x/sync@v0.1.0" = { mod = "sha256-Qh9hOWhtWJHz3FpWPQmVeA0yefZcrU0iXOpSaGeUFhw=" }
 "golang.org/x/sync@v0.20.0" = { mod = "sha256-o+KedgYL1WEGBFSx+ivc1mZ09gycqTgzuBBjVeNMYDw=", zip = "sha256-cXnU1ogA9v3K251LvxHLtd+bQDYMiTBcID/iByPL03U=" }
 "golang.org/x/sync@v0.21.0" = { mod = "sha256-o+KedgYL1WEGBFSx+ivc1mZ09gycqTgzuBBjVeNMYDw=", zip = "sha256-7mVFkCPefySDb24hIxRLUym9Ck0FqHw8RIUJN44ua+c=" }
+"golang.org/x/sync@v0.23.0" = { mod = "sha256-/r9P7V3BLA3iRSj3Blvwccx0okJAcBlKryRhe5EGbNo=", zip = "sha256-wZoRurpcGgk8tP0vbQ2NeWc8l6gssP4taTybathPD4I=" }
 "golang.org/x/sys@v0.0.0-20180830151530-49385e6e1522" = { mod = "sha256-iWkRXko5EIhIMk55ob2KhEUjDm46rMvp+AV/tQ//yME=" }
 "golang.org/x/sys@v0.0.0-20180909124046-d0be0721c37e" = { mod = "sha256-iWkRXko5EIhIMk55ob2KhEUjDm46rMvp+AV/tQ//yME=" }
 "golang.org/x/sys@v0.0.0-20180926160741-c2ed4eda69e7" = { mod = "sha256-iWkRXko5EIhIMk55ob2KhEUjDm46rMvp+AV/tQ//yME=" }
@@ -770,13 +805,16 @@
 "golang.org/x/sys@v0.35.0" = { mod = "sha256-9n4+GPTAjmCn6Acmqza2kf3Opbga4caW/2TK9Ri8/j0=", zip = "sha256-3DwgYRFoqqj9oNcZmb4aUiKgule8dnyXilkOQf8u3jU=" }
 "golang.org/x/sys@v0.45.0" = { mod = "sha256-V/Q5PqGNVEahI2OzXCOmFthD+hZpxxIacKK8OpZ31mU=", zip = "sha256-5RwciARbTtvkitgQEiExOB/1Qcie29l++DPtZlO1nmo=" }
 "golang.org/x/sys@v0.46.0" = { mod = "sha256-V/Q5PqGNVEahI2OzXCOmFthD+hZpxxIacKK8OpZ31mU=", zip = "sha256-NtyDtrxYhNJgzb2dCeWXse7WTRXf3DdMpuMa75nVM9c=" }
+"golang.org/x/sys@v0.48.0" = { mod = "sha256-lSL0yYBtHCZYbqgPpWKSkpvSlYZecZgZJ/UplsaxyDE=", zip = "sha256-OkfgZDG6HiTVsqyjp84x/RP6/zTfPl2OY/EF/50MF4Y=" }
 "golang.org/x/sys@v0.5.0" = { mod = "sha256-8DMzMJb+GY8xUd7tk/LeunTlC7/nc5E0BFvDt85KUCQ=" }
 "golang.org/x/telemetry@v0.0.0-20260428171046-76f71b9afea0" = { mod = "sha256-olgqvchQeKKDOeXkrlJiPiLYdsqJNO/nTJlpsn/5cdA=", zip = "sha256-1gYjdN5N+nZ+4onwDqrMELDk8ueR2IAm2os6vQPAC5Q=" }
 "golang.org/x/telemetry@v0.0.0-20260625142307-59b4966ccb57" = { mod = "sha256-Z581ELuCPC8IwovSkozze6dGY8lKZdqNYwH+MMBMjJs=", zip = "sha256-DKxLID6SgitEPSEEWOOg2KXnLoUBgjj3X2213+acPso=" }
+"golang.org/x/telemetry@v0.0.0-20260811182544-a038080d80e5" = { mod = "sha256-E5w4fnmxp+i6X/aYXMG+sQMeLQRGA7kexZyLKZiKj4o=", zip = "sha256-AjhF10fSs/5YOekr0ez8PJBHlXnC/mi32pxD/Tw5kls=" }
 "golang.org/x/term@v0.0.0-20201126162022-7de9c90e9dd1" = { mod = "sha256-TLqxT3cGdxsnHZlaGzzBMf5aJGqtx+5tG6bwvYlHgfo=" }
 "golang.org/x/term@v0.0.0-20210927222741-03fcf44c2211" = { mod = "sha256-dAeU4pFPXMh+JWVsWEMiKyxlZlghIF9FYyoEd8jT95s=" }
 "golang.org/x/term@v0.34.0" = { mod = "sha256-pf+AuqfyY5257Z30bvbOKf0asbQnXpuKaFaqm47N4no=", zip = "sha256-IigcvzBWBDPVfejXLBFR+crCkXeV3G6faU96Ulu1MJw=" }
 "golang.org/x/term@v0.44.0" = { mod = "sha256-we1CB1+9GUCm7DTLsa9v/yQLXHbnp1WZAj+hOKES6Ug=", zip = "sha256-5CDGZAASppfYBsLoZd8mmTyCqasbFtKGeHy3f8EAYvc=" }
+"golang.org/x/term@v0.46.0" = { mod = "sha256-+Ux70Dan0YmVC3dZo/EF57zHFk3InYDRhsfoqQPWwzI=", zip = "sha256-kUf92YLxrtE5IYPVtIBV9PdMhdSWYEdmx/Cx07vWHHw=" }
 "golang.org/x/term@v0.5.0" = { mod = "sha256-DW9YIoqtwaZSjmdV2gGFFlZuOuXFIB963hdz9W+o2TQ=" }
 "golang.org/x/text@v0.0.0-20170915032832-14c0d48ead0c" = { mod = "sha256-NoedWG/YAB6E2oeHGQoR5PeHSeKoHf6Lm2kxiZ//Mc8=" }
 "golang.org/x/text@v0.14.0" = { mod = "sha256-lxV58X6avFkmq3YhT1M71RfPSSXIhSQ6xHVaGgp8ae8=" }
@@ -792,11 +830,13 @@
 "golang.org/x/text@v0.3.8" = { mod = "sha256-DAbo1LwMTt3OD5ygGth92f90ytf6i6Fm/pfZfR3rJ64=" }
 "golang.org/x/text@v0.37.0" = { mod = "sha256-kNWrTkKJ4PnXNcpFYe7iLZ+evNf6BPI1g8fSFAlAlo4=", zip = "sha256-uNR1wXg1q2ArkfEUdoTOtdv0Bg5y5d+y4OM+/JMSqYI=" }
 "golang.org/x/text@v0.39.0" = { mod = "sha256-QOlCXhfcxW+vSWYZ/eaQhjHVeyzOD3ZsTcpr6o/JODg=", zip = "sha256-y/ozER36bLr+9jEDuCxUTTXfQlgkrJTqGWKaEr2/BSM=" }
+"golang.org/x/text@v0.42.0" = { mod = "sha256-R1bEuO7q4qIMtDwZjBBwHSDFNJO9kLkcZjIVPJy6wkA=", zip = "sha256-p7ZOADBWtkcDA/QIICCY2PNxShFfIwkbjKyF7esmVHY=" }
 "golang.org/x/text@v0.7.0" = { mod = "sha256-FZKedvzgSupMkqNUQmu0M3BoRkWk7gPy510MLrFGYwQ=" }
 "golang.org/x/time@v0.0.0-20181108054448-85acf8d2951c" = { mod = "sha256-OOK8+aj1Y6FcL7pX5MIqWWOjipV2ZSGtK288nPhxj8w=" }
 "golang.org/x/time@v0.0.0-20190308202827-9d24e82272b4" = { mod = "sha256-OOK8+aj1Y6FcL7pX5MIqWWOjipV2ZSGtK288nPhxj8w=" }
 "golang.org/x/time@v0.0.0-20191024005414-555d28b269f0" = { mod = "sha256-OOK8+aj1Y6FcL7pX5MIqWWOjipV2ZSGtK288nPhxj8w=" }
 "golang.org/x/time@v0.15.0" = { mod = "sha256-YUmySRyS9nVF/F2gCDp5HjabP5lnDTD1K94GBMSMnmk=", zip = "sha256-jPsg6RX6XWw/0mQwQjP41xozheSKN4GSOcUyrZ2if4Q=" }
+"golang.org/x/time@v0.16.0" = { mod = "sha256-2mb5JZBKl7cF/hjd55SW1xjcqa8qdVvTHaFRqbGg6qo=", zip = "sha256-rCd3e+gIiFm6OxvqNkgGTclf+LrDAjsbBZ0asSbccp4=" }
 "golang.org/x/tools@v0.0.0-20180917221912-90fa682c2a6e" = { mod = "sha256-oOAvBnj+Ytw8S0vHf6kSybcN4Q+p988veq0DNzkrUq8=" }
 "golang.org/x/tools@v0.0.0-20190114222345-bf090417da8b" = { mod = "sha256-oOAvBnj+Ytw8S0vHf6kSybcN4Q+p988veq0DNzkrUq8=" }
 "golang.org/x/tools@v0.0.0-20190226205152-f727befe758c" = { mod = "sha256-JQOCOGkSVVDT+Ive9yggAk/iexQfRLgfw7T1nveDcOs=" }
@@ -852,6 +892,7 @@
 "golang.org/x/tools@v0.1.5" = { mod = "sha256-A2l2BTdO47D6m1AupFbZxq4YNdrCLjW6oqmcQFig/jE=" }
 "golang.org/x/tools@v0.44.0" = { mod = "sha256-S8c3blz/lCWP+FXvzKWCYi/ODgqMo81WwyduO8ie8Cg=", zip = "sha256-6SF0qO96Lg5fN3mYn3ij0y/HUIEpZEb/qsgbkWNnlNo=" }
 "golang.org/x/tools@v0.47.0" = { mod = "sha256-60bkSFD7TcpI97aAysUXdoLLDjArMH1NPb1+2d8F/A8=", zip = "sha256-FD0TK1GdoUVNuWf+u2UkF5aAXXydR1IDQ0HBN2/T1/E=" }
+"golang.org/x/tools@v0.49.0" = { mod = "sha256-huNO/qNbiqUqq/8OoYwO8hfwdN/2fve0xwCugzloz2I=", zip = "sha256-ur0tWgzPTqxJtsl4W+K545smEJeti4prkleLnySHA9U=" }
 "golang.org/x/tools@v0.6.0" = { mod = "sha256-gw7Xjc0+mSfEEuJkEjAwhEd0nVE9MQJNJ24kQ7IBZgk=" }
 "golang.org/x/xerrors@v0.0.0-20190717185122-a985d3407aa7" = { mod = "sha256-ql4+ybt7n2gWCe+sAZ2d4ae6dxkkj/Hqon54iC2z1/U=" }
 "golang.org/x/xerrors@v0.0.0-20191011141410-1b5146add898" = { mod = "sha256-ql4+ybt7n2gWCe+sAZ2d4ae6dxkkj/Hqon54iC2z1/U=" }
@@ -1074,8 +1115,9 @@
 "google.golang.org/protobuf@v1.28.0" = { mod = "sha256-P3xyYKmH3OL9+0jOKvi082SHNQfSGrzM66sKJ0N2Hic=" }
 "google.golang.org/protobuf@v1.28.1" = { mod = "sha256-P3xyYKmH3OL9+0jOKvi082SHNQfSGrzM66sKJ0N2Hic=" }
 "google.golang.org/protobuf@v1.36.11" = { mod = "sha256-p1wQWoUvvY2o2M+sCcLquaIGz9J+03yXNzfiP2MsqW4=", zip = "sha256-FJg9NsVqgU7ZG21lLyuPiVurobhOtDsooLEyyGN80nQ=" }
+"google.golang.org/protobuf@v1.36.12" = { mod = "sha256-p1wQWoUvvY2o2M+sCcLquaIGz9J+03yXNzfiP2MsqW4=", zip = "sha256-aPijF0r/QpUP2b0CwRtFxphuuAYFCNEk0cPda/hrm+Y=" }
 "gopkg.in/check.v1@v0.0.0-20161208181325-20d25e280405" = { mod = "sha256-XDBuDWM81moRtA4uX7vG2kIRDbfXLqPBUkzrRe5Awz8=" }
-"gopkg.in/check.v1@v1.0.0-20180628173108-788fd7840127" = { mod = "sha256-XDBuDWM81moRtA4uX7vG2kIRDbfXLqPBUkzrRe5Awz8=" }
+"gopkg.in/check.v1@v1.0.0-20180628173108-788fd7840127" = { mod = "sha256-XDBuDWM81moRtA4uX7vG2kIRDbfXLqPBUkzrRe5Awz8=", zip = "sha256-S8U17SqsSKIxr4tgBaC19gadrauaPWWx6fH+kcdNjmE=" }
 "gopkg.in/check.v1@v1.0.0-20200227125254-8fa46927fb4f" = { mod = "sha256-XDBuDWM81moRtA4uX7vG2kIRDbfXLqPBUkzrRe5Awz8=" }
 "gopkg.in/check.v1@v1.0.0-20201130134442-10cb98267c6c" = { mod = "sha256-bm4vykDrj+FFXmoIzTmDPHwumiNBqB+xgbidCxxyX0g=", zip = "sha256-9VVoTlxdrMKFDd2zRf7xuPk/VGtyaFWJeJ2m0rBicQ4=" }
 "gopkg.in/errgo.v2@v2.1.0" = { mod = "sha256-4wUgQkglZieWb/hcfcWRzy0OfeIJTQ9GWEnxtioQJ0g=" }
@@ -1097,9 +1139,12 @@
 "honnef.co/go/tools@v0.0.1-2020.1.4" = { mod = "sha256-tiK1Ky2Qhbyk/LoBGmt19WWcucVAnoMNtVvxx0NkyaI=" }
 "lukechampine.com/blake3@v1.4.1" = { mod = "sha256-e0HVnHYiIr2MXyUMhQcXXOjA6vxwgr+8r1aMjRtgS9M=", zip = "sha256-s6Mzim6DC3n7L/HSY/B/P+Ctz7r9BLZeX+FEFWE+Lk0=" }
 "modernc.org/libc@v1.73.4" = { mod = "sha256-Qc4rQyUjK9LOdX/cpu08g7nC8ughpKjQ+F1CLQLbQio=", zip = "sha256-vJBp9k9KjWgTj6Pm264blanemlP0tGJBlMfe4IFC61E=" }
+"modernc.org/libc@v1.75.6" = { mod = "sha256-qpjkJUW42ouwq8JfnD1a6gkupugpUsQVoRyrzM/9geQ=", zip = "sha256-v3eMRaXO4Wm+c7+M674oGhw0NEBtyzy6De2oG9LiA1A=" }
 "modernc.org/mathutil@v1.7.1" = { mod = "sha256-aGgzhSA/4CBNhTuuYAA8M2cW0lJucUm/WPUYFaJHn9g=", zip = "sha256-W+DaGOtVehGYv+Nw43Ai8tvbnNxdYxMPyOgzCrJAvS4=" }
 "modernc.org/memory@v1.11.0" = { mod = "sha256-6YkNO5eU1Ao3A6qYCe3E4THLtVooMbYCMUB26Rxazpc=", zip = "sha256-STC4HRCBim0RSXIE/gay7cNZE2p4gVhjY8qmlMhgfQw=" }
+"modernc.org/memory@v1.12.1" = { mod = "sha256-6YkNO5eU1Ao3A6qYCe3E4THLtVooMbYCMUB26Rxazpc=", zip = "sha256-4lWI8QDZdvt1/5HtuLTqbtg31n/1ql1C5qiJP7MHkKw=" }
 "modernc.org/sqlite@v1.53.0" = { mod = "sha256-xfeYJDs7G06C9Uucv3GzlAeLKMHp8YkZ8OyWfQbzp7Q=", zip = "sha256-XYVEPvpODH8o6lMz6wezDfPwtbmY6jY9JfDzK8b+Qio=" }
+"modernc.org/sqlite@v1.57.0" = { mod = "sha256-FtSPIsEvKVvbK0V0cyI7+pbCtIDQv7MkPo7MV39J8Qo=", zip = "sha256-NpdZ22Vk2CxPs0dZ6vgjmODLMNwe0pfy96ORL3Na/5w=" }
 "rsc.io/binaryregexp@v0.2.0" = { mod = "sha256-AyRzu+VUpUpEX6hVu7K/piNNeG9h8ZJt6WtaqF6R8T0=" }
 "rsc.io/quote/v3@v3.1.0" = { mod = "sha256-shHZ8WtVQpcPA6LmJJ30UDgwSjehoMQdbr0a6xQWqSM=" }
 "rsc.io/sampler@v1.3.0" = { mod = "sha256-oq5uhUCkC4XldwPMYYuZxbEHU4bZWOiZmg4tTALzpwU=" }
