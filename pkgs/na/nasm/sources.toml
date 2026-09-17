@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/netwide-assembler/nasm"
+
+[[source]]
+key = "default"
+url = "https://www.nasm.us/pub/nasm/releasebuilds/{version}/nasm-{version}.tar.xz"
+hash = "sha256-saA40GNccQqfG/ZhoVFfhVcQ0YkIOU25f7Nm/AQsbgI="
+
+[pin]
+version = "3.02"
+tag = "nasm-3.02"

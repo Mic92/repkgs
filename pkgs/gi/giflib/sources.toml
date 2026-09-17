@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:generic/giflib?url=https://sourceforge.net/projects/giflib/files/"
+
+[[source]]
+key = "default"
+url = "https://downloads.sourceforge.net/giflib/giflib-{version}.tar.gz"
+hash = "sha256-ypqToRx7qOUHF7kUUcDom1tYFr/chrUH8r1Xb9Cwyro="
+
+[pin]
+version = "6.1.3"
+date = "2026-04-12"

@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/webmproject/libwebp"
+
+[[source]]
+key = "default"
+url = "https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-{version}.tar.gz"
+hash = "sha256-OL08KaKdtyg0OVTkAMmgMhAT7Gb+FrXdIZFwQ0rbBjw="
+
+[pin]
+version = "1.6.0"
+tag = "v1.6.0"
