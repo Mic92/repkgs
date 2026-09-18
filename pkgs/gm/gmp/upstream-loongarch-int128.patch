@@ -1,0 +1,14 @@
+gmp 6.3.0 longlong.h spells the type `unsigned __int128__` in the loongarch64 umul_ppmm, which
+only GCC parses. Upstream's longlong.h has said `unsigned __int128` since.
+
+--- a/longlong.h
++++ b/longlong.h
+@@ -1162,7 +1162,7 @@
+   do {									\
+     UDItype __u = (u), __v = (v);					\
+     (w0) = __u * __v;							\
+-    (w1) = (unsigned __int128__) __u * __v >> 64;			\
++    (w1) = (unsigned __int128) __u * __v >> 64;				\
+   } while (0)
+ #endif
+ 
