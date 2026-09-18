@@ -7,8 +7,10 @@ use ../../../bootstrap/lib.nu *
 # checks for GCC-only flags clang does not need (upstream-ppc64le-clang.patch)
 const CPU_FLAGS = {
   x86_64: [--enable-cet libc_cv_have_x86_lahf_sahf=yes libc_cv_have_x86_movbe=yes]
-  # ldbl-opt's -mlong-double-128 probe is written as a nested function, a GCC extension
-  powerpc64le: [--with-long-double-format=ieee libc_cv_no_gnu_attr_ok=yes libc_cv_mlong_double_128=yes]
+  # --with-cpu: preconfigure greps GCC's `.machine`, clang has none (power9 = no f128 ifuncs).
+  # no fortify: clang's asprintf wrapper wants a hidden __vasprintf_chk ieee128 alias libc lacks.
+  # mlong_double_128: the probe is a nested function
+  powerpc64le: [--with-cpu=power9 --enable-fortify-source=no libc_cv_no_gnu_attr_ok=yes libc_cv_mlong_double_128=yes]
 }
 
 const BINUTILS = {LD: "ld.lld", AR: "llvm-ar", NM: "llvm-nm", OBJCOPY: "llvm-objcopy", OBJDUMP: "llvm-objdump", READELF: "llvm-readelf", STRIP: "llvm-strip"}
