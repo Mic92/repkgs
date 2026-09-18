@@ -22,6 +22,9 @@ package {
         # package, which only the functional tests use
         let deps = (open --raw pythondeps.toml | lines | where { $in !~ '^"(qemu|setuptools|wheel|pip)" =' })
         $deps | str join "\n" | save -f pythondeps.toml
+        # an error-attribute stub for hosts GCC gives no 16-byte cmpxchg. clang has one through
+        # compiler-rt's libcalls, so HAVE_CMPXCHG128 holds and the generic CAS loop is wanted
+        rm host/include/loongarch64/host/store-insert-al16.h.inc
         cd $c.build
         # --cross-prefix is what switches configure to a cross build
         $env.PKG_CONFIG = "pkg-config"
