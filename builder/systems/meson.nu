@@ -54,7 +54,7 @@ export def configure []: nothing -> nothing {
     prefix: $c.out
     libdir: "lib"
     sbindir: "bin"
-    buildtype: (if ($c.spec.profile? | default "release") == "debug" { "debug" } else { "plain" })  # plain: cc brings -O2 -g itself
+    buildtype: "plain"  # cc brings -O2 -g itself
     default_library: "shared"
     wrap_mode: "nodownload"
     auto_features: "disabled"   # nothing found by accident; packages enable what they declare
