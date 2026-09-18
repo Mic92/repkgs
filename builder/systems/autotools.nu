@@ -28,6 +28,8 @@ const BACKPORTS = [
   # libtool < 2.5 loses compiler-rt's builtins (___chkstk_ms, __divti3) relinking a C++ library
   # -nostdlib: configure keeps only -l/-L words of `$CC -v`, ltmain drops static archive deplibs
   ["**/configure" "    -L* | -R* | -l*)\n       # Some compilers place" "    -L* | -R* | -l* | */libclang_rt.*.a)\n       # Some compilers place"]
+  # config.sub between 2018-05 and 2020-12 validates cpu names and predates loongarch
+  ["**/config.sub" "| riscv | riscv32 | riscv64 \\" "| loongarch32 | loongarch64 | riscv | riscv32 | riscv64 \\"]
   ["**/ltmain.sh" "\t    # Linking convenience modules into shared libraries is allowed,\n" "\t    case $deplib in */libgcc*.$libext | */libclang_rt*.$libext) deplibs=\"$deplib $deplibs\"; continue ;; esac\n\t    # Linking convenience modules into shared libraries is allowed,\n"]
 ]
 
