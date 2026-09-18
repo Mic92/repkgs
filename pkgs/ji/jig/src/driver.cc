@@ -217,15 +217,16 @@ auto CollectRunpath(const DriverConf& conf, bool cxx, UserArgs& user) -> size_t 
 // What differs per binary format: how the build system's arguments pass through, what every
 // command line gets, and the link policy that makes the output relocatable
 struct BinFmtPolicy {
-  bool takes_rpath;  // the build system's -rpath requests become ours to render
-  auto (*arg)(const std::string& arg) -> std::optional<std::string>;  // as passed on, nullopt drops it
-  void (*always)(std::vector<std::string>& out);
-  void (*link)(const DriverConf& conf, bool cxx, UserArgs& user, std::vector<std::string>& out);
+  bool takes_rpath = false;  // the build system's -rpath requests become ours to render
+  auto (*arg)(const std::string& arg) -> std::optional<std::string> = nullptr;  // as passed on, nullopt drops it
+  void (*always)(std::vector<std::string>& out) = nullptr;
+  void (*link)(const DriverConf& conf, bool cxx, UserArgs& user, std::vector<std::string>& out) = nullptr;
+  void (*libs)(const DriverConf& conf, UserArgs& user) = nullptr;  // every link, -nostartfiles ones too
 };
 
 auto KeepArg(const std::string& arg) -> std::optional<std::string> { return arg; }
 void NoFlags(std::vector<std::string>& /*out*/) {}
-void NoLinkPolicy(const DriverConf& /*conf*/, bool /*cxx*/, UserArgs& /*user*/, std::vector<std::string>& /*out*/) {}
+void NoLink(const DriverConf& /*conf*/, bool /*cxx*/, UserArgs& /*user*/, std::vector<std::string>& /*out*/) {}
 
 // ELF: the build system's dynamic linker request is dropped, ours wins
 auto ElfArg(const std::string& arg) -> std::optional<std::string> {
@@ -273,18 +274,10 @@ void MachOLink(const DriverConf& /*conf*/, bool /*cxx*/, UserArgs& /*user*/, std
 }
 
 // COFF: PE is position independent by construction and clang rejects the PIC flags. MSVC's STL
-// has no C++11 mode, older -std requests mean c++14. Library names are case-insensitive on
-// Windows and build files spell them any way (-lWS2_32). Ours are lower-case, and the build
-// host's file system compares bytes
+// has no C++11 mode, older -std requests mean c++14
 auto CoffArg(const std::string& arg) -> std::optional<std::string> {
   if (IsPicArg(arg)) {
     return std::nullopt;
-  }
-  if (arg.starts_with("-l") && !arg.contains('/')) {
-    std::string lower = arg;
-    std::transform(lower.begin() + 2, lower.end(), lower.begin() + 2,
-                   [](unsigned char chr) -> char { return static_cast<char>(std::tolower(chr)); });
-    return lower;
   }
   for (const std::string_view old : {"++98", "++03", "++0x", "++11"}) {
     if ((arg.starts_with("-std=c") || arg.starts_with("-std=gnu")) && arg.ends_with(old)) {
@@ -294,12 +287,40 @@ auto CoffArg(const std::string& arg) -> std::optional<std::string> {
   return arg;
 }
 
+// Library names are case-insensitive on Windows and build files spell the system ones any way
+// (-lWS2_32, -lWS2_32.lib). mingw-w64's import libs and the SDK's symlinks are lower-case and the
+// build host compares bytes, so a -l that no -L dir has as spelled is lower-cased
+void CoffLibs(const DriverConf& conf, UserArgs& user) {
+  std::vector<std::string> dirs;
+  for (const std::span<const std::string> args :
+       {std::span<const std::string>(user.args), std::span<const std::string>(conf.package.ldflags)}) {
+    for (size_t i = 0; i < args.size(); ++i) {
+      if (std::optional<std::string> dir = FlagValue(args, i, "-L")) {
+        dirs.push_back(*std::move(dir));
+      }
+    }
+  }
+  const auto present = [&](const std::string& name) -> bool {
+    return std::ranges::any_of(dirs, [&](const std::string& dir) -> bool {
+      return fs::exists(std::format("{}/lib{}.dll.a", dir, name)) || fs::exists(std::format("{}/lib{}.a", dir, name)) ||
+             fs::exists(std::format("{}/{}", dir, name));
+    });
+  };
+  for (std::string& arg : user.args) {
+    if (!arg.starts_with("-l") || arg.contains('/') || present(arg.substr(2))) {
+      continue;
+    }
+    std::transform(arg.begin() + 2, arg.end(), arg.begin() + 2,
+                   [](unsigned char chr) -> char { return static_cast<char>(std::tolower(chr)); });
+  }
+}
+
 auto PolicyFor(BinFmt binfmt) -> BinFmtPolicy {
   switch (binfmt) {
     case BinFmt::kMachO:
       return {.takes_rpath = false, .arg = KeepArg, .always = NoFlags, .link = MachOLink};
     case BinFmt::kCoff:
-      return {.takes_rpath = false, .arg = CoffArg, .always = NoFlags, .link = NoLinkPolicy};
+      return {.takes_rpath = false, .arg = CoffArg, .always = NoFlags, .link = NoLink, .libs = CoffLibs};
     case BinFmt::kElf:
       break;
   }
@@ -450,14 +471,19 @@ auto BuildDriverArgs(const DriverConf& conf, Language lang, std::span<const std:
   }
   policy.always(out);
   out.emplace_back("--end-no-unused-arguments");
-  out.insert(out.end(), user.args.begin(), user.args.end());
   // dependency -L dirs after the build tree's own, like a system lib dir would be
+  std::vector<std::string> tail;
   if (user.linking && user.have_input) {
-    out.insert(out.end(), conf.package.ldflags.begin(), conf.package.ldflags.end());
+    tail = conf.package.ldflags;
+    if (policy.libs != nullptr) {
+      policy.libs(conf, user);
+    }
+    if (!user.no_policy) {
+      policy.link(conf, cxx, user, tail);
+    }
   }
-  if (user.linking && user.have_input && !user.no_policy) {
-    policy.link(conf, cxx, user, out);
-  }
+  out.insert(out.end(), user.args.begin(), user.args.end());
+  out.insert(out.end(), tail.begin(), tail.end());
   return out;
 }
 
