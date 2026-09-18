@@ -1,7 +1,8 @@
 // The two-key scheme shared by the C and rustc modes.
-//   k1 = H(tool, cwd, normalised args, primary source bytes)   -> manifest: "input\tid" lines
+//   k1 = H(tool, cwd, normalised args, primary source bytes)   -> manifest: "input\tid" and "!path" lines
 //   k2 = H(k1, manifest)                                        -> artifacts
-// A manifest is valid when every input still has the same id (see Store::InputId).
+// A manifest is valid when every input still has the same id (see Store::InputId) and every
+// "!path" (a lookup the compiler made and missed) still does not exist.
 #pragma once
 
 #include <expected>
@@ -21,7 +22,7 @@ class CacheClient;
 auto ParseDepfile(std::string_view text) -> std::vector<std::string>;
 
 struct Manifest {
-  std::string text;  // "path\tid\n" per input, store paths masked in content mode
+  std::string text;  // "path\tid\n" per input, "!path\n" per absent path, store paths masked in content mode
   ResultKey result_key;
 };
 
@@ -31,9 +32,10 @@ struct Manifest {
 // one IDS round trip for the store files among `paths`. InputId then finds them without hashing
 void PrefetchIdentities(CacheClient& cache, std::span<const std::string> paths);
 
-// `inputs` minus `primary_source` (already in k1) and minus unreadable paths.
+// `inputs` minus `primary_source` (already in k1) and minus unreadable paths. `absent`: paths the
+// compiler looked up and did not find, relative ones against the cwd
 auto BuildManifest(CacheClient& cache, const RequestKey& request_key, std::span<const std::string> inputs,
-                   std::string_view primary_source) -> Manifest;
+                   std::string_view primary_source, std::span<const std::string> absent = {}) -> Manifest;
 
 // Recompute k2 from a stored manifest, or "inputs-changed:<path>" for the first input whose
 // identity moved or vanished

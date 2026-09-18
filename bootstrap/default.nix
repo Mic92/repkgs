@@ -74,6 +74,7 @@ let
       zlib = source "zlib";
       patches = [
         (pkg "llvm" + "/upstream-x86-vastart-stack-probe.patch")
+        (pkg "llvm" + "/jig-absent-log.patch")
       ];
       targets = (import (pkg "llvm" + "/defs.nix")).LLVM_TARGETS_TO_BUILD;
     };

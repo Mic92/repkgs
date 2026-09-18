@@ -1,0 +1,63 @@
+diff --git a/clang/lib/Frontend/CompilerInvocation.cpp b/clang/lib/Frontend/CompilerInvocation.cpp
+index 8898e63..e395359 100644
+--- a/clang/lib/Frontend/CompilerInvocation.cpp
++++ b/clang/lib/Frontend/CompilerInvocation.cpp
+@@ -5502,10 +5502,58 @@ clang::createVFSFromCompilerInvocation(const CompilerInvocation &CI,
+                                          llvm::vfs::getRealFileSystem());
+ }
+ 
++namespace {
++// Appends every path the compiler looked up and did not find to the file named
++// by $JIG_ABSENT_LOG, one per line. A compile cache that records which files
++// were read (the depfile) cannot otherwise tell that a header appearing
++// earlier on the search path would change the result.
++class AbsentPathLogger final : public llvm::vfs::ProxyFileSystem {
++  llvm::raw_fd_ostream Log;
++
++  template <typename T> T note(const Twine &Path, T Result) {
++    if (!Result &&
++        Result.getError() == llvm::errc::no_such_file_or_directory) {
++      SmallString<256> Line;
++      Path.toVector(Line);
++      Line.push_back('\n');
++      Log.write(Line.data(), Line.size()); // one write(2): O_APPEND atomic
++    }
++    return Result;
++  }
++
++public:
++  AbsentPathLogger(IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS,
++                   StringRef LogPath, std::error_code &EC)
++      : ProxyFileSystem(std::move(FS)),
++        Log(LogPath, EC, llvm::sys::fs::OF_Append) {
++    Log.SetUnbuffered();
++  }
++  llvm::ErrorOr<llvm::vfs::Status> status(const Twine &Path) override {
++    return note(Path, ProxyFileSystem::status(Path));
++  }
++  llvm::ErrorOr<std::unique_ptr<llvm::vfs::File>>
++  openFileForRead(const Twine &Path) override {
++    return note(Path, ProxyFileSystem::openFileForRead(Path));
++  }
++  bool exists(const Twine &Path) override {
++    return static_cast<bool>(status(Path));
++  }
++};
++} // namespace
++
+ IntrusiveRefCntPtr<llvm::vfs::FileSystem>
+ clang::createVFSFromCompilerInvocation(
+     const CompilerInvocation &CI, DiagnosticsEngine &Diags,
+     IntrusiveRefCntPtr<llvm::vfs::FileSystem> BaseFS) {
++  if (std::optional<std::string> LogPath =
++          llvm::sys::Process::GetEnv("JIG_ABSENT_LOG")) {
++    std::error_code EC;
++    auto Logger = llvm::makeIntrusiveRefCnt<AbsentPathLogger>(
++        std::move(BaseFS), *LogPath, EC);
++    if (EC)
++      llvm::report_fatal_error(Twine("JIG_ABSENT_LOG: ") + EC.message());
++    BaseFS = std::move(Logger);
++  }
+   return createVFSFromOverlayFiles(CI.getHeaderSearchOpts().VFSOverlayFiles,
+                                    Diags, std::move(BaseFS));
+ }

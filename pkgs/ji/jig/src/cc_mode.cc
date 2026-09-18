@@ -1,5 +1,6 @@
 #include "cc_mode.h"
 
+#include <stdlib.h>  // NOLINT(modernize-deprecated-headers): setenv
 #include <unistd.h>
 
 #include <algorithm>
@@ -273,6 +274,7 @@ struct Observed {
   std::optional<std::string> dep_text;
   std::optional<std::string> link_dep_text;
   std::vector<std::string> inputs;
+  std::vector<std::string> absent;  // looked up and not found (our clang's $JIG_ABSENT_LOG)
 };
 
 auto RunObserved(CacheClient& cache, const std::string& compiler, const Invocation& inv) -> Observed {
@@ -283,6 +285,7 @@ auto RunObserved(CacheClient& cache, const std::string& compiler, const Invocati
   const bool own_depfile = !inv.wants_depfile && !inv.link;
   const fs::path depfile = own_depfile ? fs::path(tmp_base + ".d") : inv.depfile;
   const fs::path link_depfile = tmp_base + ".link.d";
+  const fs::path absent_log = tmp_base + ".absent";
   if (own_depfile) {
     args.insert(args.end(), {"-MD", "-MF", depfile.string()});
   } else if (!inv.link && !IsAssembly(inv.source)) {
@@ -300,12 +303,18 @@ auto RunObserved(CacheClient& cache, const std::string& compiler, const Invocati
   Observed obs;
   {
     const Slot slot(cache, "");
+    ::setenv("JIG_ABSENT_LOG", absent_log.c_str(), 1);  // NOLINT(concurrency-mt-unsafe)
     obs.run = Run(compiler, args, StderrMode::kCapture);
+    ::unsetenv("JIG_ABSENT_LOG");  // NOLINT(concurrency-mt-unsafe)
   }
   std::print(stderr, "{}", obs.run.stderr_text);
   obs.dep_text = inv.link ? std::optional<std::string>("") : ReadFile(depfile);
   obs.link_dep_text = links ? ReadFile(link_depfile) : std::nullopt;
+  if (const std::optional<std::string> text = ReadFile(absent_log)) {
+    obs.absent = Split(*text, '\n');
+  }
   std::error_code ignored;
+  fs::remove(absent_log, ignored);
   if (own_depfile) {
     fs::remove(depfile, ignored);
   }
@@ -332,7 +341,7 @@ auto CompileAndStore(CacheClient& cache, const std::string& compiler, const Requ
   const Store& store = Store::Get();
   const std::string subject = inv.source + " " + why;
   const bool links = inv.link_one || inv.link;
-  const auto [run, dep_text, link_dep_text, inputs] = RunObserved(cache, compiler, inv);
+  const auto [run, dep_text, link_dep_text, inputs, absent] = RunObserved(cache, compiler, inv);
 
   if (run.status != 0) {
     ForwardStdout(inv, std::nullopt);
@@ -342,7 +351,7 @@ auto CompileAndStore(CacheClient& cache, const std::string& compiler, const Requ
       LogOutcome("cc", Outcome::kMissFail, subject, clock);
       return run.status;
     }
-    const Manifest manifest = BuildManifest(cache, request_key, inputs, inv.source);
+    const Manifest manifest = BuildManifest(cache, request_key, inputs, inv.source, absent);
     cache.Put(slot::Manifest(request_key), manifest.text);
     cache.Put(slot::ExitStatus(manifest.result_key), std::to_string(run.status));
     cache.Put(slot::Stderr(manifest.result_key), store.MaskOut(run.stderr_text));
@@ -356,7 +365,7 @@ auto CompileAndStore(CacheClient& cache, const std::string& compiler, const Requ
     LogOutcome("cc", Outcome::kMissUnstored, subject, clock);
     return 0;
   }
-  const Manifest manifest = BuildManifest(cache, request_key, inputs, inv.source);
+  const Manifest manifest = BuildManifest(cache, request_key, inputs, inv.source, absent);
   cache.Put(slot::Manifest(request_key), manifest.text);
   cache.Put(slot::Object(manifest.result_key), store.MaskOut(*object));
   cache.Put(slot::Stderr(manifest.result_key), store.MaskOut(run.stderr_text));
