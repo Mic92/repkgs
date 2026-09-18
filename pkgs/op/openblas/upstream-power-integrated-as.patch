@@ -1,0 +1,383 @@
+clang on POWER: use the integrated assembler.
+
+Makefile.power forces -fno-integrated-as for clang, which needs binutils gas.
+The only thing llvm-mc rejects in the POWER8/9/10 kernels is the power9
+gemm logic files invoking .macro names in a different case than defined
+(gas matches macro names case-insensitively).
+
+--- a/kernel/power/cgemm_logic_power9.S
++++ b/kernel/power/cgemm_logic_power9.S
+@@ -465,7 +465,7 @@
+     li T5, 2048+512 
+     srawi.   T8, T1, 7 /**(K-2) % 128x */
+ #endif   
+-    ZERO4x8  
++    Zero4x8  
+     ble   CGEMM_L4x8_SUB0
+     bl CGEMM_L4x8_LMAIN_SUB
+     andi.   L,  T1, 127
+@@ -614,7 +614,7 @@
+     addi T1,T1, -2
+     srawi.   T8, T1, 5 /**(K-2) % 32x */
+ #endif     
+-    ZERO4x4
++    Zero4x4
+     ble   CGEMM_L4x4_SUB0 
+     bl CGEMM_4x4_LMAIN_SUB
+     andi.   L,  T1, 31
+@@ -733,7 +733,7 @@
+     addi T1,T1, -2
+     srawi.   T8, T1, 5 /**(K-2) % 32x */
+ #endif     
+-    ZERO4x2
++    Zero4x2
+     ble   CGEMM_L4x2_SUB0 
+     bl CGEMM_4x2_LMAIN_SUB
+     andi.   L,  T1, 31
+@@ -852,7 +852,7 @@
+     addi T1,T1, -2
+     srawi.   T8, T1, 5 /**(K-2) % 32x */
+ #endif     
+-    ZERO4x1
++    Zero4x1
+     ble   CGEMM_L4x1_SUB0 
+     bl CGEMM_4x1_LMAIN_SUB
+     andi.   L,  T1, 31
+@@ -1392,7 +1392,7 @@
+     li T5, 2048+512 
+     srawi.   T8, T1, 7 /**(K-2) % 128x */
+ #endif   
+-    ZERO2x8  
++    Zero2x8  
+     ble   CGEMM_L2x8_SUB0
+     bl CGEMM_L2x8_LMAIN_SUB
+     andi.   L,  T1, 127
+@@ -1541,7 +1541,7 @@
+     addi T1,T1, -2
+     srawi.   T8, T1, 5 /**(K-2) % 32x */
+ #endif     
+-    ZERO2x4
++    Zero2x4
+     ble   CGEMM_L2x4_SUB0 
+     bl CGEMM_2x4_LMAIN_SUB
+     andi.   L,  T1, 31
+@@ -1660,7 +1660,7 @@
+     addi T1,T1, -2
+     srawi.   T8, T1, 5 /**(K-2) % 32x */
+ #endif     
+-    ZERO2x2
++    Zero2x2
+     ble   CGEMM_L2x2_SUB0 
+     bl CGEMM_2x2_LMAIN_SUB
+     andi.   L,  T1, 31
+@@ -1779,7 +1779,7 @@
+     addi T1,T1, -2
+     srawi.   T8, T1, 5 /**(K-2) % 32x */
+ #endif     
+-    ZERO2x1
++    Zero2x1
+     ble   CGEMM_L2x1_SUB0 
+     bl CGEMM_2x1_LMAIN_SUB
+     andi.   L,  T1, 31
+@@ -2316,7 +2316,7 @@
+     li T5, 2048+512 
+     srawi.   T8, T1, 7 /**(K-2) % 128x */
+ #endif   
+-    ZERO1x8  
++    Zero1x8  
+     ble   CGEMM_L1x8_SUB0
+     bl CGEMM_L1x8_LMAIN_SUB
+     andi.   L,  T1, 127
+@@ -2465,7 +2465,7 @@
+     addi T1,T1, -2
+     srawi.   T8, T1, 5 /**(K-2) % 31x */
+ #endif     
+-    ZERO1x4
++    Zero1x4
+     ble   CGEMM_L1x4_SUB0 
+     bl CGEMM_1x4_LMAIN_SUB
+     andi.   L,  T1, 31
+@@ -2584,7 +2584,7 @@
+     addi T1,T1, -2
+     srawi.   T8, T1, 5 /**(K-2) % 31x */
+ #endif     
+-    ZERO1x2
++    Zero1x2
+     ble   CGEMM_L1x2_SUB0 
+     bl CGEMM_1x2_LMAIN_SUB
+     andi.   L,  T1, 31
+@@ -2703,7 +2703,7 @@
+     addi T1,T1, -2
+     srawi.   T8, T1, 5 /**(K-2) % 31x */
+ #endif     
+-    ZERO1x1
++    Zero1x1
+     ble   CGEMM_L1x1_SUB0 
+     bl CGEMM_1x1_LMAIN_SUB
+     andi.   L,  T1, 31
+--- a/kernel/power/sgemm_logic_power9.S
++++ b/kernel/power/sgemm_logic_power9.S
+@@ -135,7 +135,7 @@
+    srawi.		L,	T12,	7 /**(K-2) % 128x */
+ #endif 
+  
+-    ZERO8x16 
++    Zero8X16 
+ 	ble		LSGEMM_L8x16_SUB0
+ 	mtctr		L 
+     bl      LSGEMM_L8x16_LMAIN_SUB
+@@ -251,7 +251,7 @@
+    srawi.       L,  T12,    4 /**(K-1) % 16x */
+ #endif 
+     
+-    ZERO8x8
++    Zero8X8
+     ble     LSGEMM_L8x8_SUB0
+ 
+     MY_ALIGN
+@@ -356,7 +356,7 @@
+    srawi.       L,  T12,    4 /**(K-1) % 16x */
+ #endif 
+     
+-    ZERO8x4
++    Zero8X4
+     ble     LSGEMM_L8x4_SUB0
+ 
+     MY_ALIGN
+@@ -454,7 +454,7 @@
+    srawi.       L,  K,    3 /**(K) % 8x */
+ #endif 
+     
+-    ZERO8x2
++    Zero8x2
+     ble     LSGEMM_L8x2_SUB0
+ 
+     MY_ALIGN
+@@ -523,7 +523,7 @@
+    srawi.       L,  K,    3 /**(K) % 8x */
+ #endif 
+     
+-    ZERO8x1
++    Zero8x1
+     ble     LSGEMM_L8x1_SUB0
+ 
+     MY_ALIGN
+@@ -622,7 +622,7 @@
+    srawi.		L,	T12,	6 /**(K-1) % 64x */
+ #endif 
+  
+-    ZERO4x16
++    Zero4X16
+ 	ble		LSGEMM_L4x16_SUB0
+ 
+ 	MY_ALIGN
+@@ -768,7 +768,7 @@
+    srawi.       L,  T12,    4 /**(K-1) % 16x */
+ #endif 
+     
+-    ZERO4x8
++    Zero4X8
+     ble     LSGEMM_L4x8_SUB0
+ 
+     MY_ALIGN
+@@ -873,7 +873,7 @@
+    srawi.       L,  T12,    4 /**(K-1) % 16x */
+ #endif 
+     
+-    ZERO4x4
++    Zero4X4
+     ble     LSGEMM_L4x4_SUB0
+ 
+     MY_ALIGN
+@@ -971,7 +971,7 @@
+    srawi.       L,  K,    3 /**(K) % 8x */
+ #endif 
+     
+-    ZERO4x2
++    Zero4x2
+     ble     LSGEMM_L4x2_SUB0
+ 
+     MY_ALIGN
+@@ -1040,7 +1040,7 @@
+    srawi.       L,  K,    3 /**(K) % 8x */
+ #endif 
+     
+-    ZERO4x1
++    Zero4x1
+     ble     LSGEMM_L4x1_SUB0
+ 
+     MY_ALIGN
+@@ -1133,7 +1133,7 @@
+    srawi.		L,	K,	6 /**(K ) % 64x */
+ #endif 
+  
+-    ZERO2x16
++    Zero2x16
+ 	ble		LSGEMM_L2x16_SUB0
+     addi AO,AO,2048
+   
+@@ -1242,7 +1242,7 @@
+    srawi.		L,	K,	6 /**(K ) % 64x */
+ #endif 
+  
+-    ZERO2x8
++    Zero2x8
+ 	ble		LSGEMM_L2x8_SUB0
+     addi AO,AO,2048
+   
+@@ -1349,7 +1349,7 @@
+    srawi.		L,	K,	6 /**(K ) % 64x */
+ #endif 
+  
+-    ZERO2x4
++    Zero2x4
+ 	ble		LSGEMM_L2x4_SUB0
+  
+   
+@@ -1456,7 +1456,7 @@
+    srawi.		L,	K,	6 /**(K ) % 64x */
+ #endif 
+  
+-    ZERO2x2
++    Zero2x2
+ 	ble		LSGEMM_L2x2_SUB0
+  
+   
+@@ -1563,7 +1563,7 @@
+    srawi.		L,	K,	6 /**(K ) % 64x */
+ #endif 
+  
+-    ZERO2x1
++    Zero2x1
+ 	ble		LSGEMM_L2x1_SUB0
+  
+   
+@@ -1688,7 +1688,7 @@
+    srawi.		L,	K,	6 /**(K ) % 64x */
+ #endif 
+  
+-    ZERO1x16
++    Zero1x16
+ 	ble		LSGEMM_1x16_SUB0
+     addi AO,AO,2048
+   
+@@ -1797,7 +1797,7 @@
+    srawi.		L,	K,	6 /**(K ) % 64x */
+ #endif 
+  
+-    ZERO1x8
++    Zero1x8
+ 	ble		LSGEMM_1x8_SUB0
+     addi AO,AO,2048
+   
+@@ -1904,7 +1904,7 @@
+    srawi.		L,	K,	6 /**(K ) % 64x */
+ #endif 
+  
+-    ZERO1x4
++    Zero1x4
+ 	ble		LSGEMM_1x4_SUB0
+  
+   
+@@ -2011,7 +2011,7 @@
+    srawi.		L,	K,	6 /**(K ) % 64x */
+ #endif 
+  
+-    ZERO1x2
++    Zero1x2
+ 	ble		LSGEMM_1x2_SUB0
+  
+   
+@@ -2118,7 +2118,7 @@
+    srawi.		L,	K,	6 /**(K ) % 64x */
+ #endif 
+  
+-    ZERO1x1
++    Zero1x1
+ 	ble		LSGEMM_1x1_SUB0
+  
+   
+--- a/kernel/power/zgemm_logic_power9.S
++++ b/kernel/power/zgemm_logic_power9.S
+@@ -457,7 +457,7 @@
+     li T5, 2048+512 
+     srawi.   T8, T1, 7 /**(K-2) % 128x */
+ #endif   
+-    ZERO2x8  
++    Zero2x8  
+     ble   ZGEMM_L2x8_SUB0
+     bl ZGEMM_L2x8_LMAIN_SUB
+     andi.   L,  T1, 127
+@@ -605,7 +605,7 @@
+     addi T1,T1, -2
+     srawi.   T8, T1, 5 /**(K-2) % 32x */
+ #endif     
+-    ZERO2x4
++    Zero2x4
+     ble   ZGEMM_L2x4_SUB0 
+     bl ZGEMM_2x4_LMAIN_SUB
+     andi.   L,  T1, 31
+@@ -724,7 +724,7 @@
+     addi T1,T1, -2
+     srawi.   T8, T1, 5 /**(K-2) % 32x */
+ #endif     
+-    ZERO2x2
++    Zero2x2
+     ble   ZGEMM_L2x2_SUB0 
+     bl ZGEMM_2x2_LMAIN_SUB
+     andi.   L,  T1, 31
+@@ -843,7 +843,7 @@
+     addi T1,T1, -2
+     srawi.   T8, T1, 5 /**(K-2) % 32x */
+ #endif     
+-    ZERO2x1
++    Zero2x1
+     ble   ZGEMM_L2x1_SUB0 
+     bl ZGEMM_2x1_LMAIN_SUB
+     andi.   L,  T1, 31
+@@ -1397,7 +1397,7 @@
+     li T5, 2048+512 
+     srawi.   T8, T1, 7 /**(K-2) % 128x */
+ #endif   
+-    ZERO1x8  
++    Zero1x8  
+     ble   ZGEMM_L1x8_SUB0
+     bl ZGEMM_L1x8_LMAIN_SUB
+     andi.   L,  T1, 127
+@@ -1545,7 +1545,7 @@
+     addi T1,T1, -2
+     srawi.   T8, T1, 5 /**(K-2) % 32x */
+ #endif     
+-    ZERO1x4
++    Zero1x4
+     ble   ZGEMM_L1x4_SUB0 
+     bl ZGEMM_1x4_LMAIN_SUB
+     andi.   L,  T1, 31
+@@ -1664,7 +1664,7 @@
+     addi T1,T1, -2
+     srawi.   T8, T1, 5 /**(K-2) % 32x */
+ #endif     
+-    ZERO1x2
++    Zero1x2
+     ble   ZGEMM_L1x2_SUB0 
+     bl ZGEMM_1x2_LMAIN_SUB
+     andi.   L,  T1, 31
+@@ -1783,7 +1783,7 @@
+     addi T1,T1, -2
+     srawi.   T8, T1, 5 /**(K-2) % 32x */
+ #endif     
+-    ZERO1x1
++    Zero1x1
+     ble   ZGEMM_L1x1_SUB0 
+     bl ZGEMM_1x1_LMAIN_SUB
+     andi.   L,  T1, 31
+--- a/Makefile.power
++++ b/Makefile.power
+@@ -111,7 +111,6 @@
+ endif
+ 
+ ifeq ($(C_COMPILER), CLANG)
+-CCOMMON_OPT += -fno-integrated-as
+ ifeq ($(OSNAME), FreeBSD)
+ ifeq ($(CORE), $(filter $(CORE),POWER9 POWER10))
+ CCOMMON_OPT += -Wa,-mpwr10
