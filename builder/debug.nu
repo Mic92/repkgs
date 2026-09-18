@@ -4,7 +4,7 @@ use core.nu *
 # Moves the DWARF of every ELF jig linked here (marked by its package note) to `debug` under
 # lib/debug/.build-id/, leaving .symtab and a .gnu_debuglink. Such a file with code but no
 # DWARF means the build strips or drops -g: an error. Left alone: upstream binaries, copies
-# from a dependency (already split), stubs with an empty .text (libpython3.so)
+# from a dependency (already split), stubs whose .text is only crt glue (libpython3.so)
 export def split-debug [out: path, debug: path, njobs: int, files: table]: nothing -> nothing {
   strip-archives $out ($files | where rel =~ '\.[ao]$')
   let elfs = (elf-table ($files | where size > 3072 and rel !~ '\.(a|o|rlib)$' | get path) $njobs)
@@ -48,7 +48,9 @@ def elf-table [candidates: list<string>, njobs: int]: nothing -> table<file: str
     $per_file | each {|t|
       # 0xcafe1a7e: the FDO package note jig links in
       {file: ($t | lines | first), id: ($t | parse -r 'Build ID: ([0-9a-f]+)' | get -o capture0.0), ours: ($t | str contains "0xcafe1a7e")
-        dwarf: ($t | str contains ".debug_info"), split: ($t | str contains ".gnu_debuglink"), code: ($t =~ '\] \.text\s+PROGBITS\s+[0-9a-f]+ [0-9a-f]+ 0*[1-9a-f]')}
+        dwarf: ($t | str contains ".debug_info"), split: ($t | str contains ".gnu_debuglink")
+        # under 0x100: crt glue only, which has no DWARF on some cpus
+        code: (($t | parse -r '\] \.text\s+PROGBITS\s+[0-9a-f]+ [0-9a-f]+ ([0-9a-f]+)' | get -o capture0.0 | default "0" | "0x" + $in | into int) >= 0x100)}
     }
   } | flatten
 }
