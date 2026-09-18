@@ -333,6 +333,21 @@ void TestDriverConf() {
   // C++ name adds driver mode + cxxflags
   out = jig::BuildDriverArgs(conf, jig::Language::kCxx, V({"-c", "a.cc"}));
   assert(out.at(3) == "--driver-mode=g++" && out.at(4) == "-stdlib=libc++");
+
+  // -lWS2_32 names a lower-case sysroot import lib, -lLLVM-22 a mixed-case one on a -L dir
+  const fs::path wlib = fs::temp_directory_path() / ("jig-coff-" + std::to_string(::getpid()));
+  fs::create_directories(wlib);
+  jig::WriteFile(wlib / "libLLVM-22.dll.a", "");
+  out = jig::BuildDriverArgs(coff, jig::Language::kC,
+                             std::vector<std::string>{"a.o", "-L" + wlib.string(), "-lWS2_32", "-lLLVM-22"});
+  assert(Has(out, "-lws2_32"));
+  assert(Has(out, "-lLLVM-22"));
+  assert(
+      Has(jig::BuildDriverArgs(coff, jig::Language::kC, V({"a.o", "-nostartfiles", "-lWS2_32.lib"})), "-lws2_32.lib"));
+  out =
+      jig::BuildDriverArgs(coff, jig::Language::kC, std::vector<std::string>{"a.o", "-L", wlib.string(), "-lLLVM-22"});
+  assert(Has(out, "-lLLVM-22"));
+  fs::remove_all(wlib);
 }
 
 // package flags: after the toolchain's, before the build system's. ldflags only when linking
