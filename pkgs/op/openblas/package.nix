@@ -17,6 +17,7 @@ package {
   # it. The CMake build instead fills in per-core parameters from a table in cmake/prebuild.cmake
   # that lags the Makefiles (no HAVE_SME for ARMV9SME, no -march=.._v for riscv64 in 0.3.34)
   uses = [ "make" ];
+  patches = [ ./upstream-power-integrated-as.patch ];
   make.flags = [
     "DYNAMIC_ARCH=1"
     "TARGET=${target.${platform.cpu}}"
