@@ -105,6 +105,8 @@ let
         "-march=loongarch64"
         "-mabi=lp64d"
       ];
+      # clang has it for x86, arm and riscv only
+      hardening.zerocallusedregs = false;
       interp.glibc = "ld-linux-loongarch-lp64d.so.1";
     };
     # POWER9 and later, little endian, ELFv2, IEEE long double (what current distros ship)
@@ -118,6 +120,7 @@ let
         openssl = "linux-ppc64le";
       };
       march = [ "-mcpu=power9" ];
+      hardening.zerocallusedregs = false;
       interp.glibc = "ld64.so.2";
 
     };
