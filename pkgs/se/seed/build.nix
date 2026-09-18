@@ -34,7 +34,16 @@ let
       system = buildSystem;
     } (../.. + "/${builtins.substring 0 2 name}/${name}/sources.toml"));
   llvmSource = source "llvm";
-  targets = "X86;AArch64;RISCV;LoongArch;PowerPC;ARM;WebAssembly";
+  # the seed compiles stage0 and stage1 for the build machine only (bootstrap/default.nix)
+  targets =
+    {
+      x86_64 = "X86";
+      aarch64 = "AArch64";
+      riscv64 = "RISCV";
+      loongarch64 = "LoongArch";
+      powerpc64le = "PowerPC";
+    }
+    .${cpu};
   triple = ps.stdenv.hostPlatform.config;
 
   llvm = ps.stdenv.mkDerivation {
@@ -73,7 +82,7 @@ let
         -DCLANG_DEFAULT_LINKER=lld -DCLANG_DEFAULT_RTLIB=compiler-rt -DCLANG_DEFAULT_UNWINDLIB=libunwind \
         -DCLANG_DEFAULT_CXX_STDLIB=libc++ -DCLANG_DEFAULT_OBJCOPY=llvm-objcopy \
         -DLLVM_INSTALL_TOOLCHAIN_ONLY=ON \
-        -DLLVM_TOOLCHAIN_TOOLS="llvm-ar;llvm-ranlib;llvm-nm;llvm-objcopy;llvm-strip;llvm-objdump;llvm-readelf;llvm-readobj;llvm-size;llvm-strings;llvm-symbolizer;llvm-cxxfilt;llvm-cov;llvm-profdata"
+        -DLLVM_TOOLCHAIN_TOOLS="llvm-ar;llvm-ranlib;llvm-nm;llvm-objcopy;llvm-strip;llvm-objdump;llvm-readelf;llvm-readobj;llvm-size;llvm-strings;llvm-cxxfilt"
     '';
     buildPhase = "ninja -C build -j$NIX_BUILD_CORES llvm-driver clang-resource-headers";
     # the multicall binary + the names it answers to (from the generated .def) + clang's resource headers
@@ -82,10 +91,10 @@ let
       cp build/bin/llvm $out/bin/llvm
       $STRIP $out/bin/llvm
       for t in $(sed -n 's/^LLVM_DRIVER_TOOL("\([^"]*\)".*/\1/p' build/tools/llvm-driver/LLVMDriverTools.def); do
-        case $t in clang|clang-*|lld|dsymutil) ln -sfn llvm $out/bin/$t ;; *) ln -sfn llvm $out/bin/llvm-$t ;; esac
+        case $t in clang|clang-*|lld) ln -sfn llvm $out/bin/$t ;; dsymutil) ;; *) ln -sfn llvm $out/bin/llvm-$t ;; esac
       done
-      for n in clang++ clang-cpp ld.lld ld64.lld lld-link wasm-ld ar ranlib nm objcopy objdump strip readelf size strings c++filt addr2line; do
-        case $n in clang*|*lld*|wasm-ld) ln -sfn llvm $out/bin/$n ;; *) [ -e $out/bin/llvm-$n ] && ln -sfn llvm $out/bin/$n ;; esac
+      for n in clang++ clang-cpp ld.lld ar ranlib nm objcopy objdump strip readelf size strings c++filt; do
+        case $n in clang*|*lld*) ln -sfn llvm $out/bin/$n ;; *) [ -e $out/bin/llvm-$n ] && ln -sfn llvm $out/bin/$n ;; esac
       done
       cp -r build/lib/clang $out/lib/clang
       ls $out/bin $out/lib/clang/*/include | head -40
