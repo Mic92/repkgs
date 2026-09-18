@@ -1,0 +1,15 @@
+LLVM lowers memcmp()==0 to bcmp on *-linux-gnu. Outside libc (rtld) this file is the
+only memcmp and, unlike aarch64/x86_64, defined no bcmp: ld.so failed to link.
+
+diff --git a/sysdeps/loongarch/lp64/multiarch/memcmp-aligned.S b/sysdeps/loongarch/lp64/multiarch/memcmp-aligned.S
+index 1e213c0..cfa9df1 100644
+--- a/sysdeps/loongarch/lp64/multiarch/memcmp-aligned.S
++++ b/sysdeps/loongarch/lp64/multiarch/memcmp-aligned.S
+@@ -290,3 +290,7 @@ L(last_cmp):
+ END(MEMCMP_NAME)
+ 
+ libc_hidden_builtin_def (MEMCMP_NAME)
++#if !IS_IN (libc)
++# undef bcmp
++weak_alias (MEMCMP_NAME, bcmp)
++#endif
