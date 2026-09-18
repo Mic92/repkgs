@@ -96,6 +96,7 @@ let
         "glibc-tzdir-etc-zoneinfo.patch"
         "upstream-const-generic-extension.patch"
         "glibc-loongarch-rtld-bcmp.patch"
+        "upstream-ldbl128-literal.patch"
       ];
     };
   };

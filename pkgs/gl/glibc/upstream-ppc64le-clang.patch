@@ -1,11 +1,134 @@
-glibc's powerpc64le Makefile manages GCC's .gnu.attributes long-double ABI tags with
--m[no-]gnu-attribute and objcopy. clang emits no such section and has neither flag.
-no-special-regs (rtld, mcount) reserves FPRs/VRs with GCC's -ffixed-<n>, clang takes -msoft-float.
-`with-clang` is set by configparms (bootstrap.nu).
-clang has __ibm128 but says GCC 4.2, ieee754.h's union needs it under -mabi=ieeelongdouble.
+glibc on powerpc64le with clang instead of GCC.
+Makefiles: no -m[no-]gnu-attribute, -msoft-float for -ffixed-<n> (`with-clang` from configparms).
+ieee754.h, math_ldbl.h: no __ibm128 <-> long double conversion, no fr-pinned asm operands.
+math.h __MATH_TG1, math-underflow.h, iscanonical.h: clang type-checks every _Generic arm and
+cannot convert _Float128 <-> IBM long double, so select the function first, call once.
+floatn.h: f128 builtin names, not GCC 6's *q. string-fza.h: cmpb is __builtin_ppc_cmpb.
+sqrtf128: no "v" constraint, use __builtin_sqrtf128. soft-fp.h only below POWER9.
+s_fsqrt.c: clang predefines __fsqrt (XL intrinsic).
 
+diff --git a/math/math-underflow.h b/math/math-underflow.h
+index c324492..4774d49 100644
+--- a/math/math-underflow.h
++++ b/math/math-underflow.h
+@@ -25,7 +25,21 @@
+ #include <math-barriers.h>
+ #include <libc-diag.h>
+ 
+-#define fabs_tg(x) __MATH_TG ((x), (__typeof (x)) __builtin_fabs, (x))
++#if defined __clang__ && defined __LONG_DOUBLE_IBM128__
++/* See __MATH_TG1: a callable per type instead of a cast builtin.  */
++static inline float __fabs_tgf (float __x) { return __builtin_fabsf (__x); }
++static inline double __fabs_tg (double __x) { return __builtin_fabs (__x); }
++/* not the builtin: float128_private.h renames __builtin_fabsl.  */
++static inline long double __fabs_tgl (long double __x)
++{ return __x < 0 ? -__x : __x; }
++# if __HAVE_DISTINCT_FLOAT128
++static inline _Float128 __fabs_tgf128 (_Float128 __x)
++{ return __builtin_fabsf128 (__x); }
++# endif
++# define fabs_tg(x) __MATH_TG1 ((x), __fabs_tg)
++#else
++# define fabs_tg(x) __MATH_TG ((x), (__typeof (x)) __builtin_fabs, (x))
++#endif
+ 
+ /* These must be function-like macros because some __MATH_TG
+    implementations macro-expand the function-name argument before
+diff --git a/math/math.h b/math/math.h
+index 75830d7..38a856d 100644
+--- a/math/math.h
++++ b/math/math.h
+@@ -1039,6 +1039,18 @@ extern int signgam;
+ 	       long double: FUNC ## l ARGS,	\
+ 	       __MATH_TG_F64X (FUNC, ARGS)	\
+ 	       _Float128: FUNC ## f128 ARGS)
++/* clang type-checks every association, and on powerpc64le it cannot
++   convert between _Float128 and an IBM long double at all.  For the
++   one-argument classification macros select the function first and call
++   it once, so only the matching parameter type is checked.  */
++#  if defined __clang__ && defined __LONG_DOUBLE_IBM128__
++#   define __MATH_TG1(TG_ARG, FUNC)		\
++     (_Generic ((TG_ARG),			\
++		float: FUNC ## f,		\
++		default: FUNC,			\
++		long double: FUNC ## l,		\
++		_Float128: FUNC ## f128) (TG_ARG))
++#  endif
+ # else
+ #  if __HAVE_FLOATN_NOT_TYPEDEF
+ #   error "Non-typedef _FloatN but no _Generic."
+@@ -1064,6 +1076,10 @@ extern int signgam;
+    : FUNC ## l ARGS)
+ #endif
+ 
++#ifndef __MATH_TG1
++# define __MATH_TG1(TG_ARG, FUNC) __MATH_TG ((TG_ARG), FUNC, (TG_ARG))
++#endif
++
+ /* ISO C99 defines some generic macros which work on any data type.  */
+ #ifdef __USE_ISOC99
+ 
+@@ -1104,7 +1120,7 @@ enum
+ #  define fpclassify(x) __builtin_fpclassify (FP_NAN, FP_INFINITE,	      \
+      FP_NORMAL, FP_SUBNORMAL, FP_ZERO, x)
+ # else
+-#  define fpclassify(x) __MATH_TG ((x), __fpclassify, (x))
++#  define fpclassify(x) __MATH_TG1 ((x), __fpclassify)
+ # endif
+ 
+ /* Return nonzero value if sign of X is negative.  */
+@@ -1130,7 +1146,7 @@ enum
+      || __glibc_clang_prereq (2,8)
+ #  define isfinite(x) __builtin_isfinite (x)
+ # else
+-#  define isfinite(x) __MATH_TG ((x), __finite, (x))
++#  define isfinite(x) __MATH_TG1 ((x), __finite)
+ # endif
+ 
+ /* Return nonzero value if X is neither zero, subnormal, Inf, nor NaN.  */
+@@ -1147,7 +1163,7 @@ enum
+      || __glibc_clang_prereq (2,8)
+ #  define isnan(x) __builtin_isnan (x)
+ # else
+-#  define isnan(x) __MATH_TG ((x), __isnan, (x))
++#  define isnan(x) __MATH_TG1 ((x), __isnan)
+ # endif
+ 
+ /* Return nonzero value if X is positive or negative infinity.  */
+@@ -1166,7 +1182,7 @@ enum
+        || __glibc_clang_prereq (3,7)
+ #  define isinf(x) __builtin_isinf_sign (x)
+ # else
+-#  define isinf(x) __MATH_TG ((x), __isinf, (x))
++#  define isinf(x) __MATH_TG1 ((x), __isinf)
+ # endif
+ 
+ /* Bitmasks for the math_errhandling macro.  */
+@@ -1193,7 +1209,7 @@ enum
+ 
+ /* Return nonzero value if X is a signaling NaN.  */
+ # ifndef __cplusplus
+-#  define issignaling(x) __MATH_TG ((x), __issignaling, (x))
++#  define issignaling(x) __MATH_TG1 ((x), __issignaling)
+ # else
+    /* In C++ mode, __MATH_TG cannot be used, because it relies on
+       __builtin_types_compatible_p, which is a C-only builtin.  On the
+diff --git a/sysdeps/ieee754/dbl-64/s_fsqrt.c b/sysdeps/ieee754/dbl-64/s_fsqrt.c
+index 57af3f8..473ea1e 100644
+--- a/sysdeps/ieee754/dbl-64/s_fsqrt.c
++++ b/sysdeps/ieee754/dbl-64/s_fsqrt.c
+@@ -26,6 +26,9 @@
+ 
+ #include <math-narrow.h>
+ 
++/* clang predefines the XL intrinsic name __fsqrt on powerpc.  */
++#undef __fsqrt
++
+ float
+ __fsqrt (double x)
+ {
 diff --git a/sysdeps/ieee754/ldbl-128ibm-compat/Makefile b/sysdeps/ieee754/ldbl-128ibm-compat/Makefile
-index 10ae73dba1..3c075a055f 100644
+index 10ae73d..3c075a0 100644
 --- a/sysdeps/ieee754/ldbl-128ibm-compat/Makefile
 +++ b/sysdeps/ieee754/ldbl-128ibm-compat/Makefile
 @@ -325,8 +325,8 @@ ldbl-extra-routines += err \
@@ -19,8 +142,30 @@ index 10ae73dba1..3c075a055f 100644
  
  tests-internal += tst-ibm128-warn tst-ieee128-warn
  tests-internal += tst-ibm128-error tst-ieee128-error
+diff --git a/sysdeps/ieee754/ldbl-128ibm/bits/iscanonical.h b/sysdeps/ieee754/ldbl-128ibm/bits/iscanonical.h
+index d97ec4f..8871e1f 100644
+--- a/sysdeps/ieee754/ldbl-128ibm/bits/iscanonical.h
++++ b/sysdeps/ieee754/ldbl-128ibm/bits/iscanonical.h
+@@ -38,7 +38,16 @@ extern int __iscanonicall (long double __x)
+    encodings that are not consistently handled as corresponding to any
+    particular value of the type, and we return 0 for those.  */
+ # ifndef __cplusplus
+-#  define iscanonical(x) __MATH_TG ((x), __iscanonical, (x))
++#  if defined __clang__ && __HAVE_DISTINCT_FLOAT128
++/* __MATH_TG1 (math.h) wants a callable per type.  */
++static __inline int __iscanonical_tgf (float __x) { return 1; }
++static __inline int __iscanonical_tg (double __x) { return 1; }
++static __inline int __iscanonical_tgf128 (_Float128 __x) { return 1; }
++#   define __iscanonical_tgl __iscanonicall
++#   define iscanonical(x) __MATH_TG1 ((x), __iscanonical_tg)
++#  else
++#   define iscanonical(x) __MATH_TG ((x), __iscanonical, (x))
++#  endif
+ # else
+ /* In C++ mode, __MATH_TG cannot be used, because it relies on
+    __builtin_types_compatible_p, which is a C-only builtin.  On the
 diff --git a/sysdeps/ieee754/ldbl-128ibm/ieee754.h b/sysdeps/ieee754/ldbl-128ibm/ieee754.h
-index 2b829188ad..3106c3bce3 100644
+index 2b82918..9b9e04c 100644
 --- a/sysdeps/ieee754/ldbl-128ibm/ieee754.h
 +++ b/sysdeps/ieee754/ldbl-128ibm/ieee754.h
 @@ -170,7 +170,7 @@ union ieee854_long_double
@@ -32,17 +177,72 @@ index 2b829188ad..3106c3bce3 100644
  /* IBM extended format for long double.
  
     Each long double is made up of two IEEE doubles.  The value of the
-@@ -183,7 +183,7 @@ union ieee854_long_double
+@@ -183,7 +183,9 @@ union ieee854_long_double
     NaN is don't-care.  */
  union ibm_extended_long_double
    {
 -# if __LDOUBLE_REDIRECTS_TO_FLOAT128_ABI == 1 && __GNUC_PREREQ (7, 0)
-+# if __LDOUBLE_REDIRECTS_TO_FLOAT128_ABI == 1 && (__GNUC_PREREQ (7, 0) || defined __clang__)
++/* clang: __ibm128 never converts to or from long double, and math_ldbl.h's
++   inline helpers (unused but compiled in -mabi=ieeelongdouble units) do that.  */
++# if __LDOUBLE_REDIRECTS_TO_FLOAT128_ABI == 1 && __GNUC_PREREQ (7, 0) && !defined __clang__
     __ibm128 ld;
  # else
     long double ld;
+diff --git a/sysdeps/powerpc/bits/floatn.h b/sysdeps/powerpc/bits/floatn.h
+index 8e6e17c..df6b94a 100644
+--- a/sysdeps/powerpc/bits/floatn.h
++++ b/sysdeps/powerpc/bits/floatn.h
+@@ -96,8 +96,9 @@ typedef _Complex float __cfloat128 __attribute__ ((__mode__ (__KC__)));
+ /* The following builtins (suffixed with 'q') are available in GCC >= 6.2,
+    which is the minimum version required for float128 support on powerpc64le.
+    Since GCC 7.0 the builtins suffixed with f128 are also available, then
+-   there is no need to redefined them.  */
+-#  if !__GNUC_PREREQ (7, 0)
++   there is no need to redefined them.  clang (GCC 4.2 by version) has the
++   __float128 type of GCC 6 but only the f128 builtin names.  */
++#  if !__GNUC_PREREQ (7, 0) && !defined __clang__
+ #   define __builtin_copysignf128 __builtin_copysignq
+ #   define __builtin_fabsf128 __builtin_fabsq
+ #   define __builtin_inff128 __builtin_infq
+diff --git a/sysdeps/powerpc/fpu/math_ldbl.h b/sysdeps/powerpc/fpu/math_ldbl.h
+index 7f8ae7b..0fb9714 100644
+--- a/sysdeps/powerpc/fpu/math_ldbl.h
++++ b/sysdeps/powerpc/fpu/math_ldbl.h
+@@ -47,8 +47,12 @@ ldbl_unpack_ppc (long double l, double *a, double *aa)
+   *aa = xl;
+ }
+ 
+-#define ldbl_pack   ldbl_pack_ppc
+-#define ldbl_unpack ldbl_unpack_ppc
++/* clang cannot select an fr1-pinned long double asm operand ("Do not know how
++   to expand this operator's operand"); its default code does not spill.  */
++#ifndef __clang__
++# define ldbl_pack   ldbl_pack_ppc
++# define ldbl_unpack ldbl_unpack_ppc
++#endif
+ 
+ #include <sysdeps/ieee754/ldbl-128ibm/math_ldbl.h>
+ 
+diff --git a/sysdeps/powerpc/fpu/math_private.h b/sysdeps/powerpc/fpu/math_private.h
+index 7dd0675..11f4878 100644
+--- a/sysdeps/powerpc/fpu/math_private.h
++++ b/sysdeps/powerpc/fpu/math_private.h
+@@ -49,9 +49,13 @@
+ extern __always_inline _Float128
+ __ieee754_sqrtf128 (_Float128 __x)
+ {
++#ifdef __clang__
++  return __builtin_sqrtf128 (__x);
++#else
+   _Float128 __z;
+   asm ("xssqrtqp %0,%1" : "=v" (__z) : "v" (__x));
+   return __z;
++#endif
+ }
+ #endif
+ #else /* !_ARCH_PWR9 */
 diff --git a/sysdeps/powerpc/powerpc64/Makefile b/sysdeps/powerpc/powerpc64/Makefile
-index 679d5e49ba..9c1ead2d1e 100644
+index 679d5e4..9c1ead2 100644
 --- a/sysdeps/powerpc/powerpc64/Makefile
 +++ b/sysdeps/powerpc/powerpc64/Makefile
 @@ -16,6 +16,10 @@ endif
@@ -65,7 +265,7 @@ index 679d5e49ba..9c1ead2d1e 100644
  # Likewise, we must disable IEEE long double support as some (all?)
  # compilers will not accept the above options with IEEE long double.
 diff --git a/sysdeps/powerpc/powerpc64/le/Makefile b/sysdeps/powerpc/powerpc64/le/Makefile
-index b77775cf95..a876e09d54 100644
+index b77775c..a876e09 100644
 --- a/sysdeps/powerpc/powerpc64/le/Makefile
 +++ b/sysdeps/powerpc/powerpc64/le/Makefile
 @@ -9,7 +9,13 @@ no-gnu-attribute-CFLAGS =
@@ -99,3 +299,45 @@ index b77775cf95..a876e09d54 100644
  
  endif # ifeq ($(build-shared),yes)
  endif # ifeq ($(ibm128-fcts),yes)
+diff --git a/sysdeps/powerpc/powerpc64/le/fpu/e_sqrtf128.c b/sysdeps/powerpc/powerpc64/le/fpu/e_sqrtf128.c
+index 519be01..a0fa891 100644
+--- a/sysdeps/powerpc/powerpc64/le/fpu/e_sqrtf128.c
++++ b/sysdeps/powerpc/powerpc64/le/fpu/e_sqrtf128.c
+@@ -37,8 +37,10 @@
+ # define TF KF
+ #endif
+ 
+-#include <soft-fp.h>
+-#include <quad.h>
++#ifndef _ARCH_PWR9
++# include <soft-fp.h>
++# include <quad.h>
++#endif
+ 
+ __float128
+ __ieee754_sqrtf128 (__float128 a)
+@@ -55,6 +57,8 @@ __ieee754_sqrtf128 (__float128 a)
+   FP_SQRT_Q (R, A);
+   FP_PACK_Q (r, R);
+   FP_HANDLE_EXCEPTIONS;
++#elif defined __clang__
++  r = __builtin_sqrtf128 (a);
+ #else
+   asm ("xssqrtqp %0,%1" : "=v" (r) : "v" (a));
+ #endif
+diff --git a/sysdeps/powerpc/string-fza.h b/sysdeps/powerpc/string-fza.h
+index 43aa0db..a7f047a 100644
+--- a/sysdeps/powerpc/string-fza.h
++++ b/sysdeps/powerpc/string-fza.h
+@@ -30,6 +30,11 @@ typedef op_t find_t;
+ /* This function returns 0xff for each byte that is
+    equal between X1 and X2.  */
+ 
++/* clang names it __builtin_ppc_cmpb.  */
++#if defined __clang__ && !defined __builtin_cmpb
++# define __builtin_cmpb __builtin_ppc_cmpb
++#endif
++
+ static __always_inline find_t
+ find_eq_all (op_t x1, op_t x2)
+ {
