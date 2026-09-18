@@ -24,6 +24,7 @@ package {
     "CROSS=${if platform.cross then "1" else "0"}"
     "NO_FORTRAN=1" # C LAPACK, no Fortran compiler
     "NUM_THREADS=64" # the default is the build machine's core count
+    "USE_OPENMP=0" # Makefile.power alone defaults to OpenMP. pthreads like every other cpu
   ];
   make.buildTarget = [ "shared" ]; # the default goal also runs the tests
   make.testTarget = [ "tests" ]; # utest/ and ctest/
