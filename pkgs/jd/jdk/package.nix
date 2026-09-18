@@ -8,6 +8,13 @@
 }:
 package {
   name = "jdk";
+  # HotSpot's LoongArch port is Loongson's fork, not in mainline
+  platforms.cpu = [
+    "x86_64"
+    "aarch64"
+    "riscv64"
+    "powerpc64le"
+  ];
   dependencies = [
     pkgs.zlib
     pkgs.libpng
