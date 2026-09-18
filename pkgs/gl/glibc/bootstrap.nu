@@ -24,10 +24,11 @@ def patched-source []: nothing -> path {
   let src = (unpack glibc)
   cd $src
   for p in ($env.patches | split row " ") { x patch -p1 -i $p }
-  # fclass.{s,d} asm with an int as "=f" output, GCC only: the generic C versions take over
+  # GCC-only asm constraints (an int as "=f", a 128-bit float as "+frm"/"+dwa"): generic versions
   if $env.cpu == "loongarch64" {
     rm ...(^grep -rl '"=f" (\(x_cond\|fn_cond\|cls\))' sysdeps/loongarch | lines)
   }
+  rm -f sysdeps/loongarch/fpu/math-barriers.h sysdeps/powerpc/fpu/math-barriers.h
   $src
 }
 
