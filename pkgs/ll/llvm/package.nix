@@ -15,7 +15,10 @@ package {
   name = "llvm";
   uses = [ "cmake" ];
   cmake.root = "llvm";
-  patches = [ ./upstream-x86-vastart-stack-probe.patch ];
+  patches = [
+    ./upstream-x86-vastart-stack-probe.patch
+    ./jig-absent-log.patch
+  ];
   cmake.defs =
     import ./defs.nix
     # the nested NATIVE configure (tblgen, host/llvm-config): build cc, static so no build-machine

@@ -2,11 +2,14 @@
 
 #include <cstddef>
 #include <expected>
+#include <filesystem>
 #include <format>
 #include <optional>
+#include <set>
 #include <span>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -62,20 +65,28 @@ namespace {
 
 struct Entry {
   std::string path;  // in this build's store roots, "" when the build lacks the root
-  std::string line;  // as stored: "<masked path>\t<identity>"
-  size_t tab = 0;
+  std::string line;  // as stored: "<masked path>\t<identity>" or "!<masked path>"
+  size_t tab = 0;    // npos for a "!" line
 };
 
 auto ParseManifest(std::string_view text) -> std::vector<Entry> {
   const Store& store = Store::Get();
   std::vector<Entry> entries;
   for (std::string& line : Split(text, '\n')) {
-    if (const size_t tab = line.find('\t'); tab != std::string::npos) {
+    if (line.starts_with('!')) {
+      std::string path = store.Resolve(line.substr(1)).value_or("");
+      entries.push_back({.path = std::move(path), .line = std::move(line), .tab = std::string::npos});
+    } else if (const size_t tab = line.find('\t'); tab != std::string::npos) {
       std::string path = store.Resolve(line.substr(0, tab)).value_or("");
       entries.push_back({.path = std::move(path), .line = std::move(line), .tab = tab});
     }
   }
   return entries;
+}
+
+auto Exists(const std::string& path) -> bool {
+  std::error_code error;
+  return std::filesystem::exists(path, error);
 }
 
 }  // namespace
@@ -97,23 +108,33 @@ void PrefetchIdentities(CacheClient& cache, std::span<const std::string> paths) 
 }
 
 auto BuildManifest(CacheClient& cache, const RequestKey& request_key, std::span<const std::string> inputs,
-                   std::string_view primary_source) -> Manifest {
+                   std::string_view primary_source, std::span<const std::string> absent) -> Manifest {
   const Store& store = Store::Get();
   PrefetchIdentities(cache, inputs);
   std::string text;
   Hasher hasher;
   hasher.Field(request_key.text());
+  const auto add = [&](const std::string& line) -> void {
+    text += line + "\n";
+    hasher.Field(line);
+  };
   for (const std::string& path : inputs) {
     if (path == primary_source) {
       continue;
     }
-    const std::optional<std::string> identity = store.InputId(path);
-    if (!identity) {
+    if (const std::optional<std::string> identity = store.InputId(path)) {
+      add(std::format("{}\t{}", store.Key(path), *identity));
+    }
+  }
+  // store paths stay absent; what exists by now the compiler wrote itself (-o, -MF)
+  std::set<std::string> seen;
+  for (const std::string& path : absent) {
+    if (path.empty() || store.IsStorePath(path) || Exists(path)) {
       continue;
     }
-    const std::string line = std::format("{}\t{}", store.Key(path), *identity);
-    text += line + "\n";
-    hasher.Field(line);
+    if (const std::string key = "!" + store.Key(path); seen.insert(key).second) {
+      add(key);
+    }
   }
   return Manifest{.text = std::move(text), .result_key = ResultKey(hasher.Finish())};
 }
@@ -125,15 +146,23 @@ auto ValidateManifest(CacheClient& cache, const RequestKey& request_key, std::st
   std::vector<std::string> paths;
   paths.reserve(entries.size());
   for (const Entry& entry : entries) {
-    paths.push_back(entry.path);
+    if (entry.tab != std::string::npos) {
+      paths.push_back(entry.path);
+    }
   }
   PrefetchIdentities(cache, paths);
   Hasher hasher;
   hasher.Field(request_key.text());
   for (const Entry& entry : entries) {
-    const std::optional<std::string> identity = store.InputId(entry.path);
-    if (!identity || *identity != std::string_view(entry.line).substr(entry.tab + 1)) {
-      return std::unexpected("inputs-changed:" + entry.line.substr(0, entry.tab));
+    if (entry.tab == std::string::npos) {
+      if (Exists(entry.path)) {
+        return std::unexpected("appeared:" + entry.line.substr(1));
+      }
+    } else {
+      const std::optional<std::string> identity = store.InputId(entry.path);
+      if (!identity || *identity != std::string_view(entry.line).substr(entry.tab + 1)) {
+        return std::unexpected("inputs-changed:" + entry.line.substr(0, entry.tab));
+      }
     }
     hasher.Field(entry.line);
   }
