@@ -9,8 +9,11 @@ export def configure []: nothing -> nothing {
   let p = (ctx).platform
   let toolset = (if ($p.emulator | is-empty) { [--cross-compiling] } else { [--no-cross-compiling $"--emulator=($p.emulator | str join ' ')"] })
   let cross = (if $p.cross { [$"--dest-cpu=($p.names.gyp)" $"--dest-os=($p.osNames.gyp)" ...$toolset] } else { [] })
+  # any JS under qemu-loongarch64 faults on a pointer with bits 40..63 set (V8 JIT or TCG bug), so
+  # node_mksnapshot cannot run there. The snapshot only saves startup time
+  let snapshot = (if $p.cpu == "loongarch64" { [--without-node-snapshot] } else { [] })
   (x python3 configure.py --prefix=/ --ninja ...($SHARED | each { $"--shared-($in)" })
-    --with-intl=small-icu --without-corepack ...$cross)
+    --with-intl=small-icu --without-corepack ...$cross ...$snapshot)
 }
 
 export def build []: nothing -> nothing {
