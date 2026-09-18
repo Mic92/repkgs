@@ -95,6 +95,7 @@ let
         "glibc-unwind-origin.patch"
         "glibc-tzdir-etc-zoneinfo.patch"
         "upstream-const-generic-extension.patch"
+        "glibc-loongarch-rtld-bcmp.patch"
       ];
     };
   };
