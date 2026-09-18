@@ -85,6 +85,8 @@ void TestStoreMask() {
   assert(store.MaskHashes("-I" + header + " -I" + header) ==
          "-I" + store.MaskHashes(header) + " -I" + store.MaskHashes(header));
   assert(store.MaskHashes(dir + "/short-name") == dir + "/short-name");
+  const std::string once = dir + "/*-linux-headers-boot/include/asm-generic/errno.h";  // byte 32 after '*' is '-'
+  assert(store.MaskHashes(once) == once);
   // the own output's hash is a fixed placeholder in what is keyed and stored, and comes back
   const std::string define = "-DENGINESDIR=\"" OUT_ROOT "/lib/engines\"";
   const std::string masked = store.MaskOut(define);
