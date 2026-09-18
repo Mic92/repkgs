@@ -30,7 +30,7 @@ def main []: nothing -> nothing {
   let sh = (tool sh)
   let build = $"($env.NIX_BUILD_TOP)/build"
   let tools = [llvm-ar llvm-ranlib llvm-nm llvm-objcopy llvm-strip llvm-objdump llvm-readelf llvm-readobj llvm-size
-    llvm-strings llvm-symbolizer llvm-cxxfilt llvm-cov llvm-profdata llvm-rc llvm-mt llvm-lib llvm-dlltool llvm-windres
+    llvm-strings llvm-symbolizer llvm-cxxfilt llvm-cov llvm-profdata llvm-rc llvm-mt llvm-ml llvm-lib llvm-dlltool llvm-windres
     llvm-install-name-tool llvm-lipo llvm-otool dsymutil]
   (x cmake -S llvm -B $build -G "Unix Makefiles"
     $"-DCMAKE_MAKE_PROGRAM=(tool make)" -DCMAKE_BUILD_TYPE=Release $"-DCMAKE_INSTALL_PREFIX=($out)"
