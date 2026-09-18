@@ -179,6 +179,10 @@ void TestParseLink() {
 
   inv = ParseInvocation(V({"-r", "-o", "m.o", "a.os", "-Wl,-Map,m.mapT"}));
   assert(inv.link && !inv.cacheable);
+
+  // a "does this flag compile" probe: nothing to store, and no temp files beside /dev/null
+  inv = ParseInvocation(V({"-mabi=lp64d", "-c", "cpuid.c", "-o", "/dev/null"}));
+  assert(!inv.cacheable);
 }
 
 void TestParseInvocation() {
