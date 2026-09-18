@@ -1,4 +1,5 @@
-// Link-time relative-interpreter entry stub (x86_64, aarch64, riscv64; freestanding).
+// Link-time relative-interpreter entry stub, freestanding (x86_64, aarch64, riscv64,
+// loongarch64, powerpc64le).
 //
 // Linked into a normal dynamic PIE that has *no* PT_INTERP. The linker entry
 // point is __reloc_start (via -Wl,-e,__reloc_start). At process start we:
@@ -91,7 +92,31 @@ static inline i64 sys(i64 n, i64 a, i64 b, i64 c, i64 d, i64 e, i64 f) {
                    : "rcx", "r11", "memory");
   return r;
 }
-#else  // aarch64 and riscv64 share the generic syscall table
+#elif defined(__powerpc64__)
+#define SYS_openat 286
+#define SYS_close 6
+#define SYS_write 4
+#define SYS_pread64 179
+#define SYS_readlinkat 296
+#define SYS_mmap 90
+#define SYS_mprotect 125
+#define SYS_exit 1
+static inline i64 sys(i64 n, i64 a, i64 b, i64 c, i64 d, i64 e, i64 f) {
+  register i64 r0 __asm__("r0") = n;
+  register i64 r3 __asm__("r3") = a;
+  register i64 r4 __asm__("r4") = b;
+  register i64 r5 __asm__("r5") = c;
+  register i64 r6 __asm__("r6") = d;
+  register i64 r7 __asm__("r7") = e;
+  register i64 r8 __asm__("r8") = f;
+  // error: cr0.SO set, positive errno in r3
+  __asm__ volatile("sc\n  bns+ 1f\n  neg %0, %0\n1:"
+                   : "+r"(r3), "+r"(r0), "+r"(r4), "+r"(r5), "+r"(r6), "+r"(r7), "+r"(r8)
+                   :
+                   : "r9", "r10", "r11", "r12", "cr0", "ctr", "memory");
+  return r3;
+}
+#else  // aarch64, riscv64 and loongarch64 share the generic syscall table
 #define SYS_openat 56
 #define SYS_close 57
 #define SYS_write 64
@@ -120,6 +145,19 @@ static inline i64 sys(i64 n, i64 a, i64 b, i64 c, i64 d, i64 e, i64 f) {
   register i64 a4 __asm__("a4") = e;
   register i64 a5 __asm__("a5") = f;
   __asm__ volatile("ecall" : "+r"(a0) : "r"(a7), "r"(a1), "r"(a2), "r"(a3), "r"(a4), "r"(a5) : "memory");
+  return a0;
+#elif defined(__loongarch64)
+  register i64 a7 __asm__("a7") = n;
+  register i64 a0 __asm__("a0") = a;
+  register i64 a1 __asm__("a1") = b;
+  register i64 a2 __asm__("a2") = c;
+  register i64 a3 __asm__("a3") = d;
+  register i64 a4 __asm__("a4") = e;
+  register i64 a5 __asm__("a5") = f;
+  __asm__ volatile("syscall 0"
+                   : "+r"(a0)
+                   : "r"(a7), "r"(a1), "r"(a2), "r"(a3), "r"(a4), "r"(a5)
+                   : "$t0", "$t1", "$t2", "$t3", "$t4", "$t5", "$t6", "$t7", "$t8", "memory");
   return a0;
 #else
 #error unsupported architecture
@@ -319,4 +357,34 @@ __asm__(
     "  mv t0, a0\n"
     "  li a0, 0\n"  // a0 = rtld_fini = 0 as at kernel entry
     "  jr t0\n");
+#elif defined(__loongarch64)
+__asm__(
+    ".section .text.entry,\"ax\"\n.globl __reloc_start\n.type __reloc_start,@function\n"
+    "__reloc_start:\n"
+    "  move $s0, $sp\n"  // callee-saved copy of the initial sp
+    "  move $a0, $sp\n"
+    "  bstrins.d $sp, $zero, 3, 0\n"
+    "  bl reloc_main\n"
+    "  move $sp, $s0\n"
+    "  move $t0, $a0\n"
+    "  move $a0, $zero\n"  // a0 = rtld_fini = 0 as at kernel entry
+    "  jr $t0\n");
+#elif defined(__powerpc64__)
+// ELFv2: r12 = entry address at kernel entry (ld.so derives its TOC from it). Ours comes first
+__asm__(
+    ".section .text.entry,\"ax\"\n.globl __reloc_start\n.type __reloc_start,@function\n"
+    "__reloc_start:\n"
+    "  addis 2, 12, .TOC.-__reloc_start@ha\n"
+    "  addi 2, 2, .TOC.-__reloc_start@l\n"
+    "  mr 30, 1\n"  // callee-saved copy of the initial sp
+    "  mr 3, 1\n"
+    "  clrrdi 1, 1, 4\n"
+    "  stdu 1, -32(1)\n"
+    "  bl reloc_main\n"
+    "  nop\n"
+    "  mr 1, 30\n"
+    "  mtctr 3\n"
+    "  mr 12, 3\n"
+    "  li 3, 0\n"
+    "  bctr\n");
 #endif
