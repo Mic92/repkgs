@@ -533,7 +533,9 @@ auto ParseInvocation(std::span<const std::string> args) -> Invocation {
       inv.key_args.push_back(arg);
     }
   }
-  inv.cacheable = inv.cacheable && inv.output.extension() != ".pch" && inv.output.extension() != ".gch";
+  // /dev/null: a flag probe. Nothing to replay, and the observed run puts temp files beside -o
+  inv.cacheable = inv.cacheable && inv.output.extension() != ".pch" && inv.output.extension() != ".gch" &&
+                  inv.output != "/dev/null";
   Classify(inv, sources, objects, stop);
   return inv;
 }
