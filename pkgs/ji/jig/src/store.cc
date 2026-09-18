@@ -48,11 +48,22 @@ auto Store::IsStorePath(std::string_view path) const -> bool {
   return path.size() > dir_.size() && path.starts_with(dir_) && path.at(dir_.size()) == '/';
 }
 
+namespace {
+// nix base32 (no e o u t). Guards against re-masking an already masked "*-name/..." whose next
+// 32 bytes happen to end before a '-'
+auto IsStoreHash(std::string_view text) -> bool {
+  return text.size() == kStoreHashLength && std::ranges::all_of(text, [](char chr) -> bool {
+           return std::string_view("0123456789abcdfghijklmnpqrsvwxyz").contains(chr);
+         });
+}
+}  // namespace
+
 auto Store::MaskHashes(std::string text) const -> std::string {
   const std::string prefix = dir_ + "/";
   for (size_t pos = 0; (pos = text.find(prefix, pos)) != std::string::npos;) {
     const size_t hash_start = pos + prefix.size();
-    if (text.size() > hash_start + kStoreHashLength && text.at(hash_start + kStoreHashLength) == '-') {
+    if (text.size() > hash_start + kStoreHashLength && text.at(hash_start + kStoreHashLength) == '-' &&
+        IsStoreHash(std::string_view(text).substr(hash_start, kStoreHashLength))) {
       text.replace(hash_start, kStoreHashLength, "*");
     }
     pos = hash_start + 1;
