@@ -119,7 +119,13 @@ let
         qemu = "ppc64le";
         openssl = "linux-ppc64le";
       };
-      march = [ "-mcpu=power9" ];
+      # clang defaults to the IBM long double unless built with PPC_LINUX_DEFAULT_IEEELONGDOUBLE,
+      # and warns about -mabi= unless it finds a glibc >= 2.32 at /lib64/ld64.so.2
+      march = [
+        "-mcpu=power9"
+        "-mabi=ieeelongdouble"
+        "-Wno-unsupported-abi"
+      ];
       hardening.zerocallusedregs = false;
       interp.glibc = "ld64.so.2";
 
