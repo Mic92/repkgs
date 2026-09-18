@@ -7,6 +7,8 @@ let
     x86_64 = "HASWELL"; # x86-64-v3, our -march
     aarch64 = "ARMV8";
     riscv64 = "RISCV64_GENERIC";
+    loongarch64 = "LOONGSONGENERIC";
+    powerpc64le = "POWER8";
   };
 in
 package {
