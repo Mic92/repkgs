@@ -273,6 +273,22 @@ void TestManifest() {
          jig::slot::Object(manifest.result_key) == "o/" + manifest.result_key.text());
   jig::WriteFile(dir + "/b.h", "B2");
   assert(jig::ValidateManifest(offline, key, manifest.text).error_or("") == "inputs-changed:" + dir + "/b.h");
+
+  // absent lookups: a hit needs them still absent. Existing (the compiler's own output) and store paths drop out
+  const jig::Manifest shadow = jig::BuildManifest(offline, key, V({"src.c", (dir + "/a.h").c_str()}), "src.c",
+                                                  V({
+                                                      (dir + "/early/a.h").c_str(),
+                                                      (dir + "/./early//a.h").c_str(),
+                                                      (dir + "/b.h").c_str(),
+                                                      "/nix/store/x-y/z.h",
+                                                      "",
+                                                  }));
+  assert(jig::Split(shadow.text, '\n') ==
+         V({jig::Split(manifest.text, '\n').at(0).c_str(), ("!" + dir + "/early/a.h").c_str()}));
+  assert(jig::ValidateManifest(offline, key, shadow.text) == shadow.result_key);
+  std::filesystem::create_directories(dir + "/early");
+  jig::WriteFile(dir + "/early/a.h", "A2");
+  assert(jig::ValidateManifest(offline, key, shadow.text).error_or("") == "appeared:" + dir + "/early/a.h");
   std::filesystem::remove_all(dir);
 }
 
