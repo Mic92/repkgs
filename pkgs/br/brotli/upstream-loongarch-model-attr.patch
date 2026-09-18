@@ -1,0 +1,15 @@
+From upstream master (c/common/platform.h): `model("small")` is an IA-64 attribute. clang's
+LoongArch `model` takes "normal"/"medium"/"extreme" and rejects "small".
+
+--- a/c/common/platform.h
++++ b/c/common/platform.h
+@@ -665,7 +665,8 @@
+ #undef BROTLI_TEST
+ #endif
+ 
+-#if BROTLI_GNUC_HAS_ATTRIBUTE(model, 3, 0, 3)
++#if !defined(BROTLI_MODEL) && BROTLI_GNUC_HAS_ATTRIBUTE(model, 3, 0, 3) && \
++    !defined(BROTLI_TARGET_IA64) && !defined(BROTLI_TARGET_LOONGARCH64)
+ #define BROTLI_MODEL(M) __attribute__((model(M)))
+ #else
+ #define BROTLI_MODEL(M) /* M */
