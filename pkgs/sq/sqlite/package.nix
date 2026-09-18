@@ -14,6 +14,9 @@ package {
   ]
   # autosetup takes the shared library suffix from --host, else from the build machine
   ++ on platform.cross [ "--host=${platform.gnuTriple}" ];
+  # upstream leaves the soname to the packager (main.mk LDFLAGS.libsqlite3.soname);
+  # without one every DT_NEEDED naming libsqlite3.so keeps its absolute build-time path
+  make.flags = [ "LDFLAGS.libsqlite3.soname=-Wl,-soname,libsqlite3.so.0" ];
   tests.run = false; # needs tcl
   dependencies = [ pkgs.zlib ];
 }
