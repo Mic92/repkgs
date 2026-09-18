@@ -1,0 +1,14 @@
+[upstream]
+purl = "pkg:generic/wine"
+
+[[source]]
+key = "default"
+url = "https://dl.winehq.org/wine/source/{major}.0/wine-{version}.tar.xz"
+hash = "sha256-3jJ2paulqgMLyLR8g5bxwJuuusAMZSrnw+X+nFhYt+c="
+
+[pin]
+version = "11.0"
+
+[watch]
+url = "https://dl.winehq.org/wine/source/"
+regex = '([0-9]+\.0)/'
