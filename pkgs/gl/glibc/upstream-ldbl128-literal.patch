@@ -1,0 +1,43 @@
+ldbl-128 initialises a _Float128 with a long double literal in three places. Built as
+float128/*f128.c on powerpc64le the types differ. GCC converts, clang does not
+("initializing 'const _Float128' with an expression of incompatible type 'long double'").
+Every other constant in ldbl-128 uses L().
+
+diff --git a/sysdeps/ieee754/ldbl-128/s_frexpl.c b/sysdeps/ieee754/ldbl-128/s_frexpl.c
+--- a/sysdeps/ieee754/ldbl-128/s_frexpl.c
++++ b/sysdeps/ieee754/ldbl-128/s_frexpl.c
+@@ -22,7 +22,7 @@
+ 
+ #define EXPONENT_BIAS 16383
+ 
+-static const _Float128 two114 = 0x1p114L;
++static const _Float128 two114 = L(0x1p114);
+ 
+ _Float128
+ __frexpl (_Float128 x, int *eptr)
+diff --git a/sysdeps/ieee754/ldbl-128/s_getpayloadl.c b/sysdeps/ieee754/ldbl-128/s_getpayloadl.c
+--- a/sysdeps/ieee754/ldbl-128/s_getpayloadl.c
++++ b/sysdeps/ieee754/ldbl-128/s_getpayloadl.c
+@@ -36,7 +36,7 @@
+   if (hx == 0)
+     {
+       if (lx == 0)
+-	return 0.0L;
++	return 0;
+       else
+ 	lz = __builtin_clzll (lx) + 64;
+     }
+diff --git a/sysdeps/ieee754/ldbl-128/s_rintl.c b/sysdeps/ieee754/ldbl-128/s_rintl.c
+--- a/sysdeps/ieee754/ldbl-128/s_rintl.c
++++ b/sysdeps/ieee754/ldbl-128/s_rintl.c
+@@ -40,8 +40,8 @@
+   /* Use generic implementation.  */
+   static const _Float128
+     TWO112[2] = {
+-		 5.19229685853482762853049632922009600E+33L, /* 0x406F000000000000, 0 */
+-		 -5.19229685853482762853049632922009600E+33L  /* 0xC06F000000000000, 0 */
++		 L(5.19229685853482762853049632922009600E+33), /* 0x406F000000000000, 0 */
++		 L(-5.19229685853482762853049632922009600E+33) /* 0xC06F000000000000, 0 */
+   };
+   int64_t i0, j0, sx;
+   uint64_t i1 __attribute__ ((unused));
