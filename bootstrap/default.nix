@@ -85,6 +85,7 @@ let
     musl.src = source "musl";
     mingw-w64.src = source "mingw-w64";
     apple-sdk.src = source "apple-sdk";
+    vcruntime = { };
     glibc = {
       src = source "glibc";
       patches = map (p: pkg "glibc" + "/${p}") [
@@ -370,7 +371,11 @@ let
     in
     {
       glibc = linuxChain platform run ccArgs;
-      msvc = withLaunch (given sdk);
+      msvc = withLaunch (chain {
+        inherit platform run ccArgs;
+        libcGiven = sdk;
+        extraParts = [ (run [ ] "vcruntime" { inherit sdk; }) ];
+      });
       apple = given (run [ ] "apple-sdk" { });
       mingw = withLaunch (chain {
         inherit platform run ccArgs;

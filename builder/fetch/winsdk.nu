@@ -1,7 +1,7 @@
 #!/usr/bin/env nu
 # Producer for fetch.windowsSdk { manifest, arch }: VisualStudio.vsman (sources.toml) pins every
 # payload by sha256. Selected like xwin: the newest VC CRT (headers with the STL, <arch> Desktop and
-# Store libs) as .vsix, and from the newest Win11 SDK the header/lib/UCRT .msi plus all of its
+# Store libs, the redistributable DLLs) as .vsix, and from the newest Win11 SDK the header/lib/UCRT .msi plus all of its
 # cabinets (an .msi names the ones it needs only inside itself; unused ones cost a download, not
 # output). winsdk-assemble.nu unpacks.
 use dyn-drv.nu
@@ -23,7 +23,8 @@ def main []: nothing -> nothing {
   let crt = (do $package "Microsoft.VisualStudio.Product.BuildTools" | get dependencies | columns
     | parse -r '^Microsoft\.VisualStudio\.Component\.VC\.([\d.]+)\.x86\.x64$' | get capture0 | newest)
   let crt_arch = (if $arch == "arm64" { "ARM64" } else { $arch })
-  let vsix = ([Headers $"($crt_arch).Desktop" $"($crt_arch).Store"] | each {|k| do $package $"Microsoft.VC.($crt).CRT.($k).base" | get payloads.0 | insert kind crt })
+  # Microsoft's ids: x64.Desktop but ARM64.Desktop, and Redist.X64 / Redist.ARM64
+  let vsix = ([Headers $"($crt_arch).Desktop" $"($crt_arch).Store" $"Redist.($arch | str uppercase)"] | each {|k| do $package $"Microsoft.VC.($crt).CRT.($k).base" | get payloads.0 | insert kind crt })
   let sdk_id = ($pkgs | get id | where $it =~ '^Win11SDK_[\d.]+$' | str replace "Win11SDK_" "" | newest | $"Win11SDK_($in)")
   let sdk = (do $package $sdk_id | get payloads | update fileName { str replace -a '\' "/" | path basename })
   let msis = ($MSIS | each {|n| $sdk | where fileName == $"($n | str replace '{arch}' $arch)-x86_en-us.msi" | first | insert kind msi })

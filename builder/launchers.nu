@@ -87,10 +87,10 @@ def target [c: record, f: path, owners: list<string>, inject: bool]: nothing -> 
   }
 }
 
-# a DLL the OS provides: the toolchain has an import library for it
+# a DLL the OS provides: the toolchain has an import library for it (mingw lib/, SDK um/, ucrtbase under ucrt/)
 def system-dll [sysroot: string, n: string]: nothing -> bool {
   let stem = ($n | str replace -r '\.dll$' "")
-  $n =~ '^(api-ms-win-|ext-ms-)' or ($"($sysroot)/lib/lib($stem).a" | path exists) or (glob $"($sysroot)/sdk/lib/*/um/*/($stem).lib" | is-not-empty)
+  $n =~ '^(api-ms-win-|ext-ms-)' or ($"($sysroot)/lib/lib($stem).a" | path exists) or (files $"($sysroot)/sdk/lib/*/{um,ucrt}/*/($stem).lib" | is-not-empty)
 }
 
 # lowercased, delay-loaded ones (probed at run time, optional) left out
