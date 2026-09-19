@@ -33,10 +33,10 @@ def solve [src: path, sub: string, o: record, old: record]: nothing -> table<nam
   let project = $"($work)/cabal.project"
   let prefs = ($old | items {|n, e| $"($n) ==($e.version)" } | str join ", ")
   let base = (if ($project | path exists) { open --raw $project } else { "packages: ." })
-  $"($base)\n($o.project)\npreferences: ($prefs)\n" | save -f $project
+  $"($base)\n($o.project? | default "")\npreferences: ($prefs)\n" | save -f $project
   let r = (with-env {CABAL_DIR: $home} {
     if (glob $"($home)/packages/*/01-index.tar" | is-empty) { ^$cabal update | complete | ignore }
-    ^$cabal freeze $"--project-dir=($work)" -w $ghc --disable-tests --disable-benchmarks ...$o.flags | complete
+    ^$cabal freeze $"--project-dir=($work)" -w $ghc --disable-tests --disable-benchmarks ...($o.flags? | default []) | complete
   })
   let freeze = (if $r.exit_code == 0 { open --raw $"($work)/cabal.project.freeze" } else { "" })
   rm -rf $top
