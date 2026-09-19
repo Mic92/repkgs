@@ -9,11 +9,12 @@ const RUNNER = {
   aarch64-macos: macos-latest, x86_64-macos: macos-13, aarch64-linux: ubuntu-24.04-arm, aarch64-linux-musl: ubuntu-24.04-arm
 }
 
-# --remote: build and pack on that host (repo rsynced to /scratch/$USER/<basename>)
+# --remote: build and pack on that host (repo rsynced to /scratch/$USER/<basename>), $NIX_BUILD for
+# its nix-build command line
 def main [platform: string, --remote (-r): string, ...attrs: string] {
   let runner = ($RUNNER | get $platform)
   let on = {|cmd: string| if $remote == null { ^bash -c $cmd } else { ^ssh $remote $"cd /scratch/($env.USER)/(pwd | path basename) && ($cmd)" } }
-  let outs = (do $on $"nix-build . ($attrs | each { $'-A ($in)' } | str join ' ') --argstr platform ($platform) --no-out-link" | lines | where { $in =~ '^/nix/store' })
+  let outs = (do $on $"($env.NIX_BUILD? | default nix-build) . ($attrs | each { $'-A ($in)' } | str join ' ') --argstr platform ($platform) --no-out-link" | lines | where { $in =~ '^/nix/store' })
   if ($outs | length) != ($attrs | length) { error make {msg: "build failed"} }
   let exe = (if $platform =~ windows { ".exe" } else { "" })
   let commands = ($attrs | zip $outs | each {|p|
