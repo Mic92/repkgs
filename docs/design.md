@@ -9,7 +9,8 @@ ELF post-processor, **jigd** the per-machine daemon behind it (compile cache, bu
 
 ## Goals
 
-1. **Cheap evaluation.** ≤ 0.2 ms and 10 KB per package (nixpkgs: 2.6 ms, 135 KB).
+1. **Cheap evaluation.** ≤ 0.2 ms and 10 KB per package (nixpkgs: 2.6 ms, 135 KB). Measured
+   against nixpkgs on the shared packages in [eval.md](eval.md).
 2. **Relocatable outputs.** No output contains its own store path. Every derivation is
    content-addressed, so early cut-off works by default, and a closure runs from any directory.
 3. **Nushell builders.** Structured data, real errors, and a seed of a few static binaries.

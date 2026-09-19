@@ -16,7 +16,10 @@ nixpkgs.
   are the same with or without it.
 - **Cheap evaluation.** A package is a small attribute set that gets its arguments by name, as
   with `callPackage`. There are no overlays and no per-package fixpoints. Overrides are one
-  directory tree, out-of-tree packages one argument.
+  directory tree, out-of-tree packages one argument. The 175 packages repkgs shares with
+  nixpkgs instantiate in 0.4 s and 44 MB where nixpkgs needs 10 s and 570 MB.
+  [docs/eval.md](docs/eval.md) has the method, the [graphs](https://github.com/Mic92/repkgs/releases/tag/eval-2026-09-19)
+  and what the comparison does not show.
 - **Short bootstrap.** A small static seed reaches glibc in two stages. Rust, Go, Zig, GHC and
   OpenJDK are then built from source, each starting from its upstream binary.
 
