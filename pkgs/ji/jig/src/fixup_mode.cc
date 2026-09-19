@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <format>
 #include <optional>
 #include <print>
 #include <set>
@@ -41,6 +42,14 @@ auto WriteBack(const fs::path& path, const std::string& bytes) -> bool {
                  std::error_code(errno, std::generic_category()).message());
   }
   return written;
+}
+
+auto RelativeTo(const fs::path& dir, const fs::path& target, std::string_view anchor) -> std::string {
+  std::string rel = target.lexically_normal().lexically_relative(dir).string();
+  if (anchor.empty()) {
+    return rel;
+  }
+  return rel == "." ? std::string(anchor) : std::format("{}/{}", anchor, rel);
 }
 
 auto FixupContext::Final(const fs::path& path) const -> fs::path {
@@ -115,7 +124,7 @@ auto BinaryImage::Overwrite(std::uint64_t offset, std::string_view bytes) -> boo
 
 auto RunFixupMode(std::span<const std::string> args) -> int {
   if (args.empty()) {
-    std::println(stderr, "usage: reloc-fixup <prefix> [--dest <store path>] [--deny <store path>]...");
+    std::println(stderr, "usage: reloc-fixup <prefix> [--dest <store path>] [--sdk <dir>] [--deny <store path>]...");
     return 2;
   }
   FixupContext ctx;
@@ -123,6 +132,8 @@ auto RunFixupMode(std::span<const std::string> args) -> int {
   for (size_t i = 1; i + 1 < args.size(); i += 2) {
     if (args.at(i) == "--dest") {
       ctx.dest = fs::path(args.at(i + 1)).lexically_normal();
+    } else if (args.at(i) == "--sdk") {
+      ctx.sdk = args.at(i + 1);
     } else if (args.at(i) == "--deny") {
       ctx.denied.push_back(fs::path(args.at(i + 1)).filename().string().substr(0, kStoreHashLength));
     } else {

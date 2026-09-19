@@ -30,6 +30,7 @@ struct FixupContext {
   std::filesystem::path dest;                       // where prefix ends up, relative paths count from there
   std::vector<std::filesystem::path> own_lib_dirs;  // dirs under prefix that contain shared objects
   std::vector<std::string> denied;                  // hash parts of --deny paths
+  std::filesystem::path sdk;                        // Mach-O: where /usr/lib and /System paths must have a .tbd
   int errors = 0;
 
   // prefix/x -> dest/x
@@ -37,6 +38,10 @@ struct FixupContext {
   // dest/x -> prefix/x
   [[nodiscard]] auto OnDisk(const std::filesystem::path& path) const -> std::filesystem::path;
 };
+
+// "<anchor>" or "<anchor>/<rel>": target relative to dir, anchor being $ORIGIN, @loader_path or empty
+auto RelativeTo(const std::filesystem::path& dir, const std::filesystem::path& target, std::string_view anchor)
+    -> std::string;
 
 class BinaryImage;
 auto WriteBack(const std::filesystem::path& path, const std::string& bytes) -> bool;
