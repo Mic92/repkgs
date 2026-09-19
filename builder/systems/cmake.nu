@@ -1,7 +1,7 @@
 use ../core.nu *
 use ../build-cache.nu
 
-const SDK_LIBS = path self ./sdk-libs.cmake
+const SYSROOT_LIBS = path self ./sysroot-libs.cmake
 
 # cmake configure / build / ctest / install with Ninja
 export const OPTIONS = {
@@ -31,14 +31,17 @@ export def configure []: nothing -> nothing {
     CMAKE_INSTALL_SBINDIR: "bin"
     CMAKE_PREFIX_PATH: ($c.deps | get root | str join ";")
     CMAKE_SYSTEM_PREFIX_PATH: $c.platform.sysroot
+    # find_library results inside the sysroot become -l / -framework
+    CMAKE_PROJECT_TOP_LEVEL_INCLUDES: $SYSROOT_LIBS
+    PKGS_SYSROOT: $c.platform.sysroot
     BUILD_SHARED_LIBS: true
     BUILD_TESTING: $c.testsRun
   } | merge (if $c.platform.cross { {
     CMAKE_SYSTEM_NAME: $c.platform.osNames.cmake
     CMAKE_SYSTEM_PROCESSOR: $c.platform.cpu
   } } else { {} }) | merge (if $c.platform.os == "macos" {
-    # Darwin.cmake finds usr/ and the frameworks from this. find_library results inside it become -l/-framework
-    {CMAKE_OSX_SYSROOT: $c.platform.sysroot, CMAKE_PROJECT_TOP_LEVEL_INCLUDES: $SDK_LIBS}
+    # Darwin.cmake finds usr/ and the frameworks from this
+    {CMAKE_OSX_SYSROOT: $c.platform.sysroot}
   } else { {} }) | merge (if ($c.platform.emulator | is-empty) { {} } else { {CMAKE_CROSSCOMPILING_EMULATOR: ($c.platform.emulator | str join ";")} }) | merge $o.defs)
   let srcdir = (project-dir cmake)
   # build cache: CMakeCache.txt's INTERNAL entries (check_*, try_compile, pkg_check_modules) become
