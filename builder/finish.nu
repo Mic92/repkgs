@@ -236,7 +236,8 @@ def relocate [c: record, inv: table]: nothing -> nothing {
 def version-check [c: record]: nothing -> nothing {
   let bins = (bins $c)
   let line = ($c.spec.tests?.version? | default ($bins | is-not-empty))
-  if $line == false or ($c.platform.cross and not $c.testsRun) { return }
+  # qemu-user does not follow launch's execve of the real binary, wine's CreateProcess stays inside
+  if $line == false or ($c.platform.cross and not $c.testsRun and ($c.platform.os != "windows" or ($c.platform.emulator | is-empty))) { return }
   let words = (if $line == true { [--version] } else { $line | split row " " })
   let cmd = (if $words.0 in $bins { $words } else { $bins | first 1 | append $words })
   let want = ($c.spec.version | str replace -r '-r[0-9]+$' "")
@@ -249,9 +250,10 @@ def version-check [c: record]: nothing -> nothing {
   let run = {|root: string|
     cd /
     rm -f $audit_out
-    # empty environment but for HOME, which any real session has (rebar3 crashes without).
+    # empty environment but for HOME (rebar3 crashes without) and the emulator's own.
     # bzip2 --version goes on to compress stdin: stdout can be binary
-    let r = (^env -i $"HOME=($env.NIX_BUILD_TOP)" ...($c.platform.emulator) ...$audit $"($root)/bin/($cmd.0)($c.platform.ext.exe)" ...($cmd | skip 1) | complete)
+    let keep = ($env | transpose k v | where k =~ '^(WINE|QEMU_)' | each { $"($in.k)=($in.v)" })
+    let r = (^env -i $"HOME=($env.NIX_BUILD_TOP)" ...$keep ...($c.platform.emulator) ...$audit $"($root)/bin/($cmd.0)($c.platform.ext.exe)" ...($cmd | skip 1) | complete)
     if $r.exit_code != 0 or not ($"($r.stdout)($r.stderr)" | str contains $want) {
       error make {msg: $"version check: `($cmd | str join ' ')` did not print ($want) \(exit ($r.exit_code))\n($r.stdout)($r.stderr)"}
     }

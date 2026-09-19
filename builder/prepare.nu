@@ -14,7 +14,8 @@ def --env resolve-platform [p: record]: nothing -> record {
   # there), where a real arm64 process has no addresses and PAC keeps its signature, so signed
   # return addresses stop authenticating. binfmt-registered qemu reads it too
   let qemu = (if $p.cross { {QEMU_RESERVED_VA: "0x1000000000000"} } else { {} })
-  load-env ((build-machine-tools $plat) | merge {PKGS_EMULATOR: ($plat.emulator | str join " ")} | merge $qemu)
+  let wine = (if $p.os == "windows" { {WINEPREFIX: $"($env.NIX_BUILD_TOP)/wine", WINEDEBUG: "-all,err+module", WINEDLLOVERRIDES: "mscoree,mshtml="} } else { {} })
+  load-env ((build-machine-tools $plat) | merge {PKGS_EMULATOR: ($plat.emulator | str join " ")} | merge $qemu | merge $wine)
   $plat
 }
 
