@@ -26,6 +26,7 @@ jobs:
           curl -fsSL -o payload.tar.gz "${{ inputs.url }}"
           case "$RUNNER_OS" in
             Windows) mkdir -p /c/nix && tar -C /c -xzf payload.tar.gz && echo "STORE_PREFIX=/c" >> "$GITHUB_ENV" ;;
+            macOS) curl -fsSL https://install.determinate.systems/nix | sh -s -- install --no-confirm >/dev/null && sudo tar -C / -xzf payload.tar.gz && echo "STORE_PREFIX=" >> "$GITHUB_ENV" ;;
             *) sudo mkdir -p /nix && sudo chown "$USER" /nix && tar -C / -xzf payload.tar.gz && echo "STORE_PREFIX=" >> "$GITHUB_ENV" ;;
           esac
       - name: run
