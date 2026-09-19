@@ -50,7 +50,6 @@ constexpr std::array kTwoTokenOptions{
     "--json"sv,
     "--diagnostic-width"sv,
     "--remap-path-prefix"sv,
-    "--sysroot"sv,
     "-l"sv,
 };
 
@@ -139,6 +138,9 @@ auto TakeNamedOption(std::span<const std::string> args, size_t& idx, RustInvocat
   };
   if (auto value = take("--out-dir")) {
     inv.out_dir = *value;
+  } else if (auto value = take("--sysroot")) {
+    inv.key_args.push_back("--sysroot=" + *value);
+    inv.sysroot = *std::move(value);
   } else if (auto value = take("--crate-name")) {
     inv.key_args.push_back("--crate-name=" + *value);
     inv.crate_name = *std::move(value);
@@ -234,22 +236,30 @@ auto ParseRustInvocation(std::span<const std::string> args) -> RustInvocation {
 }
 
 namespace {
-// The libstd/libcore rlibs under this rustc's lib/rustlib. Store hashes are masked in keys, so
-// two builds of one rust release share a ToolId, yet an rlib compiled against one build's libstd
-// is "can't find crate" (E0463) to the other. Their content identity keeps the keys apart
-auto StdlibIds(CacheClient& cache, const std::string& rustc) -> std::string {
+// Content identity of the libstd/libcore rlibs rustc will link against: those under rustc itself
+// and, for cross builds, under --sysroot. Store hashes are masked in keys, so two builds of the
+// same rust release would otherwise share a key, yet an rlib compiled against one libstd is
+// "can't find crate" (E0463) against the other
+auto StdlibIds(CacheClient& cache, const std::string& rustc, const std::string& sysroot) -> std::string {
   std::error_code error;
   const fs::path real = fs::canonical(OnPath(rustc), error);
   if (error) {
     return "?";
   }
+  std::vector<fs::path> roots{real.parent_path().parent_path()};
+  if (!sysroot.empty()) {
+    roots.emplace_back(sysroot);
+  }
   std::vector<std::string> libs;
-  for (const auto& triple : fs::directory_iterator(real.parent_path().parent_path() / "lib" / "rustlib", error)) {
-    std::error_code inner;
-    for (const auto& entry : fs::directory_iterator(triple.path() / "lib", inner)) {
-      const std::string name = entry.path().filename().string();
-      if ((name.starts_with("libstd-") || name.starts_with("libcore-")) && name.ends_with(".rlib")) {
-        libs.push_back(entry.path().string());
+  for (const fs::path& root : roots) {
+    for (const auto& triple : fs::directory_iterator(root / "lib" / "rustlib", error)) {
+      std::error_code inner;
+      for (const auto& entry : fs::directory_iterator(triple.path() / "lib", inner)) {
+        const std::string name = entry.path().filename().string();
+        if ((name.starts_with("libstd-") || name.starts_with("libcore-")) && name.ends_with(".rlib")) {
+          // the cross sysroot is a directory of symlinks: hash the real file
+          libs.push_back(fs::weakly_canonical(entry.path(), inner).string());
+        }
       }
     }
   }
@@ -290,7 +300,7 @@ auto RunRustcMode(std::span<const std::string> args, const std::string& socket_p
   hasher.Field("rs-schema=7");
   // cargo may hand us a bare `rustc`: resolve on PATH first, or two toolchains share a key
   hasher.Field("rustc=" + store.ToolId(OnPath(rustc)));
-  hasher.Field("stdlib=" + StdlibIds(cache, rustc));
+  hasher.Field("stdlib=" + StdlibIds(cache, rustc, inv.sysroot));
   hasher.Field("cwd=" + store.Key(fs::current_path().string()));
   // same bytes under vendor/foo and vendor/foo-1.0: file!(), DWARF and dep-info name the path
   hasher.Field("src=" + store.Key(inv.source));

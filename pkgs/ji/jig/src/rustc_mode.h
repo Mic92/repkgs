@@ -20,6 +20,7 @@ struct RustInvocation {
   std::string source;
   std::string crate_name;
   std::string out_dir;
+  std::string sysroot;  // --sysroot: where cross builds find the target's libstd
   // -C metadata / -C extra-filename are cargo's dependency-graph hash: they name the outputs but
   // do not change their contents beyond that name, so they stay out of the key. Artifacts are
   // stored with the stem replaced by "@" and renamed on restore
