@@ -307,6 +307,10 @@ auto Has(const std::vector<std::string>& args, const std::string& arg) -> bool {
 void TestDriverConf() {
   const jig::DriverConf conf = jig::ParseDriverConf(kElfConf);
   assert(conf.present && conf.cc == "/seed/bin/clang" && conf.flags == V({"--target=x", "-O2"}));
+  const jig::DriverConf fortran =
+      jig::ParseDriverConf("cc = /c\nfc = /f/bin/flang\nfflags = -L@/lib -fintrinsic-modules-path @/finc -resource-dir=@/rd -Da@/b\n", "/self");
+  assert(fortran.fc == "/f/bin/flang");
+  assert(fortran.fflags == V({"-L/self/lib", "-fintrinsic-modules-path", "/self/finc", "-resource-dir=/self/rd", "-Da@/b"}));
   const jig::DriverConf macho = jig::ParseDriverConf(
       "cc = /seed/bin/clang\nbinfmt = macho\nflags = --target=arm64-apple-macos14.0\nlibc = /sr\n");
   assert(macho.binfmt == jig::BinFmt::kMachO);

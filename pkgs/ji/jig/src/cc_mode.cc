@@ -563,13 +563,24 @@ auto RunCcMode(std::string_view argv0, std::span<const std::string> raw_args, co
     std::println(stderr, "jig: no etc/jig.conf next to the binary and JIG_CC unset");
     return 1;
   }
-  const Language lang = fs::path(argv0).filename().string().contains("++") ? Language::kCxx : Language::kC;
+  const std::string name = fs::path(argv0).filename().string();
+  Language lang = Language::kC;
+  if (name.contains("++")) {
+    lang = Language::kCxx;
+  } else if (name.contains("fortran") || name.contains("flang")) {
+    lang = Language::kFortran;
+  }
+  if (lang == Language::kFortran && conf->fc.empty()) {
+    std::println(stderr, "jig: {} called but etc/jig.conf names no fc", name);
+    return 1;
+  }
+  const std::string& compiler = lang == Language::kFortran ? conf->fc : conf->cc;
 
   // classify on what the build system said. The conf's injected flags (crt_interp.o, rpaths) are
   // part of the key but must not make a configure probe look like a real link
   Invocation inv = ParseInvocation(user_args);
   // a cached link learns its inputs from ld.lld's --dependency-file; ld64.lld and lld-link have none
-  if ((inv.link || inv.link_one) && conf->binfmt != BinFmt::kElf) {
+  if (((inv.link || inv.link_one) && conf->binfmt != BinFmt::kElf) || lang == Language::kFortran) {
     inv.cacheable = false;
   }
   if (conf->present) {
@@ -587,18 +598,18 @@ auto RunCcMode(std::string_view argv0, std::span<const std::string> raw_args, co
     primary = PrimaryIdentity(inv);
   }
   if (!inv.cacheable || !primary || !cache.Connect(socket_path)) {
-    return RunUncached(cache, socket_path, conf->cc, inv, primary.has_value(), user_args, clock);
+    return RunUncached(cache, socket_path, compiler, inv, primary.has_value(), user_args, clock);
   }
 
-  *primary += "\ntoolchain=" + ToolchainIds(cache, conf->cc, inv);
-  const RequestKey request_key = ComputeRequestKey(conf->cc, inv, *primary);
+  *primary += "\ntoolchain=" + ToolchainIds(cache, compiler, inv);
+  const RequestKey request_key = ComputeRequestKey(compiler, inv, *primary);
   const std::expected<CachedResult, std::string> hit = Lookup(cache, request_key, inv);
   if (hit) {
     const int status = Replay(*hit, inv);
     LogOutcome("cc", status == 0 ? Outcome::kHit : Outcome::kHitFail, inv.source, clock);
     return status;
   }
-  return CompileAndStore(cache, conf->cc, request_key, inv, hit.error(), clock);
+  return CompileAndStore(cache, compiler, request_key, inv, hit.error(), clock);
 }
 
 }  // namespace jig

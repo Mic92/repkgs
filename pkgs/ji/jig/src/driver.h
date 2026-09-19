@@ -39,6 +39,7 @@ enum class BinFmt : std::uint8_t { kElf, kMachO, kCoff };
 
 struct DriverConf {
   std::string cc;
+  std::string fc;  // flang, run under the fortran names with fflags in place of flags
   BinFmt binfmt = BinFmt::kElf;
   std::string libc;
   std::string interp = "ld-linux-x86-64.so.2";
@@ -46,6 +47,7 @@ struct DriverConf {
   std::string runtimes;
   std::vector<std::string> flags;
   std::vector<std::string> cxxflags;
+  std::vector<std::string> fflags;
   std::vector<std::string> prefix_map;
   PackageCcFlags package;
   bool present = false;  // false: conf-less mode, only `cc` (from $JIG_CC) is set
@@ -53,7 +55,8 @@ struct DriverConf {
 
 // Reads <exe>/../etc/jig.conf, else falls back to $JIG_CC. nullopt if neither names a compiler.
 auto LoadDriverConf() -> std::optional<DriverConf>;
-auto ParseDriverConf(std::string_view text) -> DriverConf;
+// `root`: the prefix "@/" in fflags stands for
+auto ParseDriverConf(std::string_view text, std::string_view root = "") -> DriverConf;
 
 // "libfoo.so" or "libfoo.so.1.2"
 auto IsSharedLibName(std::string_view basename) -> bool;
