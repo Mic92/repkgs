@@ -11,6 +11,8 @@ def main []: nothing -> nothing {
   # MacOSX.sdk brings a real usr/ (and the SDKSettings.json the darwin driver reads), ELF sysroots alias it
   if not ($"($out)/usr" | path exists) { x ln -s . $"($out)/usr" }
   x ln -s lib $"($out)/lib64"
+  # tools copy `cc -print-file-name=crt*.o` verbatim (rust's self-contained/): no symlinks
+  for o in (files $"($out)/lib/*crt*.o") { let t = ($o | path expand); rm $o; cp $t $o }
   # depfiles name the symlink targets. The compile cache needs to know them (lib.nu JIG_STORE_ROOTS)
   $"($env.parts) ($env.resource)\n" | save $"($out)/roots"
 }
