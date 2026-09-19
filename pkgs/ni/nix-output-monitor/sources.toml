@@ -1,0 +1,18 @@
+[upstream]
+purl = "pkg:github/maralorn/nix-output-monitor"
+
+[watch]
+url = "https://github.com/maralorn/nix-output-monitor/tags"
+regex = 'v([0-9.]+)\.tar\.gz'
+
+[locks]
+hackage = "."
+
+[[source]]
+key = "default"
+url = "https://github.com/maralorn/nix-output-monitor/archive/refs/tags/v{version}.tar.gz"
+hash = "sha256-1GYwwPvuyPbOC4T+F/+AfNoUYNe1HJwNKviTyBlXFJM="
+
+[pin]
+version = "2.2.0"
+sys = ["zlib"]

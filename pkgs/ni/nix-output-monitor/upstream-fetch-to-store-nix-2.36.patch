@@ -1,0 +1,69 @@
+Backport of upstream pull request #313 (xokdvium): support FetchToStore
+activities and results from nix 2.36pre.
+
+nix 2.36 added a FetchToStore activity (type 113) and result (type 109).
+Without this, nom reports
+
+  nix-output-monitor error: ParseNixJSONMessageError ... "invalid activity
+  type: 113" / "invalid activity result type: 109"
+
+https://github.com/maralorn/nix-output-monitor/pull/313
+
+diff --git a/nix-output-monitor/lib/NOM/NixMessage/JSON.hs b/nix-output-monitor/lib/NOM/NixMessage/JSON.hs
+index 4153fbb..69f8f2b 100644
+--- a/nix-output-monitor/lib/NOM/NixMessage/JSON.hs
++++ b/nix-output-monitor/lib/NOM/NixMessage/JSON.hs
+@@ -40,6 +40,7 @@ data ActivityType where
+   PostBuildHookType :: ActivityType
+   BuildWaitingType :: ActivityType
+   FetchTreeType :: ActivityType
++  FetchToStoreType :: ActivityType
+   deriving stock (Show, Eq)
+ 
+ -- | nix src/libutil/include/nix/util/logging.hh ActivityType
+@@ -58,6 +59,7 @@ data Activity where
+   PostBuildHook :: Derivation -> Activity
+   BuildWaiting :: Activity
+   FetchTree :: Activity
++  FetchToStore :: Text -> Bool -> Activity
+   deriving stock (Show, Eq, Ord)
+ 
+ -- | nix src/libutil/include/nix/util/logging.hh ResultType
+@@ -71,6 +73,7 @@ data ActivityResult where
+   SetExpected :: ActivityType -> Int -> ActivityResult
+   PostBuildLogLine :: Text -> ActivityResult
+   FetchStatus :: Text -> ActivityResult
++  FetchToStoreStatus :: StorePath -> ActivityResult
+   deriving stock (Show, Eq)
+ 
+ data ActivityProgress = MkActivityProgress
+diff --git a/nix-output-monitor/lib/NOM/Parser/JSON.hs b/nix-output-monitor/lib/NOM/Parser/JSON.hs
+index 79e3a8b..2b568ea 100644
+--- a/nix-output-monitor/lib/NOM/Parser/JSON.hs
++++ b/nix-output-monitor/lib/NOM/Parser/JSON.hs
+@@ -45,6 +45,7 @@ parseActivityType = \case
+   110 -> pure PostBuildHookType
+   111 -> pure BuildWaitingType
+   112 -> pure FetchTreeType
++  113 -> pure FetchToStoreType
+   other -> fail ("invalid activity type: " <> show other)
+ 
+ parseAction :: JSON.Decoder NixJSONMessage
+@@ -121,6 +122,7 @@ parseResultAction = do
+       pure $ SetExpected activityType number
+     107 -> PostBuildLogLine <$> one txt
+     108 -> FetchStatus <$> one txt
++    109 -> FetchToStoreStatus <$> (one txt >>= parseStorePath)
+     other -> fail ("invalid activity result type: " <> show other)
+   pure MkResultAction{id = idField, result}
+ 
+@@ -163,4 +165,9 @@ parseStartAction = do
+     PostBuildHookType -> PostBuildHook <$> (one txt >>= parseDerivation)
+     BuildWaitingType -> pure BuildWaiting
+     FetchTreeType -> pure FetchTree
++    FetchToStoreType ->
++      two textOrNumFields >>= \(sourcePath, dryRun) -> do
++        sourcePath' <- either pure (const $ fail "Got Int expected Text") sourcePath
++        dryRun' <- either (const $ fail "Got Text expected Int") (pure . (/= 0)) dryRun
++        pure $ FetchToStore sourcePath' dryRun'
+   pure MkStartAction{id = MkId idField, text, activity, level}
