@@ -61,7 +61,8 @@ export def --env configure []: nothing -> nothing {
       | merge (host-target $c $host --llvm)
       # rust#132802: optimized builtins for wasm want a wasm C toolchain
       | merge ($FREESTANDING | each {|t| {$t: {optimized-compiler-builtins: false, profiler: false}} } | into record))
-    dist: {compression-formats: [gz], src-tarball: false}
+    # include-mingw-linker would copy gcc/ld and libunwind.dll beside rustc.exe: the launcher finds it
+    dist: {compression-formats: [gz], src-tarball: false, include-mingw-linker: false}
   } | to toml | save -f bootstrap.toml
 }
 
