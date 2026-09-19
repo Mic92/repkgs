@@ -33,6 +33,8 @@ let
     emulator =
       if cross && os == "linux" then
         [ "${buildPkgs.qemu}/bin/qemu-${stage.platform.names.qemu}" ]
+      else if cross && os == "windows" && target.cpu == "x86_64" then
+        [ "${buildPkgs.wine}/bin/wine" ]
       else
         [ ];
   };
