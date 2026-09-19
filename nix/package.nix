@@ -110,7 +110,13 @@ let
       probe = if platform.cross then "${toolchain.sysroot}/lib/${platform.interp}" else "";
       # `prebuilt`: upstream ELFs get our dynamic linker implanted (true) or via launch ("ldso")
       interp = "${toolchain.sysroot}/lib/${platform.interp}";
-      launch = if elf then "${launch}/bin/launch" else "";
+      launch =
+        if elf then
+          "${launch}/bin/launch"
+        else if platform.os == "windows" then
+          "${launch}/bin/launch.exe"
+        else
+          "";
       # finish.nu runs the version check under it: a failed dlopen fails the build
       dlaudit = if elf then "${dlaudit}/lib/dlaudit.so" else "";
       relocStub = "${toolchain}/lib/reloc_stub.bin";

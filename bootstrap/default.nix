@@ -366,15 +366,16 @@ let
           inherit platform run ccArgs;
           libcGiven = g;
         };
+      withLaunch = c: c // { launch = run [ c.cc ] "launch" { }; };
     in
     {
       glibc = linuxChain platform run ccArgs;
-      msvc = given sdk;
+      msvc = withLaunch (given sdk);
       apple = given (run [ ] "apple-sdk" { });
-      mingw = chain {
+      mingw = withLaunch (chain {
         inherit platform run ccArgs;
         libcRecipe = "mingw-w64";
-      };
+      });
     }
     .${platform.libc};
   toolchain = builtins.mapAttrs (_: chainFor) platforms.byName;
