@@ -1,0 +1,104 @@
+Backport of upstream pull request #304 (samestep): fix quadratic slowdown.
+
+Track forest roots in a set instead of a sequence (roots were re-sorted
+on every state change and filtered linearly on every insert), sorting
+once in the printer instead.
+
+https://github.com/maralorn/nix-output-monitor/pull/304
+
+diff --git a/nix-output-monitor/lib/NOM/Print.hs b/nix-output-monitor/lib/NOM/Print.hs
+index 992bc9a..eee0249 100644
+--- a/nix-output-monitor/lib/NOM/Print.hs
++++ b/nix-output-monitor/lib/NOM/Print.hs
+@@ -185,7 +185,7 @@ stateToText config buildState@MkNOMState{..} = printWithSize
+             -- (not (IntMap.null interestingActivities) || isJust evalMessage, printInterestingActivities evalMessage interestingActivities)
+             (not (Seq.null nixErrors), const errorDisplay)
+           , (not (Seq.null nixTraces), const traceDisplay)
+-          , (not (Seq.null forestRoots), buildsDisplay . snd)
++          , (not (CSet.null forestRoots), buildsDisplay . snd)
+           ]
+     maxWindow = case maybeWindow of
+       Just (Window height width) -> Window (height `div` targetRatio) (width - 2) -- targetRatio is hardcoded to be bigger than zero.
+@@ -395,7 +395,7 @@ printBuilds nomState@MkNOMState{..} hostAbbrevs limits = printBuildsWithTime
+         <> maybe "" (\p -> printBar (limits.width - left_width - 6) p <> printPercent p) r
+    where
+     left_width = max 60 (1 + maximum1 (0 :| (displayWidth . fst <$> filter (isJust . snd) rows)))
+-  num_raw_roots = length forestRoots
++  num_raw_roots = CSet.size forestRoots
+   num_roots = length preparedPrintForest
+   graphTitle = markup bold "Dependency Graph"
+   graphHeader = " " <> graphHeaderInner <> ":"
+@@ -412,8 +412,11 @@ printBuilds nomState@MkNOMState{..} hostAbbrevs limits = printBuildsWithTime
+         display_summary = location == Leaf && planned && not (Text.null summary)
+      in \now -> (display_drv now <> showCond display_summary (markup grey " waiting for " <> summary), progress now)
+ 
++  sortedRoots :: Seq DerivationId
++  sortedRoots = Seq.sortOn (sortKey nomState) $ Seq.fromList $ reverse $ CSet.toList forestRoots
++
+   buildForest :: Forest DerivationInfo
+-  buildForest = evalState (goBuildForest forestRoots) mempty
++  buildForest = evalState (goBuildForest sortedRoots) mempty
+ 
+   goBuildForest :: Seq DerivationId -> State DerivationSet (Forest DerivationInfo)
+   goBuildForest = \case
+@@ -433,7 +436,7 @@ printBuilds nomState@MkNOMState{..} hostAbbrevs limits = printBuildsWithTime
+   derivationsToShow :: DerivationSet
+   derivationsToShow =
+     let should_be_shown (index, (can_be_hidden, _, _)) = not can_be_hidden || index < limits.height
+-        (_, sorted_set) = execState (goDerivationsToShow forestRoots) mempty
++        (_, sorted_set) = execState (goDerivationsToShow sortedRoots) mempty
+      in CSet.fromFoldable
+           $ fmap (\(_, (_, _, drvId)) -> drvId)
+           $ takeWhile should_be_shown
+diff --git a/nix-output-monitor/lib/NOM/State.hs b/nix-output-monitor/lib/NOM/State.hs
+index 281f980..dc684a0 100644
+--- a/nix-output-monitor/lib/NOM/State.hs
++++ b/nix-output-monitor/lib/NOM/State.hs
+@@ -244,7 +244,7 @@ data NOMState = MkNOMState
+   { derivationInfos :: DerivationMap DerivationInfo
+   , storePathInfos :: StorePathMap StorePathInfo
+   , fullSummary :: DependencySummary
+-  , forestRoots :: Seq DerivationId
++  , forestRoots :: DerivationSet
+   , buildReports :: BuildReportMap
+   , startTime :: Double
+   , progressState :: ProgressState
+diff --git a/nix-output-monitor/lib/NOM/Update.hs b/nix-output-monitor/lib/NOM/Update.hs
+index b559429..a33abd0 100644
+--- a/nix-output-monitor/lib/NOM/Update.hs
++++ b/nix-output-monitor/lib/NOM/Update.hs
+@@ -58,7 +58,7 @@ import NOM.State (
+ import NOM.State qualified as State
+ import NOM.State.CacheId.Map qualified as CMap
+ import NOM.State.CacheId.Set qualified as CSet
+-import NOM.State.Sorting (sortDepsOfSet, sortKey)
++import NOM.State.Sorting (sortDepsOfSet)
+ import NOM.StreamParser (stripANSICodes)
+ import NOM.Update.Monad (
+   BuildReportMap,
+@@ -94,7 +94,6 @@ maintainState now = execState $ do
+   currentState <- get
+   unless (CSet.null currentState.touchedIds) $ do
+     sortDepsOfSet currentState.touchedIds
+-    modifying' #forestRoots $ Seq.sortOn (sortKey currentState)
+     assign' #touchedIds mempty
+   when (Strict.isJust currentState.evaluationState.lastFileName && currentState.evaluationState.at <= now - 5 && currentState.fullSummary /= mempty) do
+     assign' (#evaluationState % #lastFileName) Strict.Nothing
+@@ -385,7 +384,7 @@ insertDerivation derivation drvId = do
+         parseDerivation (toText drvPath) & mapM \depName -> do
+           depId <- lookupDerivation depName
+           modifying' #derivationInfos $ CMap.adjust (#derivationParents %~ CSet.insert drvId) depId
+-          modifying' #forestRoots $ Seq.filter (/= depId)
++          modifying' #forestRoots $ CSet.delete depId
+           pure depId
+       pure $ (\derivation_id -> MkInputDerivation{derivation = derivation_id, outputs = Set.map (parseOutputName . Text.copy) outputs_of_input}) <$> depIdMay
+   let inputDerivations = Seq.fromList inputDerivationsList
+@@ -405,7 +404,7 @@ insertDerivation derivation drvId = do
+           drvId
+     )
+   noParents <- CSet.null . (.derivationParents) <$> getDerivationInfos drvId
+-  when noParents $ modifying' #forestRoots (drvId Seq.<|)
++  when noParents $ modifying' #forestRoots (CSet.insert drvId)
+ 
+ planBuilds :: (MonadNOMState m) => Set DerivationId -> m ()
+ planBuilds drvIds = forM_ drvIds \drvId ->
