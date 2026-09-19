@@ -29,6 +29,9 @@ def main []: nothing -> nothing {
   configure-make $src mingw-w64-crt ($libdir ++ [--with-default-msvcrt=ucrt --enable-cfguard]) {CC: $cc, CCAS: $cc, CPPFLAGS: $"-I($out)/include"}
   # clang adds -lssp -lssp_nonshared for -fstack-protector, mingw-w64 has that in libmingwex
   for l in [ssp ssp_nonshared] { x llvm-ar rcs $"($out)/lib/lib($l).a" }
+  # Rust's std imports combase.dll by name (raw-dylib), mingw-w64 ships its .def for arm32 only
+  let m = ({x86_64: "i386:x86-64", aarch64: arm64} | get $env.cpu)
+  x llvm-dlltool -m $m -d $"($src)/mingw-w64-crt/libarm32/combase.def" -l $"($out)/lib/libcombase.a"
   configure-make $src mingw-w64-libraries/winpthreads [--enable-static --enable-shared] {CC: $cc, CPPFLAGS: $"-I($out)/include", RCFLAGS: $"-I($out)/include", LDFLAGS: $"-L($out)/lib"}
   note mingw-w64 $"(ls $'($out)/lib' | length) files in lib/"
 }
