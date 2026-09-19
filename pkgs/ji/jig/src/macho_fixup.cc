@@ -12,6 +12,7 @@
 #include <print>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -197,34 +198,66 @@ auto Resign(BinaryImage& image, std::string_view shown) -> bool {
   return true;
 }
 
-auto LoaderRelative(const fs::path& from_dir, const fs::path& target) -> std::string {
-  const std::string rel = target.lexically_normal().lexically_relative(from_dir).string();
-  return rel == "." ? "@loader_path" : "@loader_path/" + rel;
-}
-
 auto IsSystemPath(std::string_view path) -> bool {
   return path.starts_with("/usr/lib/") || path.starts_with("/System/");
 }
 
-// what a path command should say for the tree to relocate, nullopt to leave it. The install
-// prefix counts as the store path it ends up at. A dylib named by a build directory path cannot
-// be found later: an error (the build should give it an absolute -install_name under the prefix)
-auto NewSpelling(FixupContext& ctx, const fs::path& here, const Command& command, std::string_view shown)
+// Where a load command points once the tree is at dest, nullopt when dyld would not find it
+auto Resolve(const FixupContext& ctx, const fs::path& here, const std::string& path) -> std::optional<fs::path> {
+  std::error_code error;
+  if (IsSystemPath(path)) {
+    // the SDK lists what the OS ships: libz.1.dylib as libz.1.tbd, Foo.framework/Foo as Foo.tbd
+    const std::string stem = path.ends_with(".dylib") ? path.substr(0, path.size() - 6) : path;
+    const bool known = ctx.sdk.empty() || fs::exists(ctx.sdk / (stem.substr(1) + ".tbd"), error);
+    return known ? std::optional(fs::path(path)) : std::nullopt;
+  }
+  std::optional<fs::path> target;
+  constexpr std::string_view kRpath = "@rpath/";
+  constexpr std::string_view kLoader = "@loader_path/";
+  if (path.starts_with(kRpath)) {
+    // only our own: a dependency's id is absolute (below), so nothing else says @rpath
+    for (const fs::path& dir : ctx.own_lib_dirs) {
+      if (!target && fs::exists(dir / path.substr(kRpath.size()), error)) {
+        target = ctx.Final(dir / path.substr(kRpath.size()));
+      }
+    }
+  } else if (path.starts_with(kLoader)) {
+    target = (here / path.substr(kLoader.size())).lexically_normal();
+  } else if (Store::Get().IsStorePath(ctx.Final(path).string())) {
+    target = ctx.Final(path);
+  }
+  // ours must exist, a dependency's store path does or the linker had not found it
+  if (target && ctx.OnDisk(*target) != *target && !fs::exists(ctx.OnDisk(*target), error)) {
+    target.reset();
+  }
+  return target;
+}
+
+// What a path command should say for the tree to relocate, nullopt to leave it:
+//   LC_ID_DYLIB    the file's own final path, so dependents record a store path, never @rpath
+//   LC_LOAD_DYLIB  @loader_path/relative to where it resolves (the reference Nix sees, no
+//                  search), system libraries verbatim. Unresolvable is an error
+//   LC_RPATH       store paths @loader_path/relative, the rest left (nothing of ours needs them)
+auto NewSpelling(FixupContext& ctx, const fs::path& self, const Command& command, std::string_view shown)
     -> std::optional<std::string> {
   const std::string path = command.Path();
-  if (path.starts_with('@') || IsSystemPath(path)) {
+  const fs::path here = self.parent_path();
+  if (command.cmd == kIdDylib) {
+    return self.string();
+  }
+  if (command.cmd == kRpath) {
+    const fs::path target = ctx.Final(path);
+    return Store::Get().IsStorePath(target.string()) ? std::optional(RelativeTo(here, target, "@loader_path"))
+                                                     : std::nullopt;
+  }
+  const std::optional<fs::path> target = Resolve(ctx, here, path);
+  if (!target) {
+    std::println(stderr, "reloc-fixup: {}: links {}, which neither the package, a dependency nor the SDK has", shown,
+                 path);
+    ++ctx.errors;
     return std::nullopt;
   }
-  const fs::path target = ctx.Final(path);
-  if (Store::Get().IsStorePath(target.string())) {
-    // an id is only read by linkers, it must just not name the store
-    return command.cmd == kIdDylib ? "@rpath/" + target.filename().string() : LoaderRelative(here, target);
-  }
-  if (command.cmd != kRpath && command.cmd != kIdDylib) {
-    std::println(stderr, "reloc-fixup: {}: links {} by a path outside the store", shown, path);
-    ++ctx.errors;
-  }
-  return std::nullopt;
+  return IsSystemPath(path) ? path : RelativeTo(here, *target, "@loader_path");
 }
 
 }  // namespace
@@ -234,7 +267,7 @@ auto FixMachO(FixupContext& ctx, const fs::path& path, BinaryImage& image) -> bo
   if (!header || header->magic != kMagic64) {
     return false;
   }
-  const fs::path here = ctx.Final(path).parent_path();
+  const fs::path self = ctx.Final(path);
   const std::string shown = fs::relative(path, ctx.prefix).string();
   LoadCommands table = ReadLoadCommands(image, *header);
 
@@ -243,7 +276,7 @@ auto FixMachO(FixupContext& ctx, const fs::path& path, BinaryImage& image) -> bo
     if (command.path_off == 0) {
       continue;
     }
-    if (const std::optional<std::string> text = NewSpelling(ctx, here, command, shown);
+    if (const std::optional<std::string> text = NewSpelling(ctx, self, command, shown);
         text && *text != command.Path()) {
       command.SetPath(*text);
       log.push_back(*text);

@@ -559,8 +559,9 @@ void TestMachOFixup() {
   constexpr std::uint32_t kRoomy = 1024;
   const std::string prefix_lib = std::string(OUT_ROOT) + "/lib/";
   const std::string dep = JIG_STORE_DIR "/7123456789abcdfghijklmnpqrsvwxyz-zlib/lib/libz.1.dylib";
-  const std::string dylibs = macho::DylibCommand(macho::kIdDylib, prefix_lib + "libssl.3.dylib") +
-                             macho::DylibCommand(macho::kLoadDylib, prefix_lib + "libcrypto.3.dylib") +
+  // an @rpath id (cmake's default) becomes absolute, an @rpath load of our own dylib @loader_path
+  const std::string dylibs = macho::DylibCommand(macho::kIdDylib, "@rpath/libssl.3.dylib") +
+                             macho::DylibCommand(macho::kLoadDylib, "@rpath/libcrypto.3.dylib") +
                              macho::DylibCommand(macho::kLoadDylib, dep) +
                              macho::DylibCommand(macho::kLoadDylib, "/usr/lib/libSystem.B.dylib");
   const std::string file = macho::Dylib(kRoomy, kFileSize, dylibs, 4);
@@ -569,19 +570,41 @@ void TestMachOFixup() {
   fs::create_directories(tmp / "lib");
   const fs::path dylib = tmp / "lib/libssl.3.dylib";
   assert(jig::WriteFile(dylib, file));
+  assert(jig::WriteFile(tmp / "lib/libcrypto.3.dylib", ""));
   jig::FixupContext ctx;
   ctx.prefix = tmp;
   ctx.dest = std::string(OUT_ROOT);
+  ctx.own_lib_dirs = {tmp / "lib"};
   jig::BinaryImage image(file);
   assert(jig::FixMachO(ctx, dylib, image));
   assert(ctx.errors == 0);
   const std::string after = jig::ReadFile(dylib).value_or("");
   assert(after.size() == kFileSize);
-  assert(after.contains("@rpath/libssl.3.dylib"));
+  assert(after.contains(prefix_lib + "libssl.3.dylib"));
   assert(after.contains("@loader_path/libcrypto.3.dylib"));
   assert(after.contains("@loader_path/../../7123456789abcdfghijklmnpqrsvwxyz-zlib/lib/libz.1.dylib"));
   assert(after.contains("/usr/lib/libSystem.B.dylib"));
-  assert(!after.contains(JIG_STORE_DIR "/"));
+  assert(!after.contains("7123456789abcdfghijklmnpqrsvwxyz-zlib/") ||
+         after.contains("../../7123456789abcdfghijklmnpqrsvwxyz-zlib/"));
+
+  // loads dyld could not resolve: @rpath nothing of ours provides, a dangling @loader_path, a
+  // system library the SDK lacks. One it has passes
+  fs::create_directories(tmp / "sdk/usr/lib");
+  assert(jig::WriteFile(tmp / "sdk/usr/lib/libSystem.B.tbd", ""));
+  ctx.sdk = tmp / "sdk";
+  for (const auto& [load, errors] : std::initializer_list<std::pair<const char*, int>>{
+           {"@rpath/libgone.dylib", 1},
+           {"@loader_path/libgone.dylib", 1},
+           {"/usr/lib/libgone.dylib", 1},
+           {"/usr/lib/libSystem.B.dylib", 0},
+       }) {
+    jig::FixupContext bad = ctx;
+    const std::string lost = macho::Dylib(kRoomy, kFileSize, macho::DylibCommand(macho::kLoadDylib, load), 1);
+    assert(jig::WriteFile(dylib, lost));
+    jig::BinaryImage lost_image(lost);
+    assert(jig::FixMachO(bad, dylib, lost_image));
+    assert(bad.errors == errors);
+  }
 
   // __text right behind the commands: the longer zlib spelling does not fit, an error
   const std::string grows = macho::DylibCommand(macho::kLoadDylib, dep);
