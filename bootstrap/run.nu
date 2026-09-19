@@ -9,7 +9,8 @@ def main [
   load-env {out: $attrs.outputs.out, JIG_LOG: $"($env.NIX_BUILD_TOP)/jig.log"}
   ^nu --no-config-file $recipe
   if ($env.JIG_LOG | path exists) {
-    let kinds = (open --raw $env.JIG_LOG | lines | each { split row " " | first } | uniq -c)
+    # tool<TAB>outcome<TAB>subject<TAB>ms, as builder/finish.nu cache-summary reads it
+    let kinds = (open --raw $env.JIG_LOG | lines | each { split row "\t" | get 1 } | where $it != query | uniq -c)
     print -e $"== cache: ($kinds | each { $"($in.value)=($in.count)" } | str join ' ')"
   }
   ^chmod -R go-w $env.out
