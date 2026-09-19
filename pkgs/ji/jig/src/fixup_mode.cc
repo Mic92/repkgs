@@ -91,7 +91,11 @@ void FixOne(FixupContext& ctx, const fs::path& path) {
   if (!data) {
     return;
   }
-  CheckDenied(ctx, path, *data);
+  // a compiler driver's config names the build machine's compiler on purpose
+  const fs::path rel = fs::relative(path, ctx.prefix);
+  if (rel != "etc/jig.json" && rel != "etc/roots") {
+    CheckDenied(ctx, path, *data);
+  }
   BinaryImage image(std::move(*data));
   FixElf(ctx, path, image) || FixMachO(ctx, path, image);
 }
