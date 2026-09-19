@@ -113,8 +113,8 @@ export def write-launcher [name: string, program: string, args: list<string>, va
   {
     program: (do $rel $program), args: ($args | each { do $rel $in })
     env: ($vars | items {|k, v| {$k: {set: (do $rel $v)}} } | into record)
-  } | to json -r | save -f $"($c.out)/bin/.($name).launch"
-  ^ln -sf $c.platform.launch $"($c.out)/bin/($name)"
+  } | to json -r | save -f $"($c.out)/bin/.($name)($c.platform.ext.exe).launch"
+  if $c.platform.binfmt == "coff" { cp $c.platform.launch $"($c.out)/bin/($name).exe" } else { ^ln -sf $c.platform.launch $"($c.out)/bin/($name)" }
   note launcher $"bin/($name) -> ($program)"
 }
 

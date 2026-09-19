@@ -8,9 +8,10 @@ use names.nu [linkable-libs]
 def existing [root: path, rels: list<string>]: nothing -> list<string> { $rels | where {|d| $"($root)/($d)" | path exists } }
 
 # a package's exports with defaults filled in. Used for dependencies and for writing our own
-export def exports-of [p: path]: nothing -> record<name: string, includeDirs: list<string>, libDirs: list<string>, libs: list<string>, pkgconfigDirs: list<string>, aclocalDirs: list<string>, env: record, propagate: list<string>> {
+export def exports-of [p: path]: nothing -> record<name: string, includeDirs: list<string>, libDirs: list<string>, libs: list<string>, pkgconfigDirs: list<string>, aclocalDirs: list<string>, env: record, propagate: list<string>, dllDirs: list<string>> {
   let f = $"($p)/exports.json"
   let e = if ($f | path exists) { open $f } else { {} }
+  let expand = {|s| $s | str replace -a "{root}" $p | str replace -a "{store}" ($p | path dirname) }
   {
     # package name as build systems key on it (sys-libs.nu, dep-root); the store name is <hash>-<name>[-<platform>]
     name: ($e.name? | default { $p | path basename | str substring 33.. | str replace -r '-(x86_64|aarch64|riscv64|loongarch64|powerpc64le)-[\w-]+$' '' })
@@ -20,8 +21,10 @@ export def exports-of [p: path]: nothing -> record<name: string, includeDirs: li
     pkgconfigDirs: ($e.pkgconfigDirs? | default { existing $p ["lib/pkgconfig" "share/pkgconfig"] })
     aclocalDirs: ($e.aclocalDirs? | default { existing $p ["share/aclocal"] })
     # `{root}` in values: this package's own store path (kept relative in exports.json so the output stays relocatable)
-    env: ($e.env? | default {} | items {|k, v| [$k ($v | str replace -a "{root}" $p)] } | into record)
+    env: ($e.env? | default {} | items {|k, v| [$k (do $expand $v)] } | into record)
     propagate: ($e.propagate? | default [])
+    # PE: what RUNPATH would record (builder/launchers.nu)
+    dllDirs: ($e.dllDirs? | default [] | each { do $expand $in })
   }
 }
 
@@ -52,6 +55,8 @@ export def write-exports [out: string, spec: record, platform: record, deps: lis
   let own = (if $spec.exports? == false { $none } else { $spec.exports? | default {} })
   let exports = (exports-of $out | upsert libs (linkable-libs $platform $"($out)/lib") | merge $own | upsert name $spec.name)
   let exports = ($exports | update propagate { $in ++ (required-deps $out $deps $exports) | uniq })
+  let rel = {|s| $s | str replace -a $out "{root}" | str replace -a $env.NIX_STORE "{store}" }
+  let exports = (if ($exports.dllDirs | is-empty) { $exports | reject dllDirs } else { $exports | update dllDirs { each { do $rel $in } } })
   $exports | to json | save -f $"($out)/exports.json"
 }
 

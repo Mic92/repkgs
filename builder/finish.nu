@@ -215,6 +215,7 @@ def binaries-macho [c: record, inv: table]: nothing -> nothing {
 # no debug output yet, but CodeView LF_BUILDINFO in static libraries names the compiler's store path
 def binaries-coff [c: record, inv: table]: nothing -> nothing {
   strip-archives $c.out ($inv | where type == f and rel =~ '\.(lib|obj|a)$')
+  launchers $c
 }
 
 # --deny: a cross output must not mention build-machine packages
@@ -260,10 +261,12 @@ def version-check [c: record]: nothing -> nothing {
     }
   }
   do $run $c.out
-  # beside the copy: every store root the build saw, and launch (bin/ launchers link to it)
+  # beside the copy: every store root the build saw, launch (bin/ launchers link to it), and the
+  # transitive DLL dirs a PE launcher names (an ELF reaches those through the real store)
   let root = $"($env.NIX_BUILD_TOP)/relocated"
   mkdir $root
-  for d in ($c.roots ++ [($c.platform.launch | path dirname -n 2)] | uniq) { ^ln -s $d $root }
+  let dlls = ((exports-of $c.out).dllDirs | each { path split | take 4 | path join })
+  for d in ($c.roots ++ [($c.platform.launch | path dirname -n 2)] ++ $dlls | uniq) { ^ln -sf $d $root }
   ^cp -r $c.out $root
   do $run $"($root)/($c.out | path basename)"
   rm -rf $root
