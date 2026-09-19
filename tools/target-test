@@ -17,10 +17,13 @@ def main [platform: string, --remote (-r): string, ...attrs: string] {
   let outs = (do $on $"($env.NIX_BUILD? | default nix-build) . ($attrs | each { $'-A ($in)' } | str join ' ') --argstr platform ($platform) --no-out-link" | lines | where { $in =~ '^/nix/store' })
   if ($outs | length) != ($attrs | length) { error make {msg: "build failed"} }
   let exe = (if $platform =~ windows { ".exe" } else { "" })
+  # as finish.nu version-check: spec.bin or bin/<name> when the build made one, libraries just unpack
   let commands = ($attrs | zip $outs | each {|p|
-    let spec = (^nix-instantiate --eval --json --strict -E $"with import ./. { platform = \"($platform)\"; }; { v = ($p.0).version; t = ($p.0).spec.tests.version or true; b = ($p.0).spec.bins or [\"($p.0)\"]; }" | from json)
-    let words = (if $spec.t == true { [($spec.b | first) --version] } else { $spec.t | split row " " })
-    let words = (if $words.0 in $spec.b { $words } else { [($spec.b | first)] ++ $words })
+    let spec = (^nix-instantiate --eval --json --strict -E $"with import ./. { platform = \"($platform)\"; }; { v = ($p.0).version; t = ($p.0).spec.tests.version or true; b = ($p.0).spec.bin or []; }" | from json)
+    let b = (if ($spec.b | is-empty) and (do $on $"test -e ($p.1)/bin/($p.0)($exe)" | complete).exit_code == 0 { [$p.0] } else { $spec.b })
+    if $spec.t == false or ($b | is-empty) { return $"ls ($p.1)" }
+    let words = (if $spec.t == true { [($b | first) --version] } else { $spec.t | split row " " })
+    let words = (if $words.0 in $b { $words } else { [($b | first)] ++ $words })
     $"($p.1)/bin/($words.0)($exe) ($words | skip 1 | str join ' ') | grep -F ($spec.v | str replace -r '-r[0-9]+$' '')"
   })
   let tar = $"/tmp/target-test-($platform).tar.gz"
