@@ -36,7 +36,7 @@ jobs:
           while IFS= read -r cmd; do
             [ -z "$cmd" ] && continue
             echo "::group::$cmd"
-            (cd "$STORE_PREFIX/" && eval "$STORE_PREFIX$cmd") || { echo "::error::exit $? from $cmd"; rc=1; }
+            (cd "$STORE_PREFIX/" && eval "${cmd//\/nix\/store/$STORE_PREFIX/nix/store}") || { echo "::error::exit $? from $cmd"; rc=1; }
             echo "::endgroup::"
           done <<'EOF'
           ${{ inputs.commands }}
