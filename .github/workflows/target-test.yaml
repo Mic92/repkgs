@@ -1,0 +1,43 @@
+name: target-test
+# Runs cross-built outputs on a real target. The payload is a tarball of store paths (nix-store
+# -qR | tar -C /) uploaded as a release asset: tools/target-test does both ends.
+on:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: runs-on
+        required: true
+        type: choice
+        options: [windows-latest, windows-11-arm, macos-latest, macos-13, ubuntu-24.04-arm]
+      url:
+        description: payload tarball
+        required: true
+      commands:
+        description: one per line, store paths as packed
+        required: true
+
+jobs:
+  run:
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - name: fetch
+        shell: bash
+        run: |
+          curl -fsSL -o payload.tar.gz "${{ inputs.url }}"
+          case "$RUNNER_OS" in
+            Windows) mkdir -p /c/nix && tar -C /c -xzf payload.tar.gz && echo "STORE_PREFIX=/c" >> "$GITHUB_ENV" ;;
+            *) sudo mkdir -p /nix && sudo chown "$USER" /nix && tar -C / -xzf payload.tar.gz && echo "STORE_PREFIX=" >> "$GITHUB_ENV" ;;
+          esac
+      - name: run
+        shell: bash
+        run: |
+          rc=0
+          while IFS= read -r cmd; do
+            [ -z "$cmd" ] && continue
+            echo "::group::$cmd"
+            (cd "$STORE_PREFIX/" && eval "$STORE_PREFIX$cmd") || { echo "::error::exit $? from $cmd"; rc=1; }
+            echo "::endgroup::"
+          done <<'EOF'
+          ${{ inputs.commands }}
+          EOF
+          exit $rc

@@ -1,0 +1,35 @@
+#!/usr/bin/env nu
+# Run cross-built packages on a real machine via .github/workflows/target-test.yaml:
+#   tools/target-test x86_64-windows-gnu jq curl zstd
+# builds them, packs the closure, uploads it as a release asset, dispatches the workflow with
+# `bin/<x> --version` per package (or tests.version), and follows the run.
+const REPO = "Mic92/repkgs"
+const RUNNER = {
+  x86_64-windows-gnu: windows-latest, x86_64-windows-msvc: windows-latest, aarch64-windows-msvc: windows-11-arm
+  aarch64-macos: macos-latest, x86_64-macos: macos-13, aarch64-linux: ubuntu-24.04-arm, aarch64-linux-musl: ubuntu-24.04-arm
+}
+
+def main [platform: string, ...attrs: string] {
+  let runner = ($RUNNER | get $platform)
+  let outs = (^nix-build . ...($attrs | each { [-A $in] } | flatten) --argstr platform $platform --no-out-link | lines)
+  let exe = (if $platform =~ windows { ".exe" } else { "" })
+  let commands = ($attrs | zip $outs | each {|p|
+    let spec = (^nix-instantiate --eval --json --strict -E $"with import ./. { platform = \"($platform)\"; }; { v = ($p.0).version; t = ($p.0).spec.tests.version or true; b = ($p.0).spec.bins or [\"($p.0)\"]; }" | from json)
+    let words = (if $spec.t == true { [($spec.b | first) --version] } else { $spec.t | split row " " })
+    let words = (if $words.0 in $spec.b { $words } else { [($spec.b | first)] ++ $words })
+    $"($p.1)/bin/($words.0)($exe) ($words | skip 1 | str join ' ') | grep -F ($spec.v | str replace -r '-r[0-9]+$' '')"
+  })
+  let tar = $"/tmp/target-test-($platform).tar.gz"
+  ^nix-store -qR ...$outs | lines | where { $in !~ '-debug$' } | ^tar -C / -czf $tar -T -
+  let tag = "target-test"
+  if (^gh release view $tag -R $REPO | complete).exit_code != 0 { ^gh release create $tag -R $REPO --prerelease --notes "payloads for .github/workflows/target-test.yaml" --title $tag }
+  ^gh release upload $tag $tar -R $REPO --clobber
+  let url = $"https://github.com/($REPO)/releases/download/($tag)/($tar | path basename)"
+  print ($commands | str join "\n")
+  ^gh workflow run target-test.yaml -R $REPO -f $"runner=($runner)" -f $"url=($url)" -f $"commands=($commands | str join "\n")"
+  sleep 5sec
+  let id = (^gh run list -R $REPO -w target-test.yaml -L 1 --json databaseId | from json | get 0.databaseId)
+  print $"https://github.com/($REPO)/actions/runs/($id)"
+  ^gh run watch $id -R $REPO --exit-status
+  ^gh run view $id -R $REPO --log | lines | where { $in =~ '\brun\b' } | each { str replace -r '^\S+\s+\S+\s+\S+\s' '' } | print
+}
