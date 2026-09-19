@@ -47,6 +47,12 @@ auto IsAssembly(std::string_view path) -> bool {
   return HasSuffix(path, kExts);
 }
 
+// .s is not preprocessed: -MD writes nothing and the source is the only input
+auto IsPlainAssembly(std::string_view path) -> bool {
+  static constexpr std::array kExts{".s"sv};
+  return HasSuffix(path, kExts);
+}
+
 auto IsSourceFile(std::string_view arg) -> bool {
   static constexpr std::array kExts{
       ".c"sv, ".cc"sv, ".cpp"sv, ".cxx"sv, ".c++"sv,  //
@@ -286,9 +292,10 @@ auto RunObserved(CacheClient& cache, const std::string& compiler, const Invocati
   const fs::path depfile = own_depfile ? fs::path(tmp_base + ".d") : inv.depfile;
   const fs::path link_depfile = tmp_base + ".link.d";
   const fs::path absent_log = tmp_base + ".absent";
-  if (own_depfile) {
+  const bool plain_asm = IsPlainAssembly(inv.source);  // nothing to preprocess, -MD would be unused
+  if (own_depfile && !plain_asm) {
     args.insert(args.end(), {"-MD", "-MF", depfile.string()});
-  } else if (!inv.link && !IsAssembly(inv.source)) {
+  } else if (!own_depfile && !inv.link && !IsAssembly(inv.source)) {
     // -MMD omits -isystem headers, which is every dependency the manifest must see. Assembler
     // input has no cc1 to take the flag
     args.insert(args.end(), {"-Xclang", "-sys-header-deps"});
@@ -308,7 +315,13 @@ auto RunObserved(CacheClient& cache, const std::string& compiler, const Invocati
     ::unsetenv("JIG_ABSENT_LOG");  // NOLINT(concurrency-mt-unsafe)
   }
   std::print(stderr, "{}", obs.run.stderr_text);
-  obs.dep_text = inv.link ? std::optional<std::string>("") : ReadFile(depfile);
+  if (inv.link) {
+    obs.dep_text = "";
+  } else if (own_depfile && plain_asm) {
+    obs.dep_text = "o: " + inv.source;
+  } else {
+    obs.dep_text = ReadFile(depfile);
+  }
   obs.link_dep_text = links ? ReadFile(link_depfile) : std::nullopt;
   if (const std::optional<std::string> text = ReadFile(absent_log)) {
     obs.absent = Split(*text, '\n');
