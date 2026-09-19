@@ -163,6 +163,8 @@ features and their current values.
 
 A few fields are rarer. `prebuilt = true` takes an upstream binary and only makes it
 relocatable. `install."bin/deno" = "deno"` copies files with no phases at all.
+`completions.bash = [ "completions/foo.bash" ]` (and `zsh`, `fish`, `nu`) installs shell
+completions to their standard directories (`nu` to nushell's vendor autoload).
 `exports.propagate = [ pkgs.pcre2 ]` is for a library whose users must also see another, a
 `Requires:` line in its .pc file. `exports = false` marks toolchains and applications that
 nothing links against.

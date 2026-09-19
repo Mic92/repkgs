@@ -71,6 +71,7 @@ let
     "debug"
     "install"
     "links"
+    "completions"
   ];
 
   # the part of every derivation that is the same across the set: built once
@@ -127,6 +128,38 @@ let
   # `hash.merge = { default = "sha256-…"; }` re-read sources.toml under the new [pin]
   repinned = edit != null && sources0 != null && (edited ? pin || edited ? hash);
   sources = if repinned then sources0.repin (edited.pin or { }) (edited.hash or { }) else sources0;
+  # `completions.<shell> = [ files ]`, sugar for `install`: each file goes where that shell
+  # looks. bash and zsh find completions by command name (`<cmd>`, `_<cmd>`), fish and nu keep the
+  # file name. A ./path beside package.nix arrives with a store hash prefix, dropped here
+  completionDirs = {
+    bash = "share/bash-completion/completions";
+    zsh = "share/zsh/site-functions";
+    fish = "share/fish/vendor_completions.d";
+    nu = "share/nushell/vendor/autoload";
+  };
+  completionName =
+    shell: f:
+    let
+      m = match "([a-z0-9]{32}-)?((.*)\\.${shell}|.*)" (baseNameOf f);
+      stem = if elemAt m 2 != null then elemAt m 2 else elemAt m 1;
+    in
+    if shell == "bash" then
+      stem
+    else if shell == "zsh" then
+      (if match "_.*" stem != null then stem else "_" + stem)
+    else
+      elemAt m 1;
+  completionsInstall =
+    shells:
+    listToAttrs (
+      concatMap (
+        shell:
+        map (f: {
+          name = "${completionDirs.${shell}}/${completionName shell f}";
+          value = f;
+        }) shells.${shell}
+      ) (attrNames shells)
+    );
   args =
     (
       if sources == null then
@@ -146,6 +179,12 @@ let
         ]
       else
         edited
+    )
+    // (
+      if edited ? completions then
+        { install = completionsInstall edited.completions // (edited.install or { }); }
+      else
+        { }
     );
   inherit (args) name;
   uses = args.uses or [ ];
@@ -167,6 +206,7 @@ let
       "ldflags"
       "hardening"
     ];
+    completions = attrNames completionDirs;
   };
   subKeys =
     prefix: set:
@@ -189,7 +229,8 @@ let
   unknownFields =
     filter (k: args.${k} != { }) (attrNames (removeAttrs args (reserved ++ uses)))
     ++ (if args ? tests then subKeys "tests" args.tests else [ ])
-    ++ (if args ? cc then subKeys "cc" args.cc else [ ]);
+    ++ (if args ? cc then subKeys "cc" args.cc else [ ])
+    ++ (if args ? completions then subKeys "completions" args.completions else [ ]);
   # a library among the build tools or a tool among the libraries: natively both platforms
   # coincide and nothing would notice, so it is checked here
   wrongPlatform =
