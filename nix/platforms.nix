@@ -1,7 +1,7 @@
 # CPU facts, the only place they live. `glibc.<cpu>` / `musl.<cpu>` / `forSystem` add the libc-
 # dependent fields (clangTarget/gnuTriple/rustTriple, dynamic linker name) and `binfmt` (elf | macho | coff), which is what
 # decides linker flavour, PIC, crt objects, interp/RUNPATH and whether launchers apply.
-# `march` ends up in every cc invocation via jig.conf, on linux with `cf`, the cpu's control-flow
+# `march` ends up in every cc invocation via jig.json, on linux with `cf`, the cpu's control-flow
 # hardening. `hardening` is the cpu's verdict on builder/hardening.nu names it cannot take.
 # `names`: what other ecosystems call the cpu (kernel ARCH=, GOARCH, rust triple prefix, meson
 # cpu_family, qemu-user binary, gyp/V8 dest-cpu, apple's clang arch) where it differs from ours,

@@ -361,56 +361,52 @@ auto ScanUserArgs(std::span<const std::string> raw, const BinFmtPolicy& policy) 
 
 auto ParseDriverConf(std::string_view text, std::string_view root) -> DriverConf {
   DriverConf conf;
+  const nlohmann::json doc = nlohmann::json::parse(text, nullptr, /*allow_exceptions=*/false);
+  if (!doc.is_object()) {
+    std::println(stderr, "jig.json: not a JSON object");
+    std::exit(2);  // NOLINT(concurrency-mt-unsafe): single-threaded startup
+  }
   conf.present = true;
-  for (const std::string& raw_line : Split(text, '\n')) {
-    const std::string_view line = Trim(raw_line);
-    const size_t equals = line.find('=');
-    if (line.empty() || line.starts_with('#') || equals == std::string_view::npos) {
-      continue;
+  const auto str = [&](const char* key, std::string& into) -> void {
+    if (const auto found = doc.find(key); found != doc.end() && found->is_string()) {
+      into = found->get<std::string>();
     }
-    const std::string key(Trim(line.substr(0, equals)));
-    const std::string value(Trim(line.substr(equals + 1)));
-    if (key == "cc") {
-      conf.cc = value;
-    } else if (key == "fc") {
-      conf.fc = value;
-    } else if (key == "fflags") {
-      conf.fflags = SplitWhitespace(value);
-      // "@/" is jig's own prefix (a word, after '=', or glued to a short option like -L):
-      // flang-rt's conf names its lib and finclude dirs relocatably
-      for (std::string& flag : conf.fflags) {
-        const size_t at_pos = flag.find("@/");
-        const bool expands = at_pos == 0 || (at_pos == 2 && flag.starts_with('-')) ||
-                             (at_pos != std::string::npos && flag.at(at_pos - 1) == '=');
-        if (expands) {
-          flag.replace(at_pos, 1, root);
-        }
-      }
-    } else if (key == "binfmt") {
-      if (value == "elf") {
-        conf.binfmt = BinFmt::kElf;
-      } else if (value == "macho") {
-        conf.binfmt = BinFmt::kMachO;
-      } else if (value == "coff") {
-        conf.binfmt = BinFmt::kCoff;
-      } else {
-        std::println(stderr, "jig.conf: binfmt = {} is none of elf, macho, coff", value);
-        std::exit(2);  // NOLINT(concurrency-mt-unsafe): single-threaded startup
-      }
-    } else if (key == "flags") {
-      conf.flags = SplitWhitespace(value);
-    } else if (key == "cxxflags") {
-      conf.cxxflags = SplitWhitespace(value);
-    } else if (key == "libc") {
-      conf.libc = value;
-    } else if (key == "interp") {
-      conf.interp = value;
-    } else if (key == "crt") {
-      conf.crt = value;
-    } else if (key == "runtimes") {
-      conf.runtimes = value;
-    } else if (key == "prefix-map") {
-      conf.prefix_map = Split(value, ':');
+  };
+  const auto list = [&](const char* key, std::vector<std::string>& into) -> void {
+    if (const auto found = doc.find(key); found != doc.end() && found->is_array()) {
+      into = found->get<std::vector<std::string>>();
+    }
+  };
+  str("cc", conf.cc);
+  str("fc", conf.fc);
+  str("libc", conf.libc);
+  str("interp", conf.interp);
+  str("crt", conf.crt);
+  str("runtimes", conf.runtimes);
+  list("flags", conf.flags);
+  list("cxxflags", conf.cxxflags);
+  list("fflags", conf.fflags);
+  list("prefix-map", conf.prefix_map);
+  std::string binfmt = "elf";
+  str("binfmt", binfmt);
+  if (binfmt == "elf") {
+    conf.binfmt = BinFmt::kElf;
+  } else if (binfmt == "macho") {
+    conf.binfmt = BinFmt::kMachO;
+  } else if (binfmt == "coff") {
+    conf.binfmt = BinFmt::kCoff;
+  } else {
+    std::println(stderr, "jig.json: binfmt {} is none of elf, macho, coff", binfmt);
+    std::exit(2);  // NOLINT(concurrency-mt-unsafe)
+  }
+  // "@/" at the start of a flag, after '=' or after a short option (-L@/lib) expands to jig's
+  // own prefix, so flang-rt can name its lib and finclude dirs and still be relocatable
+  for (std::string& flag : conf.fflags) {
+    const size_t at_pos = flag.find("@/");
+    const bool expands = at_pos == 0 || (at_pos == 2 && flag.starts_with('-')) ||
+                         (at_pos != std::string::npos && flag.at(at_pos - 1) == '=');
+    if (expands) {
+      flag.replace(at_pos, 1, root);
     }
   }
   return conf;
@@ -421,7 +417,7 @@ auto LoadDriverConf() -> std::optional<DriverConf> {
   const fs::path self = fs::read_symlink("/proc/self/exe", error);
   if (!error) {
     const fs::path root = self.parent_path().parent_path();
-    if (const std::optional<std::string> text = ReadFile(root / "etc/jig.conf")) {
+    if (const std::optional<std::string> text = ReadFile(root / "etc/jig.json")) {
       DriverConf conf = ParseDriverConf(*text, root.string());
       if (conf.cc.empty()) {
         return std::nullopt;

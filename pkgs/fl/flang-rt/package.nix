@@ -1,5 +1,5 @@
 # The Fortran runtime for the target (libflang_rt.runtime.a, intrinsic .mod files), compiled
-# by the build machine's flang, plus jig as bin/{gfortran,flang,fortran} with a jig.conf that
+# by the build machine's flang, plus jig as bin/{gfortran,flang,fortran} with a jig.json that
 # runs that flang against cc's sysroot and this runtime
 {
   variant,
@@ -12,11 +12,11 @@
 let
   flang = "${buildPkgs.flang}/bin/flang";
   # flang takes the target and -m flags, none of cc's other flags
-  target = lib.join " " (
-    [ "--target=${platform.clangTarget}" ]
-    ++ builtins.filter (f: builtins.match "-m.*" f != null) platform.march
-    ++ [ "--sysroot=${toolchain.sysroot}" ]
-  );
+  target = [
+    "--target=${platform.clangTarget}"
+  ]
+  ++ builtins.filter (f: builtins.match "-m.*" f != null) platform.march
+  ++ [ "--sysroot=${toolchain.sysroot}" ];
 in
 import ../../ll/llvm/subproject.nix
   {
@@ -32,7 +32,7 @@ import ../../ll/llvm/subproject.nix
       LLVM_DEFAULT_TARGET_TRIPLE = platform.clangTarget;
       CMAKE_Fortran_COMPILER = flang;
       CMAKE_Fortran_COMPILER_WORKS = true;
-      CMAKE_Fortran_FLAGS = target;
+      CMAKE_Fortran_FLAGS = lib.join " " target;
       FLANG_RT_INCLUDE_TESTS = false;
     };
     # a static runtime, nothing of llvm is linked (LLVM_DIR still finds its cmake files)
@@ -47,10 +47,8 @@ import ../../ll/llvm/subproject.nix
           let rt = (files --dirs $"($c.out)/lib/clang/*/lib/*" | first | str replace $c.out "@")
           let finclude = (files --dirs $"($c.out)/lib/clang/*/finclude/flang/*" | first | str replace $c.out "@")
           mkdir $"($c.out)/bin" $"($c.out)/etc"
-          open --raw "${toolchain}/etc/jig.conf" | lines | where { $in !~ '^(flags|cxxflags|prefix-map) =' } | append [
-            "fc = ${flang}"
-            $"fflags = -B${toolchain}/bin ${target} -resource-dir=($c.platform.sysroot)/lib/clang -rtlib=compiler-rt -fintrinsic-modules-path ($finclude) -L($rt)"
-          ] | str join "\n" | save $"($c.out)/etc/jig.conf"
+          let fflags = [-B${toolchain}/bin ${lib.join " " target} $"-resource-dir=($c.platform.sysroot)/lib/clang" -rtlib=compiler-rt -fintrinsic-modules-path $finclude $"-L($rt)"]
+          open "${toolchain}/etc/jig.json" | reject flags cxxflags prefix-map | merge {fc: "${flang}", fflags: $fflags} | save $"($c.out)/etc/jig.json"
           cp "${toolchain}/etc/roots" $"($c.out)/etc/"
           cp "${toolchain}/bin/jig" $"($c.out)/bin/"
           for n in [gfortran flang fortran] { ln -s jig $"($c.out)/bin/($n)" }

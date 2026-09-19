@@ -560,7 +560,7 @@ auto RunCcMode(std::string_view argv0, std::span<const std::string> raw_args, co
   const std::vector<std::string> user_args = ExpandResponseFiles(raw_args);
   const std::optional<DriverConf> conf = LoadDriverConf();
   if (!conf) {
-    std::println(stderr, "jig: no etc/jig.conf next to the binary and JIG_CC unset");
+    std::println(stderr, "jig: no etc/jig.json next to the binary and JIG_CC unset");
     return 1;
   }
   const std::string name = fs::path(argv0).filename().string();
@@ -571,7 +571,7 @@ auto RunCcMode(std::string_view argv0, std::span<const std::string> raw_args, co
     lang = Language::kFortran;
   }
   if (lang == Language::kFortran && conf->fc.empty()) {
-    std::println(stderr, "jig: {} called but etc/jig.conf names no fc", name);
+    std::println(stderr, "jig: {} called but etc/jig.json names no fc", name);
     return 1;
   }
   const std::string& compiler = lang == Language::kFortran ? conf->fc : conf->cc;
