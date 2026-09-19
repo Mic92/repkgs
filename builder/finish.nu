@@ -24,7 +24,7 @@ export def --env main [
   write-exports $c.out $c.spec $c.platform $c.deps
   note exports (open --raw $"($c.out)/exports.json" | from json | to json -r)
   cd $env.NIX_BUILD_TOP
-  to-store $c.out $c.dest $c.platform.sysroot $inv
+  to-store $c.out $c.dest $c.platform $inv
   version-check ($c | update out $c.dest)
   cache-summary
 }
@@ -81,14 +81,14 @@ def relativize-scripts [prefix: string]: nothing -> nothing {
 
 
 # prefix -> store, anything still naming the prefix is an error
-export def to-store [prefix: string, dest: string, sysroot: string, inv: table]: nothing -> nothing {
+export def to-store [prefix: string, dest: string, platform: record, inv: table]: nothing -> nothing {
   ^chmod -R u+w $prefix # some install -m 0444
   relativize-text $prefix pcfiledir ($inv | where type == f and rel =~ '\.pc$' | get path)
   relativize-text $prefix CMAKE_CURRENT_LIST_DIR ($inv | where type == f and rel =~ '\.cmake$' | get path)
-  unsysroot-text $sysroot ($inv | where type == f and rel =~ '\.(pc|cmake)$' | get path)
+  unsysroot-text $platform.sysroot ($inv | where type == f and rel =~ '\.(pc|cmake)$' | get path)
   generic-man-prefix $prefix ($inv | where type == f and rel starts-with share/man/ | get path)
   relativize-scripts $prefix
-  relativize-links $prefix $dest
+  relativize-links $prefix $dest ($platform.binfmt == "coff")
   let hits = (^grep -rlF $prefix $prefix | complete | get stdout | lines)
   if ($hits | is-not-empty) {
     let detail = ($hits | first 10 | each {|f|
@@ -180,8 +180,9 @@ export def layout-check [out: path]: nothing -> nothing {
   }
 }
 
-# absolute links become relative to their place in the store, none may dangle
-def relativize-links [prefix: string, dest: string]: nothing -> nothing {
+# absolute links become relative to their place in the store, none may dangle. A Windows store
+# has no symlinks: files are copied, anything else is an error
+def relativize-links [prefix: string, dest: string, coff: bool]: nothing -> nothing {
   # listed afresh: launchers added links
   for l in (^find $prefix -type l -printf '%P\t%l\n' | from tsv --noheaders --no-infer | rename rel target) {
     # where it points once the tree is at dest
@@ -190,6 +191,11 @@ def relativize-links [prefix: string, dest: string]: nothing -> nothing {
     if ($l.target | str starts-with "/") { ^ln -sfn (relative-link $"($dest)/($l.rel)" $target) $"($prefix)/($l.rel)" }
     let here = (if ($target | str starts-with $"($dest)/") { $"($prefix)/($target | path relative-to $dest)" } else { $target })
     if not ($here | path exists -n) { error make {msg: $"symlink ($l.rel) -> ($l.target) dangles"} }
+    if $coff {
+      if ($here | path type) != "file" { error make {msg: $"symlink ($l.rel) -> ($l.target): a Windows output cannot have symlinks"} }
+      rm $"($prefix)/($l.rel)"
+      cp $here $"($prefix)/($l.rel)"
+    }
   }
 }
 
