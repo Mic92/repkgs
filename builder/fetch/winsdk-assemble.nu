@@ -1,7 +1,7 @@
 #!/usr/bin/env nu
 # Submitted by fetch/winsdk.nu: the CRT .vsix are zips with Contents/VC/Tools/MSVC/<v>/{include,lib},
 # the SDK .msi install below "Windows Kits/10/{Include,Lib}/<v>/" out of cabinets whose members
-# are named by File-table id (msi.nu maps them). Result: crt/{include,lib} and sdk/{include,lib}/<v>/,
+# are named by File-table id (msi.nu maps them). Result: crt/{include,lib,redist} and sdk/{include,lib}/<v>/,
 # plus a clang VFS overlay that makes the header dirs case-insensitive (SDK headers include each
 # other in spellings that match no file) and lowercase symlinks for lld-link, which has no VFS.
 use msi.nu
@@ -14,9 +14,11 @@ def main []: nothing -> nothing {
   let work = $"($env.NIX_BUILD_TOP)/w"
   mkdir $"($out)/crt" $"($out)/sdk" $"($work)/in"
 
-  for p in ($a.payloads | where kind == crt) { ^bsdtar -xf $p.out -C $work Contents/VC/Tools/MSVC }
+  for p in ($a.payloads | where kind == crt) { ^bsdtar -xf $p.out -C $work Contents/VC }
   let vc = (ls $"($work)/Contents/VC/Tools/MSVC" | first | get name)
   ^cp -r $"($vc)/include" $"($vc)/lib" $"($out)/crt/"
+  mkdir $"($out)/crt/redist"
+  ^cp ...(files $"($work)/Contents/VC/Redist/MSVC/*/*/Microsoft.VC*.{CRT,OpenMP}/*.dll") $"($out)/crt/redist/"
 
   # 7zz finds an msi's cabinets next to it by the names in its Media table
   for p in ($a.payloads | where kind != crt) { ^ln -s $p.out $"($work)/in/($p.file)" }
