@@ -45,10 +45,6 @@ auto SectionEnd(const BinaryImage& elf, const Section& section) -> std::uint64_t
   return section.offset + std::min(section.size, size - section.offset);
 }
 
-auto RelativeFrom(const fs::path& dir, const fs::path& target) -> std::string {
-  return target.lexically_normal().lexically_relative(dir).string();
-}
-
 struct RunpathDir {
   std::string entry;
   fs::path dir;
@@ -153,12 +149,6 @@ auto SymbolInside(const BinaryImage& elf, const std::vector<Section>& sections, 
   return std::nullopt;
 }
 
-// "$ORIGIN" or "$ORIGIN/<rel>" from one final directory to another
-auto OriginRelative(const fs::path& from, const fs::path& dest) -> std::string {
-  const std::string rel = RelativeFrom(from, dest);
-  return rel == "." ? "$ORIGIN" : "$ORIGIN/" + rel;
-}
-
 // the existing RUNPATH made $ORIGIN-relative, then this package's own lib dirs (a NEEDED sibling
 // the build system gave no rpath for). Each entry is taken to where it will finally be: a store
 // path stays, prefix/x becomes dest/x, $ORIGIN counts from the file's final place (a binary
@@ -171,16 +161,16 @@ auto RelativizeRunpath(const FixupContext& ctx, const std::string& old, const fs
   std::vector<RunpathDir> runpath;
   const fs::path final_here = ctx.Final(here);
   for (const std::string& entry : Split(old, ':')) {
-    fs::path final_dir = ctx.Final(entry);
+    fs::path runpath_dir = ctx.Final(entry);
     if (entry == kOrigin || entry.starts_with(std::string(kOrigin) + "/")) {
-      final_dir = (final_here / entry.substr(std::min(entry.size(), kOrigin.size() + 1))).lexically_normal();
+      runpath_dir = (final_here / entry.substr(std::min(entry.size(), kOrigin.size() + 1))).lexically_normal();
     }
-    if (store.IsStorePath(final_dir.string())) {
-      runpath.push_back({.entry = OriginRelative(final_here, final_dir), .dir = ctx.OnDisk(final_dir)});
+    if (store.IsStorePath(runpath_dir.string())) {
+      runpath.push_back({.entry = RelativeTo(final_here, runpath_dir, kOrigin), .dir = ctx.OnDisk(runpath_dir)});
     }
   }
   for (const fs::path& own : ctx.own_lib_dirs) {
-    runpath.push_back({.entry = OriginRelative(final_here, ctx.Final(own)), .dir = own, .keep = false});
+    runpath.push_back({.entry = RelativeTo(final_here, ctx.Final(own), kOrigin), .dir = own, .keep = false});
   }
   return runpath;
 }
@@ -335,7 +325,7 @@ auto FixInterp(FixupContext& ctx, const fs::path& path, BinaryImage& elf, const 
     }
     std::string neu = old;
     if (store.IsStorePath(old)) {
-      neu = RelativeFrom(ctx.Final(path.parent_path()), old);
+      neu = RelativeTo(ctx.Final(path.parent_path()), old, "");
       if (!elf.WritePadded(ioff, isz, neu)) {
         std::println(stderr, "{}: interp does not fit: {}", path.string(), neu);
         ++ctx.errors;

@@ -68,15 +68,6 @@ def relativize-scripts [prefix: string]: nothing -> nothing {
   }
 }
 
-def relativize-sonames [prefix: string, cmakes: list<string>]: nothing -> nothing {
-  if ($cmakes | is-empty) { return }
-  for f in (^grep -lF $"IMPORTED_SONAME" ...$cmakes | complete | get stdout | lines) {
-    ^chmod u+w $f
-    let re = (['(IMPORTED_SONAME_\w+ )"' $prefix '/[^"]*/([^/"]+)"'] | str join)
-    let text = (open --raw $f | str replace -ar $re '${1}"@rpath/${2}"')
-    $text | save -f $f
-  }
-}
 
 # prefix -> store, anything still naming the prefix is an error
 export def to-store [prefix: string, dest: string, inv: table]: nothing -> nothing {
@@ -206,10 +197,8 @@ def binaries-elf [c: record, inv: table]: nothing -> nothing {
   launchers $c
 }
 
-# cmake records the install_name the project chose, reloc-fixup makes the dylib's own @rpath
 def binaries-macho [c: record, inv: table]: nothing -> nothing {
   if $c.spec.debug { split-debug-macho $c.out (attrs).outputs.debug $c.njobs ($inv | where type == f) }
-  relativize-sonames $c.out ($inv | where type == f and rel =~ '\.cmake$' | get path)
 }
 
 # no debug output yet, but CodeView LF_BUILDINFO in static libraries names the compiler's store path
@@ -218,7 +207,7 @@ def binaries-coff [c: record, inv: table]: nothing -> nothing {
   launchers $c
 }
 
-# --deny: a cross output must not mention build-machine packages
+# --deny: a cross output must not mention build-machine packages, --sdk: system dylibs must be in it
 def relocate [c: record, inv: table]: nothing -> nothing {
   match $c.platform.binfmt {
     "elf" => { binaries-elf $c $inv }
@@ -227,7 +216,8 @@ def relocate [c: record, inv: table]: nothing -> nothing {
   }
   let a = (attrs)
   let deny = (if $c.platform.cross { $a.buildDependencies | where { $in not-in $a.dependencies } | each { [--deny $in] } | flatten } else { [] })
-  if $c.spec.prebuilt? != "ldso" { x reloc-fixup $c.out --dest $c.dest ...$deny }
+  let sdk = (if $c.platform.binfmt == "macho" { [--sdk $c.platform.sysroot] } else { [] })
+  if $c.spec.prebuilt? != "ldso" { x reloc-fixup $c.out --dest $c.dest ...$sdk ...$deny }
 }
 
 # tests.version: a command whose output must contain the pinned version (true = --version), its
