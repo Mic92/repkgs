@@ -1,4 +1,8 @@
-{ package, platform }:
+{
+  package,
+  platform,
+  pkgs,
+}:
 let
   # DYNAMIC_ARCH builds every kernel and picks one at run time, TARGET is only the fallback and
   # the baseline the common code is compiled for. getarch cannot probe a CPU it does not run on,
@@ -23,10 +27,11 @@ package {
     "TARGET=${target.${platform.cpu}}"
     "HOSTCC=$(CC_FOR_BUILD)"
     "CROSS=${if platform.cross then "1" else "0"}"
-    "NO_FORTRAN=1" # C LAPACK, no Fortran compiler
+    "FC=gfortran"
     "NUM_THREADS=64" # the default is the build machine's core count
     "USE_OPENMP=0" # Makefile.power alone defaults to OpenMP. pthreads like every other cpu
   ];
+  buildDependencies = [ pkgs.flang-rt ];
   make.buildTarget = [ "shared" ]; # the default goal also runs the tests
   make.testTarget = [ "tests" ]; # utest/ and ctest/
 }
