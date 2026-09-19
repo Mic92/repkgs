@@ -9,9 +9,12 @@ const RUNNER = {
   aarch64-macos: macos-latest, x86_64-macos: macos-13, aarch64-linux: ubuntu-24.04-arm, aarch64-linux-musl: ubuntu-24.04-arm
 }
 
-def main [platform: string, ...attrs: string] {
+# --remote: build and pack on that host (repo rsynced to /scratch/$USER/<basename>)
+def main [platform: string, --remote (-r): string, ...attrs: string] {
   let runner = ($RUNNER | get $platform)
-  let outs = (^nix-build . ...($attrs | each { [-A $in] } | flatten) --argstr platform $platform --no-out-link | lines)
+  let on = {|cmd: string| if $remote == null { ^bash -c $cmd } else { ^ssh $remote $"cd /scratch/($env.USER)/(pwd | path basename) && ($cmd)" } }
+  let outs = (do $on $"nix-build . ($attrs | each { $'-A ($in)' } | str join ' ') --argstr platform ($platform) --no-out-link" | lines | where { $in =~ '^/nix/store' })
+  if ($outs | length) != ($attrs | length) { error make {msg: "build failed"} }
   let exe = (if $platform =~ windows { ".exe" } else { "" })
   let commands = ($attrs | zip $outs | each {|p|
     let spec = (^nix-instantiate --eval --json --strict -E $"with import ./. { platform = \"($platform)\"; }; { v = ($p.0).version; t = ($p.0).spec.tests.version or true; b = ($p.0).spec.bins or [\"($p.0)\"]; }" | from json)
@@ -20,7 +23,8 @@ def main [platform: string, ...attrs: string] {
     $"($p.1)/bin/($words.0)($exe) ($words | skip 1 | str join ' ') | grep -F ($spec.v | str replace -r '-r[0-9]+$' '')"
   })
   let tar = $"/tmp/target-test-($platform).tar.gz"
-  ^nix-store -qR ...$outs | lines | where { $in !~ '-debug$' } | ^tar -C / -czf $tar -T -
+  let pack = $"nix-store -qR ($outs | str join ' ') | grep -v -- '-debug$' | tar -C / -czf - -T -"
+  ^bash -c (if $remote == null { $"($pack) > ($tar)" } else { $"ssh ($remote) ($pack | to json) > ($tar)" })
   let tag = "target-test"
   if (^gh release view $tag -R $REPO | complete).exit_code != 0 { ^gh release create $tag -R $REPO --prerelease --notes "payloads for .github/workflows/target-test.yaml" --title $tag }
   ^gh release upload $tag $tar -R $REPO --clobber
