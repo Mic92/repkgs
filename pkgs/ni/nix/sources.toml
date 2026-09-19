@@ -1,12 +1,13 @@
 [upstream]
-purl = "pkg:github/NixOS/nix"
+purl = "pkg:github/Mic92/nix-1?branch=repkgs"
+base = "2.35"                                 # 2.36 is unreleased, unstable base instead of the max tag
 
 [[source]]
 key = "default"
-url = "https://github.com/NixOS/nix/archive/refs/tags/{tag}.tar.gz"
-hash = "sha256-C/YEm/5IPiAMxQH5aHlkwgQMkLqK7NVsudEWdlzBZAA="
+url = "https://github.com/Mic92/nix-1/archive/{rev}.tar.gz"
+hash = "sha256-XVtq1d7UwIj4/J3g1uaQkEq6bdu0p85JHZEFlm9qukg="
 
 [pin]
-version = "2.35.2"
-tag = "2.35.2"
-date = "2026-08-12"
+version = "2.35-unstable-2026-09-16"
+rev = "e6c24e710343d0485995d1a67c6f4971d698bbca"
+date = "2026-09-16"
