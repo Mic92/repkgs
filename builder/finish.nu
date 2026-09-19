@@ -90,7 +90,8 @@ export def to-store [prefix: string, dest: string, inv: table]: nothing -> nothi
 ($detail | str join "
 ")($more)"}
   }
-  ^mv $prefix $dest
+  # a Windows store (and tar on a runner) holds no symlinks: openssl's 5600 man aliases become copies
+  if (ctx).platform.os == "windows" { ^cp -rL $prefix $dest; ^rm -rf $prefix } else { ^mv $prefix $dest }
 }
 
 # tests derivation output: a result marker. The package itself is untouched
