@@ -297,8 +297,10 @@ void TestManifest() {
 }
 
 const char* const kElfConf =
-    "cc = /seed/bin/clang\nflags = --target=x -O2\ncxxflags = -stdlib=libc++\n# comment\nlibc = /sr/libc\ncrt = "
-    "/cc/lib/crt_interp.o\nruntimes = /sr/rt/lib\n";
+    R"({"cc": "/seed/bin/clang", "flags": ["--target=x", "-O2"], "cxxflags": ["-stdlib=libc++"],)"
+    R"( "libc": "/sr/libc", "crt": "/cc/lib/crt_interp.o", "runtimes": "/sr/rt/lib"})";
+const char* const kCoffConf =
+    R"({"cc": "/seed/bin/clang", "binfmt": "coff", "flags": ["--target=x86_64-pc-windows-msvc"]})";
 auto Has(const std::vector<std::string>& args, const std::string& arg) -> bool {
   return std::ranges::find(args, arg) != args.end();
 }
@@ -307,24 +309,22 @@ auto Has(const std::vector<std::string>& args, const std::string& arg) -> bool {
 void TestDriverConf() {
   const jig::DriverConf conf = jig::ParseDriverConf(kElfConf);
   assert(conf.present && conf.cc == "/seed/bin/clang" && conf.flags == V({"--target=x", "-O2"}));
-  const jig::DriverConf fortran =
-      jig::ParseDriverConf("cc = /c\nfc = /f/bin/flang\nfflags = -L@/lib -fintrinsic-modules-path @/finc -resource-dir=@/rd -Da@/b\n", "/self");
+  const jig::DriverConf fortran = jig::ParseDriverConf(
+      R"({"cc": "/c", "fc": "/f/bin/flang", "fflags": ["-L@/lib", "-fintrinsic-modules-path", "@/finc", "-resource-dir=@/rd", "-Da@/b"]})",
+      "/self");
   assert(fortran.fc == "/f/bin/flang");
-  assert(fortran.fflags == V({"-L/self/lib", "-fintrinsic-modules-path", "/self/finc", "-resource-dir=/self/rd", "-Da@/b"}));
+  assert(fortran.fflags ==
+         V({"-L/self/lib", "-fintrinsic-modules-path", "/self/finc", "-resource-dir=/self/rd", "-Da@/b"}));
   const jig::DriverConf macho = jig::ParseDriverConf(
-      "cc = /seed/bin/clang\nbinfmt = macho\nflags = --target=arm64-apple-macos14.0\nlibc = /sr\n");
+      R"({"cc": "/seed/bin/clang", "binfmt": "macho", "flags": ["--target=arm64-apple-macos14.0"], "libc": "/sr"})");
   assert(macho.binfmt == jig::BinFmt::kMachO);
   const std::string macho_exe = jig::Join(jig::BuildDriverArgs(macho, jig::Language::kC, V({"a.c", "-o", "a"})), " ");
   assert(!macho_exe.contains("dynamic-linker") && !macho_exe.contains("crt_interp") && !macho_exe.contains("$ORIGIN"));
   assert(macho_exe.contains("-Wl,-headerpad_max_install_names") && !macho_exe.contains("-rpath"));
   // COFF: PIC is not a thing to ask for
-  assert(
-      !Has(jig::BuildDriverArgs(
-               jig::ParseDriverConf("cc = /seed/bin/clang\nbinfmt = coff\nflags = --target=x86_64-pc-windows-msvc\n"),
-               jig::Language::kC, V({"-fPIC", "-c", "a.c"})),
-           "-fPIC"));
-  const jig::DriverConf coff =
-      jig::ParseDriverConf("cc = /seed/bin/clang\nbinfmt = coff\nflags = --target=x86_64-pc-windows-msvc\n");
+  assert(!Has(jig::BuildDriverArgs(jig::ParseDriverConf(kCoffConf), jig::Language::kC, V({"-fPIC", "-c", "a.c"})),
+              "-fPIC"));
+  const jig::DriverConf coff = jig::ParseDriverConf(kCoffConf);
   assert(Has(jig::BuildDriverArgs(coff, jig::Language::kCxx, V({"-std=c++11", "-c", "a.cc"})), "-std=c++14"));
   assert(Has(jig::BuildDriverArgs(coff, jig::Language::kCxx, V({"-std=gnu++17", "-c", "a.cc"})), "-std=gnu++17"));
   assert(Has(jig::BuildDriverArgs(macho, jig::Language::kCxx, V({"-std=c++11", "-c", "a.cc"})), "-std=c++11"));

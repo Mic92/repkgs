@@ -1,5 +1,5 @@
 # The `cc` package for one platform: the jig binary (built once for the build machine by
-# jig.nu, copied here so /proc/self/exe finds this etc/jig.conf), the conf naming
+# jig.nu, copied here so /proc/self/exe finds this etc/jig.json), the conf naming
 # $env.sysroot and crt_interp.o. From here on packages just say `cc` / `c++`.
 use ../../../bootstrap/lib.nu *
 
@@ -12,18 +12,18 @@ def lld []: nothing -> string { llvm-bin (target-profile).lld }
 # own in etc/cc/{flags,cxxflags} (bootstrap/lib.nu cc-facts, merged into the sysroot), SYSROOT
 # and LLD standing for the final paths. A libc we built gets the ELF default: --sysroot, our
 # compiler-rt, libunwind and libc++
-def driver-flags [sysroot: string]: nothing -> record<flags: list<string>, cxxflags: string> {
+def driver-flags [sysroot: string]: nothing -> record<flags: list<string>, cxxflags: list<string>> {
   let given = (cc-fact $sysroot flags)
   if $given == null {
     return {
       flags: ((ccflags | where { $in != "-unwindlib=none" }) ++ [-unwindlib=libunwind $"--ld-path=(lld)"])
-      cxxflags: "-stdlib=libc++"
+      cxxflags: [-stdlib=libc++]
     }
   }
   let fill = {|w| $w | str replace -a SYSROOT $sysroot | str replace -a LLD (lld) }
   {
     flags: ((target) ++ ($given | each $fill))
-    cxxflags: (cc-fact $sysroot cxxflags | default [] | each $fill | str join " ")
+    cxxflags: (cc-fact $sysroot cxxflags | default [] | each $fill)
   }
 }
 
@@ -88,23 +88,23 @@ def main []: nothing -> nothing {
   let members = (if ($"($sysroot)/roots" | path exists) { open --raw $"($sysroot)/roots" | str trim } else { "" })
   $"($sysroot) ($env.llvm) ($members)\n" | save $"($out)/etc/roots"
 
-  # etc/jig.conf
+  # etc/jig.json (pkgs/ji/jig/src/driver.h)
   let d = (driver-flags $sysroot)
   # -B: `cc -print-prog-name=ld` (libtool's with_gnu_ld probe) answers bin/ld, the target's lld
   # flavour, not the ELF ld.lld beside our clang
   let conf = {
     cc: (llvm-bin clang)
     binfmt: $env.binfmt
-    flags: ([$"-B($out)/bin" $"-isystem($out)/include"] ++ $d.flags | str join " ")
+    flags: ([$"-B($out)/bin" $"-isystem($out)/include"] ++ $d.flags)
     cxxflags: $d.cxxflags
-    prefix-map: $"($sysroot)=/sysroot:($out)=/cc"
+    prefix-map: [$"($sysroot)=/sysroot" $"($out)=/cc"]
   }
   # reloc.h: compiled-in dirs relative to the binary, reloc_self.h its per-OS half
   mkdir $"($out)/include"
   cp $"($env.reloc)/reloc.h" $"($out)/include/reloc.h"
   cp $"($env.reloc)/reloc_self_($env.os).h" $"($out)/include/reloc_self.h"
   let policy = (if $env.binfmt == "elf" { elf-policy $out $sysroot } else { {} })
-  $conf | merge $policy | items {|k, v| $"($k) = ($v)" } | str join "\n" | $in + "\n" | save $"($out)/etc/jig.conf"
+  $conf | merge $policy | save $"($out)/etc/jig.json"
 
   smoke-test $out
 }

@@ -1,13 +1,15 @@
 // Driver mode configuration and link policy: what turns `cc <user args>` into the real clang
-// command line. etc/jig.conf next to the binary:
-//   cc = /path/to/real/clang          compiler to exec
-//   flags = --target=... -O2 ...       prepended to every invocation
-//   cxxflags = -stdlib=libc++ ...      prepended when invoked under a "++" name
-//   libc = <libc prefix>               always an rpath entry, holds the dynamic linker
-//   interp = ld-linux-x86-64.so.2      dynamic linker basename
-//   crt = <crt_interp.o>               optional: link the $ORIGIN-interp stub into executables
-//   runtimes = <dir>                   libc++/libunwind dir, rpath'd whenever C++ or an unwinder is linked
-//   prefix-map = a=b:c=d               -ffile-prefix-map entries (plus $PKGS_PREFIX_MAP at run time)
+// command line. etc/jig.json next to the binary (pkgs/ll/llvm/cc.nu writes it), a JSON object:
+//   cc          /path/to/real/clang: compiler to exec
+//   fc, fflags  the Fortran compiler and its flags, used when invoked as gfortran/flang/fortran
+//   binfmt      elf | macho | coff
+//   flags       [..] prepended to every invocation
+//   cxxflags    [..] prepended when invoked under a "++" name
+//   libc        <libc prefix>: always an rpath entry, holds the dynamic linker
+//   interp      dynamic linker basename
+//   crt         optional: the $ORIGIN-interp stub linked into executables
+//   runtimes    libc++/libunwind dir, rpath'd whenever C++ or an unwinder is linked
+//   prefix-map  [..] -ffile-prefix-map entries (plus $PKGS_PREFIX_MAP at run time)
 // and per package, from $PKGS_CC at run time: cflags/cxxflags/ldflags after the conf's, before argv.
 // Without a conf, $JIG_CC names the compiler and user args pass through untouched (cache only).
 #pragma once
@@ -53,7 +55,7 @@ struct DriverConf {
   bool present = false;  // false: conf-less mode, only `cc` (from $JIG_CC) is set
 };
 
-// Reads <exe>/../etc/jig.conf, else falls back to $JIG_CC. nullopt if neither names a compiler.
+// Reads <exe>/../etc/jig.json, else falls back to $JIG_CC. nullopt if neither names a compiler.
 auto LoadDriverConf() -> std::optional<DriverConf>;
 // `root`: the prefix "@/" in fflags stands for
 auto ParseDriverConf(std::string_view text, std::string_view root = "") -> DriverConf;
