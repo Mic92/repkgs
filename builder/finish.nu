@@ -24,7 +24,7 @@ export def --env main [
   write-exports $c.out $c.spec $c.platform $c.deps
   note exports (open --raw $"($c.out)/exports.json" | from json | to json -r)
   cd $env.NIX_BUILD_TOP
-  to-store $c.out $c.dest $inv
+  to-store $c.out $c.dest $c.platform.sysroot $inv
   version-check ($c | update out $c.dest)
   cache-summary
 }
@@ -37,6 +37,17 @@ def relativize-text [prefix: string, var: string, files: list<string>]: nothing 
   for f in (^grep -lF $prefix ...$files | complete | get stdout | lines) {
     let up = ($f | path dirname | path relative-to $prefix | path split | each { ".." } | str join "/")
     let text = (open --raw $f | str replace -a $prefix $"${($var)}/($up)")
+    $text | save -f $f
+  }
+}
+
+# cmake's find_library on macOS records <sysroot>/usr/lib/libfoo.tbd and exports it: -lfoo again,
+# or dependents reference the SDK
+def unsysroot-text [sysroot: string, files: list<string>]: nothing -> nothing {
+  if ($files | is-empty) or $sysroot == "" { return }
+  for f in (^grep -lF $sysroot ...$files | complete | get stdout | lines) {
+    let re = ($sysroot + '/usr/lib/lib([^;/ "]+)\.tbd')
+    let text = (open --raw $f | str replace -ar $re '-l$1')
     $text | save -f $f
   }
 }
@@ -70,10 +81,11 @@ def relativize-scripts [prefix: string]: nothing -> nothing {
 
 
 # prefix -> store, anything still naming the prefix is an error
-export def to-store [prefix: string, dest: string, inv: table]: nothing -> nothing {
+export def to-store [prefix: string, dest: string, sysroot: string, inv: table]: nothing -> nothing {
   ^chmod -R u+w $prefix # some install -m 0444
   relativize-text $prefix pcfiledir ($inv | where type == f and rel =~ '\.pc$' | get path)
   relativize-text $prefix CMAKE_CURRENT_LIST_DIR ($inv | where type == f and rel =~ '\.cmake$' | get path)
+  unsysroot-text $sysroot ($inv | where type == f and rel =~ '\.(pc|cmake)$' | get path)
   generic-man-prefix $prefix ($inv | where type == f and rel starts-with share/man/ | get path)
   relativize-scripts $prefix
   relativize-links $prefix $dest
