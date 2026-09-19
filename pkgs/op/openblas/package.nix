@@ -27,11 +27,12 @@ package {
     "TARGET=${target.${platform.cpu}}"
     "HOSTCC=$(CC_FOR_BUILD)"
     "CROSS=${if platform.cross then "1" else "0"}"
-    "FC=gfortran"
+    # by path: flang-rt is a target-set package whose bin/ runs on the build machine.
+    # As "flang" so f_check does not pass gfortran-only flags
+    "FC=${pkgs.flang-rt}/bin/flang"
     "NUM_THREADS=64" # the default is the build machine's core count
     "USE_OPENMP=0" # Makefile.power alone defaults to OpenMP. pthreads like every other cpu
   ];
-  buildDependencies = [ pkgs.flang-rt ];
   make.buildTarget = [ "shared" ]; # the default goal also runs the tests
   make.testTarget = [ "tests" ]; # utest/ and ctest/
 }

@@ -11,11 +11,11 @@
 }:
 let
   flang = "${buildPkgs.flang}/bin/flang";
-  # flang takes the target and -m flags, none of cc's other flags
+  # flang rejects the clang-only per-cpu flags (-mabi, -mbranch-protection, ...)
   target = [
     "--target=${platform.clangTarget}"
   ]
-  ++ builtins.filter (f: builtins.match "-m.*" f != null) platform.march
+  ++ builtins.filter (f: builtins.match "-m(arch|cpu)=.*" f != null) platform.march
   ++ [ "--sysroot=${toolchain.sysroot}" ];
 in
 import ../../ll/llvm/subproject.nix
@@ -37,7 +37,6 @@ import ../../ll/llvm/subproject.nix
     };
     # a static runtime, nothing of llvm is linked (LLVM_DIR still finds its cmake files)
     dependencies.set = [ ];
-    buildDependencies.append = [ buildPkgs.flang ];
     platforms.set.os = [ "linux" ];
     phases.after.set."cmake.install" = [
       {
