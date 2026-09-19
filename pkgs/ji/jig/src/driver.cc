@@ -359,7 +359,7 @@ auto ScanUserArgs(std::span<const std::string> raw, const BinFmtPolicy& policy) 
 
 }  // namespace
 
-auto ParseDriverConf(std::string_view text) -> DriverConf {
+auto ParseDriverConf(std::string_view text, std::string_view root) -> DriverConf {
   DriverConf conf;
   conf.present = true;
   for (const std::string& raw_line : Split(text, '\n')) {
@@ -372,6 +372,20 @@ auto ParseDriverConf(std::string_view text) -> DriverConf {
     const std::string value(Trim(line.substr(equals + 1)));
     if (key == "cc") {
       conf.cc = value;
+    } else if (key == "fc") {
+      conf.fc = value;
+    } else if (key == "fflags") {
+      conf.fflags = SplitWhitespace(value);
+      // "@/" is jig's own prefix (a word, after '=', or glued to a short option like -L):
+      // flang-rt's conf names its lib and finclude dirs relocatably
+      for (std::string& flag : conf.fflags) {
+        const size_t at_pos = flag.find("@/");
+        const bool expands = at_pos == 0 || (at_pos == 2 && flag.starts_with('-')) ||
+                             (at_pos != std::string::npos && flag.at(at_pos - 1) == '=');
+        if (expands) {
+          flag.replace(at_pos, 1, root);
+        }
+      }
     } else if (key == "binfmt") {
       if (value == "elf") {
         conf.binfmt = BinFmt::kElf;
@@ -408,7 +422,7 @@ auto LoadDriverConf() -> std::optional<DriverConf> {
   if (!error) {
     const fs::path root = self.parent_path().parent_path();
     if (const std::optional<std::string> text = ReadFile(root / "etc/jig.conf")) {
-      DriverConf conf = ParseDriverConf(*text);
+      DriverConf conf = ParseDriverConf(*text, root.string());
       if (conf.cc.empty()) {
         return std::nullopt;
       }
@@ -444,14 +458,18 @@ auto IsSharedLibName(std::string_view base) -> bool {
 auto BuildDriverArgs(const DriverConf& conf, Language lang, std::span<const std::string> raw_args)
     -> std::vector<std::string> {
   const bool cxx = lang == Language::kCxx;
+  const bool fortran = lang == Language::kFortran;
   const BinFmtPolicy policy = PolicyFor(conf.binfmt);
   UserArgs user = ScanUserArgs(raw_args, policy);
   // toolchain, then package, then build system: later wins. The bracket silences
   // unused-argument warnings for flags the step does not use
-  std::vector<std::string> out{"--start-no-unused-arguments"};
-  out.insert(out.end(), conf.flags.begin(), conf.flags.end());
-  // glibc rejects _FORTIFY_SOURCE under -O0, and the command line's own level wins
-  for (const std::string& flag : conf.package.cflags) {
+  // flang has no such bracket, only the blanket -Wno-
+  std::vector<std::string> out{fortran ? "-Qunused-arguments" : "--start-no-unused-arguments"};
+  const std::vector<std::string>& base = fortran ? conf.fflags : conf.flags;
+  out.insert(out.end(), base.begin(), base.end());
+  // glibc rejects _FORTIFY_SOURCE under -O0, and the command line's own level wins. flang takes
+  // neither the C hardening flags nor -ffile-prefix-map
+  for (const std::string& flag : fortran ? std::vector<std::string>{} : conf.package.cflags) {
     if (IsFortifyArg(flag) && (user.sets_fortify || !user.optimizes)) {
       continue;
     }
@@ -463,14 +481,16 @@ auto BuildDriverArgs(const DriverConf& conf, Language lang, std::span<const std:
     out.insert(out.end(), conf.package.cxxflags.begin(), conf.package.cxxflags.end());
   }
   // before the user's args: those may end in `--` (cmake_llvm_rc), after which everything is a file
-  for (const std::string& mapping : conf.prefix_map) {
+  for (const std::string& mapping : fortran ? std::vector<std::string>{} : conf.prefix_map) {
     out.push_back("-ffile-prefix-map=" + mapping);
   }
-  for (const std::string& mapping : Split(Env("PKGS_PREFIX_MAP"), ':')) {
+  for (const std::string& mapping : fortran ? std::vector<std::string>{} : Split(Env("PKGS_PREFIX_MAP"), ':')) {
     out.push_back("-ffile-prefix-map=" + mapping);
   }
   policy.always(out);
-  out.emplace_back("--end-no-unused-arguments");
+  if (!fortran) {
+    out.emplace_back("--end-no-unused-arguments");
+  }
   // dependency -L dirs after the build tree's own, like a system lib dir would be
   std::vector<std::string> tail;
   if (user.linking && user.have_input) {
