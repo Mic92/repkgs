@@ -1,0 +1,61 @@
+Skip derivations that only exist on a remote store instead of spamming
+DerivationReadError.
+
+With `--store ssh-ng://... --eval-store auto` nix keeps .drv files on the
+remote store, so the local openFile in getDerivation fails with ENOENT for
+every derivation nix reports. lookupDerivation never marked those as
+cached, so each build event retried the read and emitted another
+
+  nix-output-monitor error: DerivationReadError ...: openFile: does not exist
+
+Treat isDoesNotExistError as "remote drv, no local graph": mark the node
+cached with empty inputs (a leaf in the forest) and emit no error. Genuine
+read errors (permissions, IO) still surface. Upstream issue:
+maralorn/nix-output-monitor#175.
+
+diff --git a/nix-output-monitor/lib/NOM/Update.hs b/nix-output-monitor/lib/NOM/Update.hs
+index fa4a674..3a1b2c3 100644
++++ b/nix-output-monitor/lib/NOM/Update.hs
+@@ -15,7 +15,7 @@
+ import Data.Text qualified as Text
+ import Data.Time (UTCTime)
+ import NOM.Builds (Derivation (..), FailType, Host (..), HostContext (..), StorePath (..), forgetProto, parseDerivation, parseIndentedStoreObject, parseStorePath)
+-import NOM.Error (NOMError)
++import NOM.Error (NOMError (..))
+ import NOM.NixMessage.JSON (Activity, ActivityId, ActivityResult (..), MessageAction (..), NixJSONMessage (..), ResultAction (..), StartAction (..), StopAction (..), Verbosity (..))
+ import NOM.NixMessage.JSON qualified as JSON
+ import NOM.NixMessage.OldStyle (NixOldStyleMessage)
+@@ -74,6 +74,7 @@
+ import Optics (Ixed (..), assign', has, modifying', preuse, preview, (%), (%~), (.~))
+ import Relude
+ import System.Console.ANSI (SGR (Reset), setSGRCode)
++import System.IO.Error qualified as IOError
+ 
+ type ProcessingT m a = (UpdateMonad m, MonadNOMState m) => WriterT [Either NOMError ByteString] m a
+ 
+@@ -358,10 +359,25 @@
+   unless isCached
+     $ getDerivation drv
+     >>= \case
++      Left (DerivationReadError err) | IOError.isDoesNotExistError err ->
++        -- The .drv lives on a remote store (--store ssh-ng://... with
++        -- --eval-store auto): there is nothing local to expand into the
++        -- dependency graph. Record a leaf node and stay quiet; without
++        -- marking cached every later event would retry and re-emit.
++        markDerivationMissing drvId
+       Left err -> tell [Left err]
+       Right parsedDrv -> insertDerivation parsedDrv drvId
+   pure drvId
+ 
++-- | Record a derivation whose .drv file is not in the local store as a
++-- cached leaf, so it shows up as a single node with no children and is
++-- never retried.
++markDerivationMissing :: (MonadNOMState m) => DerivationId -> ProcessingT m ()
++markDerivationMissing drvId = do
++  noParents <- CSet.null . (.derivationParents) <$> getDerivationInfos drvId
++  when noParents $ modifying' #forestRoots (CSet.insert drvId)
++  modifying' #derivationInfos $ CMap.adjust (#cached .~ True) drvId
++
+ lookupDerivationInfos :: Derivation -> ProcessingT m DerivationInfo
+ lookupDerivationInfos drvName = do
+   drvId <- lookupDerivation drvName

@@ -1,0 +1,40 @@
+Read .drv files as bytes and decode UTF-8 explicitly.
+
+TextIO.readFile decodes with the process locale, so any UTF-8 in a
+derivation (box-drawing in nixpkgs stdenv hooks, curly quotes in package
+postPatch phases) throws
+
+  nix-output-monitor error: DerivationReadError ...: hGetContents:
+  invalid argument (cannot decode byte sequence starting from 226)
+
+whenever nom runs under a C locale, e.g. on the far end of
+nh os switch --build-host over ssh. Nix always writes .drv files as
+UTF-8, so decode as UTF-8 (leniently) instead of asking the locale.
+
+diff --git a/nix-output-monitor/lib/NOM/Update/Monad.hs b/nix-output-monitor/lib/NOM/Update/Monad.hs
+--- a/nix-output-monitor/lib/NOM/Update/Monad.hs
++++ b/nix-output-monitor/lib/NOM/Update/Monad.hs
+@@ -13,8 +13,10 @@
+ import Control.Exception (mask, try)
+ import Control.Monad.Trans.Writer.CPS (WriterT)
+ import Data.Attoparsec.Text (parseOnly)
++import Data.ByteString qualified as ByteString
+ import Data.Set qualified as Set
+-import Data.Text.IO qualified as TextIO
++import Data.Text.Encoding (decodeUtf8With)
++import Data.Text.Encoding.Error (lenient)
+ import Data.Time (UTCTime, getCurrentTime)
+ import GHC.Clock qualified
+ import NOM.Builds (Derivation, Host, HostContext (WithContext), StorePath)
+@@ -52,10 +54,10 @@
+
+ instance MonadReadDerivation IO where
+   getDerivation drv = do
+-    content <- try (TextIO.readFile (toString drv))
++    content <- try (ByteString.readFile (toString drv))
+     pure $ case content of
+       Left err -> Left (DerivationReadError err)
+-      Right text -> case parseOnly NomDrv.parseDerivation text of
++      Right bytes -> case parseOnly NomDrv.parseDerivation (decodeUtf8With lenient bytes) of
+         Left parseErr -> Left (DerivationParseError (toText drv <> ": " <> toText parseErr))
+         Right parsed -> Right parsed

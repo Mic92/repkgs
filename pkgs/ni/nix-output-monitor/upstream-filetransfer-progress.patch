@@ -1,0 +1,157 @@
+Backport of upstream pull request #314 (waltmck), rebased onto v2.2.0 and
+stacked on upstream-fetch-to-store-nix-2.36.patch: download progress bars
+from FileTransfer activities.
+
+Nix nests FileTransfer activities under the activity which requested them.
+This records the parent activity id on every start action and shows
+builder-reported transfers (e.g. a fixed-output derivation fetching its
+source) grouped by build, and avoids a divide-by-zero when nix reports an
+expected size of zero.
+
+Requires the #313 patch (its Parser hunk expects the FetchToStoreType
+start-action case).
+
+https://github.com/maralorn/nix-output-monitor/pull/314
+
+diff --git a/nix-output-monitor/lib/NOM/NixMessage/JSON.hs b/nix-output-monitor/lib/NOM/NixMessage/JSON.hs
+index 69f8f2b..deb9c8d 100644
+--- a/nix-output-monitor/lib/NOM/NixMessage/JSON.hs
++++ b/nix-output-monitor/lib/NOM/NixMessage/JSON.hs
+@@ -88,6 +88,7 @@ makeFieldLabelsNoPrefix ''ActivityProgress
+ 
+ data StartAction = MkStartAction
+   { id :: ActivityId
++  , parent :: Maybe ActivityId
+   , level :: Verbosity
+   , text :: Text
+   , activity :: Activity
+diff --git a/nix-output-monitor/lib/NOM/Parser/JSON.hs b/nix-output-monitor/lib/NOM/Parser/JSON.hs
+index 2b568ea..d8b0084 100644
+--- a/nix-output-monitor/lib/NOM/Parser/JSON.hs
++++ b/nix-output-monitor/lib/NOM/Parser/JSON.hs
+@@ -132,6 +132,7 @@ parseStopAction = MkStopAction . MkId <$> JSON.atKey "id" JSON.uint
+ parseStartAction :: JSON.FieldsDecoder StartAction
+ parseStartAction = do
+   idField <- JSON.atKey "id" JSON.uint
++  parentField <- JSON.atKeyOptional "parent" JSON.uint
+   text <- JSON.atKey "text" JSON.text
+   level <- JSON.atKey "level" parseVerbosity
+   activityType <- JSON.atKey "type" (JSON.withInt parseActivityType)
+@@ -170,4 +171,5 @@ parseStartAction = do
+         sourcePath' <- either pure (const $ fail "Got Int expected Text") sourcePath
+         dryRun' <- either (const $ fail "Got Text expected Int") (pure . (/= 0)) dryRun
+         pure $ FetchToStore sourcePath' dryRun'
+-  pure MkStartAction{id = MkId idField, text, activity, level}
++  -- A parent of 0 means the activity is a root, i.e. it has no parent.
++  pure MkStartAction{id = MkId idField, parent = MkId <$> mfilter (/= 0) parentField, text, activity, level}
+diff --git a/nix-output-monitor/lib/NOM/Print.hs b/nix-output-monitor/lib/NOM/Print.hs
+index eee0249..e029683 100644
+--- a/nix-output-monitor/lib/NOM/Print.hs
++++ b/nix-output-monitor/lib/NOM/Print.hs
+@@ -14,7 +14,7 @@ import Data.Time (NominalDiffTime, ZonedTime, defaultTimeLocale, formatTime)
+ import Data.Tree (Forest, Tree (Node))
+ import GHC.Records (HasField)
+ import NOM.Builds (Derivation (..), FailType (..), Host (..), HostContext (..), StorePath (..), forgetProto)
+-import NOM.NixMessage.JSON (ActivityId (..), ActivityProgress (..))
++import NOM.NixMessage.JSON (Activity (FileTransfer), ActivityId (..), ActivityProgress (..))
+ import NOM.Print.Table (Entry, blue, bold, cells, displayWidth, dummy, green, grey, header, label, magenta, markup, markups, prependLines, printAlignedSep, red, text, yellow)
+ import NOM.Print.Tree (showForest)
+ import NOM.State (
+@@ -516,6 +516,17 @@ printBuilds nomState@MkNOMState{..} hostAbbrevs limits = printBuildsWithTime
+   hostMarkup _ Localhost = mempty
+   hostMarkup color host = ["on", hostLabel color host]
+ 
++  -- The downloads which builders reported themselves, e.g. a fixed-output
++  -- derivation fetching its source, grouped by the build they belong to.
++  transfersByBuild :: Map Word [ActivityProgress]
++  transfersByBuild =
++    Map.fromListWith
++      (<>)
++      [ (parentId.value, [progress])
++      | MkActivityStatus{activity = FileTransfer{}, parent = Just parentId, progress = Strict.Just progress} <-
++          Map.elems activities
++      ]
++
+   print_hosts :: Bool -> Text -> [Host WithContext] -> [Text]
+   print_hosts color direction_label hosts
+     | null hosts || length hostAbbrevs <= 1 = []
+@@ -542,6 +553,10 @@ printBuilds nomState@MkNOMState{..} hostAbbrevs limits = printBuildsWithTime
+           Strict.toLazy $ view field activity_status
+         progressMay = activityField #progress
+         phaseMay = activityField #phase
++        transfersMay :: Strict.Maybe ActivityId -> [ActivityProgress]
++        transfersMay activityId' = fromMaybe [] do
++          activityId <- Strict.toLazy activityId'
++          Map.lookup activityId.value transfersByBuild
+         drvName = appendDifferingPlatform nomState drvInfo drvInfo.name.storePath.name
+         downloadingOutputs = store_paths_in_map drvInfo.dependencySummary.runningDownloads
+         uploadingOutputs = store_paths_in_map drvInfo.dependencySummary.runningUploads
+@@ -624,9 +639,10 @@ printBuilds nomState@MkNOMState{..} hostAbbrevs limits = printBuildsWithTime
+                     <> hostMarkup True buildInfo.host
+                     <> phaseList
+                 after_time = Strict.maybe [] (\x -> ["(" <> average <> " " <> timeDiffSeconds x <> ")"]) buildInfo.estimate
++                (transfer_percentage, transfer_progress) = printTransferProgress (transfersMay buildInfo.activityId)
+              in ( False
+-                , \now -> unwords $ before_time <> ifTimeDiffRelevant now buildInfo.start (<> after_time)
+-                , const Nothing
++                , \now -> unwords $ before_time <> ifTimeDiffRelevant now buildInfo.start (<> after_time) <> transfer_progress
++                , const transfer_percentage
+                 )
+           Failed buildInfo ->
+             let MkBuildFail endTime failType = buildInfo.end
+@@ -675,10 +691,13 @@ printPercent = markup bold . fromString . printf "%5.1f%%" . (* 100)
+ printTransferProgress :: [ActivityProgress] -> (Maybe Double, [Text])
+ printTransferProgress = \case
+   [] -> (Nothing, [])
+-  ap ->
+-    ( Just $ intToDouble done' / intToDouble expected
+-    , [printBytes done' <> "/" <> printBytes expected]
+-    )
++  ap
++    -- Nix reports an expected size of zero until it knows the real one.
++    | expected <= 0 -> (Nothing, [])
++    | otherwise ->
++        ( Just $ intToDouble done' / intToDouble expected
++        , [printBytes done' <> "/" <> printBytes expected]
++        )
+    where
+     (done', expected) = ap & (fmap (\(MkActivityProgress d e _ _) -> (d, e)) >>> unzip >>> bimap sum sum)
+ 
+diff --git a/nix-output-monitor/lib/NOM/State.hs b/nix-output-monitor/lib/NOM/State.hs
+index dc684a0..e2a7fea 100644
+--- a/nix-output-monitor/lib/NOM/State.hs
++++ b/nix-output-monitor/lib/NOM/State.hs
+@@ -211,6 +211,7 @@ makeFieldLabelsNoPrefix ''StorePathInfo
+ 
+ data ActivityStatus = MkActivityStatus
+   { activity :: Activity
++  , parent :: Maybe ActivityId
+   , phase :: Strict.Maybe Text
+   , progress :: Strict.Maybe ActivityProgress
+   }
+diff --git a/nix-output-monitor/lib/NOM/Update.hs b/nix-output-monitor/lib/NOM/Update.hs
+index fa4a674..9c1f180 100644
+--- a/nix-output-monitor/lib/NOM/Update.hs
++++ b/nix-output-monitor/lib/NOM/Update.hs
+@@ -248,10 +248,20 @@ processJsonMessage = \case
+         now <- getNow
+         pathId <- getStorePathId path
+         uploading to pathId now (Just id')
++      -- Nix nests every download under the activity which requested it. We only
++      -- want the ones a builder reported itself, e.g. a fixed-output derivation
++      -- fetching its source; those are nested under the build. Downloads which
++      -- nix performs on its own behalf are nested under a substitution instead
++      -- and are already accounted for in the downloads column.
++      JSON.FileTransfer{} -> do
++        activities' <- gets (.activities)
++        case (`Map.lookup` activities') . (.value) =<< startAction.parent of
++          Just MkActivityStatus{activity = JSON.Build{}} -> withChange pass
++          _ -> noChange
+       JSON.Unknown | Text.isPrefixOf "querying info" startAction.text -> set_interesting
+       JSON.QueryPathInfo{} -> set_interesting
+       _ -> noChange -- tell [Right (encodeUtf8 (markup yellow "unused activity: " <> show startAction.id <> " " <> show startAction.activity))]
+-    when changed $ modifying' #activities $ Map.insert id'.value (MkActivityStatus startAction.activity Strict.Nothing Strict.Nothing)
++    when changed $ modifying' #activities $ Map.insert id'.value (MkActivityStatus startAction.activity startAction.parent Strict.Nothing Strict.Nothing)
+     pure changed
+   Stop MkStopAction{id = id'} -> do
+     activity <- preuse (#activities % ix id'.value)

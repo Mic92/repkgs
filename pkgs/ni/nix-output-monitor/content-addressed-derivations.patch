@@ -1,0 +1,320 @@
+Parse content-addressed, deferred, impure and dynamic derivations instead
+of emitting DerivationParseError "string".
+
+nix-derivation 1.1.3 only accepts input-addressed ATerm outputs
+("out","/nix/store/…","",""): its filepath parser rejects the empty path
+used by floating CA outputs ("out","","r:sha256",""), deferred outputs
+("out","","","") and impure outputs ("out","","r:sha256","impure"), and it
+does not know DrvWithVersion("xp-dyn-drv",…) nor the dynamic inputDrvs node
+form. Any such .drv (e.g. the llvm runtimes CA build) therefore failed with
+
+  nix-output-monitor error: DerivationParseError "string"
+
+This vendors a tolerant in-tree ATerm parser (NOM.Derivation) that keeps
+the known output path as Maybe FilePath — Nothing for floating CA,
+deferred and impure outputs, which are then skipped in insertDerivation
+since there is no store path to wait for — and flattens dynamic inputDrvs
+nodes. The nix-derivation dependency is dropped. Upstream issues:
+maralorn/nix-output-monitor#167,
+Gabriella439/Haskell-Nix-Derivation-Library#28.
+
+diff --git a/nix-output-monitor/lib/NOM/Derivation.hs b/nix-output-monitor/lib/NOM/Derivation.hs
+new file mode 100644
+index 0000000..6a716b3
+--- /dev/null
++++ b/nix-output-monitor/lib/NOM/Derivation.hs
+@@ -0,0 +1,177 @@
++module NOM.Derivation (
++  Derivation (..),
++  DerivationOutput (..),
++  parseDerivation,
++  parseDerivationText,
++  outputPath,
++) where
++
++import Data.Attoparsec.Text qualified as AT
++import Data.Map.Strict qualified as Map
++import Data.Set qualified as Set
++import Data.Text qualified as Text
++import Relude
++
++-- | A single output of a Nix derivation.
++--
++-- Nix serialises derivations on disk in ATerm format, e.g.
++--
++-- > Derive([("out","/nix/store/...","","")], [...], [...], ...)
++--
++-- For input-addressed derivations every output has a known store path.
++-- For floating content-addressed derivations (experimental @ca-derivations@),
++-- deferred outputs and impure derivations (experimental @impure-derivations@)
++-- the path is empty (@""@):
++--
++-- > Derive([("out","","r:sha256","")], [...], [...], ...)
++--
++-- See @src/libstore/derivations.cc:parseDerivationOutput@ in the Nix source
++-- and https://github.com/maralorn/nix-output-monitor/issues/167.
++data DerivationOutput = DerivationOutput
++  { path :: Maybe FilePath
++  -- ^ Known output path, if any. 'Nothing' for floating CA, deferred and
++  -- impure outputs.
++  , hashAlgo :: Text
++  , hash :: Text
++  }
++  deriving stock (Show, Eq, Ord)
++
++-- | Minimal view of a Nix derivation. Only the fields NOM needs.
++data Derivation = Derivation
++  { outputs :: Map Text DerivationOutput
++  , inputDrvs :: Map FilePath (Set Text)
++  , inputSrcs :: Set FilePath
++  , platform :: Text
++  , builder :: Text
++  , args :: [Text]
++  , env :: Map Text Text
++  }
++  deriving stock (Show, Eq)
++
++-- | Project the known output path, if any.
++outputPath :: DerivationOutput -> Maybe FilePath
++outputPath output = output.path
++
++-- | Parse a derivation from strict 'Text'. Accepts both @Derive(...)@ and
++-- @DrvWithVersion("xp-dyn-drv", ...)@ (experimental @dynamic-derivations@).
++parseDerivationText :: Text -> Either String Derivation
++parseDerivationText = AT.parseOnly (parseDerivation <* AT.endOfInput)
++
++-- | Attoparsec parser for the ATerm format (strict 'Text' version).
++parseDerivation :: AT.Parser Derivation
++parseDerivation = do
++  void parseHeader
++  outputs <- mapOf parseOutputEntry
++  void (AT.char ',')
++  inputDrvs <- mapOf parseInputDrvEntry
++  void (AT.char ',')
++  inputSrcs <- Set.fromList . map toString <$> listOf textParser
++  void (AT.char ',')
++  platform <- textParser
++  void (AT.char ',')
++  builder <- textParser
++  void (AT.char ',')
++  args <- listOf textParser
++  void (AT.char ',')
++  env <- mapOf parseEnvEntry
++  void (AT.char ')')
++  pure Derivation{outputs, inputDrvs, inputSrcs, platform, builder, args, env}
++ where
++  parseHeader :: AT.Parser ()
++  parseHeader =
++    void (AT.string "Derive(")
++      <|> void (AT.string "DrvWithVersion(" *> textParser *> AT.char ',')
++
++  parseOutputEntry :: AT.Parser (Text, DerivationOutput)
++  parseOutputEntry = do
++    void (AT.char '(')
++    key <- textParser
++    void (AT.char ',')
++    pathText <- textParser
++    void (AT.char ',')
++    hashAlgo <- textParser
++    void (AT.char ',')
++    hash <- textParser
++    void (AT.char ')')
++    let path = if Text.null pathText then Nothing else Just (toString pathText)
++    pure (key, DerivationOutput{path, hashAlgo, hash})
++
++  parseInputDrvEntry :: AT.Parser (FilePath, Set Text)
++  parseInputDrvEntry = do
++    void (AT.char '(')
++    key <- toString <$> textParser
++    void (AT.char ',')
++    value <- parseNodeOutputs
++    void (AT.char ')')
++    pure (key, value)
++
++  parseEnvEntry :: AT.Parser (Text, Text)
++  parseEnvEntry = do
++    void (AT.char '(')
++    key <- textParser
++    void (AT.char ',')
++    value <- textParser
++    void (AT.char ')')
++    pure (key, value)
++
++-- | Parse the set of output names an input derivation is used by.
++--
++-- Old (stable) form is a plain list: @["out", "bin"]@.
++-- New (experimental @dynamic-derivations@) form is a pair of a shallow set
++-- and a map of nested uses: @(["out"], [("foo", ["bar"])])@.
++-- We flatten everything into a single set, which is a safe over-approximation
++-- for dependency tracking.
++parseNodeOutputs :: AT.Parser (Set Text)
++parseNodeOutputs =
++  Set.fromList <$> listOf textParser
++    <|> do
++      void (AT.char '(')
++      shallow <- Set.fromList <$> listOf textParser
++      void (AT.char ',')
++      childMap <- mapOf parseChildEntry
++      void (AT.char ')')
++      let childKeys = Set.fromList (Map.keys childMap)
++          childValues = mconcat (Map.elems childMap)
++      pure (shallow <> childKeys <> childValues)
++ where
++  parseChildEntry :: AT.Parser (Text, Set Text)
++  parseChildEntry = do
++    void (AT.char '(')
++    key <- textParser
++    void (AT.char ',')
++    value <- parseNodeOutputs
++    void (AT.char ')')
++    pure (key, value)
++
++-- | Parse a @\"..."@ string with @\\n@, @\\r@, @\\t@, @\\\\@ and @\\"@
++-- escapes, matching Nix\'s ATerm printer.
++textParser :: AT.Parser Text
++textParser = do
++  void (AT.char '"')
++  chunks <- go
++  pure (Text.concat chunks)
++ where
++  go :: AT.Parser [Text]
++  go = do
++    prefix <- AT.takeWhile (\c -> c /= '"' && c /= '\\')
++    next <- AT.anyChar
++    case next of
++      '"' -> pure [prefix]
++      '\\' -> do
++        escaped <- AT.anyChar
++        let decoded = case escaped of
++              'n' -> '\n'
++              'r' -> '\r'
++              't' -> '\t'
++              c -> c
++        rest <- go
++        pure (prefix : Text.singleton decoded : rest)
++      _ -> pure [prefix]
++
++listOf :: AT.Parser a -> AT.Parser [a]
++listOf element = do
++  void (AT.char '[')
++  AT.sepBy element (AT.char ',') <* AT.char ']'
++
++mapOf :: (Ord k) => AT.Parser (k, v) -> AT.Parser (Map k v)
++mapOf entry = Map.fromList <$> listOf entry
+diff --git a/nix-output-monitor/lib/NOM/Update.hs b/nix-output-monitor/lib/NOM/Update.hs
+index b559429..b01278d 100644
+--- a/nix-output-monitor/lib/NOM/Update.hs
++++ b/nix-output-monitor/lib/NOM/Update.hs
+@@ -69,7 +69,7 @@ import NOM.Update.Monad (
+   UpdateMonad,
+  )
+ import NOM.Util (parseOneText, repeatedly)
+-import Nix.Derivation qualified as Nix
++import NOM.Derivation qualified as NomDrv
+ import Numeric.Extra (intToDouble)
+ import Optics (Ixed (..), assign', has, modifying', preuse, preview, (%), (%~), (.~))
+ import Relude
+@@ -358,19 +358,24 @@ lookupDerivationInfos drvName = do
+   drvId <- lookupDerivation drvName
+   getDerivationInfos drvId
+ 
+-insertDerivation :: Nix.Derivation FilePath Text -> DerivationId -> ProcessingT m ()
++insertDerivation :: NomDrv.Derivation -> DerivationId -> ProcessingT m ()
+ insertDerivation derivation drvId = do
+-  -- We need to be really careful in this function. The Nix.Derivation keeps the
+-  -- read-in derivation file in memory. When using Texts from it we must make
++  -- We need to be really careful in this function. The derivation file content
++  -- is kept in memory by the parser. When using Texts from it we must make
+   -- sure we destroy sharing with the original file, so that it can be garbage
+   -- collected.
+ 
+   outputs <-
+-    derivation.outputs & Map.mapKeys (parseOutputName . Text.copy) & Map.traverseMaybeWithKey \_ path ->
+-      parseStorePath (toText (Nix.path path)) & mapM \pathName -> do
+-        pathId <- getStorePathId pathName
+-        modifying' #storePathInfos $ CMap.adjust (#producer .~ Strict.Just drvId) pathId
+-        pure pathId
++    derivation.outputs & Map.mapKeys (parseOutputName . Text.copy) & Map.traverseMaybeWithKey \_ drvOutput ->
++      case NomDrv.outputPath drvOutput of
++        -- Floating CA, deferred and impure outputs have no known store path
++        -- yet. Skipping them is correct: there is nothing to wait for.
++        Nothing -> pure Nothing
++        Just path ->
++          parseStorePath (toText path) & mapM \pathName -> do
++            pathId <- getStorePathId pathName
++            modifying' #storePathInfos $ CMap.adjust (#producer .~ Strict.Just drvId) pathId
++            pure pathId
+   inputSources <-
+     derivation.inputSrcs & flip foldlM mempty \acc path -> do
+       pathIdMay <-
+diff --git a/nix-output-monitor/lib/NOM/Update/Monad.hs b/nix-output-monitor/lib/NOM/Update/Monad.hs
+index bceecf2..f5d4754 100644
+--- a/nix-output-monitor/lib/NOM/Update/Monad.hs
++++ b/nix-output-monitor/lib/NOM/Update/Monad.hs
+@@ -12,16 +12,16 @@ import Control.Concurrent.Async (async, link)
+ import Control.Concurrent.STM (TChan, retry, tryReadTChan, writeTChan)
+ import Control.Exception (mask, try)
+ import Control.Monad.Trans.Writer.CPS (WriterT)
+-import Data.Attoparsec.Text (eitherResult, parse)
++import Data.Attoparsec.Text (parseOnly)
+ import Data.Set qualified as Set
+ import Data.Text.IO qualified as TextIO
+ import Data.Time (UTCTime, getCurrentTime)
+ import GHC.Clock qualified
+ import NOM.Builds (Derivation, Host, HostContext (WithContext), StorePath)
++import NOM.Derivation qualified as NomDrv
+ import NOM.Error (NOMError (..))
+ import NOM.State (DerivationId)
+ import NOM.Update.Monad.CacheBuildReports
+-import Nix.Derivation qualified as Nix
+ import Relude
+ import System.Directory (doesPathExist)
+ 
+@@ -48,19 +48,16 @@ instance (MonadNow m) => MonadNow (ReaderT a m) where
+   getUTC = lift getUTC
+ 
+ class (Monad m) => MonadReadDerivation m where
+-  getDerivation :: Derivation -> m (Either NOMError (Nix.Derivation FilePath Text))
++  getDerivation :: Derivation -> m (Either NOMError NomDrv.Derivation)
+ 
+ instance MonadReadDerivation IO where
+-  getDerivation =
+-    fmap
+-      ( first DerivationReadError
+-          >=> first (DerivationParseError . toText)
+-          . eitherResult
+-          . parse Nix.parseDerivation
+-      )
+-      . try
+-      . TextIO.readFile
+-      . toString
++  getDerivation drv = do
++    content <- try (TextIO.readFile (toString drv))
++    pure $ case content of
++      Left err -> Left (DerivationReadError err)
++      Right text -> case parseOnly NomDrv.parseDerivation text of
++        Left parseErr -> Left (DerivationParseError (toText drv <> ": " <> toText parseErr))
++        Right parsed -> Right parsed
+ 
+ instance (MonadReadDerivation m) => MonadReadDerivation (StateT a m) where
+   getDerivation = lift . getDerivation
+diff --git a/nix-output-monitor/nix-output-monitor.cabal b/nix-output-monitor/nix-output-monitor.cabal
+index b139e44..edb3e27 100644
+--- a/nix-output-monitor/nix-output-monitor.cabal
++++ b/nix-output-monitor/nix-output-monitor.cabal
+@@ -74,7 +74,6 @@ common common-config
+     filepath,
+     fsnotify,
+     hermes-json >=0.6.0.0,
+-    nix-derivation,
+     optics,
+     relude,
+     safe,
+@@ -114,6 +113,7 @@ library
+   exposed-modules:
+     Data.Sequence.Strict
+     NOM.Builds
++    NOM.Derivation
+     NOM.Error
+     NOM.IO
+     NOM.IO.Input
