@@ -1,5 +1,9 @@
 # librhash only. Hand-written configure with its own option names
-{ package, platform }:
+{
+  package,
+  platform,
+  on,
+}:
 package {
   name = "rhash";
   uses = [ "make" ];
@@ -12,7 +16,7 @@ package {
     "--enable-lib-shared"
     "--disable-gettext"
   ]
-  ++ (if platform.cross then [ "--target=${platform.gnuTriple}" ] else [ ]);
+  ++ on platform.cross [ "--target=${platform.gnuTriple}" ];
   make.buildTarget = [ "lib-shared" ];
   make.installTarget = [
     "-C"

@@ -24,10 +24,13 @@ let
     for f in "$@"; do ${pkgs.statix}/bin/statix check -c ${./statix.toml} "$f" || status=1; done
     exit $status
   '';
-  # ast-grep over nu with the tree-sitter grammar nushell maintains; rules in lints/nu/
+  # ast-grep: nu via the tree-sitter grammar nushell maintains (lints/nu/), nix is built in (lints/nix/)
   sgconfig = pkgs.writeText "sgconfig.yml" (
     builtins.toJSON {
-      ruleDirs = [ "${./lints/nu}" ];
+      ruleDirs = [
+        "${./lints/nu}"
+        "${./lints/nix}"
+      ];
       customLanguages.nu = {
         libraryPath = "${pkgs.tree-sitter-grammars.tree-sitter-nu}/parser";
         extensions = [ "nu" ];
@@ -135,7 +138,7 @@ pkgs.treefmt.withConfig {
           "--config=${sgconfig}"
           "--report-style=short"
         ];
-        includes = nuFiles;
+        includes = nuFiles ++ [ "pkgs/*/*/*.nix" ];
       };
     };
   };

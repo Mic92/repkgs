@@ -37,15 +37,10 @@ let
         "ac_cv_path_ac_pt_LLVM_AR=llvm-ar"
       ]
       # cross: configure needs a same-version build-machine python and cannot run test programs
-      ++ (
-        if platform.cross then
-          [
-            "--with-build-python=python3" # by name: _sysconfigdata records CONFIG_ARGS
-            "ac_cv_buggy_getaddrinfo=no"
-          ]
-        else
-          [ ]
-      );
+      ++ on platform.cross [
+        "--with-build-python=python3" # by name: _sysconfigdata records CONFIG_ARGS
+        "ac_cv_buggy_getaddrinfo=no"
+      ];
     };
     # no compiled-in PREFIX: an installed python is where its binary (/proc/self/exe, as macOS
     # asks the OS) or libpython is, a build tree one uses the source dir. sysconfig data and .pyc
