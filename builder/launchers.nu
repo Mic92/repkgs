@@ -132,7 +132,8 @@ def pe [c: record, deps: list<string>, renv: record]: nothing -> nothing {
 
 export def main [c: record]: nothing -> nothing {
   let a = (attrs)
-  if $c.platform.binfmt == "coff" { return (pe $c $a.dependencies (runtime-env $a.dependencies $c.out)) }
+  # the closure: linking libgit2 through pkg-config also links its Requires, libssh2
+  if $c.platform.binfmt == "coff" { return (pe $c $c.deps.root (runtime-env $a.dependencies $c.out)) }
   let bindir = $"($c.out)/bin"
   if not ($bindir | path exists) { return }
   let renv = (runtime-env $a.dependencies $c.out)
