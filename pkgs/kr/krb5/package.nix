@@ -5,6 +5,11 @@
 }:
 package {
   name = "krb5";
+  # the Windows port is a separate nmake build
+  platforms.os = [
+    "linux"
+    "macos"
+  ];
   uses = [ "autotools" ];
   autotools.root = "src";
   autotools.outOfTree = false;

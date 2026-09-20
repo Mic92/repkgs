@@ -7,6 +7,11 @@
 }:
 package {
   name = "tzdata";
+  # zic and friends are POSIX programs, Windows keeps its own zone database
+  platforms.os = [
+    "linux"
+    "macos"
+  ];
   uses = [ "make" ];
   # TOPDIR is / for the compiled-in TZDIR and TZDEFAULT (the machine's), the prefix only at install
   make.flags = [
