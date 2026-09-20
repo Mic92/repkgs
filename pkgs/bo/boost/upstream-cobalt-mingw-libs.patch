@@ -1,0 +1,32 @@
+From 66b967abd95582bb109de96562f59101ce2b7750 Mon Sep 17 00:00:00 2001
+From: Carlo Bramini <carlo_bramini@users.sourceforge.net>
+Date: Sat, 13 Dec 2025 12:41:25 +0100
+Subject: [PATCH] WIN32: Add mswsock and bcrypt to boost_cobalt libraries
+
+This patch fixes and closes issue #257 for MINGW.
+---
+ CMakeLists.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/libs/cobalt/CMakeLists.txt b/libs/cobalt/CMakeLists.txt
+index 45dfa4b5..aa877e18 100644
+--- a/libs/cobalt/CMakeLists.txt
++++ b/libs/cobalt/CMakeLists.txt
+@@ -73,7 +73,7 @@ if (NOT BOOST_COBALT_IS_ROOT)
+     endif()
+ 
+     if(MINGW OR CYGWIN)
+-        target_link_libraries(boost_cobalt PUBLIC ws2_32)
++        target_link_libraries(boost_cobalt PUBLIC ws2_32 mswsock bcrypt)
+     endif()
+ 
+     if (BOOST_COBALT_USE_BOOST_CONTAINER)
+@@ -210,7 +210,7 @@ else()
+     endif()
+ 
+     if(MINGW OR CYGWIN)
+-        target_link_libraries(boost_cobalt PUBLIC ws2_32)
++        target_link_libraries(boost_cobalt PUBLIC ws2_32 mswsock bcrypt)
+     endif()
+ 
+     if(BUILD_SHARED_LIBS)
