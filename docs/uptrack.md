@@ -53,6 +53,9 @@ sys = ["jemalloc"]                 # our libraries the lock files in the source 
 
 [watch]                            # optional; default is the purl's datasource
 # url = "…/LATEST"  regex = "([0-9.]+)"   |  feed = "…/releases.atom"  |  purl = "pkg:npm/x"
+# unstable branch tip instead of releases: purl = "pkg:github/<owner>/<repo>?branch=<name>"
+# (datasource yields the tip commit: version is its date, sha rides as `rev`;
+# a resolve hook keeps a stable version while rev follows the tip, e.g. nix)
 
 [locks]                            # dependency hashes to record in the repo-wide locks/<eco>.toml
 # go = "."                         # dir in the source holding go.sum (`uptrack lock`, and on apply)
@@ -73,6 +76,16 @@ package {
 
 TOML rather than JSON for comments and stable diffs. One file rather than attributes in Nix so
 that listing a whole tree is a glob, and so the same file works in repos without Nix.
+
+Unstable (branch-tip) tracking, e.g. `pkgs/ni/nix` on Mic92's repkgs branch:
+`purl = "pkg:github/<owner>/<repo>?branch=<name>"` (same qualifier on a `pkg:gitlab`
+purl). The datasource returns the tip commit alone — version is its date
+(YYYYMMDD), sha as `rev` — and a resolve hook in `update.nu` (like
+jdk-bootstrap's) shapes the candidate into `[pin]` keys, usually keeping a
+stable version while `rev` follows the branch (`{rev}` in source urls).
+`decide` proposes when the version is newer or, versions tying, when `rev`
+moved; the note shows the rev range. Advance by `uptrack apply` + `verify` as
+usual; the hash comes from prefetching the `{rev}` tarball.
 
 ## Pipeline
 

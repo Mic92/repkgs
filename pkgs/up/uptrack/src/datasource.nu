@@ -29,8 +29,16 @@ def fetch [url: string, what: string, --max-age: duration = 10min]: nothing -> o
   $r.body
 }
 
-# releases if the project publishes any, else tags
+# releases if the project publishes any, else tags. With ?branch=, the tip commit
+# of that branch instead, for unstable tracking: one candidate, version is its
+# date (YYYYMMDD), the sha rides along as `rev` (decide also fires when only
+# rev moved, so a resolve hook may keep a stable version while the branch advances)
 def github [p: record<type: string, namespace: string, name: string, qualifiers: record>]: nothing -> table<version: string> {
+  let branch = $p.qualifiers.branch?
+  if $branch != null and $branch != "" {
+    let c = (fetch $"https://api.github.com/repos/($p.namespace)/($p.name)/commits?sha=($branch)&per_page=1" $p.name | first)
+    return [{version: ($c.commit.committer.date | into datetime | format date "%Y%m%d"), date: $c.commit.committer.date, rev: $c.sha}]
+  }
   let repo = $"https://api.github.com/repos/($p.namespace)/($p.name)"
   let rels = fetch $"($repo)/releases?per_page=20" $repo | where not draft | each {|r|
     {version: (version from-tag $r.tag_name), date: $r.published_at, prerelease: $r.prerelease, tag: $r.tag_name}
@@ -39,10 +47,16 @@ def github [p: record<type: string, namespace: string, name: string, qualifiers:
   fetch $"($repo)/tags?per_page=100" $repo | each {|t| {version: (version from-tag $t.name), tag: $t.name} }
 }
 
-# pkg:gitlab/<ns>/<name>[?repository_url=https://gitlab.example.org]
+# pkg:gitlab/<ns>/<name>[?repository_url=https://gitlab.example.org][&branch=<name>]:
+# tags, or with ?branch= the tip commit of that branch (same unstable shape as github)
 def gitlab [p: record<type: string, namespace: string, name: string, qualifiers: record>]: nothing -> table<version: string> {
   let host = ($p.qualifiers.repository_url? | default "https://gitlab.com")
   let id = ($"($p.namespace)/($p.name)" | url encode --all)
+  let branch = $p.qualifiers.branch?
+  if $branch != null and $branch != "" {
+    let c = (fetch $"($host)/api/v4/projects/($id)/repository/branches/($branch)" $p.name)
+    return [{version: ($c.commit.committed_date | into datetime | format date "%Y%m%d"), date: $c.commit.committed_date, rev: $c.commit.id}]
+  }
   fetch $"($host)/api/v4/projects/($id)/repository/tags?per_page=100" $p.name | each {|t| {version: (version from-tag $t.name), date: $t.commit?.created_at?, tag: $t.name} }
 }
 

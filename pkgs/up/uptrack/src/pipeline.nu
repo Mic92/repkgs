@@ -97,13 +97,16 @@ export def decide [pkgs: table, --prerelease]: nothing -> table {
       (if $best == null { $"all ($pkg.candidates | length) candidates filtered by allow/prerelease/every" })
     ] | compact | get -o 0)
     if $problem != null { return ($entry | update note $problem) }
-    if $current != null and (version cmp $best $current) <= 0 { return $entry }
     let c = ($eligible | where version == $best | first)
+    # same version, new source: branch pins (`rev`) move without a version bump
+    let revMoved = ($c.rev? != null and $pkg.pin.rev? != null and $c.rev != $pkg.pin.rev)
+    if $current != null and (version cmp $best $current) <= 0 and not $revMoved { return $entry }
     let newer_pre = ($pkg.candidates | where prerelease | get version | where {|v| (version cmp $v $best) > 0 } | version max)
     let note = ([
       (if $c.date != null { $"released ($c.date | into datetime | format date '%F')" })
       (if ($too_young | is-not-empty) { $"($too_young | length) newer held by every=($u.every)" })
       (if $newer_pre != null { $"pre-release ($newer_pre) ignored" })
+      (if $revMoved { $"rev ($pkg.pin.rev) -> ($c.rev)" })
     ] | compact | str join ", ")
     # [pin] = the candidate minus datasource bookkeeping. Whatever else a resolve hook put there
     # (jdk-bootstrap's file name spelling) is kept and usable as {key} in urls
