@@ -65,6 +65,9 @@ auto IsSharedLibName(std::string_view basename) -> bool;
 
 // User argv -> real compiler argv: conf flags first, build-system rpaths filtered (store and
 // build-tree entries pass, host dirs dropped), RUNPATH/interp policy appended when linking.
+// `cc -print-search-dirs` output with the package's dependency -L dirs on the libraries: line
+auto WithPackageLibDirs(std::string_view search_dirs, std::span<const std::string> ldflags) -> std::string;
+
 auto BuildDriverArgs(const DriverConf& conf, Language lang, std::span<const std::string> raw_args)
     -> std::vector<std::string>;
 
