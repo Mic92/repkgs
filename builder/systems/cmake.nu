@@ -39,7 +39,10 @@ export def configure []: nothing -> nothing {
   } | merge (if $c.platform.cross { {
     CMAKE_SYSTEM_NAME: $c.platform.osNames.cmake
     CMAKE_SYSTEM_PROCESSOR: $c.platform.cpu
-  } } else { {} }) | merge (if $c.platform.os == "macos" {
+  } | merge (if $c.platform.os == "windows" {
+    # setting CMAKE_SYSTEM_NAME by hand leaves this empty, and projects derive _WIN32_WINNT from it (zeromq)
+    {CMAKE_SYSTEM_VERSION: "10.0"}
+  } else { {} }) } else { {} }) | merge (if $c.platform.os == "macos" {
     # Darwin.cmake finds usr/ and the frameworks from this
     {CMAKE_OSX_SYSROOT: $c.platform.sysroot}
   } else { {} }) | merge (if ($c.platform.emulator | is-empty) { {} } else { {CMAKE_CROSSCOMPILING_EMULATOR: ($c.platform.emulator | str join ";")} }) | merge $o.defs)
