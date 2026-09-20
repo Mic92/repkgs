@@ -1,0 +1,26 @@
+Do not disable wide character support on MinGW
+
+mingw-w64 has working wcsrtombs()/wcstombs(). Same change as the
+configure.ac one sent upstream, applied to the generated configure so
+the build does not rerun autoconf.
+
+diff --git a/configure b/configure
+index ac32fc1..7cf14ce 100755
+--- a/configure
++++ b/configure
+@@ -6575,15 +6575,6 @@ printf "%s\n" "#define HAVE_${ax_symbolname} 1" >>confdefs.h
+   fi
+ fi
+ 
+-case $host in
+-  *-mingw*)
+-        if test "$tre_libutf8" != "yes"; then
+-      tre_wchar_reason="Not supported on MinGW"
+-      tre_wchar="no ($tre_wchar_reason)"
+-    fi
+-    ;;
+-esac
+-
+ # Fail if wide character support was specifically requested but is
+ # not supported on this system.
+ if test "$tre_enable_wchar" = "yes"; then

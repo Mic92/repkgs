@@ -1,0 +1,11 @@
+[upstream]
+purl = "pkg:github/laurikari/tre"
+
+[[source]]
+key = "default"
+url = "https://github.com/laurikari/tre/releases/download/{tag}/tre-{version}.tar.gz"
+hash = "sha256-2ew5H+7ldyxuYbmac1qDObVBdWnA0KfdLqtQYT59jPg="
+
+[pin]
+version = "0.9.0"
+tag = "v0.9.0"
