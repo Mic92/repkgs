@@ -1,0 +1,19 @@
+cdf.h: do not redefine struct timespec on mingw-w64
+
+Under WIN32, cdf.h turns struct timespec into winsock's timeval. That is
+for MSVC. mingw-w64 has a real struct timespec whose tv_sec is time_t,
+while timeval's is long, so cdf_ctime(&ts.tv_sec) no longer type checks.
+
+diff --git a/src/cdf.h b/src/cdf.h
+index 6dddb3d..0d6e638 100644
+--- a/src/cdf.h
++++ b/src/cdf.h
+@@ -37,6 +37,8 @@
+ 
+ #ifdef WIN32
+ #include <winsock2.h>
++#endif
++#if defined(WIN32) && !defined(__MINGW32__)
+ #define timespec timeval
+ #define tv_nsec tv_usec
+ #endif
