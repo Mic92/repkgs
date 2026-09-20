@@ -21,6 +21,10 @@ import ../llvm/subproject.nix
   }
   "lld"
   {
-    bin.set = [ "ld.lld" ];
-    tests.version.set = true;
+    bin.set = [
+      "ld.lld"
+      "lld"
+    ];
+    # by flavor, not argv[0]: wine hands a symlinked ld.lld.exe its target's name
+    tests.version.set = "lld -flavor gnu --version";
   }
