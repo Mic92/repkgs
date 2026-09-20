@@ -2,6 +2,7 @@
   package,
   platform,
   buildPkgs,
+  on,
 }:
 package {
   name = "zlib";
@@ -15,13 +16,8 @@ package {
   cmake.skipTests = [
     "coverage"
   ]
-  ++ (
-    if platform.cross then
-      [
-        "add_subdirectory"
-        "find_package"
-      ]
-    else
-      [ ]
-  );
+  ++ on platform.cross [
+    "add_subdirectory"
+    "find_package"
+  ];
 }

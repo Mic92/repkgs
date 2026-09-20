@@ -31,15 +31,10 @@ package {
     "--enable-term-driver"
     "--enable-sp-funcs"
   ]
-  ++ (
-    if platform.cross then
-      [
-        "--with-tic-path=${buildPkgs.ncurses}/bin/tic"
-        "--with-infocmp-path=${buildPkgs.ncurses}/bin/infocmp"
-      ]
-    else
-      [ ]
-  );
+  ++ on platform.cross [
+    "--with-tic-path=${buildPkgs.ncurses}/bin/tic"
+    "--with-infocmp-path=${buildPkgs.ncurses}/bin/infocmp"
+  ];
   phases.replace."autotools.configure" = {
     name = "configure";
     run = ''

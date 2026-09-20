@@ -1,0 +1,12 @@
+# `on` (nix/lib.nix) is a package.nix argument for exactly this
+id: if-else-empty
+language: nix
+severity: error
+message: "`on cond value` instead of if-then-else with an empty set or list"
+rule:
+  pattern: if $C then $V else $E
+constraints:
+  E:
+    any:
+      - regex: '^\{\s*\}$'
+      - regex: '^\[\s*\]$'
