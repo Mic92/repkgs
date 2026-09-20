@@ -34,6 +34,13 @@ import ../../ll/llvm/subproject.nix
       CMAKE_Fortran_COMPILER_WORKS = true;
       CMAKE_Fortran_FLAGS = lib.join " " target;
       FLANG_RT_INCLUDE_TESTS = false;
+    }
+    # IEEE long double would need __fixkfti and quadmath support compiler-rt lacks. flang has no
+    # REAL(16) on ppc64le, so IBM long double loses nothing
+    // lib.on (platform.cpu == "powerpc64le") {
+      CMAKE_CXX_FLAGS = "-mabi=ibmlongdouble";
+      HAVE_LDBL_MANT_DIG_113 = false;
+      FOUND_LIBMF128 = false;
     };
     # a static runtime, nothing of llvm is linked (LLVM_DIR still finds its cmake files)
     dependencies.set = [ ];

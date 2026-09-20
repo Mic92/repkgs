@@ -12,7 +12,7 @@ let
     aarch64 = "ARMV8";
     riscv64 = "RISCV64_GENERIC";
     loongarch64 = "LOONGSONGENERIC";
-    powerpc64le = "POWER8";
+    powerpc64le = "POWER9"; # our -mcpu, and POWER8 would need __addkf3 from compiler-rt
   };
 in
 package {
