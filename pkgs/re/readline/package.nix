@@ -12,6 +12,10 @@ package {
     "--with-shared-termcap-library"
   ]
   ++ on (platform.os == "windows") [ "CFLAGS=-D__USE_MINGW_ALARM -D_POSIX" ];
+  # shobj-conf says --export-all, lld only knows the long spelling
+  autotools.makeFlags = on (platform.os == "windows") [
+    "SHOBJ_LDFLAGS=-shared -Wl,--export-all-symbols -Wl,--enable-auto-import"
+  ];
   # msys2's, all behind __MINGW32__/_WIN32
   patches = [
     ./mingw-0001-sigwinch.patch
