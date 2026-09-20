@@ -37,6 +37,7 @@ purl = "pkg:github/sharkdp/fd"     # identity; picks datasource and default vers
 # cpe = "cpe:2.3:a:haxx:curl"      only for NVD lookups where OSV has no coverage (C projects)
 # frozen = "last release 2009"     instead of purl: dead upstream, never polled
 # relocks = ["hackage"]            applying this package re-solves every [locks] of that ecosystem
+# base = "2.36"                    ?branch=: unstable base instead of the max tag (e.g. unreleased version)
 
 [[source]]
 key = "default"                    # free-form: default, x86_64-linux, docs…
@@ -54,8 +55,8 @@ sys = ["jemalloc"]                 # our libraries the lock files in the source 
 [watch]                            # optional; default is the purl's datasource
 # url = "…/LATEST"  regex = "([0-9.]+)"   |  feed = "…/releases.atom"  |  purl = "pkg:npm/x"
 # unstable branch tip instead of releases: purl = "pkg:github/<owner>/<repo>?branch=<name>"
-# (datasource yields the tip commit: version is its date, sha rides as `rev`;
-# a resolve hook keeps a stable version while rev follows the tip, e.g. nix)
+# (datasource yields `<base>-unstable-<date>` from the tip commit, sha rides as `rev`;
+# set [upstream] base to override the max-tag base, e.g. nix pins unreleased 2.36)
 
 [locks]                            # dependency hashes to record in the repo-wide locks/<eco>.toml
 # go = "."                         # dir in the source holding go.sum (`uptrack lock`, and on apply)
@@ -79,10 +80,10 @@ that listing a whole tree is a glob, and so the same file works in repos without
 
 Unstable (branch-tip) tracking, e.g. `pkgs/ni/nix` on Mic92's repkgs branch:
 `purl = "pkg:github/<owner>/<repo>?branch=<name>"` (same qualifier on a `pkg:gitlab`
-purl). The datasource returns the tip commit alone — version is its date
-(YYYYMMDD), sha as `rev` — and a resolve hook in `update.nu` (like
-jdk-bootstrap's) shapes the candidate into `[pin]` keys, usually keeping a
-stable version while `rev` follows the branch (`{rev}` in source urls).
+purl). The datasource returns the tip commit alone — version is
+`<base>-unstable-<date>` (nixpkgs scheme, base is the max stable tag or `0`),
+sha as `rev` — with the source url using `{rev}`. Set `[upstream] base` to
+override the base (nix pins unreleased `2.36` instead of the max tag).
 `decide` proposes when the version is newer or, versions tying, when `rev`
 moved; the note shows the rev range. Advance by `uptrack apply` + `verify` as
 usual; the hash comes from prefetching the `{rev}` tarball.

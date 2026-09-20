@@ -12,7 +12,7 @@ const UNPACK = path self unpack.nu
 # the keys a sources.toml may carry, per table
 const KNOWN = {
   top: [upstream source pin watch locks]
-  upstream: [purl allow prerelease every group cpe frozen relocks]
+  upstream: [purl allow prerelease every group cpe frozen relocks base]
   watch: [url regex purl]
   source: [key url hash unpack name frozen]
   locks: [go hackage luarocks]
@@ -40,6 +40,7 @@ export def discover [dir: path]: nothing -> table {
     # `frozen = "<reason>"` pins a dead upstream: nothing to poll, hash stays as written
     let tracked = ($t.upstream.purl? != null)
     let frozen = ($t.upstream.frozen? != null)
+    if $t.upstream.base? != null and $t.upstream.base !~ '^\d' { error make {msg: $"($f): upstream.base must start with a digit"} }
     if not $tracked and not $frozen and (($t.source | is-not-empty) or ($t.locks | is-empty)) { error make {msg: $"($f): upstream.purl \(or frozen\) is required"} }
     for s in $t.source {
       check-keys $f source $s
@@ -58,7 +59,16 @@ export def discover [dir: path]: nothing -> table {
 export def resolve [pkgs: table, --threads: int = 8]: nothing -> table {
   $pkgs | par-each --keep-order --threads $threads {|pkg|
     try {
-      let c = (if (has-hook $pkg resolve) { hook $pkg resolve $pkg } else { datasource versions (watch-purl $pkg) })
+      let raw = (if (has-hook $pkg resolve) { hook $pkg resolve $pkg } else { datasource versions (watch-purl $pkg) })
+      # [upstream] base: ?branch= tracking versions the tip as <base>-unstable-<date>;
+      # use this instead of the datasource's max-tag base (e.g. an unreleased version)
+      let c = (if $pkg.upstream.base? != null {
+        $raw | each {|r|
+          if $r.rev? != null and $r.date? != null {
+            $r | upsert version $"($pkg.upstream.base)-unstable-($r.date | into datetime | format date '%F')"
+          } else { $r }
+        }
+      } else { $raw })
       $pkg | merge {candidates: $c, error: null}
     } catch {|e| $pkg | merge {candidates: [], error: $e.msg} }
   }
