@@ -1,5 +1,7 @@
 {
   package,
+  platform,
+  on,
 }:
 package {
   name = "libcpuid";
@@ -9,6 +11,14 @@ package {
     "apple"
   ];
   uses = [ "cmake" ];
-  # the ARM kernel driver installs DKMS sources to /usr/src
-  cmake.defs.LIBCPUID_BUILD_DRIVERS = false;
+  cmake.defs = {
+    # the ARM kernel driver installs DKMS sources to /usr/src
+    LIBCPUID_BUILD_DRIVERS = false;
+  }
+  # it includes GNUInstallDirs only if(UNIX), the install rules use its variables regardless
+  // on (platform.os == "windows") {
+    CMAKE_INSTALL_BINDIR = "bin";
+    CMAKE_INSTALL_LIBDIR = "lib";
+    CMAKE_INSTALL_INCLUDEDIR = "include";
+  };
 }
