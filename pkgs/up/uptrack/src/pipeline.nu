@@ -12,7 +12,7 @@ const UNPACK = path self unpack.nu
 # the keys a sources.toml may carry, per table
 const KNOWN = {
   top: [upstream source pin watch locks]
-  upstream: [purl allow prerelease every group cpe frozen relocks]
+  upstream: [purl allow prerelease every group cpe frozen relocks base]
   watch: [url regex purl]
   source: [key url hash unpack name frozen]
   locks: [go hackage luarocks]
@@ -40,6 +40,7 @@ export def discover [dir: path]: nothing -> table {
     # `frozen = "<reason>"` pins a dead upstream: nothing to poll, hash stays as written
     let tracked = ($t.upstream.purl? != null)
     let frozen = ($t.upstream.frozen? != null)
+    if $t.upstream.base? != null and $t.upstream.base !~ '^\d' { error make {msg: $"($f): upstream.base must start with a digit"} }
     if not $tracked and not $frozen and (($t.source | is-not-empty) or ($t.locks | is-empty)) { error make {msg: $"($f): upstream.purl \(or frozen\) is required"} }
     for s in $t.source {
       check-keys $f source $s
@@ -58,7 +59,16 @@ export def discover [dir: path]: nothing -> table {
 export def resolve [pkgs: table, --threads: int = 8]: nothing -> table {
   $pkgs | par-each --keep-order --threads $threads {|pkg|
     try {
-      let c = (if (has-hook $pkg resolve) { hook $pkg resolve $pkg } else { datasource versions (watch-purl $pkg) })
+      let raw = (if (has-hook $pkg resolve) { hook $pkg resolve $pkg } else { datasource versions (watch-purl $pkg) })
+      # [upstream] base: ?branch= tracking versions the tip as <base>-unstable-<date>;
+      # use this instead of the datasource's max-tag base (e.g. an unreleased version)
+      let c = (if $pkg.upstream.base? != null {
+        $raw | each {|r|
+          if $r.rev? != null and $r.date? != null {
+            $r | upsert version $"($pkg.upstream.base)-unstable-($r.date | into datetime | format date '%F')"
+          } else { $r }
+        }
+      } else { $raw })
       $pkg | merge {candidates: $c, error: null}
     } catch {|e| $pkg | merge {candidates: [], error: $e.msg} }
   }
@@ -97,13 +107,16 @@ export def decide [pkgs: table, --prerelease]: nothing -> table {
       (if $best == null { $"all ($pkg.candidates | length) candidates filtered by allow/prerelease/every" })
     ] | compact | get -o 0)
     if $problem != null { return ($entry | update note $problem) }
-    if $current != null and (version cmp $best $current) <= 0 { return $entry }
     let c = ($eligible | where version == $best | first)
+    # same version, new source: branch pins (`rev`) move without a version bump
+    let revMoved = ($c.rev? != null and $pkg.pin.rev? != null and $c.rev != $pkg.pin.rev)
+    if $current != null and (version cmp $best $current) <= 0 and not $revMoved { return $entry }
     let newer_pre = ($pkg.candidates | where prerelease | get version | where {|v| (version cmp $v $best) > 0 } | version max)
     let note = ([
       (if $c.date != null { $"released ($c.date | into datetime | format date '%F')" })
       (if ($too_young | is-not-empty) { $"($too_young | length) newer held by every=($u.every)" })
       (if $newer_pre != null { $"pre-release ($newer_pre) ignored" })
+      (if $revMoved { $"rev ($pkg.pin.rev) -> ($c.rev)" })
     ] | compact | str join ", ")
     # [pin] = the candidate minus datasource bookkeeping. Whatever else a resolve hook put there
     # (jdk-bootstrap's file name spelling) is kept and usable as {key} in urls
