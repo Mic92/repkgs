@@ -479,7 +479,8 @@ void Classify(Invocation& inv, int sources, bool objects, char stop) {
 
 // what the cache cannot serve: run the compiler as given, under a slot when it is real work
 auto RunUncached(CacheClient& cache, const std::string& socket_path, const std::string& compiler, const Invocation& inv,
-                 bool has_primary, std::span<const std::string> user_args, const Stopwatch& clock) -> int {
+                 bool has_primary, std::span<const std::string> user_args, std::span<const std::string> ldflags,
+                 const Stopwatch& clock) -> int {
   int status = 0;
   {
     // -print-*, --version and friends are no work worth a slot (and glibc runs 600 of them)
@@ -487,7 +488,15 @@ auto RunUncached(CacheClient& cache, const std::string& socket_path, const std::
     if (!inv.source.empty() || !inv.inputs.empty()) {
       slot.emplace(cache, socket_path);
     }
-    status = Run(compiler, inv.args, StderrMode::kInherit).status;
+    // tools that search instead of link (libtool on mingw) must see the dependency dirs too
+    if (std::ranges::contains(user_args, std::string_view("-print-search-dirs"))) {
+      const RunResult run = Run(compiler, inv.args, StderrMode::kCaptureStdout);
+      std::print("{}", WithPackageLibDirs(run.stderr_text, ldflags));
+      std::fflush(stdout);
+      status = run.status;
+    } else {
+      status = Run(compiler, inv.args, StderrMode::kInherit).status;
+    }
   }
   Outcome outcome = Outcome::kPlainNoSocket;
   if (inv.query) {
@@ -598,7 +607,9 @@ auto RunCcMode(std::string_view argv0, std::span<const std::string> raw_args, co
     primary = PrimaryIdentity(inv);
   }
   if (!inv.cacheable || !primary || !cache.Connect(socket_path)) {
-    return RunUncached(cache, socket_path, compiler, inv, primary.has_value(), user_args, clock);
+    return RunUncached(
+        cache, socket_path, compiler, inv, primary.has_value(), user_args,
+        conf->present ? std::span<const std::string>(conf->package.ldflags) : std::span<const std::string>{}, clock);
   }
 
   *primary += "\ntoolchain=" + ToolchainIds(cache, compiler, inv);

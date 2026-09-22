@@ -78,6 +78,6 @@ enum class Outcome : std::uint8_t {
 auto OutcomeName(Outcome outcome) -> std::string_view;
 
 enum class Language : std::uint8_t { kC, kCxx, kFortran };
-enum class StderrMode : std::uint8_t { kInherit, kCapture };
+enum class StderrMode : std::uint8_t { kInherit, kCapture, kCaptureStdout };
 
 }  // namespace jig

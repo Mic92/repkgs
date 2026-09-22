@@ -49,7 +49,8 @@ Slot::~Slot() {
 }
 
 auto Run(const std::string& program, std::span<const std::string> args, StderrMode stderr_mode) -> RunResult {
-  bool capture_stderr = stderr_mode == StderrMode::kCapture;
+  bool capture_stderr = stderr_mode != StderrMode::kInherit;
+  const int captured_fd = stderr_mode == StderrMode::kCaptureStdout ? STDOUT_FILENO : STDERR_FILENO;
   std::array<int, 2> pipe_fds{-1, -1};
   if (capture_stderr && ::pipe(pipe_fds.data()) != 0) {
     capture_stderr = false;
@@ -75,7 +76,7 @@ auto Run(const std::string& program, std::span<const std::string> args, StderrMo
   }
   if (pid == 0) {
     if (capture_stderr) {
-      ::dup2(write_end.get(), STDERR_FILENO);
+      ::dup2(write_end.get(), captured_fd);
       read_end.Reset();
       write_end.Reset();
     }
