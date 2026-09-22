@@ -9,11 +9,12 @@
 }:
 package {
   name = "windows-sdk";
-  # Microsoft ships the SDK and CRT libs for x64 and arm64 only
+  # Microsoft ships the SDK and CRT libs for x64 and arm64 only. mingw-w64 is its own SDK
   platforms.cpu = [
     "x86_64"
     "aarch64"
   ];
+  platforms.abi = [ "msvc" ];
   source = fetch.windowsSdk {
     manifest = sources.fetch "default";
     arch = platform.cpu;
