@@ -143,6 +143,9 @@ builtins.mapAttrs
       ]; # tests import the installed module
       # the PEP 517 front end and its deps. Members of the stack itself get only what exists before them
       tool = buildPkgs.cpython;
+      # cross: extension modules compile against the target's headers and libpython. Where
+      # cpython cannot be built (mingw) neither can its packages
+      dependencies = lib.on platform.cross [ pkgs.cpython ];
       stack = with buildPkgs; [
         python-flit-core
         python-packaging
