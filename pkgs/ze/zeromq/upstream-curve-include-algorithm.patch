@@ -1,0 +1,16 @@
+curve_client_tools.hpp: include <algorithm> for std::fill
+
+It came in transitively elsewhere, not with libc++ on mingw.
+
+diff --git a/src/curve_client_tools.hpp b/src/curve_client_tools.hpp
+index d49cb4b..cbc73cf 100644
+--- a/src/curve_client_tools.hpp
++++ b/src/curve_client_tools.hpp
+@@ -19,6 +19,7 @@
+ #include "err.hpp"
+ #include "secure_allocator.hpp"
+ 
++#include <algorithm>
+ #include <vector>
+ 
+ namespace zmq
