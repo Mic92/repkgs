@@ -184,7 +184,7 @@ phases = [ "foo.gen" "cmake.build" ];                 # foo.<phase> lives in foo
   injects and search paths. Nothing a dependency ships runs in your build.
 - **Two dependency lists.** `buildDependencies` (build machine, on `PATH`) and `dependencies`
   (target).
-- **Cross is the build system's job**, from one platform record: `--host` + `config.site`, meson
+- **Cross is the build system's job**, from one platform record: `--host`/`--build` (always passed, even natively) + `config.site`, meson
   cross file, cmake toolchain file, `CARGO_TARGET_*`, `GOARCH`. Tests run under qemu.
 - **Hardening and reproducibility are compiler defaults.** jig adds `-O2 -g`, frame pointers and
   the nixpkgs hardening set outside `CFLAGS`, so no Makefile drops them. `builder/hardening.nu`
