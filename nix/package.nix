@@ -98,6 +98,7 @@ let
         rustTriple
         opensslTarget
         buildRustTriple
+        buildTriple
         cross
         emulator
         abi

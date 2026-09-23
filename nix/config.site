@@ -3,8 +3,8 @@
 # package: mostly AC_RUN_IFELSE probes, which cannot run when cross compiling and would otherwise
 # fall back to pessimistic guesses (gnulib then builds replacement functions). Package-specific
 # probe results are cached separately per (script, toolchain, deps) by jig, see builder/core.nu.
-# configure sources this as sh. $host is set when --host was given (cross); natively it is empty and
-# the build machine is the host.
+# configure sources this as sh. $host is always set (autotools.nu passes --host even
+# natively); the fallbacks cover scripts sourcing this without it.
 
 # builder/systems/autotools.nu: build paths kept out of configure's recorded argv
 test "$prefix" = NONE && prefix=${PKGS_PREFIX:-NONE}
