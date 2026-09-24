@@ -11,7 +11,7 @@ def "main build" [
   --for: string # platform, e.g. aarch64-linux, x86_64-windows-gnu
   ...attrs: string # package attributes (jq, jq.tests)
 ]: nothing -> nothing {
-  if ($attrs | is-empty) { fail "repkgs build <attr>…, or nix-build -A ci for the whole set" }
+  if ($attrs | is-empty) { fail "repkgs build <attr>…, or nix-build nix/checks.nix for the whole set" }
   ^nix-build (root) ...$XP --no-out-link --log-format bar-with-logs ...(cache-args) ...(platform-arg $for) ...($attrs | each {|a| [-A $a] } | flatten)
 }
 
