@@ -44,7 +44,7 @@ def elf-policy [out: string, sysroot: string]: nothing -> record {
   ] | str join "\n" | save stub.ld
   x (lld) -pie --no-dynamic-linker -e __reloc_start -T stub.ld reloc_stub.o -o reloc_stub.elf
   x llvm-objcopy -O binary -j .text reloc_stub.elf $"($out)/lib/reloc_stub.bin"
-  {libc: $sysroot, interp: $env.interp, crt: $"($out)/lib/crt_interp.o", runtimes: $"($sysroot)/lib"}
+  {libc: $sysroot, interp: $env.interp, crt: "@/lib/crt_interp.o", runtimes: $"($sysroot)/lib"}
 }
 
 # hello.c and hello.cc through the finished wrapper. Run only when the target is the build machine
@@ -92,12 +92,15 @@ def main []: nothing -> nothing {
   let d = (driver-flags $sysroot)
   # -B: `cc -print-prog-name=ld` (libtool's with_gnu_ld probe) answers bin/ld, the target's lld
   # flavour, not the ELF ld.lld beside our clang
+  # etc/jig.json (pkgs/ji/jig/src/driver.h). "@/" is jig's own prefix, so the conf names
+  # this toolchain's dirs without holding a self-reference (floating CA outputs must not
+  # name their own store path). "-isystem" rides apart: "-isystem@/include" would not expand.
   let conf = {
     cc: (llvm-bin clang)
     binfmt: $env.binfmt
-    flags: ([$"-B($out)/bin" $"-isystem($out)/include"] ++ $d.flags)
+    flags: (["-B@/bin" "-isystem" "@/include"] ++ $d.flags)
     cxxflags: $d.cxxflags
-    prefix-map: [$"($sysroot)=/sysroot" $"($out)=/cc"]
+    prefix-map: [$"($sysroot)=/sysroot" "@/=/cc"]
   }
   # reloc.h: compiled-in dirs relative to the binary, reloc_self.h its per-OS half
   mkdir $"($out)/include"
