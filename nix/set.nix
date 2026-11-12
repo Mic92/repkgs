@@ -29,6 +29,7 @@ let
     inherit system;
     cross = platform != system;
     buildRustTriple = (platforms.forSystem system "glibc").rustTriple;
+    buildTriple = (platforms.forSystem system "glibc").gnuTriple;
     # its address cap is $QEMU_RESERVED_VA (builder/prepare.nu), build systems want one word here
     emulator =
       if cross && os == "linux" then

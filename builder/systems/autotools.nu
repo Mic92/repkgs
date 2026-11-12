@@ -65,8 +65,9 @@ def unrecord-install-tool [out: string]: nothing -> nothing {
 export def --env configure []: nothing -> nothing {
   let c = (ctx); let o = (options autotools)
   let script = $"(project-dir autotools)/($o.configureScript)"
-  # --host: configure stops running test programs. --build only has to differ from it
-  let host_flags = (if $c.platform.cross { [$"--host=($c.platform.gnuTriple)" "--build=x86_64-build-linux-gnu"] } else { [] })
+  # always passed: --build names the build machine, --host the target. Natively they
+  # coincide, so configure runs its test programs; when cross they differ and it does not
+  let host_flags = [$"--host=($c.platform.gnuTriple)" $"--build=($c.platform.buildTriple)"]
   let cache = $"($c.build)/config.cache"
   let key = (build-cache key autoconf [$script] [...$host_flags ...$o.flags])
   note config.cache (if (build-cache restore $key $cache) { "restored" } else { "cold" })
