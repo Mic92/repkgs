@@ -1,0 +1,12 @@
+[upstream]
+purl = "pkg:github/sharkdp/hyperfine"
+
+[[source]]
+key = "default"
+url = "https://github.com/sharkdp/hyperfine/archive/refs/tags/v{version}.tar.gz"
+hash = "sha256-Ee889Fx2Mi2005SrlcKc7TwG8ZIpTqisfLebXYadvSg="
+
+[pin]
+version = "1.20.0"
+date = "2025-11-18"
+tag = "v1.20.0"
