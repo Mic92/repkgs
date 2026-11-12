@@ -652,6 +652,9 @@ auto main() -> int {
   setenv("JIG_STORE_IDENTITY", "content", 1);  // NOLINT(concurrency-mt-unsafe): before any Store::Get
   setenv("JIG_STORE_ROOTS", VENDOR_ROOT, 1);   // NOLINT(concurrency-mt-unsafe)
   setenv("out", OUT_ROOT, 1);                  // NOLINT(concurrency-mt-unsafe)
+  // BuildDriverArgs reads PKGS_PREFIX_MAP from the environment, which every packaged
+  // build sets; the exact-argv asserts below must not see it
+  unsetenv("PKGS_PREFIX_MAP");  // NOLINT(concurrency-mt-unsafe): before any test
   TestBase();
   TestStoreMask();
   TestStoreKey();
