@@ -13,7 +13,12 @@ def --env resolve-platform [p: record]: nothing -> record {
   # qemu-user otherwise hands out guest mappings above 2^48 (mmap hints from V8's code range land
   # there), where a real arm64 process has no addresses and PAC keeps its signature, so signed
   # return addresses stop authenticating. binfmt-registered qemu reads it too
-  let qemu = (if $p.cross { {QEMU_RESERVED_VA: "0x1000000000000"} } else { {} })
+  # The reservation has to fit the *host* address space: with 4-level paging user space ends at
+  # 2^47, so 2^48 cannot be mapped at all and qemu dies with "Unable to find a guest_base to
+  # satisfy all guest address mapping requirements". Only hosts with 5-level paging (la57) have
+  # the room; elsewhere cap at 2^46, which is still below the 2^48 the comment above is about.
+  let la57 = (try { (open --raw /proc/cpuinfo) =~ '(^|\s)la57(\s|$)' } catch { false })
+  let qemu = (if $p.cross { {QEMU_RESERVED_VA: (if $la57 { "0x1000000000000" } else { "0x400000000000" })} } else { {} })
   let wine = (if $p.os == "windows" { {WINEPREFIX: $"($env.NIX_BUILD_TOP)/wine", WINEDEBUG: "-all,err+module", WINEDLLOVERRIDES: "mscoree,mshtml="} } else { {} })
   load-env ((build-machine-tools $plat) | merge {PKGS_EMULATOR: ($plat.emulator | str join " ")} | merge $qemu | merge $wine)
   $plat
