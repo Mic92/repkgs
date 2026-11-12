@@ -53,7 +53,7 @@ pkgs.treefmt.withConfig {
     ];
     formatter = {
       nix = {
-        command = "${pkgs.nixfmt}/bin/nixfmt";
+        command = "${pkgs.nixfmt-rs}/bin/nixfmt";
         includes = [ "*.nix" ];
       };
       nix-statix = {
