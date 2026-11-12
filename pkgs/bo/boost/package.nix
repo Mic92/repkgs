@@ -12,7 +12,10 @@ package {
     BOOST_ENABLE_MPI = false;
     BOOST_ENABLE_PYTHON = false;
   };
-  patches = [ ./upstream-redis-cmath.patch ];
+  patches = [
+    ./upstream-redis-cmath.patch
+    ./upstream-cobalt-mingw-libs.patch # 66b967a: -lmswsock -lbcrypt on mingw
+  ];
   dependencies = [
     pkgs.zlib
     pkgs.bzip2
