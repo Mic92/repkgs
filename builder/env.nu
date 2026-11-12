@@ -77,11 +77,22 @@ export def compiler-caches []: nothing -> record {
   $rust | merge $go
 }
 
+# build-time python modules (jinja2, packaging): site-packages across the build closure on
+# PYTHONPATH, so whatever build system finds python3 on PATH also finds its modules. Only
+# buildDependencies, never target ones; empty when nothing ships site-packages, so other
+# builds see no change. A package's own `env` still wins (loaded last in main).
+def python-path [a: record]: nothing -> record {
+  let roots = (dep-closure $a.buildDependencies | get root)
+  let sps = ($roots | each {|r| files --dirs $"($r)/lib/python3*/site-packages" } | flatten)
+  if ($sps | is-empty) { {} } else { {PYTHONPATH: ($sps | str join ":")} }
+}
+
 export def --env main [a: record, deps: list<record>, out: string]: nothing -> nothing {
   load-env (sandbox-dirs $a $out)
   load-env (reproducible $a)
   load-env (toolchain $a $deps)
   load-env (package-cc $a $deps)
+  load-env (python-path $a)
   # exported env is for what runs during the build: from build tools, not target dependencies
   load-env ($a.buildDependencies | each { (exports-of $in).env } | reduce -f {} {|it, acc| $acc | merge $it })
   load-env ($a.spec.env? | default {})
