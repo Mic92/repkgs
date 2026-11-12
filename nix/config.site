@@ -148,10 +148,11 @@ ac_cv_snprintf_returns_bogus=no # git
 ac_cv_func_regcomp=yes # krb5 runs a regcomp program
 ac_cv_printf_positional=yes # krb5: %1$s
 krb5_cv_attr_constructor_destructor=yes,yes # clang
-
-# libtool: the toolchain is fixed
-lt_cv_deplibs_check_method=pass_all
 fi # posix
+
+# libtool: trust -l as given. On mingw it would classify each import library with `file` and
+# GNU objdump, whose "pe-x86-64" llvm-objdump spells "coff-x86-64", and fall back to static
+lt_cv_deplibs_check_method=pass_all
 
 if test "$site_os" = linux; then
 # linux only: differs on macOS, or not probed there
