@@ -45,9 +45,13 @@ package {
     buildPkgs.cmake
     buildPkgs.flex
   ];
+  phases.before."meson.configure" = {
+    name = "version";
+    run = ''$c.spec.version | save -f $"($c.src)/.version"'';
+  };
   patches = [
-    ./upstream-clang23-nodiscard.patch
     ./relocatable.patch
+    ./upstream-undef-embedded-sandbox-shell.patch
   ];
   tests.run = false;
 }

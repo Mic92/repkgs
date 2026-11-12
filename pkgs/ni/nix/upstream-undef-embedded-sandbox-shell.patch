@@ -1,0 +1,15 @@
+Upstream nix#16459 made HAVE_EMBEDDED_SANDBOX_SHELL conditional (only set when
+busybox is found), but its use stayed a bare #if, which -Werror=undef rejects
+when no busybox is on the build PATH.
+diff --git a/src/libstore/linux/build/linux-derivation-builder.cc b/src/libstore/linux/build/linux-derivation-builder.cc
+--- a/src/libstore/linux/build/linux-derivation-builder.cc
++++ b/src/libstore/linux/build/linux-derivation-builder.cc
+@@ -815,7 +815,7 @@
+     for (auto & i : pathsInChroot) {
+         if (i.second.source == "/proc")
+             continue; // backwards compatibility
+-#if HAVE_EMBEDDED_SANDBOX_SHELL
++#if defined(HAVE_EMBEDDED_SANDBOX_SHELL) && HAVE_EMBEDDED_SANDBOX_SHELL
+         if (i.second.source == "__embedded_sandbox_shell__") {
+             static constexpr unsigned char sh[] = {
+ #  embed EMBEDDED_SANDBOX_SHELL_PATH
