@@ -2,7 +2,6 @@
 {
   package,
   platform,
-  on,
 }:
 package {
   name = "rhash";
@@ -15,8 +14,8 @@ package {
   make.configureFlags = [
     "--enable-lib-shared"
     "--disable-gettext"
-  ]
-  ++ on platform.cross [ "--target=${platform.gnuTriple}" ];
+    "--target=${platform.gnuTriple}"
+  ];
   make.buildTarget = [ "lib-shared" ];
   make.installTarget = [
     "-C"
