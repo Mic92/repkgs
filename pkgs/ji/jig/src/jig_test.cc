@@ -221,6 +221,14 @@ void TestParseInvocation() {
   assert(!inv.cacheable);
 }
 
+void TestSearchDirs() {
+  const std::string clang = "programs: =/cc/bin\nlibraries: =/cc/lib/clang/23:/sysroot/lib\n";
+  const std::vector<std::string> ld = {"-L/deps/zlib/lib", "-Wl,-z,now", "-L/deps/xz/lib"};
+  assert(jig::WithPackageLibDirs(clang, ld) ==
+         "programs: =/cc/bin\nlibraries: =/cc/lib/clang/23:/sysroot/lib:/deps/zlib/lib:/deps/xz/lib\n");
+  assert(jig::WithPackageLibDirs(clang, {}) == clang);
+}
+
 // configure's preprocessor probes: cached like a compile, -E/-S part of the key, text to stdout without -o
 void TestParsePch() {
   Invocation inv = ParseInvocation(V({"-x", "c++-header", "pch.hxx", "-o", "pch.hxx.pch", "-c"}));
@@ -659,6 +667,7 @@ auto main() -> int {
   TestStoreToolId();
   TestParseInvocation();
   TestParsePch();
+  TestSearchDirs();
   TestParsePreprocess();
   TestParseLink();
   TestParseJoinedOutput();

@@ -30,7 +30,7 @@ class Slot {
 
 struct RunResult {
   int status = 1;
-  std::string stderr_text;  // only filled for StderrMode::kCapture
+  std::string stderr_text;  // stdout instead under kCaptureStdout
 };
 
 // false if the run died of a signal, or the driver reports its child did / crashed

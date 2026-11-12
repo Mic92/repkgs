@@ -451,6 +451,32 @@ auto IsSharedLibName(std::string_view base) -> bool {
          std::ranges::all_of(tail.substr(1), [](char chr) -> bool { return chr == '.' || (chr >= '0' && chr <= '9'); });
 }
 
+auto WithPackageLibDirs(std::string_view search_dirs, std::span<const std::string> ldflags) -> std::string {
+  std::string extra;
+  for (const std::string& flag : ldflags) {
+    if (flag.starts_with("-L") && flag.size() > 2) {
+      extra += ':';
+      extra += flag.substr(2);
+    }
+  }
+  std::string out;
+  size_t pos = 0;
+  while (pos < search_dirs.size()) {
+    size_t eol = search_dirs.find('\n', pos);
+    if (eol == std::string_view::npos) {
+      eol = search_dirs.size();
+    }
+    const std::string_view line = search_dirs.substr(pos, eol - pos);
+    out += line;
+    if (line.starts_with("libraries:")) {
+      out += extra;
+    }
+    out += '\n';
+    pos = eol + 1;
+  }
+  return out;
+}
+
 auto BuildDriverArgs(const DriverConf& conf, Language lang, std::span<const std::string> raw_args)
     -> std::vector<std::string> {
   const bool cxx = lang == Language::kCxx;
