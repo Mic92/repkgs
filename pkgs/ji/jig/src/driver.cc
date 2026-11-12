@@ -400,15 +400,23 @@ auto ParseDriverConf(std::string_view text, std::string_view root) -> DriverConf
     std::exit(2);  // NOLINT(concurrency-mt-unsafe)
   }
   // "@/" at the start of a flag, after '=' or after a short option (-L@/lib) expands to jig's
-  // own prefix, so flang-rt can name its lib and finclude dirs and still be relocatable
-  for (std::string& flag : conf.fflags) {
+  // own prefix, so a conf names dirs under its own toolchain without holding a self-reference
+  // (floating CA outputs must not name their own store path: pkgs/ll/llvm/cc.nu). A "@/"
+  // elsewhere stays literal, as does "@" without the slash (a response file).
+  const auto expand = [&](std::string& flag) -> void {
     const size_t at_pos = flag.find("@/");
     const bool expands = at_pos == 0 || (at_pos == 2 && flag.starts_with('-')) ||
                          (at_pos != std::string::npos && flag.at(at_pos - 1) == '=');
     if (expands) {
       flag.replace(at_pos, 1, root);
     }
+  };
+  for (std::vector<std::string>* list : {&conf.flags, &conf.cxxflags, &conf.fflags, &conf.prefix_map}) {
+    for (std::string& entry : *list) {
+      expand(entry);
+    }
   }
+  expand(conf.crt);
   return conf;
 }
 

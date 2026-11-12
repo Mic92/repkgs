@@ -49,12 +49,13 @@ import ../../ll/llvm/subproject.nix
       {
         name = "gfortran";
         run = ''
-          # "@/" is jig's own prefix (driver.cc), so the conf survives the move to the store
+          # "@/" is jig's own prefix (driver.cc), so the conf survives the move to the store.
+          # crt stays the toolchain's file: this output installs no crt_interp.o itself
           let rt = (files --dirs $"($c.out)/lib/clang/*/lib/*" | first | str replace $c.out "@")
           let finclude = (files --dirs $"($c.out)/lib/clang/*/finclude/flang/*" | first | str replace $c.out "@")
           mkdir $"($c.out)/bin" $"($c.out)/etc"
           let fflags = [-B${toolchain}/bin ${lib.join " " target} $"-resource-dir=($c.platform.sysroot)/lib/clang" -rtlib=compiler-rt -fintrinsic-modules-path $finclude $"-L($rt)"]
-          open "${toolchain}/etc/jig.json" | reject flags cxxflags prefix-map | merge {fc: "${flang}", fflags: $fflags} | save $"($c.out)/etc/jig.json"
+          open "${toolchain}/etc/jig.json" | reject flags cxxflags prefix-map | merge {fc: "${flang}", fflags: $fflags, crt: "${toolchain}/lib/crt_interp.o"} | save $"($c.out)/etc/jig.json"
           cp "${toolchain}/etc/roots" $"($c.out)/etc/"
           cp "${toolchain}/bin/jig" $"($c.out)/bin/"
           for n in [gfortran flang fortran] { ln -s jig $"($c.out)/bin/($n)" }

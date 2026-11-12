@@ -315,6 +315,16 @@ void TestDriverConf() {
   assert(fortran.fc == "/f/bin/flang");
   assert(fortran.fflags ==
          V({"-L/self/lib", "-fintrinsic-modules-path", "/self/finc", "-resource-dir=/self/rd", "-Da@/b"}));
+  // "@/" in flags, cxxflags, prefix-map and crt names jig's own prefix too, so the cc
+  // wrapper's conf holds no self-reference (pkgs/ll/llvm/cc.nu) and stays content-addressed
+  const jig::DriverConf self = jig::ParseDriverConf(
+      R"({"cc": "/seed/bin/clang", "flags": ["-B@/bin", "-isystem", "@/include"], "cxxflags": ["-stdlib=libc++"],)"
+      R"( "crt": "@/lib/crt_interp.o", "prefix-map": ["/sr/sysroot=/sysroot", "@/=/cc"]})",
+      "/self");
+  assert(self.flags == V({"-B/self/bin", "-isystem", "/self/include"}));
+  assert(self.cxxflags == V({"-stdlib=libc++"}));
+  assert(self.crt == "/self/lib/crt_interp.o");
+  assert(self.prefix_map == V({"/sr/sysroot=/sysroot", "/self/=/cc"}));
   const jig::DriverConf macho = jig::ParseDriverConf(
       R"({"cc": "/seed/bin/clang", "binfmt": "macho", "flags": ["--target=arm64-apple-macos14.0"], "libc": "/sr"})");
   assert(macho.binfmt == jig::BinFmt::kMachO);

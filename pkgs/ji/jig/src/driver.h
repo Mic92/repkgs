@@ -57,7 +57,7 @@ struct DriverConf {
 
 // Reads <exe>/../etc/jig.json, else falls back to $JIG_CC. nullopt if neither names a compiler.
 auto LoadDriverConf() -> std::optional<DriverConf>;
-// `root`: the prefix "@/" in fflags stands for
+// `root`: the prefix "@/" in flags, cxxflags, fflags, prefix-map and crt stands for
 auto ParseDriverConf(std::string_view text, std::string_view root = "") -> DriverConf;
 
 // "libfoo.so" or "libfoo.so.1.2"
