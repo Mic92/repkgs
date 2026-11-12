@@ -3,10 +3,10 @@ purl = "pkg:generic/generate-ninja?url=https://deb.debian.org/debian/pool/main/g
 
 [[source]]
 key = "default"
-url = "https://deb.debian.org/debian/pool/main/g/generate-ninja/generate-ninja_{version}.orig.tar.gz"
-hash = "sha256-HLkzKXmhE2QVyFrxO6N7nwPnrNgTt2ONiLS5AAzDD28="
+url = "https://snapshot.debian.org/archive/debian/20261104T143429Z/pool/main/g/generate-ninja/generate-ninja_{version}.orig.tar.gz"
+hash = "sha256-A0lyA1i/GcXJAuCgj26vN8I6xQaxU5n6d4TH+Voncf8="
 
 [pin]
-version = "0.0~git20260722.27a549cc"
+version = "0.0~git20261103.2e3ba823"
 # git rev-list --count initial-commit..<rev>, what --version prints
-position = 2484
+position = 2615

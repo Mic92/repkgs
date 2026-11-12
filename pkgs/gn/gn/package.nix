@@ -20,7 +20,7 @@ package {
         x python3 build/gen.py --no-last-commit-position --no-strip --no-static-libstdc++ --allow-warnings $"--out-path=($c.build)"
         '#define LAST_COMMIT_POSITION_NUM ${toString pin.position}
         #define LAST_COMMIT_POSITION "${toString pin.position} (${rev})"
-        ' | save $"($c.build)/last_commit_position.h"
+        ' | save -f $"($c.build)/last_commit_position.h"
         x ninja -C $c.build $"-j($c.njobs)" gn
       '';
     }
