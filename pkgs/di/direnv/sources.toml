@@ -1,0 +1,15 @@
+[upstream]
+purl = "pkg:github/direnv/direnv"
+
+[[source]]
+key = "default"
+url = "https://github.com/direnv/direnv/archive/refs/tags/v{version}.tar.gz"
+hash = "sha256-92xjoCjH5O7wx8U7OFG8Lw9eDOAdeVKNvxBHW+TiniM="
+
+[pin]
+version = "2.37.1"
+date = "2025-07-20"
+tag = "v2.37.1"
+
+[locks]
+go = "."

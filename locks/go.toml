@@ -184,6 +184,7 @@
 "dmitri.shuralyov.com/gpu/mtl@v0.0.0-20190408044501-666a987793e9" = { mod = "sha256-+sTF2PaC+eyXchsvyf1TBiqxcLLSt/q4/8EK4YOhlR4=" }
 "filippo.io/edwards25519@v1.2.0" = { mod = "sha256-dJLHZ9w2G4bpaTPKF5DUksL3w2jD7A4A4QUO3a17qn0=", zip = "sha256-mPLTypuI2qAxsPsvtSG36jhq8f7WG29EWiC+9/o4HBc=" }
 "github.com/BurntSushi/toml@v0.3.1" = { mod = "sha256-KAIbQYClnDmTYHqVsY4jDdC8a+pSQv/o6ou/tPT3tNc=" }
+"github.com/BurntSushi/toml@v1.5.0" = { mod = "sha256-RdeLgFcZmbaiWNoPIWc9o55rUBNJwDOkrNFpQ3QR1zM=", zip = "sha256-oQyNPWxKm3PciFRkJF7sayfWT0MNaXk4nNnFit3hWFU=" }
 "github.com/BurntSushi/xgb@v0.0.0-20160522181843-27f122750802" = { mod = "sha256-luveICsJL29NHzkwvAfPGKVpmZjd6lG5T+hYETspqNg=" }
 "github.com/ClickHouse/ch-go@v0.71.0" = { mod = "sha256-UBMOLtHVJkbBpFcKNKIMAcrZDkY0Z2ckOUGBJ+0wxJU=", zip = "sha256-tXF+pPnzYN+sGWN73mgQcqLHDFonnw+fhIQGzdbFlJs=" }
 "github.com/ClickHouse/clickhouse-go/v2@v2.45.0" = { mod = "sha256-Erf1k4InxuU1W4mK5BzMwRUJcF4Ph+GxmW4te0++mRQ=", zip = "sha256-o7E0T5uh8cbEiQbg0HqEsNQ83XPT4G3Hsiay9lfH05Q=" }
@@ -451,6 +452,7 @@
 "github.com/lib/pq@v1.12.3" = { mod = "sha256-laoM/j8/pYIYBczP2IVZXrhi6Ro764AtqG3BVxTB0ik=", zip = "sha256-/vDgTGO63PulEnLs+h1VXjk65TkBxYNOngtao55eFR4=" }
 "github.com/lucasb-eyer/go-colorful@v1.2.0" = { mod = "sha256-hPnDjpiEqwE8g3yxau4TlQDT1cbMqwJDmIHbLs8o9mA=", zip = "sha256-eNXQ4HN/D1S77Xe236hH2MhxvtJmip3EQyjHw0Ea2hA=" }
 "github.com/maruel/natural@v1.3.0" = { mod = "sha256-2pcd+CZd9cOdWZsy5dW1FtvUp6frQjyfNvAkDKrZ8kY=", zip = "sha256-Kr6kNKl9RYB9MLEdzTnPja7d4Teu1Bgfg6vDO1JFTEg=" }
+"github.com/mattn/go-isatty@v0.0.20" = { mod = "sha256-Huq+8bTZjbc8bCBzKJFjZJvJoERVKsqGudWS/oTqocg=", zip = "sha256-8tX4nKRRV34XRkubtZbcDQ7OzsteqmNiLEG1fNC3uMw=" }
 "github.com/mattn/go-isatty@v0.0.21" = { mod = "sha256-ASsDs6Luuf96jYCYxxWDW67ceCTLlssQvsvyVWP3Kuo=", zip = "sha256-xok4laVJGHum52PTdhIPouffiOrWmdnDHAoIqT6wjEo=" }
 "github.com/mattn/go-isatty@v0.0.24" = { mod = "sha256-QbiF9owvpN+yao/6MNCVqTGydpm2srGXSvOUlADcBg8=", zip = "sha256-T8/+wLrgrUr3v5biSXqBfYXeZK8Z/+Mdgr2jYhSCNLg=" }
 "github.com/mattn/go-runewidth@v0.0.16" = { mod = "sha256-IWyT0ZMQYSyB1cdBAkmJ+DiX0jM8Op+We1ixMXWH9Rk=", zip = "sha256-F50tkAx27jVg++2mDQI3o75qy3NNDLdCO1XlzLDO28o=" }
@@ -631,6 +633,7 @@
 "golang.org/x/mod@v0.1.1-0.20191105210325-c90efee705ee" = { mod = "sha256-12u96oHRltCYWJZ6Z6yAXazs3R+zDFABoYfSTBKbFZc=" }
 "golang.org/x/mod@v0.1.1-0.20191107180719-034126e5016b" = { mod = "sha256-12u96oHRltCYWJZ6Z6yAXazs3R+zDFABoYfSTBKbFZc=" }
 "golang.org/x/mod@v0.2.0" = { mod = "sha256-sojwiP2FGIWm00gzni9YjlipTmx25eY0rh1nwnSetBM=" }
+"golang.org/x/mod@v0.25.0" = { mod = "sha256-H7itL3IBzXm/F4V4s1qurRcgyrK4z+o1uZsltgg58e8=", zip = "sha256-8wIeXmp3fBRuRpAnrM8es2PuowRf+BIJkVKyDyYY9hw=" }
 "golang.org/x/mod@v0.3.0" = { mod = "sha256-sojwiP2FGIWm00gzni9YjlipTmx25eY0rh1nwnSetBM=" }
 "golang.org/x/mod@v0.35.0" = { mod = "sha256-h1EY2PT/kiCbMPIkPn41IaKert6v93fh/cOk6ibwwmg=", zip = "sha256-amTISDcWeqkqXdVaoxg1G4xFYjsvuAgEzOcE5yqWIcg=" }
 "golang.org/x/mod@v0.37.0" = { mod = "sha256-U4Ry/fCU3V5J3EDnBGj6kxqTwkHroH+5RqmHR8lKtN8=", zip = "sha256-kejk6bdKhwba6Ai2ZTjUqyK+/QDBHzQTTrl/9XLVLoU=" }
@@ -802,11 +805,13 @@
 "golang.org/x/sys@v0.0.0-20220722155257-8c9f86f7a55f" = { mod = "sha256-8DMzMJb+GY8xUd7tk/LeunTlC7/nc5E0BFvDt85KUCQ=" }
 "golang.org/x/sys@v0.0.0-20220728004956-3c1f35247d10" = { mod = "sha256-8DMzMJb+GY8xUd7tk/LeunTlC7/nc5E0BFvDt85KUCQ=" }
 "golang.org/x/sys@v0.0.0-20221013171732-95e765b1cc43" = { mod = "sha256-8DMzMJb+GY8xUd7tk/LeunTlC7/nc5E0BFvDt85KUCQ=" }
+"golang.org/x/sys@v0.30.0" = { mod = "sha256-0iezJfYh9OvijTm6dz6pm4cPOTt8CcNFksNlsW3VYN4=", zip = "sha256-9SFL/smPAOVDLaaLvs4D6YYA+kFZTtAmVWy96Py298k=" }
 "golang.org/x/sys@v0.35.0" = { mod = "sha256-9n4+GPTAjmCn6Acmqza2kf3Opbga4caW/2TK9Ri8/j0=", zip = "sha256-3DwgYRFoqqj9oNcZmb4aUiKgule8dnyXilkOQf8u3jU=" }
 "golang.org/x/sys@v0.45.0" = { mod = "sha256-V/Q5PqGNVEahI2OzXCOmFthD+hZpxxIacKK8OpZ31mU=", zip = "sha256-5RwciARbTtvkitgQEiExOB/1Qcie29l++DPtZlO1nmo=" }
 "golang.org/x/sys@v0.46.0" = { mod = "sha256-V/Q5PqGNVEahI2OzXCOmFthD+hZpxxIacKK8OpZ31mU=", zip = "sha256-NtyDtrxYhNJgzb2dCeWXse7WTRXf3DdMpuMa75nVM9c=" }
 "golang.org/x/sys@v0.48.0" = { mod = "sha256-lSL0yYBtHCZYbqgPpWKSkpvSlYZecZgZJ/UplsaxyDE=", zip = "sha256-OkfgZDG6HiTVsqyjp84x/RP6/zTfPl2OY/EF/50MF4Y=" }
 "golang.org/x/sys@v0.5.0" = { mod = "sha256-8DMzMJb+GY8xUd7tk/LeunTlC7/nc5E0BFvDt85KUCQ=" }
+"golang.org/x/sys@v0.6.0" = { mod = "sha256-8DMzMJb+GY8xUd7tk/LeunTlC7/nc5E0BFvDt85KUCQ=" }
 "golang.org/x/telemetry@v0.0.0-20260428171046-76f71b9afea0" = { mod = "sha256-olgqvchQeKKDOeXkrlJiPiLYdsqJNO/nTJlpsn/5cdA=", zip = "sha256-1gYjdN5N+nZ+4onwDqrMELDk8ueR2IAm2os6vQPAC5Q=" }
 "golang.org/x/telemetry@v0.0.0-20260625142307-59b4966ccb57" = { mod = "sha256-Z581ELuCPC8IwovSkozze6dGY8lKZdqNYwH+MMBMjJs=", zip = "sha256-DKxLID6SgitEPSEEWOOg2KXnLoUBgjj3X2213+acPso=" }
 "golang.org/x/telemetry@v0.0.0-20260811182544-a038080d80e5" = { mod = "sha256-E5w4fnmxp+i6X/aYXMG+sQMeLQRGA7kexZyLKZiKj4o=", zip = "sha256-AjhF10fSs/5YOekr0ez8PJBHlXnC/mi32pxD/Tw5kls=" }
