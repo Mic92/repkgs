@@ -1,0 +1,10 @@
+[upstream]
+purl = "pkg:generic/elfutils?url=https://sourceware.org/elfutils/ftp/&regex=>([0-9]+[.][0-9]+)/<"
+
+[[source]]
+key = "default"
+url = "https://sourceware.org/elfutils/ftp/{version}/elfutils-{version}.tar.bz2"
+hash = "sha256-iQR+tgwgUhnrYgVhUclqL5FA6MSry4JlwlAGBPKGgEI="
+
+[pin]
+version = "0.196"
