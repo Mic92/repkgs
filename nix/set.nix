@@ -110,6 +110,12 @@ let
     pkgs = self;
   };
 
+  mkShell = import ./mk-shell.nix {
+    platform = plat;
+    inherit (self) bash;
+    inherit toolchain lib;
+  };
+
   fetch = import ./fetch.nix {
     inherit (bootstrap.stage0) jig;
     sevenzip = buildPkgs."7zip";
@@ -249,6 +255,10 @@ in
       self
   );
   inherit bootstrap buildSystems toolchain;
+  # a dev shell from this set's packages (nix/mk-shell.nix): mkShell carries the set's cc
+  # wrapper, mkShellNoCC does not
+  inherit mkShell;
+  mkShellNoCC = args: mkShell (args // { cc = false; });
   bundle = import ./bundle.nix {
     nu = bootstrap.seed;
     tools = [ buildPkgs.formatelf ] ++ baseTools.bootstrap;

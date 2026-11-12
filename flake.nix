@@ -18,6 +18,17 @@
           nix = import ./nix/nix { pkgs = nixpkgs.legacyPackages.${system}; };
         }
       );
+      # `repkgs.lib.<system>.mkShell { packages = [ … ]; }` for a flake that wants a dev shell of
+      # this set's tools. Per system, because a package of the set is.
+      lib = each (
+        system:
+        let
+          s = import ./nix/set.nix { inherit system; };
+        in
+        {
+          inherit (s) mkShell mkShellNoCC;
+        }
+      );
       checks = each (system: import ./nix/checks.nix { inherit system nixpkgs; });
       formatter = each (system: import ./treefmt.nix { pkgs = nixpkgs.legacyPackages.${system}; });
       devShells = each (system: {
