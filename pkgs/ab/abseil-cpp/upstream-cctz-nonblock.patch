@@ -1,0 +1,511 @@
+From ddbdebc6c8fd305597fe03a0fc00411cf09801b0 Mon Sep 17 00:00:00 2001
+From: Derek Mauro <dmauro@google.com>
+Date: Wed, 9 Sep 2026 10:32:33 -0700
+Subject: [PATCH] Import of CCTZ from GitHub.
+
+PiperOrigin-RevId: 978622534
+Change-Id: Ic54c3b86afd02dc91ef8a64055307d281b156455
+---
+ .../internal/cctz/include/cctz/time_zone.h    |  92 +++++--
+ .../internal/cctz/src/time_zone_format.cc     |   9 +
+ .../cctz/src/time_zone_format_test.cc         | 246 ++++++++++++++----
+ absl/time/internal/cctz/src/time_zone_info.cc |   3 +
+ 4 files changed, 282 insertions(+), 68 deletions(-)
+
+diff --git a/absl/time/internal/cctz/include/cctz/time_zone.h b/absl/time/internal/cctz/include/cctz/time_zone.h
+index 5b232f51b83..7acce2f62be 100644
+--- a/absl/time/internal/cctz/include/cctz/time_zone.h
++++ b/absl/time/internal/cctz/include/cctz/time_zone.h
+@@ -25,6 +25,7 @@
+ #include <limits>
+ #include <ratio>  // NOLINT: We use std::ratio in this header
+ #include <string>
++#include <type_traits>
+ #include <utility>
+ 
+ #include "absl/base/config.h"
+@@ -271,15 +272,20 @@ std::string format(const std::string&, const time_point<seconds>&,
+ bool parse(const std::string&, const std::string&, const time_zone&,
+            time_point<seconds>*, femtoseconds*, std::string* err = nullptr);
+ template <typename Rep, std::intmax_t Denom>
+-bool join_seconds(
++typename std::enable_if<std::is_integral<Rep>::value, bool>::type join_seconds(
+     const time_point<seconds>& sec, const femtoseconds& fs,
+     time_point<std::chrono::duration<Rep, std::ratio<1, Denom>>>* tpp);
++template <typename Rep, std::intmax_t Num, std::intmax_t Denom>
++typename std::enable_if<std::is_floating_point<Rep>::value, bool>::type
++join_seconds(
++    const time_point<seconds>& sec, const femtoseconds& fs,
++    time_point<std::chrono::duration<Rep, std::ratio<Num, Denom>>>* tpp);
+ template <typename Rep, std::intmax_t Num>
+-bool join_seconds(
++typename std::enable_if<std::is_integral<Rep>::value, bool>::type join_seconds(
+     const time_point<seconds>& sec, const femtoseconds& fs,
+     time_point<std::chrono::duration<Rep, std::ratio<Num, 1>>>* tpp);
+ template <typename Rep>
+-bool join_seconds(
++typename std::enable_if<std::is_integral<Rep>::value, bool>::type join_seconds(
+     const time_point<seconds>& sec, const femtoseconds& fs,
+     time_point<std::chrono::duration<Rep, std::ratio<1, 1>>>* tpp);
+ bool join_seconds(const time_point<seconds>& sec, const femtoseconds&,
+@@ -369,13 +375,19 @@ inline std::string format(const std::string& fmt, const time_point<D>& tp,
+ //   if (cctz::parse("%Y-%m-%d", "2015-10-09", tz, &tp)) {
+ //     ...
+ //   }
+-template <typename D>
+-inline bool parse(const std::string& fmt, const std::string& input,
+-                  const time_zone& tz, time_point<D>* tpp) {
++template <typename Rep, typename Period>
++bool parse(const std::string& fmt, const std::string& input,
++           const time_zone& tz,
++           time_point<std::chrono::duration<Rep, Period>>* tpp) {
+   time_point<seconds> sec;
+   detail::femtoseconds fs;
+-  return detail::parse(fmt, input, tz, &sec, &fs) &&
+-         detail::join_seconds(sec, fs, tpp);
++  if (!detail::parse(fmt, input, tz, &sec, &fs)) return false;
++
++  time_point<std::chrono::duration<Rep, typename Period::type>> tp;
++  if (!detail::join_seconds(sec, fs, &tp)) return false;
++
++  *tpp = tp;
++  return true;
+ }
+ 
+ namespace detail {
+@@ -389,9 +401,15 @@ template <typename D>
+ std::pair<time_point<seconds>, D> split_seconds(const time_point<D>& tp) {
+   auto sec = std::chrono::time_point_cast<seconds>(tp);
+   auto sub = tp - sec;
+-  if (sub.count() < 0) {
+-    sec -= seconds(1);
+-    sub += seconds(1);
++  // time_point_cast truncates towards zero, so for negative tp with fractional
++  // seconds (e.g., -1.5s), sec is truncated (-1s) and sub is negative (-0.5s).
++  // Adjust sec and sub so that sec is floored (-2s) and sub is in [0, 1s)
++  // (+0.5s).  This adjustment is done after computing sub to avoid overflow
++  // when tp is near time_point<D>::min(), where floored sec cannot be converted
++  // to D.
++  if (sub < D::zero()) {
++    sec -= seconds{1};
++    sub += seconds{1};
+   }
+   return {sec, std::chrono::duration_cast<D>(sub)};
+ }
+@@ -405,18 +423,58 @@ inline std::pair<time_point<seconds>, seconds> split_seconds(
+ // Floors to the resolution of time_point<D>. Returns false if time_point<D>
+ // is not of sufficient range.
+ template <typename Rep, std::intmax_t Denom>
+-bool join_seconds(
++typename std::enable_if<std::is_integral<Rep>::value, bool>::type join_seconds(
+     const time_point<seconds>& sec, const femtoseconds& fs,
+     time_point<std::chrono::duration<Rep, std::ratio<1, Denom>>>* tpp) {
+   using D = std::chrono::duration<Rep, std::ratio<1, Denom>>;
+-  // TODO(#199): Return false if result unrepresentable as a time_point<D>.
++  using D_check = std::chrono::duration<std::intmax_t, std::ratio<1, Denom>>;
++  const std::intmax_t count = sec.time_since_epoch().count();
++  const auto sub =
++      std::chrono::duration_cast<D_check>(fs).count();  // [0, Denom)
++
++  // Check for overflow.
++  if (sub > (std::numeric_limits<Rep>::max)()) {
++    // If subseconds alone exceed the max representable value, any non-negative
++    // seconds count will cause overflow. Negative seconds might bring it back
++    // into range, which is handled by the underflow check below.
++    if (count >= 0) return false;
++  } else {
++    // Equivalent to: count * Denom + sub > max, but safe from overflow.
++    if (count > ((std::numeric_limits<Rep>::max)() - sub) / Denom) return false;
++  }
++
++  // Check for underflow.
++  // Equivalent to: count * Denom + sub < lowest, but safe from underflow.
++  // We cannot use "lowest - sub" directly as it would underflow.
++  const auto min_div = (std::numeric_limits<Rep>::lowest)() / Denom;
++  if (count < min_div) {
++    // If count is less than min_div - 1, it's definitely underflow.
++    if (count < min_div - 1) return false;
++    // If count is exactly min_div - 1, we must check if subseconds are
++    // sufficient to bring the total value back above lowest.
++    const auto min_mod = (std::numeric_limits<Rep>::lowest)() % Denom;
++    if (sub < Denom + min_mod) return false;
++    *tpp =
++        time_point<D>() + D{static_cast<Rep>(min_div * Denom + (sub - Denom))};
++    return true;
++  }
++  *tpp = time_point<D>() + D{static_cast<Rep>(count * Denom + sub)};
++  return true;
++}
++
++template <typename Rep, std::intmax_t Num, std::intmax_t Denom>
++typename std::enable_if<std::is_floating_point<Rep>::value, bool>::type
++join_seconds(
++    const time_point<seconds>& sec, const femtoseconds& fs,
++    time_point<std::chrono::duration<Rep, std::ratio<Num, Denom>>>* tpp) {
++  using D = std::chrono::duration<Rep, std::ratio<Num, Denom>>;
+   *tpp = std::chrono::time_point_cast<D>(sec);
+   *tpp += std::chrono::duration_cast<D>(fs);
+   return true;
+ }
+ 
+ template <typename Rep, std::intmax_t Num>
+-bool join_seconds(
++typename std::enable_if<std::is_integral<Rep>::value, bool>::type join_seconds(
+     const time_point<seconds>& sec, const femtoseconds&,
+     time_point<std::chrono::duration<Rep, std::ratio<Num, 1>>>* tpp) {
+   using D = std::chrono::duration<Rep, std::ratio<Num, 1>>;
+@@ -428,19 +486,19 @@ bool join_seconds(
+     count -= 1;
+   }
+   if (count > (std::numeric_limits<Rep>::max)()) return false;
+-  if (count < (std::numeric_limits<Rep>::min)()) return false;
++  if (count < (std::numeric_limits<Rep>::lowest)()) return false;
+   *tpp = time_point<D>() + D{static_cast<Rep>(count)};
+   return true;
+ }
+ 
+ template <typename Rep>
+-bool join_seconds(
++typename std::enable_if<std::is_integral<Rep>::value, bool>::type join_seconds(
+     const time_point<seconds>& sec, const femtoseconds&,
+     time_point<std::chrono::duration<Rep, std::ratio<1, 1>>>* tpp) {
+   using D = std::chrono::duration<Rep, std::ratio<1, 1>>;
+   auto count = sec.time_since_epoch().count();
+   if (count > (std::numeric_limits<Rep>::max)()) return false;
+-  if (count < (std::numeric_limits<Rep>::min)()) return false;
++  if (count < (std::numeric_limits<Rep>::lowest)()) return false;
+   *tpp = time_point<D>() + D{static_cast<Rep>(count)};
+   return true;
+ }
+diff --git a/absl/time/internal/cctz/src/time_zone_format.cc b/absl/time/internal/cctz/src/time_zone_format.cc
+index f97de2f9592..ee4341d509d 100644
+--- a/absl/time/internal/cctz/src/time_zone_format.cc
++++ b/absl/time/internal/cctz/src/time_zone_format.cc
+@@ -34,6 +34,7 @@
+ // declare strptime.
+ #include <time.h>
+ 
++#include <cassert>
+ #include <cctype>
+ #include <chrono>
+ #include <cstddef>
+@@ -708,6 +709,14 @@ bool FromWeek(int week_num, weekday week_start, year_t* year, std::tm* tm) {
+ bool parse(const std::string& format, const std::string& input,
+            const time_zone& tz, time_point<seconds>* sec,
+            detail::femtoseconds* fs, std::string* err) {
++#if __cplusplus < 202002L
++  // Assert that the std::chrono::system_clock epoch is the Unix epoch.
++  // This is required by C++20, but was also ubiquitous before that.
++  // We use this in join_seconds() to simplify overflow detection.
++  assert(std::chrono::system_clock::from_time_t(0).time_since_epoch() ==
++         std::chrono::system_clock::duration::zero());
++#endif
++
+   // The unparsed input.  Even though we allow NULs in input, and
+   // match them against corresponding NULs in format, we depend on
+   // *edata being a NUL so that we can call strptime().  This also
+diff --git a/absl/time/internal/cctz/src/time_zone_format_test.cc b/absl/time/internal/cctz/src/time_zone_format_test.cc
+index 8793a805c66..d2c44f358e5 100644
+--- a/absl/time/internal/cctz/src/time_zone_format_test.cc
++++ b/absl/time/internal/cctz/src/time_zone_format_test.cc
+@@ -15,6 +15,7 @@
+ #include <chrono>
+ #include <cstdint>
+ #include <iomanip>
++#include <ratio>  // NOLINT: We use std::ratio in this header
+ #include <sstream>
+ #include <string>
+ 
+@@ -863,9 +864,19 @@ TEST(Parse, TimePointResolution) {
+   EXPECT_TRUE(parse(kFmt, "03:04:05", utc, &tp_m));
+   EXPECT_EQ("03:04:00", absl::time_internal::cctz::format(kFmt, tp_m, utc));
+ 
++  // Verify that pre-epoch times floor towards negative infinity.
++  EXPECT_TRUE(parse(RFC3339_full, "1969-12-31T23:59:05+00:00", utc, &tp_m));
++  EXPECT_EQ("1969-12-31T23:59:00+00:00",
++            absl::time_internal::cctz::format(RFC3339_full, tp_m, utc));
++
+   time_point<chrono::hours> tp_h;
+   EXPECT_TRUE(parse(kFmt, "03:04:05", utc, &tp_h));
+   EXPECT_EQ("03:00:00", absl::time_internal::cctz::format(kFmt, tp_h, utc));
++
++  // Verify that pre-epoch times floor towards negative infinity.
++  EXPECT_TRUE(parse(RFC3339_full, "1969-12-31T23:59:05+00:00", utc, &tp_h));
++  EXPECT_EQ("1969-12-31T23:00:00+00:00",
++            absl::time_internal::cctz::format(RFC3339_full, tp_h, utc));
+ }
+ 
+ TEST(Parse, TimePointExtendedResolution) {
+@@ -1708,57 +1719,193 @@ TEST(Parse, MaxRange) {
+ 
+ TEST(Parse, TimePointOverflow) {
+   const time_zone utc = utc_time_zone();
++  {
++    // Test with nanosecond resolution (typical 64-bit time_point).
++    using D = chrono::duration<std::int64_t, std::nano>;
++    time_point<D> tp;
++
++    // Max time_point<D> is 2262-04-11T23:47:16.854775807+00:00.
++    EXPECT_TRUE(
++        parse(RFC3339_full, "2262-04-11T23:47:16.8547758079+00:00", utc, &tp));
++    EXPECT_EQ(tp, time_point<D>::max());
++    EXPECT_EQ("2262-04-11T23:47:16.854775807+00:00",
++              absl::time_internal::cctz::format(RFC3339_full, tp, utc));
++    // 1 nanosecond beyond max should fail.
++    EXPECT_FALSE(
++        parse(RFC3339_full, "2262-04-11T23:47:16.8547758080+00:00", utc, &tp));
++
++    // Min time_point<D> is 1677-09-21T00:12:43.145224192+00:00.
++    EXPECT_TRUE(
++        parse(RFC3339_full, "1677-09-21T00:12:43.1452241920+00:00", utc, &tp));
++    EXPECT_EQ(tp, time_point<D>::min());
++    EXPECT_EQ("1677-09-21T00:12:43.145224192+00:00",
++              absl::time_internal::cctz::format(RFC3339_full, tp, utc));
++    // 1 nanosecond below min should fail.
++    EXPECT_FALSE(
++        parse(RFC3339_full, "1677-09-21T00:12:43.1452241919+00:00", utc, &tp));
++  }
++  {
++    // Test with femtosecond resolution.
++    using D = chrono::duration<std::int64_t, std::femto>;
++    time_point<D> tp;
++
++    // Max time_point<D> is 1970-01-01T02:33:43.372036854775807+00:00.
++    EXPECT_TRUE(parse(RFC3339_full,
++                      "1970-01-01T02:33:43.3720368547758079+00:00", utc, &tp));
++    EXPECT_EQ(tp.time_since_epoch(), time_point<D>::max().time_since_epoch());
++    EXPECT_EQ("1970-01-01T02:33:43.372036854775807+00:00",
++              absl::time_internal::cctz::format(RFC3339_full, tp, utc));
++    // 1 femtosecond beyond max should fail.
++    EXPECT_FALSE(parse(RFC3339_full,
++                       "1970-01-01T02:33:43.3720368547758080+00:00", utc, &tp));
++
++    // Min time_point<D> is 1969-12-31T21:26:16.627963145224192+00:00.
++    EXPECT_TRUE(parse(RFC3339_full,
++                      "1969-12-31T21:26:16.6279631452241920+00:00", utc, &tp));
++    EXPECT_EQ(tp.time_since_epoch(), time_point<D>::min().time_since_epoch());
++    EXPECT_EQ("1969-12-31T21:26:16.627963145224192+00:00",
++              absl::time_internal::cctz::format(RFC3339_full, tp, utc));
++    // 1 femtosecond below min should fail.
++    EXPECT_FALSE(parse(RFC3339_full,
++                       "1969-12-31T21:26:16.6279631452241919+00:00", utc, &tp));
++  }
++  {
++    // Test with attosecond resolution.
++    using D = chrono::duration<std::int64_t, std::atto>;
++    time_point<D> tp;
++
++    // Max time_point<D> is 1970-01-01T00:00:09.223372036854775807+00:00,
++    // but cctz::parse() truncates (towards zero) to a femtosecond boundary,
++    // so the last three decimal places are lost.
++    EXPECT_TRUE(parse(RFC3339_full,
++                      "1970-01-01T00:00:09.223372036854775807+00:00", utc,
++                      &tp));
++    EXPECT_EQ(tp.time_since_epoch(), D{9223372036854775000LL});
++    EXPECT_EQ("1970-01-01T00:00:09.223372036854775+00:00",
++              absl::time_internal::cctz::format(RFC3339_full, tp, utc));
++    // Moving into the next femtosecond should fail.
++    EXPECT_FALSE(parse(RFC3339_full,
++                       "1970-01-01T00:00:09.223372036854776000+00:00", utc,
++                       &tp));
++
++    // Min time_point<D> is 1969-12-31T23:59:50.776627963145224192+00:00,
++    // but cctz::parse() truncates (towards zero) to a femtosecond boundary,
++    // so we must round up.
++    EXPECT_TRUE(parse(RFC3339_full,
++                      "1969-12-31T23:59:50.776627963145225000+00:00", utc,
++                      &tp));
++    EXPECT_EQ(tp.time_since_epoch(), D{-9223372036854775000LL});
++    EXPECT_EQ("1969-12-31T23:59:50.776627963145225+00:00",
++              absl::time_internal::cctz::format(RFC3339_full, tp, utc));
++    // 1 attosecond below min should fail.
++    EXPECT_FALSE(parse(RFC3339_full,
++                       "1969-12-31T23:59:50.776627963145224999+00:00", utc,
++                       &tp));
++  }
++  {
++    // Test with 1-second resolution using int8_t ([-128, 127] seconds).
++    using D = chrono::duration<std::int8_t>;
++    time_point<D> tp;
++
++    // Max time_point<D> is 1970-01-01T00:02:07+00:00.
++    EXPECT_TRUE(parse(RFC3339_full, "1970-01-01T00:02:07.9+00:00", utc, &tp));
++    EXPECT_EQ(tp, time_point<D>::max());
++    EXPECT_EQ("1970-01-01T00:02:07+00:00",
++              absl::time_internal::cctz::format(RFC3339_full, tp, utc));
++    // 1 second beyond max should fail.
++    EXPECT_FALSE(parse(RFC3339_full, "1970-01-01T00:02:08+00:00", utc, &tp));
++
++    // Min time_point<D> is 1969-12-31T23:57:52+00:00.
++    EXPECT_TRUE(parse(RFC3339_full, "1969-12-31T23:57:52+00:00", utc, &tp));
++    EXPECT_EQ(tp, time_point<D>::min());
++    EXPECT_EQ("1969-12-31T23:57:52+00:00",
++              absl::time_internal::cctz::format(RFC3339_full, tp, utc));
++    // 1 second below min should fail.
++    EXPECT_FALSE(parse(RFC3339_full, "1969-12-31T23:57:51+00:00", utc, &tp));
++  }
++  {
++    // Test with 1-minute resolution using int8_t ([-128, 127] minutes).
++    using D = chrono::duration<std::int8_t, std::ratio<60>>;
++    time_point<D> tp;
++
++    // Max time_point<D> is 1970-01-01T02:07:00+00:00.
++    EXPECT_TRUE(parse(RFC3339_full, "1970-01-01T02:07:00+00:00", utc, &tp));
++    EXPECT_EQ(tp, time_point<D>::max());
++    EXPECT_EQ("1970-01-01T02:07:00+00:00",
++              absl::time_internal::cctz::format(RFC3339_full, tp, utc));
++    // 1 minute beyond max should fail.
++    EXPECT_FALSE(parse(RFC3339_full, "1970-01-01T02:08:00+00:00", utc, &tp));
++
++    // Min time_point<D> is 1969-12-31T21:52:00+00:00.
++    EXPECT_TRUE(parse(RFC3339_full, "1969-12-31T21:52:00+00:00", utc, &tp));
++    EXPECT_EQ(tp, time_point<D>::min());
++    EXPECT_EQ("1969-12-31T21:52:00+00:00",
++              absl::time_internal::cctz::format(RFC3339_full, tp, utc));
++    // 1 minute below min should fail.
++    EXPECT_FALSE(parse(RFC3339_full, "1969-12-31T21:51:00+00:00", utc, &tp));
++  }
++  {
++    // Test with millisecond resolution using int8_t ([-128, 127] milliseconds).
++    // This tests the case where Denom (1000) is larger than Rep max/min.
++    using D = chrono::duration<std::int8_t, std::milli>;
++    time_point<D> tp;
++
++    // Max time_point<D> is 1970-01-01T00:00:00.127+00:00.
++    EXPECT_TRUE(parse(RFC3339_full, "1970-01-01T00:00:00.127+00:00", utc, &tp));
++    EXPECT_EQ(tp, time_point<D>::max());
++    // 1 millisecond beyond max should fail (tests sub > max check).
++    EXPECT_FALSE(
++        parse(RFC3339_full, "1970-01-01T00:00:00.128+00:00", utc, &tp));
++
++    // Min time_point<D> is 1969-12-31T23:59:59.872+00:00.
++    EXPECT_TRUE(parse(RFC3339_full, "1969-12-31T23:59:59.872+00:00", utc, &tp));
++    EXPECT_EQ(tp, time_point<D>::min());
++    // 1 millisecond below min should fail (tests min with Denom > -min).
++    EXPECT_FALSE(
++        parse(RFC3339_full, "1969-12-31T23:59:59.871+00:00", utc, &tp));
++  }
++}
+ 
+-  using D = chrono::duration<std::int64_t, std::nano>;
+-  time_point<D> tp;
++TEST(Parse, TimePointFloatingPoint) {
++  const time_zone utc = utc_time_zone();
++  {
++    using D = chrono::duration<double>;
++    time_point<D> tp;
+ 
+-  EXPECT_TRUE(
+-      parse(RFC3339_full, "2262-04-11T23:47:16.8547758079+00:00", utc, &tp));
+-  EXPECT_EQ(tp, time_point<D>::max());
+-  EXPECT_EQ("2262-04-11T23:47:16.854775807+00:00",
+-            absl::time_internal::cctz::format(RFC3339_full, tp, utc));
+-#if 0
+-  // TODO(#199): Will fail until cctz::parse() properly detects overflow.
+-  EXPECT_FALSE(
+-      parse(RFC3339_full, "2262-04-11T23:47:16.8547758080+00:00", utc, &tp));
+-  EXPECT_TRUE(
+-      parse(RFC3339_full, "1677-09-21T00:12:43.1452241920+00:00", utc, &tp));
+-  EXPECT_EQ(tp, time_point<D>::min());
+-  EXPECT_EQ("1677-09-21T00:12:43.145224192+00:00",
+-            absl::time_internal::cctz::format(RFC3339_full, tp, utc));
+-  EXPECT_FALSE(
+-      parse(RFC3339_full, "1677-09-21T00:12:43.1452241919+00:00", utc, &tp));
+-#endif
++    EXPECT_TRUE(parse(RFC3339_full, "1970-01-01T00:00:59.25+00:00", utc, &tp));
++    EXPECT_EQ(tp.time_since_epoch(), D{59.25});
++    EXPECT_TRUE(parse(RFC3339_full, "1969-12-31T23:59:00.75+00:00", utc, &tp));
++    EXPECT_EQ(tp.time_since_epoch(), D{-59.25});
++  }
++  {
++    using D = chrono::duration<double, std::milli>;
++    time_point<D> tp;
++
++    EXPECT_TRUE(
++        parse(RFC3339_full, "1970-01-01T00:00:00.015625+00:00", utc, &tp));
++    EXPECT_EQ(tp.time_since_epoch(), D{15.625});
++    EXPECT_TRUE(
++        parse(RFC3339_full, "1969-12-31T23:59:59.984375+00:00", utc, &tp));
++    EXPECT_EQ(tp.time_since_epoch(), D{-15.625});
++  }
++  {
++    using D = chrono::duration<double, std::ratio<60>>;
++    time_point<D> tp;
++
++    EXPECT_TRUE(parse(RFC3339_full, "1970-01-01T00:01:15+00:00", utc, &tp));
++    EXPECT_EQ(tp.time_since_epoch(), D{1.25});
++    EXPECT_TRUE(parse(RFC3339_full, "1969-12-31T23:58:45+00:00", utc, &tp));
++    EXPECT_EQ(tp.time_since_epoch(), D{-1.25});
++  }
++}
+ 
+-  using DS = chrono::duration<std::int8_t, chrono::seconds::period>;
+-  time_point<DS> stp;
+-
+-  EXPECT_TRUE(parse(RFC3339_full, "1970-01-01T00:02:07.9+00:00", utc, &stp));
+-  EXPECT_EQ(stp, time_point<DS>::max());
+-  EXPECT_EQ("1970-01-01T00:02:07+00:00",
+-            absl::time_internal::cctz::format(RFC3339_full, stp, utc));
+-  EXPECT_FALSE(parse(RFC3339_full, "1970-01-01T00:02:08+00:00", utc, &stp));
+-
+-  EXPECT_TRUE(parse(RFC3339_full, "1969-12-31T23:57:52+00:00", utc, &stp));
+-  EXPECT_EQ(stp, time_point<DS>::min());
+-  EXPECT_EQ("1969-12-31T23:57:52+00:00",
+-            absl::time_internal::cctz::format(RFC3339_full, stp, utc));
+-  EXPECT_FALSE(parse(RFC3339_full, "1969-12-31T23:57:51.9+00:00", utc, &stp));
+-
+-  using DM = chrono::duration<std::int8_t, chrono::minutes::period>;
+-  time_point<DM> mtp;
+-
+-  EXPECT_TRUE(parse(RFC3339_full, "1970-01-01T02:07:59+00:00", utc, &mtp));
+-  EXPECT_EQ(mtp, time_point<DM>::max());
+-  EXPECT_EQ("1970-01-01T02:07:00+00:00",
+-            absl::time_internal::cctz::format(RFC3339_full, mtp, utc));
+-  EXPECT_FALSE(parse(RFC3339_full, "1970-01-01T02:08:00+00:00", utc, &mtp));
+-
+-  EXPECT_TRUE(parse(RFC3339_full, "1969-12-31T21:52:00+00:00", utc, &mtp));
+-  EXPECT_EQ(mtp, time_point<DM>::min());
+-  EXPECT_EQ("1969-12-31T21:52:00+00:00",
+-            absl::time_internal::cctz::format(RFC3339_full, mtp, utc));
+-  EXPECT_FALSE(parse(RFC3339_full, "1969-12-31T21:51:59+00:00", utc, &mtp));
++TEST(Parse, RatioNonLowestTerms) {
++  const time_zone utc = utc_time_zone();
++  using D = chrono::duration<std::int64_t, std::ratio<2, 2>>;
++  time_point<D> tp;
++
++  EXPECT_TRUE(parse(RFC3339_full, "2026-08-17T11:42:16-04:00", utc, &tp));
++  ExpectTime(tp, utc, 2026, 8, 17, 15, 42, 16, 0, false, "UTC");
+ }
+ 
+ TEST(Parse, TimePointOverflowFloor) {
+@@ -1772,8 +1919,6 @@ TEST(Parse, TimePointOverflowFloor) {
+   EXPECT_EQ(tp, time_point<D>::max());
+   EXPECT_EQ("294247-01-10T04:00:54.775807+00:00",
+             absl::time_internal::cctz::format(RFC3339_full, tp, utc));
+-#if 0
+-  // TODO(#199): Will fail until cctz::parse() properly detects overflow.
+   EXPECT_FALSE(
+       parse(RFC3339_full, "294247-01-10T04:00:54.7758080+00:00", utc, &tp));
+   EXPECT_TRUE(
+@@ -1783,7 +1928,6 @@ TEST(Parse, TimePointOverflowFloor) {
+             absl::time_internal::cctz::format(RFC3339_full, tp, utc));
+   EXPECT_FALSE(
+       parse(RFC3339_full, "-290308-12-21T19:59:05.2241919+00:00", utc, &tp));
+-#endif
+ }
+ 
+ //
+diff --git a/absl/time/internal/cctz/src/time_zone_info.cc b/absl/time/internal/cctz/src/time_zone_info.cc
+index 9abbde72d62..9d385b2772c 100644
+--- a/absl/time/internal/cctz/src/time_zone_info.cc
++++ b/absl/time/internal/cctz/src/time_zone_info.cc
+@@ -414,6 +414,9 @@ inline FilePtr FOpen(const char* path) {
+   // absolute path) would block indefinitely or read unbounded data.
+ #ifndef O_CLOEXEC
+ #define O_CLOEXEC 0
++#endif
++#ifndef O_NONBLOCK
++#define O_NONBLOCK 0
+ #endif
+   const int fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+   if (fd >= 0) {

@@ -6,6 +6,7 @@
 package {
   name = "abseil-cpp";
   uses = [ "cmake" ];
+  patches = [ ./upstream-cctz-nonblock.patch ]; # ddbdebc: O_NONBLOCK is not on mingw, in the next release
   cmake.defs = {
     CMAKE_CXX_STANDARD = "17";
     ABSL_PROPAGATE_CXX_STD = true;
