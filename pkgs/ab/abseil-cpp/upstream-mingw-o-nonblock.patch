@@ -1,0 +1,24 @@
+mingw defines neither _MSC_VER nor O_NONBLOCK, so FOpen() takes the POSIX
+branch and fails to compile:
+
+  time_zone_info.cc:416:40: error: use of undeclared identifier 'O_NONBLOCK'
+
+Fall back to 0 the way the line above already does for O_CLOEXEC. Opening
+non-blocking guards against a FIFO or device node, which open() cannot
+reach on Windows anyway; the S_ISREG check that follows still applies.
+
+This is the time_zone_info.cc hunk of abseil ddbdebc (Import of CCTZ from
+GitHub), due in the next release.
+
+--- a/absl/time/internal/cctz/src/time_zone_info.cc
++++ b/absl/time/internal/cctz/src/time_zone_info.cc
+@@ -413,6 +413,9 @@ inline FilePtr FOpen(const char* path) {
+ #ifndef O_CLOEXEC
+ #define O_CLOEXEC 0
+ #endif
++#ifndef O_NONBLOCK
++#define O_NONBLOCK 0
++#endif
+   const int fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+   if (fd >= 0) {
+     struct stat st;
