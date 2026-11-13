@@ -6,6 +6,14 @@
 }:
 package {
   name = "nodejs";
+  # its gyp build drives Visual Studio on windows (MSVSVersion.SelectVisualStudioVersion),
+  # with no mingw path to configure toward. msvc stays listed for whenever that is wired up
+  platforms.libc = [
+    "glibc"
+    "musl"
+    "apple"
+    "msvc"
+  ];
   dependencies = [
     pkgs.zlib
     pkgs.openssl
