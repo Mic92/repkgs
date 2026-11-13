@@ -38,7 +38,9 @@ export def main [c: record, renv: record]: nothing -> nothing {
     if ($path | is-empty) and ($renv | is-empty) { continue }
     let rel = ($f | path relative-to $c.out)
     mv $f $"($f | path dirname)/.($f | path basename)"
-    {env: ($renv | upsert PATH {prepend: $path}), program: $"{root}/($rel | path dirname)/.($rel | path basename)"} | to json -r | save -f $"($f | path dirname)/.($f | path basename).launch"
+    # argv0 as invoked, not the dotted real program. LLVM tools on windows ignore it and go by
+    # the file they were started from
+    {env: ($renv | upsert PATH {prepend: $path}), program: $"{root}/($rel | path dirname)/.($rel | path basename)", argv0: "{argv0}"} | to json -r | save -f $"($f | path dirname)/.($f | path basename).launch"
     cp $c.platform.launch $f
     note launcher $"($rel): PATH += ($foreign | each { path dirname | path basename } | str join ' ')"
   }
