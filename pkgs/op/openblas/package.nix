@@ -21,6 +21,10 @@ package {
   # it. The CMake build instead fills in per-core parameters from a table in cmake/prebuild.cmake
   # that lags the Makefiles (no HAVE_SME for ARMV9SME, no -march=.._v for riscv64 in 0.3.34)
   uses = [ "make" ];
+  # FC below names flang-rt by path rather than depending on it, so its own
+  # platforms never propagate here and evaluating a windows openblas throws
+  # instead of reporting the package unsupported. Repeat its constraint.
+  platforms.os = [ "linux" ];
   patches = [ ./upstream-power-integrated-as.patch ];
   make.flags = [
     "DYNAMIC_ARCH=1"
