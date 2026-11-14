@@ -25,6 +25,7 @@ import ../llvm/subproject.nix
       "ld.lld"
       "lld"
     ];
-    # by flavor, not argv[0]: wine hands a symlinked ld.lld.exe its target's name
-    tests.version.set = "lld -flavor gnu --version";
+    # by name, not -flavor: on windows lld takes its flavor from the file it runs as, which
+    # builder/pe.nu keeps
+    tests.version.set = "ld.lld --version";
   }

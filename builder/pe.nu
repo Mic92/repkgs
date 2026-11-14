@@ -1,5 +1,7 @@
 # PE has no RUNPATH and no dependable symlinks: bin/foo.exe is a *copy* of launch.exe, the record's
-# PATH names the store dirs holding its DLLs (also the reference Nix sees).
+# PATH names the store dirs holding its DLLs (also the reference Nix sees). The program itself moves
+# to bin/.real/foo.exe, keeping its name: the loader names a process after the file it was started
+# from, and LLVM's multi-call tools (ld.lld, clang++) pick their personality from that, not argv[0].
 
 use core.nu *
 
@@ -33,14 +35,26 @@ export def main [c: record, renv: record]: nothing -> nothing {
     $hit
   } | compact) ++ ($exports.dllDirs | flatten) | uniq
   let foreign = ($need | where { not ($in | str starts-with $c.out) })
-  for f in ($pes | where { $in ends-with .exe }) {
-    let path = ($need | where { $in != ($f | path dirname) } | each { storerel $in $c.out }) ++ ($renv.PATH?.prepend? | default [])
+  let exes = ($pes | where { $in ends-with .exe })
+  # an alias (ld.lld.exe -> lld.exe) becomes a copy of what it names, before any of them is moved
+  # aside: once lld.exe is a launcher the link would name that, and the store holds no symlinks on
+  # windows anyway (finish.nu copies with cp -rL)
+  for f in ($exes | where { ($in | path type) == symlink }) {
+    ^cp -L $f $"($f).tmp"
+    ^mv -f $"($f).tmp" $f
+  }
+  for f in $exes {
+    let dir = ($f | path dirname)
+    let path = ($need | where { $in != $dir } | each { storerel $in $c.out }) ++ ($renv.PATH?.prepend? | default [])
     if ($path | is-empty) and ($renv | is-empty) { continue }
     let rel = ($f | path relative-to $c.out)
-    mv $f $"($f | path dirname)/.($f | path basename)"
-    # argv0 as invoked, not the dotted real program. LLVM tools on windows ignore it and go by
-    # the file they were started from
-    {env: ($renv | upsert PATH {prepend: $path}), program: $"{root}/($rel | path dirname)/.($rel | path basename)", argv0: "{argv0}"} | to json -r | save -f $"($f | path dirname)/.($f | path basename).launch"
+    mkdir $"($dir)/.real"
+    mv $f $"($dir)/.real/($f | path basename)"
+    # out of its own dir the program no longer finds the package's DLLs beside it: that dir goes
+    # on PATH as well, first, though the loader searches it only after System32
+    let own = (if $dir in $need { [(storerel $dir $c.out)] } else { [] })
+    # argv0 as invoked, for programs that read their name from the command line
+    {env: ($renv | upsert PATH {prepend: ($own ++ $path)}), program: $"{root}/($rel | path dirname)/.real/($rel | path basename)", argv0: "{argv0}"} | to json -r | save -f $"($dir)/.($f | path basename).launch"
     cp $c.platform.launch $f
     note launcher $"($rel): PATH += ($foreign | each { path dirname | path basename } | str join ' ')"
   }
