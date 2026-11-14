@@ -34,6 +34,6 @@ package {
     }
   ];
   tests.run = false;
-  buildDependencies = [ buildPkgs.perl ];
+  buildDependencies = [ buildPkgs.perl ] ++ on (platform.abi == "msvc") [ buildPkgs.nasm ];
   tests.version = "version";
 }

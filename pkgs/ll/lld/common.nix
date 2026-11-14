@@ -21,6 +21,11 @@ import ../llvm/subproject.nix
   }
   "lld"
   {
-    bin.set = [ "ld.lld" ];
-    tests.version.set = true;
+    bin.set = [
+      "ld.lld"
+      "lld"
+    ];
+    # by name, not -flavor: on windows lld takes its flavor from the file it runs as, which
+    # builder/pe.nu keeps
+    tests.version.set = "ld.lld --version";
   }

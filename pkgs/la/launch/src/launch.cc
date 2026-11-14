@@ -5,7 +5,7 @@
 // launch finds out *which* bin/foo it was started as, reads bin/.foo.launch next to it, and execs
 // the described program.
 // PE: bin/foo.exe is a copy of launch.exe (no dependable symlinks on Windows), the record's PATH is
-// how bin/.foo.exe finds DLLs in store neighbours (no RUNPATH), CreateProcess stands in for execve.
+// how bin/.real/foo.exe finds DLLs in store neighbours (no RUNPATH), CreateProcess stands in for execve.
 // Everything in the record is relative to the package root ({root}) or a store neighbour ({store}
 // = dirname of root), so the package and its closure relocate together. No shell is involved.
 //

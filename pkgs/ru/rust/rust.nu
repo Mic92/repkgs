@@ -17,6 +17,12 @@ const FREESTANDING = [wasm32-unknown-unknown wasm32v1-none bpfel-unknown-none bp
 # --env: what cargo.nu sets for the [pin] sys libraries stays for x.py's cargo runs
 export def --env configure []: nothing -> nothing {
   let c = (ctx)
+  # x.py drives cargo itself, so cargo.nu never runs and nothing checks [pin] sys: a crate
+  # linking a library it does not name becomes an undeclared dependency, found only by the
+  # import check on windows. cargo is its own workspace, and the only one naming libssh2-sys
+  sys-libs check-names (
+    [$c.src $"($c.src)/src/tools/cargo"] | each { sys-libs wanted $in } | flatten | uniq | sort
+  ) $c.spec.sys rehash
   load-env ({PKG_CONFIG_ALLOW_CROSS: "1"} | merge (sys-libs env-for cargo $c.deps))
   vendor-checksums
   let triple = $c.platform.rustTriple

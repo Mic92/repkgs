@@ -1,0 +1,25 @@
+The manifest rule names its inputs relative to the build directory, so an
+out-of-tree build fails:
+
+  clang-23: error: no such file or directory: 'win/manifest.rc'
+
+VPATH resolves the prerequisites but leaves the recipe's text alone. The
+-DMANIFEST_FILE path is wrong for the same reason: it only ever resolved
+because srcdir is "." in-tree, which -Iwin then completes to
+win/./manifest.xml. Out of tree it is absolute and no include search
+applies. Name both inputs in $(srcdir).
+
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -438,10 +438,10 @@
+ 
+ # Windows embedded manifest
+-MANIFEST_RC = win/manifest.rc
++MANIFEST_RC = $(srcdir)/win/manifest.rc
+ win/manifest.$(O): win/manifest.xml $(MANIFEST_RC) $(DIRS)
+-	$(WINDRES) -I. -Iwin -DMANIFEST_FILE='\"$(srcdir)/manifest.xml\"' \
++	$(WINDRES) -I. -Iwin -DMANIFEST_FILE='\"$(srcdir)/win/manifest.xml\"' \
+ 		-i $(MANIFEST_RC) -o $@
+ 
+ # Generated manpages, also pregenerated for distribution
+ manpages: nasm.1 ndisasm.1

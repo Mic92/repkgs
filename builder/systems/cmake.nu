@@ -29,6 +29,11 @@ export def configure []: nothing -> nothing {
     CMAKE_BUILD_TYPE: "Release"
     CMAKE_INSTALL_LIBDIR: "lib"
     CMAKE_INSTALL_SBINDIR: "bin"
+    # GNUInstallDirs would set these, but a project may include it only under if(UNIX) and
+    # still interpolate them: empty, "${CMAKE_INSTALL_INCLUDEDIR}/foo" installs to /foo, and
+    # a RUNTIME DESTINATION lands beside the prefix root where nothing looks for a DLL
+    CMAKE_INSTALL_INCLUDEDIR: "include"
+    CMAKE_INSTALL_BINDIR: "bin"
     CMAKE_PREFIX_PATH: ($c.deps | get root | str join ";")
     CMAKE_SYSTEM_PREFIX_PATH: $c.platform.sysroot
     # find_library results inside the sysroot become -l / -framework
@@ -39,7 +44,10 @@ export def configure []: nothing -> nothing {
   } | merge (if $c.platform.cross { {
     CMAKE_SYSTEM_NAME: $c.platform.osNames.cmake
     CMAKE_SYSTEM_PROCESSOR: $c.platform.cpu
-  } } else { {} }) | merge (if $c.platform.os == "macos" {
+  } | merge (if $c.platform.os == "windows" {
+    # setting CMAKE_SYSTEM_NAME by hand leaves this empty, and projects derive _WIN32_WINNT from it (zeromq)
+    {CMAKE_SYSTEM_VERSION: "10.0"}
+  } else { {} }) } else { {} }) | merge (if $c.platform.os == "macos" {
     # Darwin.cmake finds usr/ and the frameworks from this
     {CMAKE_OSX_SYSROOT: $c.platform.sysroot}
   } else { {} }) | merge (if ($c.platform.emulator | is-empty) { {} } else { {CMAKE_CROSSCOMPILING_EMULATOR: ($c.platform.emulator | str join ";")} }) | merge $o.defs)
